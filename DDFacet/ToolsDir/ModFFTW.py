@@ -352,8 +352,8 @@ class FFTW_Manager(object):
     """
     Class to manage FFTW for WSCMS minor cycle
     """
-    def __init__(self, GD, nchan=1, npol=1, nscales=None, npix=None, npixpadded=None, npixpsf=None,
-                 npixpaddedpsf=None, nthreads=8):
+    def __init__(self, GD, nchan, npol, nscales, npix, npixpadded, npixpsf,
+                 npixpaddedpsf, nthreads=8):
         self.GD = GD
         # import the wisdom file
         self.getWisdom()
@@ -362,15 +362,16 @@ class FFTW_Manager(object):
         self.Npix = npix
         self.NpixPadded = npixpadded
         self.Npad = (npixpadded - npix)//2
+        self.NpixFacet = self.Npix // self.GD["Facets"]["NFacets"]
 
         self.NpixPSF = npixpsf
         self.NpixPaddedPSF = npixpaddedpsf
         self.NpadPSF = (npixpaddedpsf - npixpsf)//2
 
-        self.NpixFacet = self.Npix//self.GD["Facets"]["NFacets"]
 
         self.nchan = nchan
         self.npol = npol
+
         self.nscales = nscales
 
         # set aside a facet sized array for in place and aligned FFTs
@@ -395,12 +396,13 @@ class FFTW_Manager(object):
         self.nslices = np.maximum(self.nchan, self.nscales)
         self.ximage = pyfftw.empty_aligned([self.nslices, self.npol, self.NpixPadded, self.NpixPadded],
                                            dtype='complex64')
+        # TODO - Figure out if slicing first axis like this defeats the purpose of empty_aligned
         self.Shat = self.ximage[0:self.nscales].view()
         self.SFFT = pyfftw.FFTW(self.Shat, self.Shat, axes=(2, 3), direction='FFTW_FORWARD',
                                 threads=nthreads, flags=('FFTW_ESTIMATE', ))
         self.iSFFT = pyfftw.FFTW(self.Shat, self.Shat, axes=(2, 3), direction='FFTW_BACKWARD',
                                  threads=nthreads, flags=('FFTW_ESTIMATE', ))
-        self.xhatim = self.Shat[0:1].view()
+        self.xhatim = self.ximage[0:1].view()
         self.FFTim = pyfftw.FFTW(self.xhatim, self.xhatim, axes=(2, 3), direction='FFTW_FORWARD',
                                  threads=nthreads, flags=('FFTW_ESTIMATE', ))
         self.iFFTim = pyfftw.FFTW(self.xhatim, self.xhatim, axes=(2, 3), direction='FFTW_BACKWARD',
@@ -413,6 +415,7 @@ class FFTW_Manager(object):
         self.iCFFTim = pyfftw.FFTW(self.Chatim, self.Chatim, axes=(2, 3), direction='FFTW_BACKWARD',
                                    threads=nthreads, flags=('FFTW_ESTIMATE', ))
 
+        # TODO - inform size using --Deconv-PSFbox
         # finally we need an FFT which is at least twice the size of the facet for subtracting a facet in the
         # minor cycle
         if self.GD["Facets"]["PSFOversize"]<2:

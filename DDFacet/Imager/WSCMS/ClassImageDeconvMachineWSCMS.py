@@ -434,12 +434,12 @@ class ClassImageDeconvMachine():
                     # If the delta scale is found then self._Dirty and
                     # self._MeanDirty have already had the components subtracted from them so we don't need to do
                     # anything further.
-                    ScaleModel, iScale = self.ModelMachine.do_minor_loop(x, y, self._Dirty,
+                    ScaleModel, iScale, x, y = self.ModelMachine.do_minor_loop(x, y, self._Dirty,
                                                          self._MeanDirty, self._JonesNorm,
                                                          self.WeightsChansImages, ThisFlux, StopFlux)
 
                     # convolve scale model with PSF and subtract from residual (if not delta scale)
-                    if iScale != 0:
+                    if iScale:
                         for iFacet in xrange(self.GD["Facets"]["NFacets"]**2):
                             # set PSF in this facet
                             self.PSFServer.setFacet(iFacet)
@@ -451,7 +451,7 @@ class ClassImageDeconvMachine():
                                                  yc-self.NpixFacet//2:yc+self.NpixFacet//2 + 1]
 
                             # convolve local sky model with PSF
-                            if (LocalSM > 1e-6).any():
+                            if (LocalSM > 1e-8).any():
                                 SM = self.ModelMachine.ScaleMachine.SMConvolvePSF(iFacet, LocalSM)
 
                                 _, _, ntmp, _ = SM.shape
@@ -459,7 +459,7 @@ class ClassImageDeconvMachine():
                                     print "Warning - your LocalSM is too small"
 
                                 # subtract facet model
-                                self.SubStep((xc - 1, yc - 1), SM)  # again with the -1!!!!
+                                self.SubStep((xc, yc), SM)
 
                 else:  # TODO - remove this and advise users to use Hogbom for SS clean
                     # Get the JonesNorm

@@ -346,32 +346,33 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 self.FpolNormFactor = self.ScaleMachine.ConvPSFNormFactor
 
 
-    # not working yet!!!
-    def give_scale_mask(self, meanDirty, meanPSF, gain, JonesNorm=None):
+    def give_scale_mask(self, meanDirty, meanPSF, gain):
         """
         Automatically creates a mask for this scale by doing a shallow clean meanDirty 
         :param meanDirty: The mean dirty image convolved with scale function for the current scale 
         :param meanPSF: The mean PSF twice convolved with the scale function for the current scale
         :param gain: scale dependent gain
-        :param JonesNorm: Not sure if I should even include this here
         :return: 
         """
         x, y, MaxDirty = NpParallel.A_whereMax(meanDirty, NCPU=self.NCPU, DoAbs=self.DoAbs,
-                                                            Mask=self.ScaleMachine.MaskArray)
+                                               Mask=self.ScaleMachine.MaskArray)
 
         mask = np.zeros_like(meanDirty, dtype=np.bool)
 
         threshold = 0.9*np.abs(MaxDirty)
 
         i = 0
-        maxit = 500
+        maxit = 100
         while i < maxit and np.abs(MaxDirty) > threshold:
+            val = meanDirty[0, 0, x, y]
+            # print i, val, gain*val*meanPSF[0,0,:,:].max(), val - gain*val*meanPSF[0,0,:,:].max()
             mask[:, :, x, y] = 1
-            meanDirty = self.SubStep((x, y), gain*MaxDirty*meanPSF, meanDirty)
+            meanDirty = self.SubStep((x, y), gain*val*meanPSF, meanDirty)
             x, y, MaxDirty = NpParallel.A_whereMax(meanDirty, NCPU=self.NCPU, DoAbs=self.DoAbs,
                                                    Mask=self.ScaleMachine.MaskArray)
             i += 1
-
+        # if i >= maxit:
+        #     print "Warning - max iterations reached"
         return mask
 
 
@@ -393,6 +394,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             CurrentDirty = meanDirty.view()
             ConvDirtyCube = Dirty.view()
 
+        # print "iScale = ", iScale
+
         # set PSF at current location
         self.PSFServer.setLocation(xscale, yscale)
 
@@ -401,25 +404,20 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         extent = self.ScaleMachine.extents[iScale]
         kernel = self.ScaleMachine.kernels[iScale]
 
-        # For automasking
-        MaskArray = self.ScaleMachine.MaskArray
-        ExternalMask = MaskArray if MaskArray is not None else np.ones([1, 1, self.Npix, self.Npix], dtype=np.bool)
-        self.ScaleMachine.ScaleMaskArray.setdefault(sigma, ExternalMask.copy())
-
         # set twice convolve PSF for scale and facet if either has changed
         self.set_ConvPSF(self.PSFServer.iFacet, iScale)
 
         # update scale dependent mask
         if self.GD["WSCMS"]["AutoMask"]:
-            mask = self.give_scale_mask(CurrentDirty.copy(), self.ConvPSFmean, self.CurrentGain)
-            self.ScaleMachine.ScaleMaskArray[sigma] &= mask
-            # import matplotlib.pyplot as plt
-            # plt.figure()
-            # plt.imshow(self.ScaleMachine.ScaleMaskArray[sigma][0, 0].astype(np.int8))
-            # plt.colorbar()
-            # plt.show()
-
-        #print "Mask indices = ", np.argwhere(self.ScaleMachine.ScaleMaskArray[sigma].squeeze()).squeeze()
+            mask = self.give_scale_mask(CurrentDirty.copy(),
+                                        self.ScaleMachine.Conv2PSFmean[str(iScale)],
+                                        self.CurrentGain)
+            if str(iScale) not in self.ScaleMachine.ScaleMaskArray:
+                self.ScaleMachine.ScaleMaskArray[str(iScale)] = np.zeros_like(meanDirty, dtype=np.bool)
+            self.ScaleMachine.ScaleMaskArray[str(iScale)] |= mask
+            CurrentMask = self.ScaleMachine.ScaleMaskArray[str(iScale)].view()
+        else:
+            CurrentMask = self.ScaleMachine.MaskArray
 
         # Create new component list
         Component_list = {}
@@ -430,7 +428,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         Threshold = self.ScaleMachine.PeakFactor * ConvMaxDirty
         if Stopping_flux is not None:
             DirtyRatio = ConvMaxDirty / MaxDirty
-            Threshold = np.maximum(Threshold, Stopping_flux * DirtyRatio)
+            # print DirtyRatio, Stopping_flux * DirtyRatio, Threshold, Stopping_flux
+            Threshold = np.maximum(Threshold, Stopping_flux * DirtyRatio * 0.75)
 
         # run subminor loop
         k = 0
@@ -452,7 +451,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             Fpol *= self.PSFFreqNormFactors
 
             # Fit frequency axis to get coeffs (coeffs correspond to intrinsic flux)
-            self.Coeffs = self.FreqMachine.Fit(Fpol[:, 0, 0, 0], JN, ConvMaxDirty)
+            self.Coeffs = self.FreqMachine.Fit(Fpol[:, 0, 0, 0], JN, CurrentDirty[0, 0, xscale, yscale])
 
             # Overwrite with polynoimial fit (Fpol is apparent flux)
             Fpol[:, 0, 0, 0] = self.FreqMachine.Eval(self.Coeffs)
@@ -477,7 +476,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             # find the peak
             #PeakMap = np.ascontiguousarray(CurrentDirty*self.ScaleMachine.ScaleMaskArray[sigma])
             xscale, yscale, ConvMaxDirty = NpParallel.A_whereMax(CurrentDirty, NCPU=self.NCPU, DoAbs=self.DoAbs,
-                                                                 Mask=None)
+                                                                 Mask=CurrentMask)
 
             # Update counters TODO - should add subminor cycle count to minor cycle count
             k += 1
@@ -487,8 +486,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         if k >= self.ScaleMachine.NSubMinorIter:
             print>>log, "Maximum subiterations reached. "
 
+        # print "Value at end = ", CurrentDirty[0, 0, xscale, yscale]
+
         # Add components onto grid (not needed if we are cleaning the delta scale)
-        if iScale != 0:
+        if iScale:
             # create a model for this scale
             ScaleModel = np.zeros_like(ConvDirtyCube, dtype=np.float32)
             for xy in Component_list.keys():
@@ -501,11 +502,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 out = Component_list[xy] * kernel
                 ScaleModel[:, :, x0d:x1d, y0d:y1d] += out[:, :, x0p:x1p, y0p:y1p]
 
-            # print ScaleModel.max(), ScaleModel.min()
-
-            return ScaleModel, iScale
+            return ScaleModel, iScale, xscale, yscale
         else:
-            return None, iScale
+            return None, iScale, xscale, yscale
 
 
 
