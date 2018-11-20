@@ -427,9 +427,12 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # is different from the maximum of the residual
         Threshold = self.ScaleMachine.PeakFactor * ConvMaxDirty
         if Stopping_flux is not None:
-            DirtyRatio = ConvMaxDirty / MaxDirty
-            # print DirtyRatio, Stopping_flux * DirtyRatio, Threshold, Stopping_flux
-            Threshold = np.maximum(Threshold, Stopping_flux * DirtyRatio * 0.75)
+            if iScale:
+                DirtyRatio = ConvMaxDirty / MaxDirty
+                # TODO - set scale dependent threshold
+                Threshold = np.maximum(Threshold, Stopping_flux * DirtyRatio * 0.75)
+            else:
+                Threshold = np.maximum(Threshold, Stopping_flux)
 
         # run subminor loop
         k = 0
