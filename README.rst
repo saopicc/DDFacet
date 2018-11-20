@@ -95,13 +95,18 @@ The recommended way to do this:
 2. Make a python 2.7 env ```conda create -n ddfacet python=2.7```
 
 3. Activate the env ```source activate ddfacet```
+    
+    3a. Install all dependencies with ```pip```
         
 4. Clone the repo (possibly swithc branch) ```cd ~/git; git clone https://github.com/cyriltasse/DDFacet.git```
 
-5. Ensure ```gcc>=5``` is loaded. You may be able to do something like ```module load gcc/8.1```
-    Note you may need to try different gcc's until it works.
+5. Ensure ```gcc>=5``` is loaded. You may be able to do something like ```module load gcc/5.4```
     
 6. ```cd DDFacet; python setup.py install```
+
+    If it does not find the correct GCC you can specify it like this e.g. ```CC=/usr/local/bin/gcc-5.4 python setup.py install```
+    
+    Note if you need to recompile that you should first ```rm -r DDFacet/cbuild```
         
 (Users / PyPI alternative) Virtual environment and pip:
 ==========================================================
