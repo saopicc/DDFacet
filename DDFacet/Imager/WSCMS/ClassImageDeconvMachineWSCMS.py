@@ -99,6 +99,7 @@ class ClassImageDeconvMachine():
         self.CacheFileName = CacheFileName
         self.PSFHasChanged = False
 
+        CleanMaskImage = self.GD["Mask"]["External"]
         if CleanMaskImage is not None:
             print>>log, "Reading mask image: %s"%CleanMaskImage
             MaskArray=image(CleanMaskImage).getdata()
@@ -107,7 +108,8 @@ class ClassImageDeconvMachine():
             for ch in range(nch):
                 for pol in range(npol):
                     self._MaskArray[ch,pol,:,:]=np.bool8(1-MaskArray[ch,pol].T[::-1].copy())[:,:]
-            self.MaskArray=self._MaskArray[0]
+            self.MaskArray=np.ascontiguousarray(self._MaskArray)
+
         self._peakMode = "normal"
 
         self.CacheFileName = CacheFileName
