@@ -357,7 +357,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         x, y, MaxDirty = NpParallel.A_whereMax(meanDirty, NCPU=self.NCPU, DoAbs=self.DoAbs,
                                                Mask=self.ScaleMachine.MaskArray)
 
-        mask = np.zeros_like(meanDirty, dtype=np.bool)
+        mask = np.ones_like(meanDirty, dtype=np.bool)
 
         threshold = 0.9*np.abs(MaxDirty)
 
@@ -366,7 +366,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         while i < maxit and np.abs(MaxDirty) > threshold:
             val = meanDirty[0, 0, x, y]
             # print i, val, gain*val*meanPSF[0,0,:,:].max(), val - gain*val*meanPSF[0,0,:,:].max()
-            mask[:, :, x, y] = 1
+            mask[:, :, x, y] = 0
             meanDirty = self.SubStep((x, y), gain*val*meanPSF, meanDirty)
             x, y, MaxDirty = NpParallel.A_whereMax(meanDirty, NCPU=self.NCPU, DoAbs=self.DoAbs,
                                                    Mask=self.ScaleMachine.MaskArray)
@@ -413,8 +413,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                                         self.ScaleMachine.Conv2PSFmean[str(iScale)],
                                         self.CurrentGain)
             if str(iScale) not in self.ScaleMachine.ScaleMaskArray:
-                self.ScaleMachine.ScaleMaskArray[str(iScale)] = np.zeros_like(meanDirty, dtype=np.bool)
-            self.ScaleMachine.ScaleMaskArray[str(iScale)] |= mask
+                self.ScaleMachine.ScaleMaskArray[str(iScale)] = np.ones_like(meanDirty, dtype=np.bool)
+            self.ScaleMachine.ScaleMaskArray[str(iScale)] &= mask
             CurrentMask = self.ScaleMachine.ScaleMaskArray[str(iScale)].view()
         else:
             CurrentMask = self.ScaleMachine.MaskArray
@@ -426,12 +426,12 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # We cannot use StoppingFlux from minor cycle directly since the maxima of the scale convolved residual
         # is different from the maximum of the residual
         Threshold = self.ScaleMachine.PeakFactor * ConvMaxDirty
-        if Stopping_flux is not None:
-            if iScale:
-                DirtyRatio = ConvMaxDirty / MaxDirty
-                # TODO - set scale dependent threshold
-                Threshold = np.maximum(Threshold, Stopping_flux * DirtyRatio * 0.75)
-            else:
+        if iScale:
+            DirtyRatio = ConvMaxDirty / MaxDirty
+            # scale_fact = self.ScaleMachine.FWHMs[iScale]/self.ScaleMachine.FWHMs[0]
+            Threshold = Threshold * DirtyRatio * self.GD["WSCMS"]["ThresholdBias"] ** (iScale + 1)
+        else:
+            if Stopping_flux is not None:
                 Threshold = np.maximum(Threshold, Stopping_flux)
 
         # run subminor loop

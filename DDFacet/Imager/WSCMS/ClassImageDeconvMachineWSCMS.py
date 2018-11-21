@@ -99,16 +99,35 @@ class ClassImageDeconvMachine():
         self.CacheFileName = CacheFileName
         self.PSFHasChanged = False
 
+        #  TODO - use MaskMachine for this
         CleanMaskImage = self.GD["Mask"]["External"]
         if CleanMaskImage is not None:
             print>>log, "Reading mask image: %s"%CleanMaskImage
             MaskArray=image(CleanMaskImage).getdata()
-            nch,npol,_,_=MaskArray.shape
+            nch,npol,nxmask,nymask=MaskArray.shape
+            # if (nch > 1) or (npol > 1):
+            #     print>>log, "Warning - only single channel and pol mask supported. Will use mask for ch 0 pol 0"
+            # MaskArray = MaskArray[0,0]
+            # _, _, nxmod, nymod = self.ModelMachine.ModelShape
+            # if (nxmod != nxmask) or (nymod !=nymask):
+            #     print>>log, "Warning - shape of mask != shape of your model. Will pad/trncate to match model shape"
+            #     nxdiff = nxmod - nxmask
+            #     nydiff = nymod - nymask
+            #     if nxdiff < 0:
+            #         MaskArray = MaskArray
             self._MaskArray=np.zeros(MaskArray.shape,np.bool8)
             for ch in range(nch):
                 for pol in range(npol):
                     self._MaskArray[ch,pol,:,:]=np.bool8(1-MaskArray[ch,pol].T[::-1].copy())[:,:]
             self.MaskArray=np.ascontiguousarray(self._MaskArray)
+
+        # import matplotlib.pyplot as plt
+        # plt.imshow(self.MaskArray[0,0])
+        # plt.colorbar()
+        # plt.show()
+        #
+        # import sys
+        # sys.exit(0)
 
         self._peakMode = "normal"
 
