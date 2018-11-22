@@ -408,6 +408,7 @@ class ClassImageDeconvMachine():
         diverged = False
         stalled = False
         stall_count = 0
+        diverged_count = 0
         try:
             for i in range(self._niter+1,self.MaxMinorIter+1):
                 self._niter = i
@@ -417,7 +418,9 @@ class ClassImageDeconvMachine():
 
                 # Crude hack to prevent divergences
                 if np.abs(ThisFlux) > self.GD["WSCMS"]["MinorDivergenceFactor"] * np.abs(TrackFlux):
-                    diverged = True
+                    diverged_count += 1
+                    if diverged_count > 5:
+                        diverged = True
                 elif np.abs((ThisFlux - TrackFlux)/TrackFlux) < self.GD['WSCMS']['MinorStallThreshold']:
                     stall_count += 1
                     if stall_count > 5:

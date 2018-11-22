@@ -1987,29 +1987,12 @@ class ClassImagerDeconv():
                                                  CellSizeRad=self.CellSizeRad, GaussPars=self.PSFGaussPars)
                 T.timeit(label)
             return _images[label]
-        def posintmod():
-            label = 'posintmod'
-            if label not in _images:
-                _images.addSharedArray(label, intmodel().shape, np.float32)
-                _images[label] = ModelMachine.FreqMachine.Iref.reshape(intmodel().shape)
-            return _images[label]
         def give_final_RMS():
             try:
                 return _final_RMS["RMS"]
             except:
                 _final_RMS["RMS"] = np.std(intres().ravel())
                 return _final_RMS["RMS"]
-        def weighted_alphamap():
-            label = 'weighted_alphamap'
-            if label not in _images:
-                _images.addSharedArray(label, intmodel().shape, np.float32)
-                # compute the RMS of the final residual
-                RMS = give_final_RMS()
-                # get the RMS threshold
-                RMSthreshold = self.GD["Output"]["alphathreshold"]
-                _images[label] = ModelMachine.GiveSpectralIndexMap(threshold=RMS*RMSthreshold)
-                _images['posintmod'] = ModelMachine.FreqMachine.Iref.reshape(intmodel().shape)
-            return _images[label]
         def alphamap():
             label = 'alphamap'
             if label not in _images:
@@ -2018,52 +2001,19 @@ class ClassImagerDeconv():
                 # ##############################
                 # # Reverting for issue458
                 #_images[label] = ModelMachine.FreqMachine.alpha_map.reshape(intmodel().shape)
-                _images[label] = ModelMachine.GiveSpectralIndexMap()
+                if self.GD["Deconv"]["Mode"] == "WSCMS":
+                    if self.GD["SPIMaps"]["Mode"] == "rapid":
+                        _images[label] = ModelMachine.GiveSpectralIndexMap()
+                    else:
+                        if "alphastdmap" not in _images:
+                            _images.addSharedArray("alphastdmap", intmodel().shape, np.float32)
+                        _images[label], _images["alphastdmap"] = ModelMachine.GiveNewSpectralIndexMap(GaussPars=self.FWHMBeam[0], ResidCube=intrescube())
+                        return _images[label], _images["alphastdmap"]
+                else:
+                    _images[label] = ModelMachine.GiveSpectralIndexMap()
                 # ##############################
 
-            return _images[label]
-        def alphaconvmap():
-            label = 'alphaconvmap'
-            if label not in _images:
-                # Get weighted alpha map
-                a = _images.addSharedArray('alphaconvmap', weighted_alphamap().shape, np.float32)
-                # Convolve with Gaussian
-                ModFFTW.ConvolveGaussian(shareddict={"in": weighted_alphamap(),
-                                                     "out": a},
-                                         field_in = "in",
-                                         field_out = "out",
-                                         ch = 0,
-                                         CellSizeRad=self.CellSizeRad,
-                                         GaussPars_ch=self.PSFGaussParsAvg)
-
-                # Get positive part of restored image
-                b = _images.addSharedArray('posconvmod', alphamap().shape, np.float32)
-                ModFFTW.ConvolveGaussian(shareddict={"in": alphamap(),
-                                                     "out": b},
-                                         field_in = "in",
-                                         field_out = "out",
-                                         ch = 0,
-                                         CellSizeRad=self.CellSizeRad,
-                                         GaussPars_ch=self.PSFGaussParsAvg)
-
-                c = intconvmodel()
-                # Get mask based on restored image and positive restored image
-                RMS = give_final_RMS()
-                RMSmaskfact = self.GD["Output"]["alphamaskthreshold"]
-                I1 = c[0, 0, :, :] > RMSmaskfact*RMS
-                I2 = b[0, 0, :, :] > RMSmaskfact*RMS
-                IC = I1 & I2
-                I = np.argwhere(IC)
-                #print I.size
-                ix = I[:,0]
-                iy = I[:,1]
-                d = np.zeros_like(a)
-                d[0, 0, ix, iy] = a[0, 0, ix, iy]/b[0, 0, ix, iy]
-                #print a.min(), a.max()
-                _images.addSharedArray(label, alphamap().shape, np.float32)
-                _images[label] = d
-                T.timeit(label)
-            return _images[label]
+            return _images[label], None
 
         # norm
         if havenorm and ("S" in self._saveims or "s" in self._saveims):
@@ -2159,17 +2109,15 @@ class ClassImagerDeconv():
 
         # Alpha image
         if "A" in self._saveims and self.VS.MultiFreqMode:
-            # ##############################
-            # # Reverting for issue458
-            # _images['alphaconvmap'] = alphaconvmap()
-            # APP.runJob("save:alphaconv", self._saveImage_worker, io=0, args=(_images.readwrite(), 'alphaconvmap',), kwargs=dict(
-            #     ImageName="%s.alphaconv" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
-            #     Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
-            # ##############################
-            _images['alphamap'] = alphamap()
+            a, b = alphamap()
             APP.runJob("save:alpha", self._saveImage_worker, io=0, args=(_images.readwrite(), 'alphamap',), kwargs=dict(
                 ImageName="%s.alpha" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
                 Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+            if self.GD["Deconv"]["Mode"] == "WSCMS":
+                if self.GD["SPIMaps"]["Mode"] == "snail":
+                    APP.runJob("save:alphastd", self._saveImage_worker, io=0, args=(_images.readwrite(), 'alphastdmap',), kwargs=dict(
+                        ImageName="%s.alphastd" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
+                        Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
         #  done saving images -- schedule a job to delete them all from the dict to save RAM
         APP.runJob("del:images", self._delSharedImage_worker, io=0, args=[_images.readwrite()] + list(_images.keys()))

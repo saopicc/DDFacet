@@ -19,6 +19,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
 import numpy as np
+from scipy.optimize import curve_fit, fmin_l_bfgs_b
 from DDFacet.ToolsDir import ClassRRGP
 from DDFacet.Other import MyLogger
 log = MyLogger.getLogger("ClassScaleMachine")
@@ -103,6 +104,11 @@ class ClassFrequencyMachine(object):
                     else:
                         self.prior_theta_neg = np.zeros(self.order, dtype=np.float64)
                         self.prior_invcov_neg = np.zeros(self.order, dtype=np.float64)
+
+                    if (self.alpha_prior is not None) or (self.alpha_prior_neg is not None):
+                        self.bnds = ((None, None),)
+                        for param in xrange(self.order-1):
+                            self.bnds += ((None, None),)
                     # construct design matrix at full channel resolution
                     self.Xdes = self.setDesMat(self.Freqsp, order=self.order, mode=self.GD['WSCMS']['FreqMode'])
 
@@ -163,6 +169,25 @@ class ClassFrequencyMachine(object):
                 self.Eval_Degrid = lambda vals, Freqs: self.DistributeFreqs(vals, Freqs)
             else:
                 raise NotImplementedError("Frequency fit mode %s not supported" % mode)
+
+    def FitSPIComponents(self, FitCube, nu, nu0):
+        def spi_func(nu, I0, alpha):
+            return I0 * nu ** alpha
+        nchan, ncomps = FitCube.shape
+        Iref = np.zeros([ncomps])
+        varIref = np.zeros([ncomps])
+        alpha = np.zeros([ncomps])
+        varalpha = np.zeros([ncomps])
+        I0 = 1.0
+        alpha0 = -0.7
+        for i in xrange(ncomps):
+            popt, pcov = curve_fit(spi_func, nu/nu0, FitCube[:, i], p0=np.array([I0, alpha0]))
+            Iref[i] = popt[0]
+            varIref[i] = pcov[0,0]
+            alpha[i] = popt[1]
+            varalpha[i] = pcov[1,1]
+        return alpha, varalpha, Iref, varIref
+
 
     def getFitMask(self, FitCube, Threshold=0.0, SetNegZero=False, ResidCube=None):
         """
@@ -405,6 +430,20 @@ class ClassFrequencyMachine(object):
 
         return ListBeamFactor, ListBeamFactorWeightSq, self.PSFServer.DicoMappingDesc['MeanJonesBand'][iFacet]
 
+    def logp_and_dlogp(self, x, Iapp, SAX, W, K, theta0):
+        theta = x[0:-1]
+        I0 = x[-1]
+        thetap = I0 * theta0
+        Kp = I0 ** 2 * K
+        resI = Iapp - SAX.dot(theta)
+        logp = 0.5 * resI.dot(W * resI)
+        restheta = theta - thetap
+        logp += 0.5 * restheta.dot(restheta / Kp)
+        dlogp = np.zeros(x.size)
+        dlogp[0:-1] = - SAX.T.dot(W * (resI)) + restheta / Kp
+        dlogp[-1] = -2 * theta.T.dot(theta / K) / I0 ** 3 + 2 * theta0.T.dot(theta / K) / I0 ** 2
+        return logp, dlogp
+
     def solve_MAP(self, Iapp, A, W, Kinv, theta):
         Dinv = A.T.dot(W[:, None] * A) + np.diag(Kinv)
         res = np.linalg.solve(Dinv, A.T.dot(W * Iapp) + theta * Kinv)
@@ -448,10 +487,24 @@ class ClassFrequencyMachine(object):
             I0 = MaxDirty
         # get MFS weights
         W = self.PSFServer.DicoVariablePSF['SumWeights'].squeeze().astype(np.float64)
+        Ig = Vals.astype(np.float64)
         if I0 > 0.0:
-            theta = self.solve_MAP(Vals.astype(np.float64), self.SAX, W, self.prior_invcov/I0**2, I0*self.prior_theta)
+            # get initial MAP estimate as initial guess
+            theta = self.solve_MAP(Ig, self.SAX, W, self.prior_invcov/I0**2, I0*self.prior_theta)
+            if self.GD["WSCMS"]["AlphaPrior"] is not None:
+                x0 = np.concatenate((theta, np.array([I0])))
+                params = fmin_l_bfgs_b(self.logp_and_dlogp, x0,
+                                       args=(Ig, self.SAX, W, 1.0/self.prior_invcov, self.prior_theta),
+                                       approx_grad=False, bounds=self.bnds + ((1e-6, None),))
+                theta = params[0][0:-1]
         else:
             theta = self.solve_MAP(Vals.astype(np.float64), self.SAX, W, self.prior_invcov_neg/I0**2, I0*self.prior_theta_neg)
+            if self.GD["WSCMS"]["AlphaPrior"] is not None:
+                x0 = np.concatenate((theta, np.array([I0])))
+                params = fmin_l_bfgs_b(self.logp_and_dlogp, x0,
+                                       args=(Ig, self.SAX, W, 1.0/self.prior_invcov_neg, self.prior_theta_neg),
+                                       approx_grad=False, bounds=self.bnds + ((None, -1e-6),))
+                theta = params[0][0:-1]
         return theta
 
     def FitPoly(self, Vals):
