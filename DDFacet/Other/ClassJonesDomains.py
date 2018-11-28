@@ -187,7 +187,9 @@ class ClassJonesDomains():
         nchOut=fmOut.size
 
         DicoOut["Jones"]=np.zeros((nt,nd,na,nchOut,2,2),np.complex64)
-        
+        DicoOut["Jones"][:,:,:,:,0,0]=1.
+        DicoOut["Jones"][:,:,:,:,1,1]=1.
+
         iG0_t=np.argmin(np.abs(DicoOut["tm"].reshape((nt,1))-DicoJ0["tm"].reshape((1,nt0))),axis=1)
         iG1_t=np.argmin(np.abs(DicoOut["tm"].reshape((nt,1))-DicoJ1["tm"].reshape((1,nt1))),axis=1)
         
@@ -195,9 +197,16 @@ class ClassJonesDomains():
         for ich in range(nchOut):
 
 #            print>>log,fmOut[ich]
-            indChG0=np.where((fmOut[ich]>=DicoJ0["FreqDomains"][:,0]) & (fmOut[ich]<DicoJ0["FreqDomains"][:,1]))[0][0]
-            indChG1=np.where((fmOut[ich]>=DicoJ1["FreqDomains"][:,0]) & (fmOut[ich]<DicoJ1["FreqDomains"][:,1]))[0][0]
- 
+            indChG0=np.where((fmOut[ich]>=DicoJ0["FreqDomains"][:,0]) & (fmOut[ich]<DicoJ0["FreqDomains"][:,1]))[0]
+            if indChG0.size==0: continue
+            indChG0=indChG0[0]
+            
+            indChG1=np.where((fmOut[ich]>=DicoJ1["FreqDomains"][:,0]) & (fmOut[ich]<DicoJ1["FreqDomains"][:,1]))[0]
+            if indChG1.size==0: continue
+            indChG1=indChG1[0]
+            
+
+
             for itime in range(nt):
                 G0=DicoJ0["Jones"][iG0_t[itime],:,:,indChG0,:,:]
                 G1=DicoJ1["Jones"][iG1_t[itime],:,:,indChG1,:,:]
