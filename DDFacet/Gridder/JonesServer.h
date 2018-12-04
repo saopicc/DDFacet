@@ -105,6 +105,8 @@ namespace DDF {
 	  int Mode);
       public:
 	//BH FIXME: Proper accessors pretty pretty please..
+        //MR Some of these quantities are manipulated from the outside.
+        //   I guess we need to address this properly first.
 	double BB;
 	double WeightVaryJJ;
 	int DoApplyJones=0;
