@@ -294,7 +294,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         return alpha
 
     def GiveNewSpectralIndexMap(self, CellSizeRad=1., GaussPars=[(1, 1, 0)], DoConv=True, MaxSpi=100, MaxDR=1e+6,
-                                threshold=None, ResidCube=None):
+                                threshold=None, ResidCube=None, GiveComponents=False):
 
         # convert to radians
         ex, ey, pa = GaussPars
@@ -377,8 +377,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         #
         # import sys
         # sys.exit(0)
-
-        return alphamap[None, None], alphastdmap[None, None]
+        if GiveComponents:
+            return alphamap[None, None], alphastdmap[None, None], alpha
+        else:
+            return alphamap[None, None], alphastdmap[None, None]
 
     def SubStep(self, (dx, dy), LocalSM, Residual):
         """

@@ -327,6 +327,14 @@ class ClassScaleMachine(object):
             self.FTMachine.xhat[...] = iFs(np.pad(PSFmean, ((0, 0), (0, 0), (npad, npad), (npad, npad)), mode='constant'), axes=(2, 3))
             self.FTMachine.FFT()
             self.FT_meanPSF[str(iFacet)] = Fs(self.FTMachine.xhat.copy(), axes=(2, 3))
+            import matplotlib.pyplot as plt
+            plt.imshow(self.FT_meanPSF[str(iFacet)][0,0].real)
+            plt.colorbar()
+            plt.show()
+            plt.imshow(self.FT_meanPSF[str(iFacet)][0,0].imag)
+            plt.colorbar()
+            plt.show()
+
 
         # keep track of FT_PSF
         if str(iFacet) not in self.FT_PSF:
