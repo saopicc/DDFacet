@@ -110,7 +110,7 @@ class ClassFrequencyMachine(object):
                         for param in xrange(self.order-1):
                             self.bnds += ((None, None),)
                     # construct design matrix at full channel resolution
-                    self.Xdes = self.setDesMat(self.Freqsp, order=self.order, mode=self.GD['WSCMS']['FreqMode'])
+                    self.Xdes = self.setDesMat(self.Freqs, order=self.order, mode=self.GD['WSCMS']['FreqMode'])
 
                     # there is no need to recompute this every time if the beam is not enabled because same everywhere
                     if not self.BeamEnable:
@@ -247,7 +247,7 @@ class ClassFrequencyMachine(object):
         """
         if order is None:
             order = self.order
-        if mode == "Mono":
+        if mode == "Mono" or mode == "Poly":
             # Construct vector of frequencies
             w = (Freqs / self.ref_freq).reshape(Freqs.size, 1)
             # create tiled array and raise each column to the correct power
@@ -527,7 +527,7 @@ class ClassFrequencyMachine(object):
         Returns:
             The polynomial evaluated at Freqs
         """
-        if np.all(Freqsp == self.Freqsp):
+        if np.all(Freqsp == self.Freqs):
             # Here we don't need to reset the design matrix
             return np.dot(self.Xdes, coeffs)
         else:
