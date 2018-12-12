@@ -153,16 +153,6 @@ class ClassFrequencyMachine(object):
                 self.Fit = lambda vals: self.FitPoly(vals)
                 self.Eval = lambda coeffs: self.EvalPoly(coeffs, Freqsp=self.Freqs)
                 self.Eval_Degrid = lambda coeffs, Freqs: self.EvalPoly(coeffs, Freqsp=Freqs)
-            elif mode == "GPR":
-                # Instantiate the GP
-                self.GP = ClassRRGP.RR_GP(self.Freqs/self.ref_freq,self.Freqsp/self.ref_freq,
-                                          self.GD["Hogbom"]["MaxLengthScale"],self.GD["Hogbom"]["NumBasisFuncs"])
-                # Set default initial length scale
-                self.l0 = (self.GP.x.max() - self.GP.x.min()) / 2
-                # Set the fit and eval methods
-                self.Fit = lambda vals: self.FitGP(vals)
-                self.Eval = lambda coeffs : self.EvalGP(coeffs, Freqsp=self.Freqs)
-                self.Eval_Degrid = lambda coeffs, Freqs : self.EvalGP(coeffs, Freqsp=Freqs)
             elif mode is None:  # TODO - test that this does the expected thing when Nchan != Nchan_degrid
                 self.Fit = lambda vals: vals
                 self.Eval = lambda vals: vals
@@ -534,38 +524,3 @@ class ClassFrequencyMachine(object):
             else:
                 Fpol[ch*bin_width:(ch+1)*bin_width] = vals[ch]
         return Fpol
-
-    def FitGP(self, Vals):
-        """
-        Here we fit a reduced rank GP to the frequency axis
-        Args:
-            Freqs       = The frequencies at which to evulaute the GP
-
-        Returns:
-            IM          = The model image at Freqs
-
-        """
-        # Set initial guess for hypers
-        sigmaf0 = np.maximum(Vals.max() - Vals.min(), 1.1e-5)
-        sigman0 = np.maximum(np.var(Vals), 1.1e-4)
-        theta = np.array([sigmaf0, self.l0, sigman0])
-
-        # Fit and evaluate GP
-        coeffs, thetaf = self.GP.RR_EvalGP(theta, Vals)
-
-        # if (coeffs <= 1.0e-8).all():
-        #     print "Something went wrong with GPR"
-        #     print self.GP.SolverFlag
-        #     print thetaf
-
-        return coeffs
-
-    def EvalGP(self, coeffs, Freqsp=None):
-        if np.all(Freqsp == self.Freqs):
-            return self.GP.RR_From_Coeffs(coeffs)
-        elif np.all(Freqsp == self.Freqsp):
-            return self.GP.RR_From_Coeffs_Degrid(coeffs)
-        elif np.all(Freqsp == self.ref_freq):
-            return self.GP.RR_From_Coeffs_Degrid_ref(coeffs)
-        else:
-            raise NotImplementedError('GPR mode only predicts to GridFreqs, DegridFreqs and ref_freq')
