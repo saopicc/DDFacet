@@ -115,7 +115,7 @@ setup(name=pkg,
                 'build': custom_build,
                 'sdist': custom_sdist,
                },
-      python_requires='==2.7',
+      python_requires='<3.0',
       packages=[pkg, skymodel_pkg],
       install_requires=[
             "nose >= 1.3.7",
