@@ -31,7 +31,7 @@ import sys
 
 pkg='DDFacet'
 skymodel_pkg='SkyModel'
-__version__ = "0.3.4.1"
+__version__ = "0.4.0.0"
 build_root=os.path.dirname(__file__)
 
 preinstall_dependencies = ["'pybind11 >= 2.2.2'"]
