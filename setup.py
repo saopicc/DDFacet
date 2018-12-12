@@ -86,14 +86,23 @@ class custom_sdist(sdist):
 
 def define_scripts():
     #these must be relative to setup.py according to setuputils
-    return [os.path.join(pkg, script_name) for script_name in ['DDF.py', 'CleanSHM.py', 'MemMonitor.py', 'Restore.py', 'SelfCal.py']]
+    DDF_scripts = [os.path.join(pkg, script_name) for script_name in ['DDF.py', 'CleanSHM.py', 'MemMonitor.py', 'Restore.py', 'SelfCal.py']]
+    SkyModel_scripts = [os.path.join(skymodel_pkg, script_name) for script_name in ['ClusterCat.py', 'dsm.py', 'dsreg.py', 'ExtractPSources.py', 'Gaussify.py', 'MakeCatalog.py', 'MakeMask.py', 'MakeModel.py', 'MaskDicoModel.py', 'MyCasapy2bbs.py']]
+    return DDF_scripts + SkyModel_scripts
+
+def readme():
+    """ Return README.rst contents """
+    with open('README.rst') as f:
+        return f.read()
 
 setup(name=pkg,
       version=__version__,
       description='Facet-based radio astronomy continuum imager',
+      long_description = readme(),
       url='http://github.com/saopicc/DDFacet',
       classifiers=[
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 4 - Beta",
+        "Environment :: Console",
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
         "Operating System :: POSIX :: Linux",
@@ -106,6 +115,7 @@ setup(name=pkg,
                 'build': custom_build,
                 'sdist': custom_sdist,
                },
+      python_requires='==2.7',
       packages=[pkg, skymodel_pkg],
       install_requires=[
             "nose >= 1.3.7",
@@ -115,7 +125,7 @@ setup(name=pkg,
             "Polygon2 >= 2.0.8",
             "pyFFTW >= 0.10.4",
             "astropy >= 1.3.3",
-            "deap >= 1.0.1", 
+            "deap >= 1.0.1",
             "ipdb >= 0.10.3",
             "python-casacore >= 2.1.0",
             "pyephem >= 3.7.6.0",
