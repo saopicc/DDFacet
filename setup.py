@@ -133,6 +133,7 @@ setup(name=pkg,
             "pybind11 >= 2.2.2",
             "pyfits >= 3.5", #kittens dependency, do not remove
             "pylru >= 1.1.0",
+            "codex-africanus >= 0.1.2",
       ],
       include_package_data=True,
       zip_safe=False,

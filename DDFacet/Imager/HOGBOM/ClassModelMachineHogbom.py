@@ -218,44 +218,20 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         IM = self.GiveModelImage(self.FreqMachine.Freqsp)
         nchan, npol, Nx, Ny = IM.shape
 
-        # Fit the alpha map
-        self.FreqMachine.FitAlphaMap(IM[:, 0, :, :],
-                                     threshold=threshold)  # should set threshold based on SNR of final residual
+        try:
+            # Fit the alpha map
+            self.FreqMachine.FitAlphaMap(IM,
+                                         threshold=threshold)  # should set threshold based on SNR of final residual
 
-        if save_dict:
-            FileName = self.GD['Output']['Name'] + ".Dicoalpha"
-            print>> log, "Saving componentwise SPI map to %s" % FileName
+            if save_dict:
+                FileName = self.GD['Output']['Name'] + ".Dicoalpha"
+                print>> log, "Saving componentwise SPI map to %s" % FileName
 
-            MyPickle.Save(self.FreqMachine.alpha_dict, FileName)
+                MyPickle.Save(self.FreqMachine.alpha_dict, FileName)
 
-        return self.FreqMachine.weighted_alpha_map.reshape((1, 1, Nx, Ny))
-
-        # f0 = self.DicoSMStacked["AllFreqs"].min()
-        # f1 = self.DicoSMStacked["AllFreqs"].max()
-        # M0 = self.GiveModelImage(f0)
-        # M1 = self.GiveModelImage(f1)
-        # if DoConv:
-        #     M0 = ModFFTW.ConvolveGaussian(M0, CellSizeRad=CellSizeRad, GaussPars=GaussPars)
-        #     M1 = ModFFTW.ConvolveGaussian(M1, CellSizeRad=CellSizeRad, GaussPars=GaussPars)
-        #
-        # # compute threshold for alpha computation by rounding DR threshold to .1 digits (i.e. 1.65e-6 rounds to 1.7e-6)
-        # minmod = float("%.1e" % (abs(M0.max()) / MaxDR))
-        # # mask out pixels above threshold
-        # mask = (M1 < minmod) | (M0 < minmod)
-        # print>> log, "computing alpha map for model pixels above %.1e Jy (based on max DR setting of %g)" % (
-        # minmod, MaxDR)
-        # with np.errstate(invalid='ignore'):
-        #     alpha = (np.log(M0) - np.log(M1)) / (np.log(f0 / f1))
-        # alpha[mask] = 0
-        # # mask out |alpha|>MaxSpi. These are not physically meaningful anyway
-        # mask = alpha > MaxSpi
-        # alpha[mask] = MaxSpi
-        # masked = mask.any()
-        # mask = alpha < -MaxSpi
-        # alpha[mask] = -MaxSpi
-        # if masked or mask.any():
-        #     print>> log, ModColor.Str("WARNING: some alpha pixels outside +/-%g. Masking them." % MaxSpi, col="red")
-        # return alpha
+            return self.FreqMachine.weighted_alpha_map.reshape((1, 1, Nx, Ny))
+        except:
+            return np.zeros((1, 1, Nx, Ny))
 
     def PutBackSubsComps(self):
         # if self.GD["Data"]["RestoreDico"] is None: return
