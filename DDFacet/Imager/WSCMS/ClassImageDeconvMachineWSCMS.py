@@ -423,7 +423,7 @@ class ClassImageDeconvMachine():
                         diverged = True
                 elif np.abs((ThisFlux - TrackFlux)/TrackFlux) < self.GD['WSCMS']['MinorStallThreshold']:
                     stall_count += 1
-                    if stall_count > 5:
+                    if stall_count > 50:
                         stalled = True
                 else:
                     TrackFlux = ThisFlux
