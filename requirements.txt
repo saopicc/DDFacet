@@ -3,4 +3,4 @@ pymoresane >= 0.3.0
 cython >= 0.25.2
 nose >= 1.3.7
 pylru >= 1.1.0
-codex-africanus >= 0.1.2
+git+https://github.com/ska-sa/codex-africanus.git

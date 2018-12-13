@@ -73,7 +73,7 @@ class ClassScaleMachine(object):
         self.NCPU = NCPU
         self.DoAbs = self.GD["Deconv"]["AllowNegative"]
 
-    def Init(self, PSFServer, FreqMachine, FTMachine2=None, cachepath=None):
+    def Init(self, PSFServer, FreqMachine, cachepath=None):
         """
         Sets everything required to perform multi-scale CLEAN. 
         :param PSFserver: Mandatory if NScales > 1
@@ -245,7 +245,7 @@ class ClassScaleMachine(object):
             while FWHMs[i] < self.GD["WSCMS"]["MaxScale"]:  # hardcoded for now
                 FWHMs.append(2.0*FWHMs[i])
                 i += 1
-            self.FWHMs = np.asarray(FWHMs)
+            self.FWHMs = np.asarray(FWHMs)[0:-1]
         else:
             print>>log, "Using user defined scales"
             self.FWHMs = np.asarray(self.GD["WSCMS"]["Scales"])
@@ -327,14 +327,6 @@ class ClassScaleMachine(object):
             self.FTMachine.xhat[...] = iFs(np.pad(PSFmean, ((0, 0), (0, 0), (npad, npad), (npad, npad)), mode='constant'), axes=(2, 3))
             self.FTMachine.FFT()
             self.FT_meanPSF[str(iFacet)] = Fs(self.FTMachine.xhat.copy(), axes=(2, 3))
-            import matplotlib.pyplot as plt
-            plt.imshow(self.FT_meanPSF[str(iFacet)][0,0].real)
-            plt.colorbar()
-            plt.show()
-            plt.imshow(self.FT_meanPSF[str(iFacet)][0,0].imag)
-            plt.colorbar()
-            plt.show()
-
 
         # keep track of FT_PSF
         if str(iFacet) not in self.FT_PSF:

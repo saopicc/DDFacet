@@ -50,6 +50,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def setPSFServer(self, PSFServer):
         self.PSFServer = PSFServer
 
+        _, _, self.Npix, _ = self.PSFServer.ImageShape
+        self.NpixPadded = int(np.ceil(self.GD["Facets"]["Padding"] * self.Npix))
+        # make sure it is odd numbered
+        if self.NpixPadded % 2 == 0:
+            self.NpixPadded += 1
+        self.Npad = (self.NpixPadded - self.Npix) // 2
+
     def setFreqMachine(self, GridFreqs, DegridFreqs, weights=None, PSFServer=None):
         self.PSFServer = PSFServer
         # Initiaise the Frequency Machine
@@ -84,13 +91,14 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             self.DoAbs = self.GD["Deconv"]["AllowNegative"]
             self.ScaleMachine = ClassScaleMachine.ClassScaleMachine(GD=self.GD, NCPU=NCPU, MaskArray=MaskArray)
             self.FTMachine = FTMachine
-            self.ScaleMachine.Init(PSFServer, self.FreqMachine, FTMachine2=self.FTMachine,
+            self.ScaleMachine.Init(PSFServer, self.FreqMachine,
                                    cachepath=cachepath)
             self.Nscales = self.ScaleMachine.Nscales
             # Initialise CurrentScale variable
             self.CurrentScale = 999999
             # Initialise current facet variable
             self.CurrentFacet = 999999
+
 
             self.DicoSMStacked["Scale_Info"] = {}
             for i, sigma in enumerate(self.ScaleMachine.sigmas):
@@ -239,6 +247,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                     ScaleModel[:, 0, x, y] += interp
 
             ModelImage += ScaleModel
+        print "Model - ", ModelImage.max(), ModelImage.min()
         return ModelImage
 
     def GiveSpectralIndexMap(self, CellSizeRad=1., GaussPars=[(1, 1, 0)], DoConv=True, MaxSpi=100, MaxDR=1e+6,
@@ -293,8 +302,20 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             print>> log, ModColor.Str("WARNING: some alpha pixels outside +/-%g. Masking them." % MaxSpi, col="red")
         return alpha
 
-    def GiveNewSpectralIndexMap(self, CellSizeRad=1., GaussPars=[(1, 1, 0)], DoConv=True, MaxSpi=100, MaxDR=1e+6,
-                                threshold=None, ResidCube=None, GiveComponents=False):
+    def GiveNewSpectralIndexMap(self, GaussPars=[(1, 1, 0)], ResidCube=None,
+                                GiveComponents=False, ChannelWeights=None):
+
+        try:
+            from africanus.model.spi.dask import fit_spi_components
+            NCPU = self.GD["Parallel"]["NCPU"]
+            if NCPU:
+                from multiprocessing.pool import ThreadPool
+                import dask
+
+                dask.set_options(pool=ThreadPool(NCPU))
+        except:
+            print "Failed at importing dask version"
+            from africanus.model.spi import fit_spi_components
 
         # convert to radians
         ex, ey, pa = GaussPars
@@ -314,7 +335,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # take FT
         Fs = np.fft.fftshift
         iFs = np.fft.ifftshift
-        npad = self.ScaleMachine.Npad
+        npad = self.Npad
         FTarray = self.ScaleMachine.FTMachine.xhatim.view()
         FTarray[...] = iFs(np.pad(GaussKern[None, None], ((0, 0), (0, 0), (npad, npad), (npad, npad)),
                              mode='constant'), axes=(2, 3))
@@ -355,7 +376,18 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         MaskIndices = np.argwhere(MinImage > Threshold)
         FitCube = ConvModelImage[:, MaskIndices[:, 0], MaskIndices[:, 1]]
 
-        alpha, varalpha, Iref, varIref = self.FreqMachine.FitSPIComponents(FitCube, self.GridFreqs, self.RefFreq)
+        if ChannelWeights is None:
+            weights = np.ones(self.Nchan, dtype=np.float32)
+        else:
+            weights = ChannelWeights.astype(np.float32)
+            if ChannelWeights.size != self.Nchan:
+                import warnings
+                warnings.warn("The provided channel weights are of incorrect length. Ignoring weights.", RuntimeWarning)
+                weights = np.ones(self.Nchan, dtype=np.float32)
+        alpha, varalpha, Iref, varIref = fit_spi_components(FitCube, weights, self.GridFreqs.astype(np.float32),
+                                                            np.float32(self.RefFreq), dtype=np.float32)
+
+        alpha2, varalpha2, Iref2, varIref2 = self.FreqMachine.FitSPIComponents(FitCube, self.GridFreqs, self.RefFreq)
 
         _, _, nx, ny = ModelImage.shape
         alphamap = np.zeros([nx, ny])
@@ -368,15 +400,30 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         alphastdmap[MaskIndices[:, 0], MaskIndices[:, 1]] = np.sqrt(varalpha)
         Irefstdmap[MaskIndices[:, 0], MaskIndices[:, 1]] = np.sqrt(varIref)
 
-        # import matplotlib.pyplot as plt
-        # listmaps = [alphamap, alphastdmap, Irefmap, Irefstdmap]
-        # for i in xrange(4):
-        #     plt.imshow(listmaps[i])
-        #     plt.colorbar()
-        #     plt.show()
-        #
+        alphamap2 = np.zeros([nx, ny])
+        Irefmap2 = np.zeros([nx, ny])
+        alphastdmap2 = np.zeros([nx, ny])
+        Irefstdmap2 = np.zeros([nx, ny])
+
+        alphamap2[MaskIndices[:, 0], MaskIndices[:, 1]] = alpha2
+        Irefmap2[MaskIndices[:, 0], MaskIndices[:, 1]] = Iref2
+        alphastdmap2[MaskIndices[:, 0], MaskIndices[:, 1]] = np.sqrt(varalpha2)
+        Irefstdmap2[MaskIndices[:, 0], MaskIndices[:, 1]] = np.sqrt(varIref2)
+
+        import matplotlib.pyplot as plt
+        listmaps = [alphamap, alphastdmap, Irefmap, Irefstdmap]
+        listmaps2 = [alphamap2, alphastdmap2, Irefmap2, Irefstdmap2]
+        for i in xrange(4):
+            fig, ax = plt.subplots(nrows=1, ncols=2)
+            im = ax[0].imshow(listmaps[i])
+            fig.colorbar(im, ax=ax[0])
+            im = ax[1].imshow(listmaps2[i])
+            fig.colorbar(im, ax=ax[1])
+            plt.show()
+
         # import sys
         # sys.exit(0)
+
         if GiveComponents:
             return alphamap[None, None], alphastdmap[None, None], alpha
         else:
@@ -417,6 +464,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             # all the relevant information in the LRU cache which spills to disk automatically if the number
             # of elements exceeds the pre-set maximum in --WSCMS-CacheSize
             self.CurrentGain = self.ScaleMachine.give_gain(iFacet, iScale)
+
+            print "Scale = ", self.CurrentScale, " gain = ", self.CurrentGain
 
             # twice convolve PSF with scale if not delta scale
             if not iScale:

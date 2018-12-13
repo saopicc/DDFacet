@@ -94,7 +94,7 @@ class ClassFrequencyMachine(object):
                     else:
                         self.prior_theta = np.zeros(self.order, dtype=np.float64)
                         self.prior_invcov = np.zeros(self.order, dtype=np.float64)
-                    # get polynomial coeffs for prior when I0 is positive
+                    # get polynomial coeffs for prior when I0 is negative
                     self.alpha_prior_neg = self.GD["WSCMS"]["AlphaPriorNeg"]
                     if self.alpha_prior_neg is not None:
                         I = (self.Freqsp/self.ref_freq)**(self.alpha_prior_neg)
@@ -109,7 +109,8 @@ class ClassFrequencyMachine(object):
                         self.bnds = ((None, None),)
                         for param in xrange(self.order-1):
                             self.bnds += ((None, None),)
-                    # construct design matrix at full channel resolution
+
+                    # construct design matrix at gridding channel resolution
                     self.Xdes = self.setDesMat(self.Freqs, order=self.order, mode=self.GD['WSCMS']['FreqMode'])
 
                     # there is no need to recompute this every time if the beam is not enabled because same everywhere
@@ -178,49 +179,6 @@ class ClassFrequencyMachine(object):
             varalpha[i] = pcov[1,1]
         return alpha, varalpha, Iref, varIref
 
-
-    def getFitMask(self, FitCube, Threshold=0.0, SetNegZero=False, ResidCube=None):
-        """
-        Args:
-            FitCube     = The cube to fit an alpha map to
-            Threshold   = The threshold above which to fit. Defaults to zero.
-            SetNegZero  = Whether to set negative pixels to zero. This is required if we want to fit the alhpa map for example. Defaults to False. Only use with PolMode = 'I'
-            ResidCube   = The spectral cube of residuals
-        Returns:
-            FitMask     = A 0/1 mask image
-            MaskIndices = The indices at which the mask is non-zero (i.e. the mask is extracted at the indices MaskIndices[:,0],MaskIndices[:,1])
-        """
-        if ResidCube is not None:
-            if SetNegZero:
-                # Find negative indices (these are just set to zero for now)
-                ineg = np.argwhere(FitCube + ResidCube < 0.0)
-                FitCube[ineg[:, 0], ineg[:, 1], ineg[:, 2]] = 0.0
-
-            # Find where I is above threshold (in any frequency band)
-            # FitMax = np.amax(FitCube, axis=0)
-            # Ip = FitMax > Threshold
-            FitMin = np.amin(FitCube, axis=0)
-            In = FitMin > Threshold
-            #mind = Ip & In
-            MaskIndices = np.argwhere(In)
-            print>>log, "Adding in residuals"
-            FitMask = FitCube[:, MaskIndices[:, 0], MaskIndices[:, 1]] + ResidCube[:, MaskIndices[:, 0], MaskIndices[:, 1]]
-        else:
-            if SetNegZero:
-                # Find negative indices (these are just set to zero for now)
-                ineg = np.argwhere(FitCube < 0.0)
-                FitCube[ineg[:, 0], ineg[:, 1], ineg[:, 2]] = 0.0
-
-                # Find where I is above threshold (in any frequency band)
-                # FitMax = np.amax(FitCube, axis=0)
-                # Ip = FitMax > Threshold
-            FitMin = np.amin(FitCube, axis=0)
-            In = FitMin > Threshold
-            # mind = Ip & In
-            MaskIndices = np.argwhere(In)
-            FitMask = FitCube[:, MaskIndices[:, 0], MaskIndices[:, 1]]
-        return FitMask, MaskIndices
-
     def setDesMat(self, Freqs, order=None, mode="Normal"):
         """
         This function creates the design matrix. Use any linear model your heart desires
@@ -271,95 +229,6 @@ class ClassFrequencyMachine(object):
         else:
             raise NotImplementedError("Frequency basis %s not supported" % mode)
         return Xdesign
-
-    def FitAlphaMap(self, FitCube, threshold=0.1, ResidCube=None):
-        """
-        Here we fit a spectral index model to each pixel in the model image above threshold. Note only positive pixels can be used.
-        Args:
-            FitCube     = The cube to fit the alpha map to ; shape = [Nch, Nx,Ny]
-            threshold   = The threshold above which to fit the model
-        """
-        if self.nchan < 2:
-            print>>log, "Warning - can't produce alphamap with fewer than 2 imaging bands"
-            return
-        else:
-            # Get Stokes I components
-            FitCube = FitCube[:, 0, :, :]
-            if ResidCube is not None:
-                ResidCube = ResidCube[:, 0, :, :]
-            # Get size of image
-            nchan = FitCube.shape[0]
-            Nx = FitCube.shape[1]
-            Ny = FitCube.shape[2]
-
-            # Get the > 0 components
-            IMask,MaskInd = self.getFitMask(FitCube, Threshold=threshold, SetNegZero=True, ResidCube=ResidCube)
-            ix = MaskInd[:, 0]
-            iy = MaskInd[:, 1]
-
-            # Get array to fit model to
-            nsource = ix.size
-            IFlat = IMask.reshape([nchan, nsource])
-
-            # Get the model Image as a function of frequency at all these locations
-            logI = np.log(IFlat)
-
-            # Create the design matrix (at full freq resolution)
-            p = 2 #polynomial order
-            XDes = self.setDesMat(self.Freqs, order=p, mode="log")
-            # Solve the system
-            XX = XDes.T.dot(XDes)
-            Sol = np.linalg.solve(XX, XDes.T.dot(logI))
-            logIref = Sol[0, :]
-            #self.logIref = logIref
-            alpha = Sol[1::,:].reshape(logIref.size)
-            #self.alpha = alpha
-            # Create the alpha map
-            self.alpha_map = np.zeros([Nx, Ny])
-            if int(np.version.version.split('.')[1]) > 9: #check numpy version > 9 (broadcasting fails for older versions)
-                self.alpha_map[ix, iy] = alpha
-            else:
-                for j in xrange(ix.size):
-                    self.alpha_map[ix[j],iy[j]] = alpha[j]
-
-            # Get I0 map
-            self.Iref = np.zeros([Nx, Ny])
-            if int(np.version.version.split('.')[1]) > 9: # check numpy version > 9 (broadcasting fails for older versions)
-                self.Iref[ix, iy] = np.exp(logIref)
-            else:
-                for j in xrange(ix.size):
-                    self.Iref[ix[j], iy[j]] = np.exp(logIref[j])
-
-            # Re-weight the alphas according to flux of model component
-            self.weighted_alpha_map = self.alpha_map*self.Iref
-            #print self.weighted_alpha_map.min(), self.weighted_alpha_map.max()
-
-            # Create a dict to store model components spi's
-            self.alpha_dict = {}
-            for j, key in enumerate(zip(ix,iy)):
-                self.alpha_dict[key] = {}
-                self.alpha_dict[key]['alpha'] = alpha[j]
-                self.alpha_dict[key]['Iref'] = np.exp(logIref[j])
-
-    def EvalAlphamap(self, Freqs):
-        """
-
-        Args:
-            Freqs   = The frequencies at which to evulaute the model image from the alpha map
-
-        Returns:
-            IM      = The model evaluated at Freqs
-        """
-        # Compute basis functions
-        w = Freqs/self.ref_freq
-
-        nfreqs = Freqs.size
-        # Reconstruct the model
-        Nx, Ny = self.alpha_map.shape
-        IM = np.zeros([nfreqs, Nx, Ny])
-        for i in xrange(nfreqs):
-            IM[i, :, :] = self.Iref*w[i]**self.alpha_map
-        return IM
 
     # this is taken directly from ClassSpectralFunctions (its all the functionality we need in here)
     def GiveBeamFactorsFacet(self, iFacet):
@@ -457,7 +326,7 @@ class ClassFrequencyMachine(object):
                 theta = params[0][0:-1]
         else:
             theta = self.solve_MAP(Vals.astype(np.float64), self.SAX, W, self.prior_invcov_neg/I0**2, I0*self.prior_theta_neg)
-            if self.GD["WSCMS"]["AlphaPrior"] is not None:
+            if self.GD["WSCMS"]["AlphaPriorNeg"] is not None:
                 x0 = np.concatenate((theta, np.array([I0])))
                 params = fmin_l_bfgs_b(self.logp_and_dlogp, x0,
                                        args=(Ig, self.SAX, W, 1.0/self.prior_invcov_neg, self.prior_theta_neg),

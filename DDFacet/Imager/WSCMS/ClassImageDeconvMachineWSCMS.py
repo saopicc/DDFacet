@@ -404,36 +404,36 @@ class ClassImageDeconvMachine():
         # set peak in GainMachine (LB - deprecated?)
         # self.GainMachine.SetFluxMax(ThisFlux)
 
-        alphamap, alphastdmap, alphacomps = self.ModelMachine.GiveNewSpectralIndexMap(GaussPars=self.PSFServer.DicoVariablePSF["FWHMBeam"][0],
-                                                                          ResidCube=self.DicoDirty["ImageCube"], GiveComponents=True)
-
-        alphamap = alphamap[0,0]
-        alphamap = np.where(alphamap==0.0, -0.7, alphamap)
-
-        import matplotlib.pyplot as plt
-        plt.imshow(alphamap)
-        plt.show()
-
-        minalpha = alphacomps.min()
-        maxalpha = alphacomps.max()
-        delalpha = maxalpha - minalpha
-        Nbins = 7
-        alphatmp = alphacomps*Nbins/delalpha
-        alphaprobs, _ = np.histogram(alphatmp, Nbins, density=True)
-        alphaprobsinv = 1.0/alphaprobs
-        alphaprobsinv /= np.sum(alphaprobsinv)
-        print alphaprobsinv
-        alphabins = minalpha + maxalpha * np.cumsum(alphaprobsinv)
-        print alphabins
-        alphamask = np.digitize(alphamap, alphabins, right=True)
-
-
-        plt.imshow(alphamask)
-        plt.colorbar()
-        plt.show()
-
-        import sys
-        sys.exit()
+        # alphamap, alphastdmap, alphacomps = self.ModelMachine.GiveNewSpectralIndexMap(GaussPars=self.PSFServer.DicoVariablePSF["FWHMBeam"][0],
+        #                                                                   ResidCube=self.DicoDirty["ImageCube"], GiveComponents=True)
+        #
+        # alphamap = alphamap[0,0]
+        # alphamap = np.where(alphamap==0.0, -0.7, alphamap)
+        #
+        # import matplotlib.pyplot as plt
+        # plt.imshow(alphamap)
+        # plt.show()
+        #
+        # minalpha = alphacomps.min()
+        # maxalpha = alphacomps.max()
+        # delalpha = maxalpha - minalpha
+        # Nbins = 7
+        # alphatmp = alphacomps*Nbins/delalpha
+        # alphaprobs, _ = np.histogram(alphatmp, Nbins, density=True)
+        # alphaprobsinv = 1.0/alphaprobs
+        # alphaprobsinv /= np.sum(alphaprobsinv)
+        # print alphaprobsinv
+        # alphabins = minalpha + maxalpha * np.cumsum(alphaprobsinv)
+        # print alphabins
+        # alphamask = np.digitize(alphamap, alphabins, right=True)
+        #
+        #
+        # plt.imshow(alphamask)
+        # plt.colorbar()
+        # plt.show()
+        #
+        # import sys
+        # sys.exit()
 
         # Do minor cycle deconvolution loop
         TrackFlux = MaxDirty.copy()
@@ -503,12 +503,17 @@ class ClassImageDeconvMachine():
                             # Note this logic assumes square facets!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
                             # get location of facet center
                             xc, yc = self.DicoVariablePSF["Facets"][iFacet]["pixCentral"]
+                            # LB - why is the -1 necessary here?
+                            xc -=1
+                            yc -=1
                             LocalSM = ScaleModel[:, :, xc-self.NpixFacet//2:xc+self.NpixFacet//2 + 1,
                                                  yc-self.NpixFacet//2:yc+self.NpixFacet//2 + 1]
 
                             # convolve local sky model with PSF
                             if (LocalSM > 1e-8).any():
                                 SM = self.ModelMachine.ScaleMachine.SMConvolvePSF(iFacet, LocalSM)
+
+                                # print "Local Sm - ", SM.max(), SM.min()
 
                                 _, _, ntmp, _ = SM.shape
                                 if ntmp < 2*self.NpixFacet:

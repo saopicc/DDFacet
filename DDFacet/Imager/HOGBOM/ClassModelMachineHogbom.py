@@ -213,25 +213,145 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         return ModelImage
 
-    def GiveSpectralIndexMap(self, threshold=0.1, save_dict=True):
-        # Get the model image
-        IM = self.GiveModelImage(self.FreqMachine.Freqsp)
-        nchan, npol, Nx, Ny = IM.shape
+    def GiveSpectralIndexMap(self, CellSizeRad=1., GaussPars=[(1, 1, 0)], DoConv=True, MaxSpi=100, MaxDR=1e+6,
+                             threshold=None):
+        dFreq = 1e6
+        # f0=self.DicoSMStacked["AllFreqs"].min()
+        # f1=self.DicoSMStacked["AllFreqs"].max()
+        RefFreq = self.DicoSMStacked["RefFreq"]
+        f0 = RefFreq / 1.5
+        f1 = RefFreq * 1.5
 
-        try:
-            # Fit the alpha map
-            self.FreqMachine.FitAlphaMap(IM,
-                                         threshold=threshold)  # should set threshold based on SNR of final residual
+        M0 = self.GiveModelImage(f0)
+        M1 = self.GiveModelImage(f1)
+        if DoConv:
+            # M0=ModFFTW.ConvolveGaussian(M0,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
+            # M1=ModFFTW.ConvolveGaussian(M1,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
+            # M0,_=ModFFTW.ConvolveGaussianWrapper(M0,Sig=GaussPars[0][0]/CellSizeRad)
+            # M1,_=ModFFTW.ConvolveGaussianWrapper(M1,Sig=GaussPars[0][0]/CellSizeRad)
+            M0, _ = ModFFTW.ConvolveGaussianScipy(M0, Sig=GaussPars[0][0] / CellSizeRad)
+            M1, _ = ModFFTW.ConvolveGaussianScipy(M1, Sig=GaussPars[0][0] / CellSizeRad)
 
-            if save_dict:
-                FileName = self.GD['Output']['Name'] + ".Dicoalpha"
-                print>> log, "Saving componentwise SPI map to %s" % FileName
+        # print M0.shape,M1.shape
+        # compute threshold for alpha computation by rounding DR threshold to .1 digits (i.e. 1.65e-6 rounds to 1.7e-6)
+        if threshold is not None:
+            minmod = threshold
+        elif not np.all(M0 == 0):
+            minmod = float("%.1e" % (np.max(np.abs(M0)) / MaxDR))
+        else:
+            minmod = 1e-6
 
-                MyPickle.Save(self.FreqMachine.alpha_dict, FileName)
+        # mask out pixels above threshold
+        mask = (M1 < minmod) | (M0 < minmod)
+        print>> log, "computing alpha map for model pixels above %.1e Jy (based on max DR setting of %g)" % (
+        minmod, MaxDR)
+        M0[mask] = minmod
+        M1[mask] = minmod
+        # with np.errstate(invalid='ignore'):
+        #    alpha = (np.log(M0)-np.log(M1))/(np.log(f0/f1))
+        # print
+        # print np.min(M0),np.min(M1),minmod
+        # print
+        alpha = (np.log(M0) - np.log(M1)) / (np.log(f0 / f1))
+        alpha[mask] = 0
 
-            return self.FreqMachine.weighted_alpha_map.reshape((1, 1, Nx, Ny))
-        except:
-            return np.zeros((1, 1, Nx, Ny))
+        # mask out |alpha|>MaxSpi. These are not physically meaningful anyway
+        mask = alpha > MaxSpi
+        alpha[mask] = MaxSpi
+        masked = mask.any()
+        mask = alpha < -MaxSpi
+        alpha[mask] = -MaxSpi
+        if masked or mask.any():
+            print>> log, ModColor.Str("WARNING: some alpha pixels outside +/-%g. Masking them." % MaxSpi, col="red")
+        return alpha
+
+    def GiveNewSpectralIndexMap(self, GaussPars=[(1, 1, 0)], ResidCube=None, GiveComponents=False):
+
+        # convert to radians
+        ex, ey, pa = GaussPars
+        ex *= np.pi/180
+        ey *= np.pi/180
+        pa *= np.pi/180
+
+        # get in terms of number of cells
+        CellSizeRad = self.GD['Image']['Cell'] * np.pi / 648000
+        # ex /= self.GD['Image']['Cell'] * np.pi / 648000
+        # ey /= self.GD['Image']['Cell'] * np.pi / 648000
+
+        # get Gaussian kernel
+        GaussKern = ModFFTW.GiveGauss(self.Npix, CellSizeRad=CellSizeRad, GaussPars=(ex, ey, pa), parallel=False)
+        # normalise
+        # GaussKern /= np.sum(GaussKern.flatten())
+        # take FT
+        Fs = np.fft.fftshift
+        iFs = np.fft.ifftshift
+        npad = self.ScaleMachine.Npad
+        FTarray = self.ScaleMachine.FTMachine.xhatim.view()
+        FTarray[...] = iFs(np.pad(GaussKern[None, None], ((0, 0), (0, 0), (npad, npad), (npad, npad)),
+                             mode='constant'), axes=(2, 3))
+        # this puts the FT in FTarray
+        self.ScaleMachine.FTMachine.FFTim()
+        # need to copy since FTarray and FTcube are views to the same array
+        FTkernel = FTarray.copy()
+
+        # evaluate model
+        ModelImage = self.GiveModelImage(self.GridFreqs)
+
+        # pad and take FT
+        FTcube = self.ScaleMachine.FTMachine.Chatim.view()
+        FTcube[...] = iFs(np.pad(ModelImage, ((0, 0), (0, 0), (npad, npad), (npad, npad)),
+                                 mode='constant'), axes=(2, 3))
+        self.ScaleMachine.FTMachine.CFFTim()
+
+        # multiply by kernel
+        FTcube *= FTkernel
+
+        # take iFT
+        self.ScaleMachine.FTMachine.iCFFTim()
+
+        I = slice(npad, -npad)
+
+        ConvModelImage = Fs(FTcube, axes=(2,3))[:, :, I, I].real
+
+        if ResidCube is not None:
+            ConvModelImage += ResidCube
+
+        ConvModelImage = ConvModelImage.squeeze()
+
+        RMS = np.std(ResidCube.flatten())
+        Threshold = self.GD["SPIMaps"]["AlphaThreshold"] * RMS
+
+        # get minimum along any freq axis
+        MinImage = np.amin(ConvModelImage, axis=0)
+        MaskIndices = np.argwhere(MinImage > Threshold)
+        FitCube = ConvModelImage[:, MaskIndices[:, 0], MaskIndices[:, 1]]
+
+        alpha, varalpha, Iref, varIref = self.FreqMachine.FitSPIComponents(FitCube, self.GridFreqs, self.RefFreq)
+
+        _, _, nx, ny = ModelImage.shape
+        alphamap = np.zeros([nx, ny])
+        Irefmap = np.zeros([nx, ny])
+        alphastdmap = np.zeros([nx, ny])
+        Irefstdmap = np.zeros([nx, ny])
+
+        alphamap[MaskIndices[:, 0], MaskIndices[:, 1]] = alpha
+        Irefmap[MaskIndices[:, 0], MaskIndices[:, 1]] = Iref
+        alphastdmap[MaskIndices[:, 0], MaskIndices[:, 1]] = np.sqrt(varalpha)
+        Irefstdmap[MaskIndices[:, 0], MaskIndices[:, 1]] = np.sqrt(varIref)
+
+        # import matplotlib.pyplot as plt
+        # listmaps = [alphamap, alphastdmap, Irefmap, Irefstdmap]
+        # for i in xrange(4):
+        #     plt.imshow(listmaps[i])
+        #     plt.colorbar()
+        #     plt.show()
+        #
+        # import sys
+        # sys.exit(0)
+        if GiveComponents:
+            return alphamap[None, None], alphastdmap[None, None], alpha
+        else:
+            return alphamap[None, None], alphastdmap[None, None]
 
     def PutBackSubsComps(self):
         # if self.GD["Data"]["RestoreDico"] is None: return

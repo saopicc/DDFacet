@@ -490,8 +490,15 @@ class FFTW_Manager(object):
         # set wisdom for facet sized FFTs
         TypeKey = (self.nchan, self.NpixPaddedPSF, np.complex64)
         if TypeKey not in self.WisdomTypes:
-            HasTouchedWisdomFile = True
+            self.HasTouchedWisdomFile = True
             self.WisdomTypes.append(TypeKey)
+
+        # set wisdom for 2*Facet size FFT
+        TypeKey = (self.nchan, self.NpixPSFSubtract, np.complex64)
+        if TypeKey not in self.WisdomTypes:
+            self.HasTouchedWisdomFile = True
+            self.WisdomTypes.append(TypeKey)
+
         self.FFTW_Wisdom = pyfftw.export_wisdom()
         DictWisdom = {"Wisdom": self.FFTW_Wisdom,
                       "WisdomTypes": self.WisdomTypes}
