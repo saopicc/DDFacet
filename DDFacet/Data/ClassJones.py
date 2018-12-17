@@ -404,7 +404,7 @@ class ClassJones():
             print>>log,"  No frequency domains informations..."
             VisToJonesChanMapping = np.zeros((self.MS.NSPWChan,), np.int32)
 
-        print>>log,(G.shape,FreqDomains.shape,VisToJonesChanMapping )
+        #print>>log,(G.shape,FreqDomains.shape,VisToJonesChanMapping )
 
         self.BeamTimes_kMS = DicoSolsFile["BeamTimes"]
 
