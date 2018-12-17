@@ -20,9 +20,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 """
 import numpy as np
 from killMS.Array import ModLinAlg
-from killMS.Other import MyLogger
-log=MyLogger.getLogger("ClassJonesDomains")
 
+from DDFacet.Other import MyLogger
+log = MyLogger.getLogger("ClassJonesDomains")
 
 
 class ClassJonesDomains():

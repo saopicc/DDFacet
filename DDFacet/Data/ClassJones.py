@@ -325,20 +325,27 @@ class ClassJones():
                              ]*len(GD["DDESolutions"]["DDSols"])
 
         ListDicoSols = []
-
+        isol=0
         for File, ThisGlobalMode, ThisJonesMode in zip(
                 SolsFileList, GlobalNormList, JonesNormList):
-
             
             DicoClusterDirs, DicoSols, VisToJonesChanMapping = self.GiveKillMSSols_SingleFile(
                 File, GlobalMode=ThisGlobalMode, JonesMode=ThisJonesMode)
             print>>log, "  VisToJonesChanMapping: %s" % str(VisToJonesChanMapping)
             ListDicoSols.append(DicoSols)
+            #if isol==1: stop
+            #isol+=1
 
         DicoJones = ListDicoSols[0]
+        # DicoJones["Jones"][...,0,0]=1
+        # DicoJones["Jones"][...,1,0]=0
+        # DicoJones["Jones"][...,0,1]=0
+        # DicoJones["Jones"][...,1,1]=1
         for DicoJones1 in ListDicoSols[1::]:
             DicoJones = self.MergeJones(DicoJones1, DicoJones)
-
+            VisToJonesChanMapping = self.GiveVisToJonesChanMapping(DicoJones["FreqDomains"])
+            print>>log, "  VisToJonesChanMapping: %s" % str(VisToJonesChanMapping)
+        #stop
         DicoJones["VisToJonesChanMapping"] = VisToJonesChanMapping
 
 
@@ -371,8 +378,14 @@ class ClassJones():
         DicoSols["tm"] = (Sols.t1+Sols.t0)/2.
 
         if "MaskedSols" in DicoSolsFile.keys():
+            m0=np.bool8(DicoSolsFile["MaskedSols"][0,:,0,0,0,0])
             m=np.bool8(1-DicoSolsFile["MaskedSols"][0,:,0,0,0,0])
-            GSel=Sols.G[:,m,:,:,:,:]
+            # GSel=Sols.G[:,m,:,:,:,:]
+            GSel=Sols.G
+            GSel[:,m0,:,:,0,0]=1
+            GSel[:,m0,:,:,0,1]=0
+            GSel[:,m0,:,:,1,0]=0
+            GSel[:,m0,:,:,1,1]=1
         else:
             m=slice(None)
             GSel=Sols.G
@@ -384,12 +397,14 @@ class ClassJones():
         if "FreqDomains" in DicoSolsFile.keys():
             print>>log,"  Getting Jones frequency domains from solutions file"
             FreqDomains = DicoSolsFile["FreqDomains"]
-            FreqDomains = FreqDomains[m,:]
+            # FreqDomains = FreqDomains[m,:]
             VisToJonesChanMapping = self.GiveVisToJonesChanMapping(FreqDomains)
             DicoSols["FreqDomains"]=FreqDomains
         else:
             print>>log,"  No frequency domains informations..."
             VisToJonesChanMapping = np.zeros((self.MS.NSPWChan,), np.int32)
+
+        print>>log,(G.shape,FreqDomains.shape,VisToJonesChanMapping )
 
         self.BeamTimes_kMS = DicoSolsFile["BeamTimes"]
 
@@ -620,6 +635,7 @@ class ClassJones():
         # G=Gc
 
         DicoSols["Jones"] = G
+        #print G[:,:,:,VisToJonesChanMapping,:,:]
 
         return DicoClusterDirs, DicoSols, VisToJonesChanMapping
 
@@ -694,8 +710,11 @@ class ClassJones():
     def GiveVisToJonesChanMapping(self, FreqDomains):
         NChanJones = FreqDomains.shape[0]
         MeanFreqJonesChan = (FreqDomains[:, 0]+FreqDomains[:, 1])/2.
+        #print NChanJones,MeanFreqJonesChan 
         DFreq = np.abs(self.MS.ChanFreq.reshape(
             (self.MS.NSPWChan, 1))-MeanFreqJonesChan.reshape((1, NChanJones)))
+        #print np.argmin(DFreq, axis=1)
+
         return np.argmin(DFreq, axis=1)
 
     def EstimateBeam(self, TimesBeam, RA, DEC,progressBar=True, quiet=False):
@@ -762,6 +781,7 @@ class ClassJones():
         import DDFacet.Other.ClassJonesDomains
         DomainMachine=DDFacet.Other.ClassJonesDomains.ClassJonesDomains()
         JonesSols=DomainMachine.MergeJones(DicoJ0, DicoJ1)
+        print>>log, "There are %i channels in the merged Jones array"%JonesSols["FreqDomains"].shape[0]
         return JonesSols
     
         T0 = DicoJ0["t0"][0]
