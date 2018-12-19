@@ -116,3 +116,12 @@ target/
 
 #FITS
 *.fits
+
+#Microsoft Visual Studio Project Files
+.vscode
+
+#DDFacet output
+*.Dico*
+*.NodesCat.npy
+*.facetCoord*
+*.reg
