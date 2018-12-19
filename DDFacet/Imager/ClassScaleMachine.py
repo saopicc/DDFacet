@@ -62,7 +62,7 @@ class Store(object):
 class ClassScaleMachine(object):
     def __init__(self, GD=None, NCPU=0, MaskArray=None):
         self.GD = GD
-        self.GD["Facets"]["Padding"] = 1.2  # shouldn't need anything bigger than this for the minor cycle
+        # self.GD["Facets"]["Padding"] = 1.2  # shouldn't need anything bigger than this for the minor cycle
         self.DoAbs = int(self.GD["Deconv"]["AllowNegative"])
         self.MaskArray = MaskArray
         self.PeakFactor = self.GD["WSCMS"]["SubMinorPeakFact"]

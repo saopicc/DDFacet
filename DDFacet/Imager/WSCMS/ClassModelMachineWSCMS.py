@@ -247,7 +247,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                     ScaleModel[:, 0, x, y] += interp
 
             ModelImage += ScaleModel
-        print "Model - ", ModelImage.max(), ModelImage.min()
+        # print "Model - ", ModelImage.max(), ModelImage.min()
         return ModelImage
 
     def GiveSpectralIndexMap(self, CellSizeRad=1., GaussPars=[(1, 1, 0)], DoConv=True, MaxSpi=100, MaxDR=1e+6,
@@ -305,18 +305,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def GiveNewSpectralIndexMap(self, GaussPars=[(1, 1, 0)], ResidCube=None,
                                 GiveComponents=False, ChannelWeights=None):
 
-        try:
-            from africanus.model.spi.dask import fit_spi_components
-            NCPU = self.GD["Parallel"]["NCPU"]
-            if NCPU:
-                from multiprocessing.pool import ThreadPool
-                import dask
-
-                dask.set_options(pool=ThreadPool(NCPU))
-        except:
-            print "Failed at importing dask version"
-            from africanus.model.spi import fit_spi_components
-
         # convert to radians
         ex, ey, pa = GaussPars
         ex *= np.pi/180
@@ -337,6 +325,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         iFs = np.fft.ifftshift
         npad = self.Npad
         FTarray = self.ScaleMachine.FTMachine.xhatim.view()
+        print
         FTarray[...] = iFs(np.pad(GaussKern[None, None], ((0, 0), (0, 0), (npad, npad), (npad, npad)),
                              mode='constant'), axes=(2, 3))
         # this puts the FT in FTarray
@@ -384,8 +373,41 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 import warnings
                 warnings.warn("The provided channel weights are of incorrect length. Ignoring weights.", RuntimeWarning)
                 weights = np.ones(self.Nchan, dtype=np.float32)
-        alpha, varalpha, Iref, varIref = fit_spi_components(FitCube, weights, self.GridFreqs.astype(np.float32),
-                                                            np.float32(self.RefFreq), dtype=np.float32)
+
+
+
+        try:
+            import traceback
+            from africanus.model.spi.dask import fit_spi_components
+            NCPU = self.GD["Parallel"]["NCPU"]
+            if NCPU:
+                from multiprocessing.pool import ThreadPool
+                import dask
+
+                dask.config.set(pool=ThreadPool(NCPU))
+            else:
+                import multiprocessing
+                NCPU = multiprocessing.cpu_count()
+
+            import dask.array as da
+            _, ncomps = FitCube.shape
+            FitCubeDask = da.from_array(FitCube.T.astype(np.float64), chunks=(ncomps//NCPU, self.Nchan))
+            weightsDask = da.from_array(weights.astype(np.float64), chunks=(self.Nchan))
+            freqsDask = da.from_array(self.GridFreqs.astype(np.float64), chunks=(self.Nchan))
+
+            alpha, varalpha, Iref, varIref = fit_spi_components(FitCubeDask, weightsDask,
+                                                                freqsDask, self.RefFreq,
+                                                                dtype=np.float64).compute()
+        except Exception as e:
+            traceback_str = traceback.format_exc(e)
+            print>>log, "Warning - Failed at importing dask version. Original traceback - ", traceback_str
+            from africanus.model.spi import fit_spi_components
+            alpha, varalpha, Iref, varIref = fit_spi_components(FitCube.T.astype(np.float64),
+                                                                weights.astype(np.float64),
+                                                                self.GridFreqs.astype(np.float64),
+                                                                self.RefFreq, dtype=np.float64)
+
+
 
         alpha2, varalpha2, Iref2, varIref2 = self.FreqMachine.FitSPIComponents(FitCube, self.GridFreqs, self.RefFreq)
 
@@ -465,7 +487,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             # of elements exceeds the pre-set maximum in --WSCMS-CacheSize
             self.CurrentGain = self.ScaleMachine.give_gain(iFacet, iScale)
 
-            print "Scale = ", self.CurrentScale, " gain = ", self.CurrentGain
+            # print "Scale = ", self.CurrentScale, " gain = ", self.CurrentGain
 
             # twice convolve PSF with scale if not delta scale
             if not iScale:

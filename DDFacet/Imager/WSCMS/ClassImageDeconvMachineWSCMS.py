@@ -503,11 +503,16 @@ class ClassImageDeconvMachine():
                             # Note this logic assumes square facets!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
                             # get location of facet center
                             xc, yc = self.DicoVariablePSF["Facets"][iFacet]["pixCentral"]
-                            # LB - why is the -1 necessary here?
-                            xc -=1
-                            yc -=1
+                            # xl, xu, yl, yu = self.DicoVariablePSF["FacetInfo"][iFacet]["pixExtent"]
+                            # LB - why is the -1 necessary here when Nfacets = 1
                             LocalSM = ScaleModel[:, :, xc-self.NpixFacet//2:xc+self.NpixFacet//2 + 1,
                                                  yc-self.NpixFacet//2:yc+self.NpixFacet//2 + 1]
+
+                            # print "iFacet = ", iFacet
+                            # print "(xc, yc) = ", (xc, yc)
+                            # print "x indices = ", xl, xu
+                            # print "y indices = ", yl, yu
+                            # print "NpixFacet = ", self.DicoVariablePSF["FacetInfo"][iFacet]["NpixFacet"], xu - xl, yu-yl
 
                             # convolve local sky model with PSF
                             if (LocalSM > 1e-8).any():
@@ -521,6 +526,9 @@ class ClassImageDeconvMachine():
 
                                 # subtract facet model
                                 self.SubStep((xc, yc), SM)
+
+                        # import sys
+                        # sys.exit(0)
 
                 else:  # TODO - remove this and advise users to use Hogbom for SS clean
                     # Get the JonesNorm
