@@ -1133,7 +1133,8 @@ class ClassImagerDeconv():
 
             self.DeconvMachine.Update(self.DicoDirty)
 
-            repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
+            repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve(FacetMachine=self.FacetMachine,
+                                                                                    BaseName=self.BaseName)
             try:
                 self.FacetMachine.ToCasaImage(self.DeconvMachine.LabelIslandsImage,
                                               ImageName="%s.labelIslands%2.2i"%(self.BaseName,iMajor),Fits=True,

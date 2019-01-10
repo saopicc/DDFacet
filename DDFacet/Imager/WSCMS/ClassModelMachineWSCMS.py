@@ -101,11 +101,12 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
 
             self.DicoSMStacked["Scale_Info"] = {}
-            for i, sigma in enumerate(self.ScaleMachine.sigmas):
-                if sigma not in self.DicoSMStacked["Scale_Info"].keys():
-                    self.DicoSMStacked["Scale_Info"][sigma] = {}
-                self.DicoSMStacked["Scale_Info"][sigma]["kernel"] = self.ScaleMachine.kernels[i]
-                self.DicoSMStacked["Scale_Info"][sigma]["extent"] = self.ScaleMachine.extents[i]
+            for iScale, sigma in enumerate(self.ScaleMachine.sigmas):
+                if iScale not in self.DicoSMStacked["Scale_Info"].keys():
+                    self.DicoSMStacked["Scale_Info"][iScale] = {}
+                self.DicoSMStacked["Scale_Info"][iScale]["sigma"] = self.ScaleMachine.sigmas[iScale]
+                self.DicoSMStacked["Scale_Info"][iScale]["kernel"] = self.ScaleMachine.kernels[iScale]
+                self.DicoSMStacked["Scale_Info"][iScale]["extent"] = self.ScaleMachine.extents[iScale]
 
         else:
             # we need to keep track of what the sigma value of the delta scale corresponds to
@@ -145,7 +146,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.ModelShape = ModelShape
         self.Npix = self.ModelShape[-1]
 
-    def AppendComponentToDictStacked(self, key, Sols, Scale, Gain):
+    def AppendComponentToDictStacked(self, key, Sols, iScale, Gain):
         """
         Adds component to model dictionary at a scale specified by Scale. 
         The dictionary corresponding to each scale is keyed on pixel values (l,m location tupple). 
@@ -168,16 +169,16 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         """
         DicoComp = self.DicoSMStacked.setdefault("Comp", {})
 
-        if Scale not in DicoComp.keys():
-            DicoComp[Scale] = {}
+        if iScale not in DicoComp.keys():
+            DicoComp[iScale] = {}
+            DicoComp[iScale]["NumComps"] = np.zeros(1, np.int16)  # keeps track of number of components at this scale
 
-        if key not in DicoComp[Scale].keys():
-            DicoComp[Scale][key] = {}
-            DicoComp[Scale][key]["SolsArray"] = np.zeros(Sols.size, np.float32)
-            DicoComp[Scale][key]["NumComps"] = np.zeros(1, np.float32)
+        if key not in DicoComp[iScale].keys():
+            DicoComp[iScale][key] = {}
+            DicoComp[iScale][key]["SolsArray"] = np.zeros(Sols.size, np.float32)
 
-        DicoComp[Scale][key]["NumComps"] += 1
-        DicoComp[Scale][key]["SolsArray"] += Sols.ravel() * Gain
+        DicoComp[iScale]["NumComps"] += 1
+        DicoComp[iScale][key]["SolsArray"] += Sols.ravel() * Gain
 
     def GiveModelImage(self, FreqIn=None, out=None):
         RefFreq=self.DicoSMStacked["RefFreq"]
@@ -199,52 +200,51 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         else:
             ModelImage = np.zeros((nchan,npol,nx,ny),dtype=np.float32)
 
-        # get the zero scale
-        try:
-            zero_scale = self.ScaleMachine.sigmas[0]
-        except:
-            zero_scale = self.ListScales[0]
+        # # get the zero scale
+        # try:
+        #     zero_scale = self.ScaleMachine.sigmas[0]
+        # except:
+        #     zero_scale = self.ListScales[0]
 
-        for scale in DicoComp.keys():
+        for iScale in DicoComp.keys():
             # Note here we are building a spectral cube delta function representation first and then convolving by
             # the scale at the end
             ScaleModel = np.zeros((nchan, npol, nx, ny), dtype=np.float32)
-            # get the extent of the Gaussian
-            # I = np.argwhere(scale == self.ScaleMachine.sigmas).squeeze()
-            # extent = self.ScaleMachine.extents[I]
+            # get scale kernel
             if self.GD["WSCMS"]["MultiScale"]:
-                kernel = self.DicoSMStacked["Scale_Info"][scale]["kernel"]
-                extent = self.DicoSMStacked["Scale_Info"][scale]["extent"]
+                sigma = self.DicoSMStacked["Scale_Info"][iScale]["sigma"]
+                kernel = self.DicoSMStacked["Scale_Info"][iScale]["kernel"]
+                extent = self.DicoSMStacked["Scale_Info"][iScale]["extent"]
 
-            for key in DicoComp[scale].keys():
-                Sol = DicoComp[scale][key]["SolsArray"]
-                # TODO - try soft thresholding components
-                x, y = key
-
-                try:  # LB - Should we drop support for anything other than polynomials maybe?
-                    interp = self.FreqMachine.Eval_Degrid(Sol, FreqIn)
-                except:
-                    interp = np.polyval(Sol[::-1], FreqIn/RefFreq)
-
-                if interp is None:
-                    raise RuntimeError("Could not interpolate model onto degridding bands. Inspect your data, check "
-                                       "'WSCMS-NumFreqBasisFuncs' or if you think this is a bug report it.")
-
-                if self.GD["WSCMS"]["MultiScale"] and scale != zero_scale:
-                    Aedge, Bedge = GiveEdges((x, y), nx, (extent // 2, extent // 2), extent)
-
-                    x0d, x1d, y0d, y1d = Aedge
-                    x0p, x1p, y0p, y1p = Bedge
-                    try:
-                        out = np.atleast_1d(interp)[:, None, None, None] * kernel
-                        ScaleModel[:, :, x0d:x1d, y0d:y1d] += out[:, :, x0p:x1p, y0p:y1p]
+            for key in DicoComp[iScale].keys():
+                if key != "NumComps":
+                    Sol = DicoComp[iScale][key]["SolsArray"]
+                    # TODO - try soft thresholding components
+                    x, y = key
+                    try:  # LB - Should we drop support for anything other than polynomials maybe?
+                        interp = self.FreqMachine.Eval_Degrid(Sol, FreqIn)
                     except:
-                        x -= nx // 2
-                        y -= ny // 2
-                        ScaleModel += GaussianSymmetric(scale, nx, x0=x or None,
-                                                        y0=y or None, amp=interp, cube=True)
-                else:
-                    ScaleModel[:, 0, x, y] += interp
+                        interp = np.polyval(Sol[::-1], FreqIn/RefFreq)
+
+                    if interp is None:
+                        raise RuntimeError("Could not interpolate model onto degridding bands. Inspect your data, check "
+                                           "'WSCMS-NumFreqBasisFuncs' or if you think this is a bug report it.")
+
+                    if self.GD["WSCMS"]["MultiScale"] and iScale != 0:
+                        Aedge, Bedge = GiveEdges((x, y), nx, (extent // 2, extent // 2), extent)
+
+                        x0d, x1d, y0d, y1d = Aedge
+                        x0p, x1p, y0p, y1p = Bedge
+                        try:
+                            out = np.atleast_1d(interp)[:, None, None, None] * kernel
+                            ScaleModel[:, :, x0d:x1d, y0d:y1d] += out[:, :, x0p:x1p, y0p:y1p]
+                        except:
+                            x -= nx // 2
+                            y -= ny // 2
+                            ScaleModel += GaussianSymmetric(sigma, nx, x0=x or None,
+                                                            y0=y or None, amp=interp, cube=True)
+                    else:
+                        ScaleModel[:, 0, x, y] += interp
 
             ModelImage += ScaleModel
         # print "Model - ", ModelImage.max(), ModelImage.min()
@@ -626,7 +626,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             # Overwrite with polynoimial fit (Fpol is apparent flux)
             Fpol[:, 0, 0, 0] = self.FreqMachine.Eval(self.Coeffs)
 
-            self.AppendComponentToDictStacked((xscale, yscale), self.Coeffs / self.FpolNormFactor, sigma, self.CurrentGain)
+            self.AppendComponentToDictStacked((xscale, yscale), self.Coeffs / self.FpolNormFactor, self.CurrentScale,
+                                              self.CurrentGain)
 
             # Keep track of apparent model components (this is for subtraction in the upper minor loop, not relevant if
             # its the delta scale)
