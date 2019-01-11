@@ -1065,8 +1065,13 @@ class ClassImagerDeconv():
         # This just keeps track of padded grid size for use in Hogbom-MultiScale (Can just use DicoImager instead? Is it passed in anywhere?)
         if self.GD["Deconv"]["Mode"] == "WSCMS":
             self.DicoImagesPSF["PaddedPSFInfo"] = {}
+            # self.DicoImagesPSF["CFs"] = {}
+            # self.DicoImagesPSF["CFs"]["SW"] = {}
+            # self.DicoImagesPSF["CFs"]["InvSphe"] = {}
             for iFacet in self.FacetMachinePSF.DicoImager.keys():
                 self.DicoImagesPSF["PaddedPSFInfo"][iFacet] = self.FacetMachinePSF.DicoImager[iFacet]["NpixFacetPadded"]
+                # self.DicoImagesPSF["CFs"]["SW"][iFacet] = self.FacetMachinePSF._CF[iFacet]["SW"].copy()
+                # self.DicoImagesPSF["CFs"]["InvSphe"][iFacet] = self.FacetMachinePSF._CF[iFacet]["InvSphe"].copy()
 
 
         # if we reached a sparsification of 1, we shan't be re-making the PSF

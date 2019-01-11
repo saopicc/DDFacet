@@ -384,21 +384,35 @@ class ClassImageDeconvMachine():
                       yc - self.NpixFacet // 2:yc + self.NpixFacet // 2 + 1]
 
             print "iFacet = ", iFacet, ix, iy
-            print "(xc, yc) = ", (xc, yc)
-            print "x indices = ", xl, xu
-            print "y indices = ", yl, yu
-            print "NpixFacet = ", self.NpixFacet, xu - xl, yu-yl
+            # print "(xc, yc) = ", (xc, yc)
+            # print "x indices = ", xl, xu
+            # print "y indices = ", yl, yu
+            # print "NpixFacet = ", self.NpixFacet, xu - xl, yu-yl
 
             # convolve local sky model with PSF
             SM = self.ModelMachine.ScaleMachine.SMConvolvePSF(iFacet, LocalSM)
 
-            # print "Local Sm - ", SM.max(), SM.min()
+            # CF = np.load('/home/landman/Projects/Data/MS_dir/ddfacet_test_data/WSCMS_MinorSubtract_TestSuite/MSMF.MS_p0.F0.D0.ddfcache/CFPSF/' + str(iFacet) + '.npz')
+            # print CF["SW"].shape, CF["InvSphe"].shape, SM.shape, self.NpixFacet
+            #
+            # _, _, NpixSM, _  = SM.shape
+            # NpixCF, _ = CF["SW"].shape  # LB - why are the convolution functions so big?
+            # Aedge, Bedge = GiveEdges((NpixSM//2, NpixSM//2), NpixSM, (NpixCF//2, NpixCF//2), NpixCF)
+            # x0facet, x1facet, y0facet, y1facet = Bedge
+            # SW = CF["SW"][None, None, x0facet:x1facet, y0facet:y1facet]
+            # InvSphe = CF["InvSphe"][None, None, x0facet:x1facet, y0facet:y1facet]
+
+            # import matplotlib.pyplot as plt
+            #
+            # plt.imshow(SW[0,0] * InvSphe[0,0])
+            # plt.show()
 
             _, _, ntmp, _ = SM.shape
             if ntmp < 2 * self.NpixFacet:
                 print "Warning - your LocalSM is too small"
 
             # subtract facet model
+            # self.SubStep((xc, yc), SM * SW * InvSphe)
             self.SubStep((xc, yc), SM)
 
 
@@ -487,12 +501,15 @@ class ClassImageDeconvMachine():
                 DicoTest = cPickle.load(open(self.GD["WSCMS"]["TestDico"], "rb"))
                 self.ModelMachine.DicoSMStacked = DicoTest
                 ScaleModel = self.ModelMachine.GiveModelImage(self.Freqs)
+                self.FacetMachine = kwargs["FacetMachine"]
                 self.DoSubtract(ScaleModel)
 
                 # write out the residual image
                 kwargs["FacetMachine"].ToCasaImage(self.DicoDirty["ImageCube"],
-                                              ImageName="%s.MinorSubtract"%(kwargs["BaseName"]),Fits=True)
-                                              # Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                                                   ImageName="%s.MinorSubtract"%(kwargs["BaseName"]),
+                                                   Freqs=self.Freqs,
+                                                   Fits=True)
+                                                   # Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
                 x, y, ThisFlux = NpParallel.A_whereMax(self._MeanDirty, NCPU=self.NCPU, DoAbs=DoAbs,
                                                        Mask=self.MaskArray)

@@ -1245,6 +1245,9 @@ class ClassFacetMachine():
             SpacialWeigth = self._CF[iFacet]["SW"].T[::-1, :]
 
             xc, yc = self.DicoImager[iFacet]["pixCentral"]
+            # xc -= 1
+            # yc -= 1
+            # print xc, yc
             NpixFacet = self.DicoGridMachine[iFacet]["Dirty"][0].shape[2]
 
 
