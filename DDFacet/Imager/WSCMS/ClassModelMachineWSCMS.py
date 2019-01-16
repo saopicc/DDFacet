@@ -250,59 +250,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # print "Model - ", ModelImage.max(), ModelImage.min()
         return ModelImage
 
-    def GiveSpectralIndexMap(self, CellSizeRad=1., GaussPars=[(1, 1, 0)], DoConv=True, MaxSpi=100, MaxDR=1e+6,
-                             threshold=None):
-        dFreq = 1e6
-        # f0=self.DicoSMStacked["AllFreqs"].min()
-        # f1=self.DicoSMStacked["AllFreqs"].max()
-        RefFreq = self.DicoSMStacked["RefFreq"]
-        f0 = RefFreq / 1.5
-        f1 = RefFreq * 1.5
-
-        M0 = self.GiveModelImage(f0)
-        M1 = self.GiveModelImage(f1)
-        if DoConv:
-            # M0=ModFFTW.ConvolveGaussian(M0,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
-            # M1=ModFFTW.ConvolveGaussian(M1,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
-            # M0,_=ModFFTW.ConvolveGaussianWrapper(M0,Sig=GaussPars[0][0]/CellSizeRad)
-            # M1,_=ModFFTW.ConvolveGaussianWrapper(M1,Sig=GaussPars[0][0]/CellSizeRad)
-            M0, _ = ModFFTW.ConvolveGaussianScipy(M0, Sig=GaussPars[0][0] / CellSizeRad)
-            M1, _ = ModFFTW.ConvolveGaussianScipy(M1, Sig=GaussPars[0][0] / CellSizeRad)
-
-        # print M0.shape,M1.shape
-        # compute threshold for alpha computation by rounding DR threshold to .1 digits (i.e. 1.65e-6 rounds to 1.7e-6)
-        if threshold is not None:
-            minmod = threshold
-        elif not np.all(M0 == 0):
-            minmod = float("%.1e" % (np.max(np.abs(M0)) / MaxDR))
-        else:
-            minmod = 1e-6
-
-        # mask out pixels above threshold
-        mask = (M1 < minmod) | (M0 < minmod)
-        print>> log, "computing alpha map for model pixels above %.1e Jy (based on max DR setting of %g)" % (
-        minmod, MaxDR)
-        M0[mask] = minmod
-        M1[mask] = minmod
-        # with np.errstate(invalid='ignore'):
-        #    alpha = (np.log(M0)-np.log(M1))/(np.log(f0/f1))
-        # print
-        # print np.min(M0),np.min(M1),minmod
-        # print
-        alpha = (np.log(M0) - np.log(M1)) / (np.log(f0 / f1))
-        alpha[mask] = 0
-
-        # mask out |alpha|>MaxSpi. These are not physically meaningful anyway
-        mask = alpha > MaxSpi
-        alpha[mask] = MaxSpi
-        masked = mask.any()
-        mask = alpha < -MaxSpi
-        alpha[mask] = -MaxSpi
-        if masked or mask.any():
-            print>> log, ModColor.Str("WARNING: some alpha pixels outside +/-%g. Masking them." % MaxSpi, col="red")
-        return alpha
-
-    def GiveNewSpectralIndexMap(self, GaussPars=[(1, 1, 0)], ResidCube=None,
+    def GiveSpectralIndexMap(self, GaussPars=[(1, 1, 0)], ResidCube=None,
                                 GiveComponents=False, ChannelWeights=None):
 
         # convert to radians
@@ -400,16 +348,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                                                                 dtype=np.float64).compute()
         except Exception as e:
             traceback_str = traceback.format_exc(e)
-            print>>log, "Warning - Failed at importing dask version. Original traceback - ", traceback_str
-            from africanus.model.spi import fit_spi_components
-            alpha, varalpha, Iref, varIref = fit_spi_components(FitCube.T.astype(np.float64),
-                                                                weights.astype(np.float64),
-                                                                self.GridFreqs.astype(np.float64),
-                                                                self.RefFreq, dtype=np.float64)
-
-
-
-        alpha2, varalpha2, Iref2, varIref2 = self.FreqMachine.FitSPIComponents(FitCube, self.GridFreqs, self.RefFreq)
+            print>>log, "Warning - Failed at importing africanus spi fitter. This could be an issue with the dask " \
+                        "version. Falling back to (slow) scipy version"
+            print>>log, "Original traceback - ", traceback_str
+            alpha, varalpha, Iref, varIref = self.FreqMachine.FitSPIComponents(FitCube, self.GridFreqs, self.RefFreq)
 
         _, _, nx, ny = ModelImage.shape
         alphamap = np.zeros([nx, ny])
@@ -421,30 +363,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         Irefmap[MaskIndices[:, 0], MaskIndices[:, 1]] = Iref
         alphastdmap[MaskIndices[:, 0], MaskIndices[:, 1]] = np.sqrt(varalpha)
         Irefstdmap[MaskIndices[:, 0], MaskIndices[:, 1]] = np.sqrt(varIref)
-
-        alphamap2 = np.zeros([nx, ny])
-        Irefmap2 = np.zeros([nx, ny])
-        alphastdmap2 = np.zeros([nx, ny])
-        Irefstdmap2 = np.zeros([nx, ny])
-
-        alphamap2[MaskIndices[:, 0], MaskIndices[:, 1]] = alpha2
-        Irefmap2[MaskIndices[:, 0], MaskIndices[:, 1]] = Iref2
-        alphastdmap2[MaskIndices[:, 0], MaskIndices[:, 1]] = np.sqrt(varalpha2)
-        Irefstdmap2[MaskIndices[:, 0], MaskIndices[:, 1]] = np.sqrt(varIref2)
-
-        import matplotlib.pyplot as plt
-        listmaps = [alphamap, alphastdmap, Irefmap, Irefstdmap]
-        listmaps2 = [alphamap2, alphastdmap2, Irefmap2, Irefstdmap2]
-        for i in xrange(4):
-            fig, ax = plt.subplots(nrows=1, ncols=2)
-            im = ax[0].imshow(listmaps[i])
-            fig.colorbar(im, ax=ax[0])
-            im = ax[1].imshow(listmaps2[i])
-            fig.colorbar(im, ax=ax[1])
-            plt.show()
-
-        # import sys
-        # sys.exit(0)
 
         if GiveComponents:
             return alphamap[None, None], alphastdmap[None, None], alpha

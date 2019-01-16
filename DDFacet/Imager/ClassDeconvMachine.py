@@ -2002,23 +2002,16 @@ class ClassImagerDeconv():
         def alphamap():
             if 'alphamap' not in _images:
                 _images.addSharedArray('alphamap', intmodel().shape, np.float32)
-                
-                # ##############################
-                # # Reverting for issue458
-                #_images[label] = ModelMachine.FreqMachine.alpha_map.reshape(intmodel().shape)
-                if self.GD["Deconv"]["Mode"] == "WSCMS" or self.GD["Deconv"]["Mode"] == "Hogbom":
-                    if self.GD["SPIMaps"]["Mode"] == "rapid":
-                        _images['alphamap'] = ModelMachine.GiveSpectralIndexMap()
-                    else:
-                        if "alphastdmap" not in _images:
-                            _images.addSharedArray("alphastdmap", intmodel().shape, np.float32)
-                        _images['alphamap'], _images["alphastdmap"] = ModelMachine.GiveNewSpectralIndexMap(GaussPars=self.FWHMBeam[0], ResidCube=intrescube())
-                        return _images['alphamap'], _images["alphastdmap"]
-                else:
-                    _images['alphamap'] = ModelMachine.GiveSpectralIndexMap()
-                # ##############################
 
-            return _images['alphamap'], None
+            if self.GD["Deconv"]["Mode"] == "WSCMS" or self.GD["Deconv"]["Mode"] == "Hogbom":
+                if "alphastdmap" not in _images:
+                    _images.addSharedArray("alphastdmap", intmodel().shape, np.float32)
+                _images['alphamap'], _images["alphastdmap"] = ModelMachine.GiveSpectralIndexMap(GaussPars=self.FWHMBeam[0], ResidCube=intrescube())
+                return _images['alphamap'], _images["alphastdmap"]
+            else:
+                _images['alphamap'] = ModelMachine.GiveSpectralIndexMap()
+
+                return _images['alphamap'], None
 
         # norm
         if havenorm and ("S" in self._saveims or "s" in self._saveims):
@@ -2119,10 +2112,9 @@ class ClassImagerDeconv():
                 ImageName="%s.alpha" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
                 Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
             if self.GD["Deconv"]["Mode"] == "WSCMS":
-                if self.GD["SPIMaps"]["Mode"] == "snail":
-                    APP.runJob("save:alphastd", self._saveImage_worker, io=0, args=(_images.readwrite(), 'alphastdmap',), kwargs=dict(
-                        ImageName="%s.alphastd" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
-                        Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+                APP.runJob("save:alphastd", self._saveImage_worker, io=0, args=(_images.readwrite(), 'alphastdmap',), kwargs=dict(
+                    ImageName="%s.alphastd" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
+                    Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
         #  done saving images -- schedule a job to delete them all from the dict to save RAM
         APP.runJob("del:images", self._delSharedImage_worker, io=0, args=[_images.readwrite()] + list(_images.keys()))
