@@ -369,6 +369,8 @@ class ClassImageDeconvMachine():
 
             # Note this logic assumes square facets!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
             # get location of facet center
+            # LB - note these are not the same as those in FacetMachine but they give better results.
+            # The pixCentral in FacetMachine do not seem to be correct!!!
             # xc, yc = self.DicoVariablePSF["Facets"][iFacet]["pixCentral"]
             basehalf = self.NpixFacet//2
             ix = iFacet // self.GD["Facets"]["NFacets"]
@@ -379,11 +381,9 @@ class ClassImageDeconvMachine():
             xu = xc + self.NpixFacet // 2 + 1
             yl = yc - self.NpixFacet // 2
             yu = yc + self.NpixFacet // 2 + 1
-            # LB - why is the -1 necessary here when Nfacets = 1
-            LocalSM = ScaleModel[:, :, xc - self.NpixFacet // 2:xc + self.NpixFacet // 2 + 1,
-                      yc - self.NpixFacet // 2:yc + self.NpixFacet // 2 + 1]
+            LocalSM = ScaleModel[:, :, xl:xu, yl:yu]
 
-            print "iFacet = ", iFacet, ix, iy
+            # print "iFacet = ", iFacet, ix, iy
             # print "(xc, yc) = ", (xc, yc)
             # print "x indices = ", xl, xu
             # print "y indices = ", yl, yu
@@ -392,6 +392,7 @@ class ClassImageDeconvMachine():
             # convolve local sky model with PSF
             SM = self.ModelMachine.ScaleMachine.SMConvolvePSF(iFacet, LocalSM)
 
+            # TODO - figure out how to incorporate spacial weights correctly
             # CF = np.load('/home/landman/Projects/Data/MS_dir/ddfacet_test_data/WSCMS_MinorSubtract_TestSuite/MSMF.MS_p0.F0.D0.ddfcache/CFPSF/' + str(iFacet) + '.npz')
             # print CF["SW"].shape, CF["InvSphe"].shape, SM.shape, self.NpixFacet
             #
@@ -566,9 +567,8 @@ class ClassImageDeconvMachine():
                     if self.GD["WSCMS"]["MultiScale"]:
                         # Find the relevant scale and do sub-minor loop. Returns the model constructed during the
                         # sub-minor loop.
-                        # If the delta scale is found then self._Dirty and
-                        # self._MeanDirty have already had the components subtracted from them so we don't need to do
-                        # anything further.
+                        # If the delta scale is found then self._Dirty and self._MeanDirty have already had the
+                        # components subtracted from them so we don't need to do anything further.
                         ScaleModel, iScale, x, y = self.ModelMachine.do_minor_loop(x, y, self._Dirty,
                                                                                    self._MeanDirty, self._JonesNorm,
                                                                                    self.WeightsChansImages, ThisFlux,
@@ -577,39 +577,6 @@ class ClassImageDeconvMachine():
                         # convolve scale model with PSF and subtract from residual (if not delta scale)
                         if iScale:
                             self.DoSubtract(ScaleModel)
-                            # for iFacet in xrange(self.GD["Facets"]["NFacets"]**2):
-                            #     # set PSF in this facet
-                            #     self.PSFServer.setFacet(iFacet)
-                            #
-                            #     # Note this logic assumes square facets!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
-                            #     # get location of facet center
-                            #     xc, yc = self.DicoVariablePSF["Facets"][iFacet]["pixCentral"]
-                            #     # xl, xu, yl, yu = self.DicoVariablePSF["FacetInfo"][iFacet]["pixExtent"]
-                            #     # LB - why is the -1 necessary here when Nfacets = 1
-                            #     LocalSM = ScaleModel[:, :, xc-self.NpixFacet//2:xc+self.NpixFacet//2 + 1,
-                            #                          yc-self.NpixFacet//2:yc+self.NpixFacet//2 + 1]
-                            #
-                            #     # print "iFacet = ", iFacet
-                            #     # print "(xc, yc) = ", (xc, yc)
-                            #     # print "x indices = ", xl, xu
-                            #     # print "y indices = ", yl, yu
-                            #     # print "NpixFacet = ", self.DicoVariablePSF["FacetInfo"][iFacet]["NpixFacet"], xu - xl, yu-yl
-                            #
-                            #     # convolve local sky model with PSF
-                            #     if (LocalSM > 1e-8).any():
-                            #         SM = self.ModelMachine.ScaleMachine.SMConvolvePSF(iFacet, LocalSM)
-                            #
-                            #         # print "Local Sm - ", SM.max(), SM.min()
-                            #
-                            #         _, _, ntmp, _ = SM.shape
-                            #         if ntmp < 2*self.NpixFacet:
-                            #             print "Warning - your LocalSM is too small"
-                            #
-                            #         # subtract facet model
-                            #         self.SubStep((xc, yc), SM)
-
-                            # import sys
-                            # sys.exit(0)
 
                     else:  # TODO - remove this and advise users to use Hogbom for SS clean
                         # Get the JonesNorm
