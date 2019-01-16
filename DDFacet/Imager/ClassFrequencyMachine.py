@@ -78,43 +78,19 @@ class ClassFrequencyMachine(object):
             self.Eval = lambda vals: vals # this will just be the value in that channel
             self.Eval_Degrid = lambda vals, Freqs: np.tile(vals, Freqs.size) # Freqs unused - nothing to be done but use the same model through the entire passband
         else:
-            if mode == "WSCMS":
+            if mode == "Poly":
                 self.Eval_Degrid = lambda coeffs, Freqs: self.EvalPoly(coeffs, Freqsp=Freqs)
                 if self.GD['Output']["Mode"] != 'Predict':  # None of this is needed in Predict mode
                     # set order
                     self.order = self.GD["WSCMS"]["NumFreqBasisFuncs"]
-                    # get polynomial coeffs for prior when I0 is positive
-                    self.alpha_prior = self.GD["WSCMS"]["AlphaPrior"]
-                    if self.alpha_prior is not None:
-                        I = (self.Freqsp/self.ref_freq)**(self.alpha_prior)
-                        coeffs, Kfull = np.polyfit(self.Freqsp/self.ref_freq, I, deg=self.order-1, cov=True)
-                        self.prior_theta = coeffs[::-1]
-                        self.prior_invcov = 1.0/np.diag(Kfull)[::-1]
-                    else:
-                        self.prior_theta = np.zeros(self.order, dtype=np.float64)
-                        self.prior_invcov = np.zeros(self.order, dtype=np.float64)
-                    # get polynomial coeffs for prior when I0 is negative
-                    self.alpha_prior_neg = self.GD["WSCMS"]["AlphaPriorNeg"]
-                    if self.alpha_prior_neg is not None:
-                        I = (self.Freqsp/self.ref_freq)**(self.alpha_prior_neg)
-                        coeffs, Kfull = np.polyfit(self.Freqsp/self.ref_freq, I, deg=self.order-1, cov=True)
-                        self.prior_theta_neg = coeffs[::-1]
-                        self.prior_invcov_neg = 1.0/np.diag(Kfull)[::-1]
-                    else:
-                        self.prior_theta_neg = np.zeros(self.order, dtype=np.float64)
-                        self.prior_invcov_neg = np.zeros(self.order, dtype=np.float64)
-
-                    if (self.alpha_prior is not None) or (self.alpha_prior_neg is not None):
-                        self.bnds = ((None, None),)
-                        for param in xrange(self.order-1):
-                            self.bnds += ((None, None),)
 
                     # construct design matrix at gridding channel resolution
-                    self.Xdes = self.setDesMat(self.Freqs, order=self.order, mode=self.GD['WSCMS']['FreqMode'])
+                    self.Xdes = self.setDesMat(self.Freqs, order=self.order, mode="Mono")
 
                     # there is no need to recompute this every time if the beam is not enabled because same everywhere
                     if not self.BeamEnable:
-                        self.SAX = self.setDesMat(self.Freqs, order=self.order, mode='Andre')  # this fits the integrated polynomial
+                        # Fits the integrated polynomial when Mode='Andre'
+                        self.SAX = self.setDesMat(self.Freqs, order=self.order, mode='Andre')
                     else:
                         self.freqs_full = []
                         for iCh in xrange(self.nchan):
@@ -123,7 +99,7 @@ class ClassFrequencyMachine(object):
                         self.nchan_full = np.size(self.freqs_full)
 
                         self.Xdes_full = self.setDesMat(self.freqs_full, order=self.order,
-                                                        mode=self.GD['WSCMS']['FreqMode'])
+                                                        mode="Mono")
                         # build the S matrix
                         ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
                         ChanMappingFull = []
@@ -139,20 +115,9 @@ class ClassFrequencyMachine(object):
                             else:
                                 self.S[iChannel, ind] = 0.0
 
-                    self.Fit = self.FitPolyNew
+                    self.Fit = self.FitPoly
                     self.Eval = self.EvalPolyApparent
-            elif mode == "Poly":
-                # set order
-                self.order = self.GD["Hogbom"]["PolyFitOrder"]
-                # construct design matrix at full channel resolution
-                self.Xdes = self.setDesMat(self.Freqs, order=self.order, mode="Mono")
-                if self.nchan >= self.order: # use left pseudo inverse
-                    self.AATinvAT = np.linalg.inv(self.Xdes.T.dot(self.Xdes)).dot(self.Xdes.T)
-                else: # use right pseudo inverse
-                    self.AATinvAT = self.Xdes.T.dot(np.linalg.inv(self.Xdes.dot(self.Xdes.T)))
-                self.Fit = lambda vals: self.FitPoly(vals)
-                self.Eval = lambda coeffs: self.EvalPoly(coeffs, Freqsp=self.Freqs)
-                self.Eval_Degrid = lambda coeffs, Freqs: self.EvalPoly(coeffs, Freqsp=Freqs)
+
             elif mode is None:  # TODO - test that this does the expected thing when Nchan != Nchan_degrid
                 self.Fit = lambda vals: vals
                 self.Eval = lambda vals: vals
@@ -161,6 +126,14 @@ class ClassFrequencyMachine(object):
                 raise NotImplementedError("Frequency fit mode %s not supported" % mode)
 
     def FitSPIComponents(self, FitCube, nu, nu0):
+        """
+        Slow version using serial scipy.optimise.curve_fit to fit the spectral indices.
+        Used as a fallback if africanus version not found
+        :param FitCube: (ncomps, nfreqs) data array  
+        :param nu: freqs
+        :param nu0: ref freq
+        :return: 
+        """
         def spi_func(nu, I0, alpha):
             return I0 * nu ** alpha
         nchan, ncomps = FitCube.shape
@@ -199,18 +172,6 @@ class ClassFrequencyMachine(object):
             w = (Freqs / self.ref_freq).reshape(Freqs.size, 1)
             # create tiled array and raise each column to the correct power
             Xdesign = np.tile(w, order) ** np.arange(0, order)
-        elif mode == "Laplace":
-            def Laplace_Eigenfunc(self, i, nu, L=1.5):
-                return np.sin(np.pi * i * (nu + L) / (2.0 * L)) / np.sqrt(L)
-            w = (Freqs / self.ref_freq)
-            Nch = np.size(Freqs)
-            Xdesign = np.zeros([Nch, self.order])
-            for i in xrange(order):
-                Xdesign[:, i] = Laplace_Eigenfunc(i + 1, w)
-        elif mode == "PowLaws":
-            w = (Freqs / self.ref_freq).reshape(Freqs.size, 1)
-            alphas = np.linspace(-1, 1, self.order)
-            return np.tile(w, order) ** alphas
         elif mode == "log":
             # Construct vector of frequencies
             w = np.log(Freqs / self.ref_freq).reshape(Freqs.size, 1)
@@ -256,26 +217,12 @@ class ClassFrequencyMachine(object):
 
         return ListBeamFactor, ListBeamFactorWeightSq, self.PSFServer.DicoMappingDesc['MeanJonesBand'][iFacet]
 
-    def logp_and_dlogp(self, x, Iapp, SAX, W, K, theta0):
-        theta = x[0:-1]
-        I0 = x[-1]
-        thetap = I0 * theta0
-        Kp = I0 ** 2 * K
-        resI = Iapp - SAX.dot(theta)
-        logp = 0.5 * resI.dot(W * resI)
-        restheta = theta - thetap
-        logp += 0.5 * restheta.dot(restheta / Kp)
-        dlogp = np.zeros(x.size)
-        dlogp[0:-1] = - SAX.T.dot(W * (resI)) + restheta / Kp
-        dlogp[-1] = -2 * theta.T.dot(theta / K) / I0 ** 3 + 2 * theta0.T.dot(theta / K) / I0 ** 2
-        return logp, dlogp
-
-    def solve_MAP(self, Iapp, A, W, Kinv, theta):
-        Dinv = A.T.dot(W[:, None] * A) + np.diag(Kinv)
-        res = np.linalg.solve(Dinv, A.T.dot(W * Iapp) + theta * Kinv)
+    def solve_ML(self, Iapp, A, W):
+        Dinv = A.T.dot(W[:, None] * A)
+        res = np.linalg.solve(Dinv, A.T.dot(W * Iapp))
         return res
 
-    def FitPolyNew(self, Vals, JonesNorm, MaxDirty):
+    def FitPoly(self, Vals, JonesNorm, MaxDirty):
         """
         This is for the new frequency fit mode incorporating FreqBandsFluxRation
         :param Vals: Values in the imaging bands
@@ -309,40 +256,12 @@ class ClassFrequencyMachine(object):
             # ChanMappingGridChan = self.PSFServer.DicoMappingDesc["ChanMappingGridChan"]
             SAmat = self.S * BeamFactor[None, :] / JonesFactor[:, None]  # The division by JonesFactor corrects for the fact that the PSF is normalised
             self.SAX = SAmat.dot(self.Xdes_full)
-        else:
-            I0 = MaxDirty
+
         # get MFS weights
         W = self.PSFServer.DicoVariablePSF['SumWeights'].squeeze().astype(np.float64)
         Ig = Vals.astype(np.float64)
-        if I0 > 0.0:
-            # get initial MAP estimate as initial guess
-            theta = self.solve_MAP(Ig, self.SAX, W, self.prior_invcov/I0**2, I0*self.prior_theta)
-            if self.GD["WSCMS"]["AlphaPrior"] is not None:
-                x0 = np.concatenate((theta, np.array([I0])))
-                params = fmin_l_bfgs_b(self.logp_and_dlogp, x0,
-                                       args=(Ig, self.SAX, W, 1.0/self.prior_invcov, self.prior_theta),
-                                       approx_grad=False, bounds=self.bnds + ((1e-6, None),))
-                theta = params[0][0:-1]
-        else:
-            theta = self.solve_MAP(Vals.astype(np.float64), self.SAX, W, self.prior_invcov_neg/I0**2, I0*self.prior_theta_neg)
-            if self.GD["WSCMS"]["AlphaPriorNeg"] is not None:
-                x0 = np.concatenate((theta, np.array([I0])))
-                params = fmin_l_bfgs_b(self.logp_and_dlogp, x0,
-                                       args=(Ig, self.SAX, W, 1.0/self.prior_invcov_neg, self.prior_theta_neg),
-                                       approx_grad=False, bounds=self.bnds + ((None, -1e-6),))
-                theta = params[0][0:-1]
+        theta = self.solve_ML(Ig, self.SAX, W)
         return theta
-
-    def FitPoly(self, Vals):
-        """
-        Fits a polynomial to Vals. The order of the polynomial is set when the class is instantiated and defaults to 5.
-        The input frequencies are also set in the constructor.
-        Args:
-            Vals: Function values at input frequencies
-        Returns:
-            Coefficients of polynomial in order (1,v,v**2,...)
-        """
-        return np.dot(self.AATinvAT, Vals)
 
     def EvalPoly(self, coeffs, Freqsp=None):
         """
@@ -362,7 +281,7 @@ class ClassFrequencyMachine(object):
             # evaluate poly and return result
             return np.dot(Xdes, coeffs)
 
-    # IMPORTANT!!!! If beam is enabled assumes self.SAX is set in previous call to FitPolyNew
+    # IMPORTANT!!!! If beam is enabled assumes self.SAX is set in previous call to FitPoly
     # TODO - more reliable way to do this, maybe store in dict keyed on components
     def EvalPolyApparent(self, coeffs, Freqsp=None):
         """

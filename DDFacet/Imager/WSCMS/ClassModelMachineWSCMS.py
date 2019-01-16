@@ -65,7 +65,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.FreqMachine = ClassFrequencyMachine.ClassFrequencyMachine(GridFreqs, DegridFreqs,
                                                                        self.DicoSMStacked["RefFreq"], self.GD,
                                                                        weights=weights, PSFServer=self.PSFServer)
-        self.FreqMachine.set_Method(mode="WSCMS")
+        self.FreqMachine.set_Method()
 
         if (self.GD["Freq"]["NBand"] > 1):
             self.Coeffs = np.zeros(self.GD["WSCMS"]["NumFreqBasisFuncs"])
