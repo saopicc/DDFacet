@@ -13,7 +13,7 @@ using fcmplx = std::complex<float>;
 using dcmplx = std::complex<double>;
 
 template<typename T> static inline T *arrPtr(PyArrayObject *arrayin)
-  { return reinterpret_cast<T *>(arrayin->data); }
+  { return reinterpret_cast<T *>(PyArray_DATA(arrayin)); }
 
 static inline int *p_int32(PyArrayObject *arrayin)
   { return arrPtr<int>(arrayin); }
