@@ -110,8 +110,12 @@ class ClassImageDeconvMachine():
         AllDegridFreqs = []
         for i in kwargs["DegridFreqs"].keys():
             AllDegridFreqs.append(kwargs["DegridFreqs"][i])
-        self.Freqs_degrid = np.unique(np.asarray(AllDegridFreqs).flatten())
-        self.ModelMachine.setFreqMachine(self.Freqs, self.Freqs_degrid)
+        self.Freqs_degrid = np.asarray(AllDegridFreqs).flatten()
+        self.SetPSF(kwargs["PSFVar"])
+        self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
+        self.ModelMachine.setPSFServer(self.PSFServer)
+        self.ModelMachine.setFreqMachine(self.Freqs, self.Freqs_degrid,
+                                         weights=kwargs["PSFVar"]["WeightChansImages"], PSFServer=self.PSFServer)
 
 
     def Reset(self):
@@ -249,15 +253,13 @@ class ClassImageDeconvMachine():
         continue_deconvolution = False
         update_model = False
 
-        _,npix,_=self.Dirty.shape
-        xc=(npix)/2
-
-        npol,_,_=self.Dirty.shape
+        npol, npix, _ = self.Dirty.shape
+        xc = npix//2
 
         # Get the PeakMap (first index will always be 0 because we only support I cleaning)
-        PeakMap = self.Dirty[0,:,:]
+        PeakMap = self.Dirty[0, :, :]
 
-        m0,m1=PeakMap.min(),PeakMap.max()
+        m0, m1 = PeakMap.min(), PeakMap.max()
 
         #These options should probably be moved into MinorCycleConfig in parset
         DoAbs=int(self.GD["Deconv"]["AllowNegative"])
@@ -278,16 +280,16 @@ class ClassImageDeconvMachine():
 
         Fluxlimit_RMS = self.RMSFactor*RMS
 
-        #Find position and intensity of first peak
+        # Find position and intensity of first peak
         x,y,MaxDirty=NpParallel.A_whereMax(PeakMap,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskArray)
 
-        #Get peak factor stopping criterion
+        # Get peak factor stopping criterion
         Fluxlimit_Peak = MaxDirty*self.PeakFactor
 
-        #Get side lobe stopping criterion
+        # Get side lobe stopping criterion
         Fluxlimit_Sidelobe = ((self.CycleFactor-1.)/4.*(1.-self.SideLobeLevel)+self.SideLobeLevel)*MaxDirty if self.CycleFactor else 0
 
-        mm0,mm1=PeakMap.min(),PeakMap.max()
+        mm0, mm1 = PeakMap.min(), PeakMap.max()
 
         # Choose whichever threshold is highest
         StopFlux = max(Fluxlimit_Peak, Fluxlimit_RMS, Fluxlimit_Sidelobe, self.FluxThreshold)
@@ -316,9 +318,14 @@ class ClassImageDeconvMachine():
         # set peak in GainMachine (deprecated?)
         self.GainMachine.SetFluxMax(ThisFlux)
 
-        # def GivePercentDone(ThisMaxFlux):
-        #     fracDone=1.-(ThisMaxFlux-StopFlux)/(MaxDirty-StopFlux)
-        #     return max(int(round(100*fracDone)),100)
+        nch, npol, _, _ = self._Dirty.shape
+        # Fpol contains the intensities at (x,y) per freq and polarisation
+        Fpol = np.zeros(nch, dtype=np.float32)
+        if self.MultiFreqMode:
+            Ncoeffs = self.GD["Hogbom"]["PolyFitOrder"]
+            Coeffs = np.zeros(Ncoeffs, dtype=np.float32)
+        else:
+            Coeffs = np.zeros(nch, dtype=np.float32)  # to support per channel cleaning
 
         #Do minor cycle deconvolution loop
         try:
@@ -356,38 +363,27 @@ class ClassImageDeconvMachine():
                     #rms = np.std(np.real(self._CubeDirty.ravel()[self.IndStats]))
                     print>> log, "    [iter=%i] peak residual %.3g" % (i, ThisFlux)
 
-                nch,npol,_,_=self._Dirty.shape
-                #Fpol contains the intensities at (x,y) per freq and polarisation
-                Fpol = np.zeros([nch, npol, 1, 1], dtype=np.float32)
-                if self.MultiFreqMode:
-                    if self.GD["Hogbom"]["FreqMode"] == "Poly":
-                        Ncoeffs = self.GD["Hogbom"]["PolyFitOrder"]
-                    elif self.GD["Hogbom"]["FreqMode"] == "GPR":
-                        Ncoeffs = self.GD["Hogbom"]["NumBasisFuncs"]
-                    else:
-                        raise NotImplementedError("FreqMode %s not supported" % self.GD["Hogbom"]["FreqMode"])
-                    Coeffs = np.zeros([npol, Ncoeffs])
-                else:
-                    Coeffs = np.zeros([npol, nch])  # to support per channel cleaning
+                # Find PSF corresponding to location (x,y)
+                self.PSFServer.setLocation(x, y)  # Selects the facet closest to (x,y)
 
                 # Get the JonesNorm
-                JonesNorm = (self.DicoDirty["JonesNorm"][:, :, x, y]).reshape((nch, npol, 1, 1))
+                JonesNorm = (self.DicoDirty["JonesNorm"][:, :, x, y]).reshape(nch)
 
-                # Get the solution
-                Fpol[:, 0, 0, 0] = self._Dirty[:, 0, x, y]/np.sqrt(JonesNorm[:, 0, 0, 0])
+                # Get the solution (division by Jonesnorm handles in fit)
+                Fpol = self._Dirty[:, 0, x, y]
+
                 # Fit a polynomial to get coeffs
-                # tmp = self.ModelMachine.FreqMachine.Fit(Fpol[:, 0, 0, 0])
-                # print tmp.shape
-                Coeffs[0, :] = self.ModelMachine.FreqMachine.Fit(Fpol[:, 0, 0, 0])
+                Coeffs = self.ModelMachine.FreqMachine.Fit(Fpol, JonesNorm, ThisFlux)
+
                 # Overwrite with polynoimial fit
-                Fpol[:, 0, 0, 0] = self.ModelMachine.FreqMachine.Eval(Coeffs[0, :])
+                Fpol = self.ModelMachine.FreqMachine.Eval(Coeffs)
 
                 T.timeit("stuff")
 
-                #Find PSF corresponding to location (x,y)
-                self.PSFServer.setLocation(x,y) #Selects the facet closest to (x,y)
+
                 PSF, meanPSF = self.PSFServer.GivePSF()  #Gives associated PSF
                 _, _, PSFnx, PSFny = PSF.shape
+
                 # Normalise PSF in each channel
                 PSF /= np.amax(PSF.reshape(nch, npol, PSFnx * PSFny), axis=2, keepdims=True).reshape(nch, npol, 1, 1)
 
@@ -396,10 +392,11 @@ class ClassImageDeconvMachine():
                 CurrentGain = self.GainMachine.GiveGain()
 
                 #Update model
-                self.ModelMachine.AppendComponentToDictStacked((x, y), 1.0, Coeffs[0, :], 0)
+                self.ModelMachine.AppendComponentToDictStacked((x, y), 1.0, Coeffs, 0)
 
                 # Subtract LocalSM*CurrentGain from dirty image
-                self.SubStep((x,y),PSF*Fpol*CurrentGain*np.sqrt(JonesNorm))
+                self.SubStep((x,y), PSF * Fpol[:, None, None, None] * CurrentGain)
+
                 T.timeit("SubStep")
 
                 T.timeit("End")

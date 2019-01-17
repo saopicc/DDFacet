@@ -322,8 +322,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 warnings.warn("The provided channel weights are of incorrect length. Ignoring weights.", RuntimeWarning)
                 weights = np.ones(self.Nchan, dtype=np.float32)
 
-
-
         try:
             import traceback
             from africanus.model.spi.dask import fit_spi_components
@@ -594,8 +592,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             return ScaleModel, iScale, xscale, yscale
         else:
             return None, iScale, xscale, yscale
-
-
 
 ###################### Dark magic below this line ###################################
     def PutBackSubsComps(self):

@@ -118,10 +118,6 @@ class ClassFrequencyMachine(object):
                     self.Fit = self.FitPoly
                     self.Eval = self.EvalPolyApparent
 
-            elif mode is None:  # TODO - test that this does the expected thing when Nchan != Nchan_degrid
-                self.Fit = lambda vals: vals
-                self.Eval = lambda vals: vals
-                self.Eval_Degrid = lambda vals, Freqs: self.DistributeFreqs(vals, Freqs)
             else:
                 raise NotImplementedError("Frequency fit mode %s not supported" % mode)
 
@@ -277,7 +273,7 @@ class ClassFrequencyMachine(object):
             return np.dot(self.Xdes, coeffs)
         else:
             # Here we do
-            Xdes = self.setDesMat(Freqsp, order=self.order, mode=self.GD[self.DeconvMode]['FreqMode'])
+            Xdes = self.setDesMat(Freqsp, order=self.order, mode="Mono")
             # evaluate poly and return result
             return np.dot(Xdes, coeffs)
 
@@ -293,21 +289,3 @@ class ClassFrequencyMachine(object):
             The polynomial evaluated at Freqs
         """
         return self.SAX.dot(coeffs)
-
-    def DistributeFreqs(self, vals, freqs):
-        """
-        Distribute (equally for now but should be done according to channel mapping) Nchan vals into Nchan_degrid channels
-        :param vals: 
-        :param freqs: 
-        :return: 
-        """
-        Nchan = vals.size
-        Nchan_degrid = freqs.size
-        Fpol = np.zeros(Nchan_degrid, dtype=np.float32)
-        bin_width = Nchan_degrid // Nchan_degrid
-        for ch in xrange(Nchan):
-            if ch == Nchan-1:
-                Fpol[ch * bin_width::] = vals[ch]
-            else:
-                Fpol[ch*bin_width:(ch+1)*bin_width] = vals[ch]
-        return Fpol

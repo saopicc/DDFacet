@@ -1,25 +1,34 @@
-import itertools
+'''
+DDFacet, a facet-based radio imaging package
+Copyright (C) 2013-2016  Cyril Tasse, l'Observatoire de Paris,
+SKA South Africa, Rhodes University
 
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+'''
+
+import itertools
 import numpy as np
 from DDFacet.Other import MyLogger
-from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
 log=MyLogger.getLogger("ClassModelMachineHogbom")
-from DDFacet.Array import NpParallel
-from DDFacet.Array import ModLinAlg
 from DDFacet.ToolsDir import ModFFTW
-from DDFacet.ToolsDir import ModToolBox
-from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import MyPickle
 from DDFacet.Other import reformat
-
-from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.Imager import ClassModelMachine as ClassModelMachinebase
 from DDFacet.Imager import ClassFrequencyMachine
 import scipy.ndimage
-from SkyModel.Sky import ModRegFile
-from pyrap.images import image
-from SkyModel.Sky import ClassSM
 import os
 
 class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
@@ -36,12 +45,33 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.RefFreq = RefFreq
         self.DicoSMStacked["RefFreq"] = RefFreq
 
-    def setFreqMachine(self,GridFreqs, DegridFreqs):
+    def setPSFServer(self, PSFServer):
+        self.PSFServer = PSFServer
+
+        _, _, self.Npix, _ = self.PSFServer.ImageShape
+        self.NpixPadded = int(np.ceil(self.GD["Facets"]["Padding"] * self.Npix))
+        # make sure it is odd numbered
+        if self.NpixPadded % 2 == 0:
+            self.NpixPadded += 1
+        self.Npad = (self.NpixPadded - self.Npix) // 2
+
+    def setFreqMachine(self, GridFreqs, DegridFreqs, weights=None, PSFServer=None):
+        self.PSFServer = PSFServer
         # Initiaise the Frequency Machine
         self.DegridFreqs = DegridFreqs
         self.GridFreqs = GridFreqs
-        self.FreqMachine = ClassFrequencyMachine.ClassFrequencyMachine(GridFreqs, DegridFreqs, self.DicoSMStacked["RefFreq"], self.GD)
-        self.FreqMachine.set_Method(mode=self.GD["Hogbom"]["FreqMode"])
+        self.FreqMachine = ClassFrequencyMachine.ClassFrequencyMachine(GridFreqs, DegridFreqs,
+                                                                       self.DicoSMStacked["RefFreq"], self.GD,
+                                                                       weights=weights, PSFServer=self.PSFServer)
+        self.FreqMachine.set_Method()
+
+        if np.size(self.GridFreqs) > 1:
+            self.Coeffs = np.zeros(self.GD["Hogbom"]["PolyFitOrder"])
+        else:
+            self.Coeffs = np.zeros([1])
+
+        self.Nchan = self.FreqMachine.nchan
+        self.Npol = 1
 
     def ToFile(self, FileName, DicoIn=None):
         print>> log, "Saving dico model to %s" % FileName
@@ -174,11 +204,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         return [s for s in source_iter]
 
 
-    def GiveModelImage(self, FreqIn=None, DoAbs=False, out=None):
-        if DoAbs:
-            f_apply = np.abs
-        else:
-            f_apply = lambda x: x
+    def GiveModelImage(self, FreqIn=None, out=None):
 
         RefFreq=self.DicoSMStacked["RefFreq"]
         # Default to reference frequency if no input given
@@ -203,69 +229,22 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             for pol in range(npol):
                 Sol = DicoComp[key]["SolsArray"][:, pol]  # /self.DicoSMStacked[key]["SumWeights"]
                 x, y = key
-                #tmp = self.FreqMachine.Eval_Degrid(Sol, FreqIn)
-                interp = self.FreqMachine.Eval_Degrid(Sol, FreqIn)
+
+                try:
+                    interp = self.FreqMachine.Eval_Degrid(Sol, FreqIn)
+                except:
+                    interp = np.polyval(Sol[::-1], FreqIn / RefFreq)
+
                 if interp is None:
-                    raise RuntimeError("Could not interpolate model onto degridding bands. Inspect your data, check 'Hogbom-PolyFitOrder' or "
-                                       "if you think this is a bug report it.")
+                    raise RuntimeError("Could not interpolate model onto degridding bands. Inspect your data, check "
+                                       "'Hogbom-NumFreqBasisFuncs' or if you think this is a bug report it.")
                 else:
-                    ModelImage[:, pol, x, y] += f_apply(interp)
+                    ModelImage[:, pol, x, y] += interp
 
         return ModelImage
 
-    def GiveSpectralIndexMap(self, CellSizeRad=1., GaussPars=[(1, 1, 0)], DoConv=True, MaxSpi=100, MaxDR=1e+6,
-                             threshold=None):
-        dFreq = 1e6
-        # f0=self.DicoSMStacked["AllFreqs"].min()
-        # f1=self.DicoSMStacked["AllFreqs"].max()
-        RefFreq = self.DicoSMStacked["RefFreq"]
-        f0 = RefFreq / 1.5
-        f1 = RefFreq * 1.5
-
-        M0 = self.GiveModelImage(f0)
-        M1 = self.GiveModelImage(f1)
-        if DoConv:
-            # M0=ModFFTW.ConvolveGaussian(M0,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
-            # M1=ModFFTW.ConvolveGaussian(M1,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
-            # M0,_=ModFFTW.ConvolveGaussianWrapper(M0,Sig=GaussPars[0][0]/CellSizeRad)
-            # M1,_=ModFFTW.ConvolveGaussianWrapper(M1,Sig=GaussPars[0][0]/CellSizeRad)
-            M0, _ = ModFFTW.ConvolveGaussianScipy(M0, Sig=GaussPars[0][0] / CellSizeRad)
-            M1, _ = ModFFTW.ConvolveGaussianScipy(M1, Sig=GaussPars[0][0] / CellSizeRad)
-
-        # print M0.shape,M1.shape
-        # compute threshold for alpha computation by rounding DR threshold to .1 digits (i.e. 1.65e-6 rounds to 1.7e-6)
-        if threshold is not None:
-            minmod = threshold
-        elif not np.all(M0 == 0):
-            minmod = float("%.1e" % (np.max(np.abs(M0)) / MaxDR))
-        else:
-            minmod = 1e-6
-
-        # mask out pixels above threshold
-        mask = (M1 < minmod) | (M0 < minmod)
-        print>> log, "computing alpha map for model pixels above %.1e Jy (based on max DR setting of %g)" % (
-        minmod, MaxDR)
-        M0[mask] = minmod
-        M1[mask] = minmod
-        # with np.errstate(invalid='ignore'):
-        #    alpha = (np.log(M0)-np.log(M1))/(np.log(f0/f1))
-        # print
-        # print np.min(M0),np.min(M1),minmod
-        # print
-        alpha = (np.log(M0) - np.log(M1)) / (np.log(f0 / f1))
-        alpha[mask] = 0
-
-        # mask out |alpha|>MaxSpi. These are not physically meaningful anyway
-        mask = alpha > MaxSpi
-        alpha[mask] = MaxSpi
-        masked = mask.any()
-        mask = alpha < -MaxSpi
-        alpha[mask] = -MaxSpi
-        if masked or mask.any():
-            print>> log, ModColor.Str("WARNING: some alpha pixels outside +/-%g. Masking them." % MaxSpi, col="red")
-        return alpha
-
-    def GiveNewSpectralIndexMap(self, GaussPars=[(1, 1, 0)], ResidCube=None, GiveComponents=False):
+    def GiveSpectralIndexMap(self, GaussPars=[(1, 1, 0)], ResidCube=None,
+                             GiveComponents=False, ChannelWeights=None):
 
         # convert to radians
         ex, ey, pa = GaussPars
@@ -285,38 +264,27 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # take FT
         Fs = np.fft.fftshift
         iFs = np.fft.ifftshift
-        npad = self.ScaleMachine.Npad
-        FTarray = self.ScaleMachine.FTMachine.xhatim.view()
-        FTarray[...] = iFs(np.pad(GaussKern[None, None], ((0, 0), (0, 0), (npad, npad), (npad, npad)),
-                             mode='constant'), axes=(2, 3))
-        # this puts the FT in FTarray
-        self.ScaleMachine.FTMachine.FFTim()
-        # need to copy since FTarray and FTcube are views to the same array
-        FTkernel = FTarray.copy()
 
         # evaluate model
         ModelImage = self.GiveModelImage(self.GridFreqs)
 
-        # pad and take FT
-        FTcube = self.ScaleMachine.FTMachine.Chatim.view()
-        FTcube[...] = iFs(np.pad(ModelImage, ((0, 0), (0, 0), (npad, npad), (npad, npad)),
-                                 mode='constant'), axes=(2, 3))
-        self.ScaleMachine.FTMachine.CFFTim()
+        # pad GausKern and take FT
+        GaussKern = np.pad(GaussKern, self.Npad, mode='constant')
+        FTshape, _ = GaussKern.shape
+        from scipy import fftpack as FT
+        GaussKernhat = FT.fft2(iFs(GaussKern))
 
-        # multiply by kernel
-        FTcube *= FTkernel
-
-        # take iFT
-        self.ScaleMachine.FTMachine.iCFFTim()
-
-        I = slice(npad, -npad)
-
-        ConvModelImage = Fs(FTcube, axes=(2,3))[:, :, I, I].real
+        # pad and FT of ModelImage
+        ModelImagehat = np.zeros((self.Nchan, FTshape, FTshape), dtype=np.complex128)
+        ConvModelImage = np.zeros((self.Nchan, self.Npix, self.Npix), dtype=np.float64)
+        I = slice(self.Npad, -self.Npad)
+        for i in xrange(self.Nchan):
+            tmp_array = np.pad(ModelImage[i, 0], self.Npad, mode='constant')
+            ModelImagehat[i] = FT.fft2(iFs(tmp_array)) * GaussKernhat
+            ConvModelImage[i] = Fs(FT.ifft2(ModelImagehat[i]))[I, I].real
 
         if ResidCube is not None:
-            ConvModelImage += ResidCube
-
-        ConvModelImage = ConvModelImage.squeeze()
+            ConvModelImage += ResidCube.squeeze()
 
         RMS = np.std(ResidCube.flatten())
         Threshold = self.GD["SPIMaps"]["AlphaThreshold"] * RMS
@@ -326,7 +294,44 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         MaskIndices = np.argwhere(MinImage > Threshold)
         FitCube = ConvModelImage[:, MaskIndices[:, 0], MaskIndices[:, 1]]
 
-        alpha, varalpha, Iref, varIref = self.FreqMachine.FitSPIComponents(FitCube, self.GridFreqs, self.RefFreq)
+
+        if ChannelWeights is None:
+            weights = np.ones(self.Nchan, dtype=np.float32)
+        else:
+            weights = ChannelWeights.astype(np.float32)
+            if ChannelWeights.size != self.Nchan:
+                import warnings
+                warnings.warn("The provided channel weights are of incorrect length. Ignoring weights.", RuntimeWarning)
+                weights = np.ones(self.Nchan, dtype=np.float32)
+
+        try:
+            import traceback
+            from africanus.model.spi.dask import fit_spi_components
+            NCPU = self.GD["Parallel"]["NCPU"]
+            if NCPU:
+                from multiprocessing.pool import ThreadPool
+                import dask
+
+                dask.config.set(pool=ThreadPool(NCPU))
+            else:
+                import multiprocessing
+                NCPU = multiprocessing.cpu_count()
+
+            import dask.array as da
+            _, ncomps = FitCube.shape
+            FitCubeDask = da.from_array(FitCube.T.astype(np.float64), chunks=(ncomps//NCPU, self.Nchan))
+            weightsDask = da.from_array(weights.astype(np.float64), chunks=(self.Nchan))
+            freqsDask = da.from_array(self.GridFreqs.astype(np.float64), chunks=(self.Nchan))
+
+            alpha, varalpha, Iref, varIref = fit_spi_components(FitCubeDask, weightsDask,
+                                                                freqsDask, self.RefFreq,
+                                                                dtype=np.float64).compute()
+        except Exception as e:
+            traceback_str = traceback.format_exc(e)
+            print>>log, "Warning - Failed at importing africanus spi fitter. This could be an issue with the dask " \
+                        "version. Falling back to (slow) scipy version"
+            print>>log, "Original traceback - ", traceback_str
+            alpha, varalpha, Iref, varIref = self.FreqMachine.FitSPIComponents(FitCube, self.GridFreqs, self.RefFreq)
 
         _, _, nx, ny = ModelImage.shape
         alphamap = np.zeros([nx, ny])
@@ -339,15 +344,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         alphastdmap[MaskIndices[:, 0], MaskIndices[:, 1]] = np.sqrt(varalpha)
         Irefstdmap[MaskIndices[:, 0], MaskIndices[:, 1]] = np.sqrt(varIref)
 
-        # import matplotlib.pyplot as plt
-        # listmaps = [alphamap, alphastdmap, Irefmap, Irefstdmap]
-        # for i in xrange(4):
-        #     plt.imshow(listmaps[i])
-        #     plt.colorbar()
-        #     plt.show()
-        #
-        # import sys
-        # sys.exit(0)
         if GiveComponents:
             return alphamap[None, None], alphastdmap[None, None], alpha
         else:
