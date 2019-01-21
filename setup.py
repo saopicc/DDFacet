@@ -28,6 +28,7 @@ from setuptools.command.sdist import sdist
 from distutils.command.build import build
 from os.path import join as pjoin
 import sys
+import six
 
 pkg='DDFacet'
 skymodel_pkg='SkyModel'
@@ -95,6 +96,59 @@ def readme():
     with open('README.rst') as f:
         return f.read()
 
+def define_requirements():
+    return [
+            "nose >= 1.3.7",
+            "Cython >= 0.25.2",
+            "numpy >= 1.16",
+            "SharedArray >= 2.0.2",
+            "Polygon2 >= 2.0.8",
+            "pyFFTW >= 0.10.4",
+            "astropy >= 3.0",
+            "deap >= 1.0.1",
+            "ipdb >= 0.10.3",
+            "python-casacore >= 2.1.0",
+            "pyephem >= 3.7.6.0",
+            "numexpr >= 2.6.2",
+            "matplotlib >= 2.0.0",
+            "scipy >= 0.16.0",
+            "astro-kittens >= 0.3.3",
+            "meqtrees-cattery >= 1.5.1",
+            "owlcat >= 1.4.2",
+            "astLib >= 0.8.0",
+            "psutil >= 5.2.2",
+            "py-cpuinfo >= 3.2.0",
+            "tables >= 3.3.0",
+            "prettytable >= 0.7.2",
+            "pybind11 >= 2.2.2",
+            "pyfits >= 3.5", #kittens dependency, do not remove
+      ] if six.PY3 else [
+            "nose >= 1.3.7",
+            "Cython >= 0.25.2",
+            "numpy <= 1.16",
+            "SharedArray >= 2.0.2",
+            "Polygon2 >= 2.0.8",
+            "pyFFTW >= 0.10.4",
+            "astropy <= 2.0.11",
+            "deap >= 1.0.1",
+            "ipdb >= 0.10.3",
+            "python-casacore >= 2.1.0",
+            "pyephem >= 3.7.6.0",
+            "numexpr >= 2.6.2",
+            "matplotlib >= 2.0.0",
+            "scipy >= 0.16.0",
+            "astro-kittens >= 0.3.3",
+            "meqtrees-cattery >= 1.5.1",
+            "owlcat >= 1.4.2",
+            "astLib >= 0.8.0",
+            "psutil >= 5.2.2",
+            "py-cpuinfo >= 3.2.0",
+            "tables >= 3.3.0",
+            "prettytable >= 0.7.2",
+            "pybind11 >= 2.2.2",
+            "pyfits >= 3.5", #kittens dependency, do not remove
+      ]
+
 setup(name=pkg,
       version=__version__,
       description='Facet-based radio astronomy continuum imager',
@@ -117,32 +171,7 @@ setup(name=pkg,
                },
       python_requires='<3.0',
       packages=[pkg, skymodel_pkg],
-      install_requires=[
-            "nose >= 1.3.7",
-            "Cython >= 0.25.2",
-            "numpy >= 1.11.0",
-            "SharedArray >= 2.0.2",
-            "Polygon2 >= 2.0.8",
-            "pyFFTW >= 0.10.4",
-            "astropy >= 1.3.3",
-            "deap >= 1.0.1",
-            "ipdb >= 0.10.3",
-            "python-casacore >= 2.1.0",
-            "pyephem >= 3.7.6.0",
-            "numexpr >= 2.6.2",
-            "matplotlib >= 2.0.0",
-            "scipy >= 0.16.0",
-            "astro-kittens >= 0.3.3",
-            "meqtrees-cattery >= 1.5.1",
-            "owlcat >= 1.4.2",
-            "astLib >= 0.8.0",
-            "psutil >= 5.2.2",
-            "py-cpuinfo >= 3.2.0",
-            "tables >= 3.3.0",
-            "prettytable >= 0.7.2",
-            "pybind11 >= 2.2.2",
-            "pyfits >= 3.5", #kittens dependency, do not remove
-      ],
+      install_requires=define_requirements(),
       include_package_data=True,
       zip_safe=False,
       scripts=define_scripts()
