@@ -823,7 +823,7 @@ class ClassImagerDeconv():
 	
         # tell the I/O thread to go load the first chunk
         self.VS.ReInitChunkCount()
-        self.VS.startChunkLoadInBackground()
+        self.VS.startChunkLoadInBackground(last_cycle=True)
 
         self.FacetMachine.ReinitDirty()
 
@@ -890,7 +890,7 @@ class ClassImagerDeconv():
         while True:
             # get loaded chunk from I/O thread, schedule next chunk
             # self.VS.startChunkLoadInBackground()
-            DATA = self.VS.collectLoadedChunk(start_next=True)
+            DATA = self.VS.collectLoadedChunk(start_next=True, last_cycle=True)
             if self.VS.StokesConverter.RequiredStokesProducts() != ['I']:
                 raise RuntimeError("Unsupported: Polarization prediction is not defined")
             if type(DATA) is str:
