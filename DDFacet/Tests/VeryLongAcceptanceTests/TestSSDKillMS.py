@@ -44,7 +44,7 @@ class TestSSDKillMS(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.Cla
             Returns:
                 constant for maximum tolerance used in test case setup
         """
-        return [1e-6,1e-6,1e-6,1e-6,1e-4,
+        return [1e-6,1e-6,1e-6,1e-4,1e-4,
                 5e-2,5e-2,
                 5e-2,5e-2]
 
