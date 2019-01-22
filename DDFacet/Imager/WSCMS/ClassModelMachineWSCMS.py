@@ -266,18 +266,18 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         # get Gaussian kernel
         GaussKern = ModFFTW.GiveGauss(self.Npix, CellSizeRad=CellSizeRad, GaussPars=(ex, ey, pa), parallel=False)
-        # normalise
-        # GaussKern /= np.sum(GaussKern.flatten())
+
         # take FT
         Fs = np.fft.fftshift
         iFs = np.fft.ifftshift
         npad = self.Npad
         FTarray = self.ScaleMachine.FTMachine.xhatim.view()
-        print
         FTarray[...] = iFs(np.pad(GaussKern[None, None], ((0, 0), (0, 0), (npad, npad), (npad, npad)),
                              mode='constant'), axes=(2, 3))
+
         # this puts the FT in FTarray
         self.ScaleMachine.FTMachine.FFTim()
+
         # need to copy since FTarray and FTcube are views to the same array
         FTkernel = FTarray.copy()
 
@@ -300,18 +300,39 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         ConvModelImage = Fs(FTcube, axes=(2,3))[:, :, I, I].real
 
+        ConvModelMean = np.mean(ConvModelImage.squeeze(), axis=0)
+
+        ConvModelLow = ConvModelImage[-1, 0]
+        ConvModelHigh = ConvModelImage[0, 0]
+
         if ResidCube is not None:
             ConvModelImage += ResidCube
 
         ConvModelImage = ConvModelImage.squeeze()
 
         RMS = np.std(ResidCube.flatten())
+
+        print "RMS = ", RMS
         Threshold = self.GD["SPIMaps"]["AlphaThreshold"] * RMS
 
         # get minimum along any freq axis
         MinImage = np.amin(ConvModelImage, axis=0)
         MaskIndices = np.argwhere(MinImage > Threshold)
         FitCube = ConvModelImage[:, MaskIndices[:, 0], MaskIndices[:, 1]]
+
+        # Initial guess for I0
+        I0i = ConvModelMean[MaskIndices[:, 0], MaskIndices[:, 1]]
+
+        # initial guess for alphas
+        Ilow = ConvModelLow[MaskIndices[:, 0], MaskIndices[:, 1]]/I0i
+        Ihigh = ConvModelHigh[MaskIndices[:, 0], MaskIndices[:, 1]]/I0i
+        alphai = (np.log(Ihigh) - np.log(Ilow))/(np.log(self.GridFreqs[0]/self.RefFreq) - np.log(self.GridFreqs[-1]/self.RefFreq))
+
+        import matplotlib.pyplot as plt
+
+        for i in xrange(self.Nchan):
+            plt.imshow(np.where(ConvModelImage[i] > Threshold, ConvModelImage[i], 0.0))
+            plt.show()
 
         if ChannelWeights is None:
             weights = np.ones(self.Nchan, dtype=np.float32)
@@ -343,7 +364,14 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
             alpha, varalpha, Iref, varIref = fit_spi_components(FitCubeDask, weightsDask,
                                                                 freqsDask, self.RefFreq,
-                                                                dtype=np.float64).compute()
+                                                                dtype=np.float64, I0i=I0i,
+                                                                alphai=alphai).compute()
+
+            # from africanus.model.spi import fit_spi_components
+            #
+            # alpha, varalpha, Iref, varIref = fit_spi_components(FitCube.T.astype(np.float64), weights.astype(np.float64),
+            #                                                     self.GridFreqs.astype(np.float64), self.RefFreq.astype(np.float64),
+            #                                                     dtype=np.float64, I0i=I0i, alphai=alphai)
         except Exception as e:
             traceback_str = traceback.format_exc(e)
             print>>log, "Warning - Failed at importing africanus spi fitter. This could be an issue with the dask " \
