@@ -490,8 +490,15 @@ class FFTW_Manager(object):
         # set wisdom for facet sized FFTs
         TypeKey = (self.nchan, self.NpixPaddedPSF, np.complex64)
         if TypeKey not in self.WisdomTypes:
-            HasTouchedWisdomFile = True
+            self.HasTouchedWisdomFile = True
             self.WisdomTypes.append(TypeKey)
+
+        # set wisdom for 2*Facet size FFT
+        TypeKey = (self.nchan, self.NpixPSFSubtract, np.complex64)
+        if TypeKey not in self.WisdomTypes:
+            self.HasTouchedWisdomFile = True
+            self.WisdomTypes.append(TypeKey)
+
         self.FFTW_Wisdom = pyfftw.export_wisdom()
         DictWisdom = {"Wisdom": self.FFTW_Wisdom,
                       "WisdomTypes": self.WisdomTypes}
@@ -782,7 +789,6 @@ def _convolveSingleGaussianFFTW(shareddict,
     # IFF is again applied so baseband is at 0, ifft taken and FFTShift
     # brings the central location back to middle + 1 and middle for even and
     # odd respectively. The signal can then safely be unpadded
-
     T = ClassTimeIt.ClassTimeIt()
     T.disable()
     Ain = shareddict[field_in][ch]
@@ -899,7 +905,8 @@ def ConvolveGaussianParallel(shareddict, field_in, field_out, CellSizeRad=None,G
 
     jobid = "convolve:%s:%s:" % (field_in, field_out)
     for ch in range(nch):
-        APP.runJob(jobid+str(ch),_convolveSingleGaussianFFTW_noret, args=(shareddict.readwrite(), field_in, field_out, ch, CellSizeRad, GaussPars[ch], None, Normalise))
+        sd_rw = shareddict.readwrite()
+        APP.runJob(jobid+str(ch),_convolveSingleGaussianFFTW_noret, args=(sd_rw, field_in, field_out, ch, CellSizeRad, GaussPars[ch], None, Normalise))
     APP.awaitJobResults(jobid+"*") #, progress="Convolving")
 
     return Aout

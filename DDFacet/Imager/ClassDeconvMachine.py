@@ -1065,8 +1065,13 @@ class ClassImagerDeconv():
         # This just keeps track of padded grid size for use in Hogbom-MultiScale (Can just use DicoImager instead? Is it passed in anywhere?)
         if self.GD["Deconv"]["Mode"] == "WSCMS":
             self.DicoImagesPSF["PaddedPSFInfo"] = {}
+            # self.DicoImagesPSF["CFs"] = {}
+            # self.DicoImagesPSF["CFs"]["SW"] = {}
+            # self.DicoImagesPSF["CFs"]["InvSphe"] = {}
             for iFacet in self.FacetMachinePSF.DicoImager.keys():
                 self.DicoImagesPSF["PaddedPSFInfo"][iFacet] = self.FacetMachinePSF.DicoImager[iFacet]["NpixFacetPadded"]
+                # self.DicoImagesPSF["CFs"]["SW"][iFacet] = self.FacetMachinePSF._CF[iFacet]["SW"].copy()
+                # self.DicoImagesPSF["CFs"]["InvSphe"][iFacet] = self.FacetMachinePSF._CF[iFacet]["InvSphe"].copy()
 
 
         # if we reached a sparsification of 1, we shan't be re-making the PSF
@@ -1133,7 +1138,8 @@ class ClassImagerDeconv():
 
             self.DeconvMachine.Update(self.DicoDirty)
 
-            repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
+            repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve(FacetMachine=self.FacetMachine,
+                                                                                    BaseName=self.BaseName)
             try:
                 self.FacetMachine.ToCasaImage(self.DeconvMachine.LabelIslandsImage,
                                               ImageName="%s.labelIslands%2.2i"%(self.BaseName,iMajor),Fits=True,
@@ -1170,7 +1176,7 @@ class ClassImagerDeconv():
 
             # in the meantime, tell the I/O thread to go reload the first data chunk
             self.VS.ReInitChunkCount()
-            self.VS.startChunkLoadInBackground()
+            self.VS.startChunkLoadInBackground(last_cycle=predict_colname)
 
             # determine whether data still needs to be sparsified
             # last major cycle is always done at full precision, but also if the sparsification_list ends we go to full precision
@@ -1228,9 +1234,17 @@ class ClassImagerDeconv():
                 if type(DATA) is str:
                     print>>log,ModColor.Str("no more data: %s"%DATA, col="red")
                     break
+
                 # None weights indicates an all-flagged chunk: go on to the next chunk
                 if DATA["Weights"] is None:
-                    continue
+                    if predict_colname: #write out empty MODEL for this chunk during last cycle
+                        predict = DATA.addSharedArray("predict", DATA["datashape"], DATA["datatype"])
+                        predict[...] = 0.0
+                        # schedule jobs for saving visibilities, then start reading next chunk (both are on io queue)
+                        self.VS.startVisPutColumnInBackground(DATA, "predict", predict_colname, likecol=self.GD["Data"]["ColName"])
+                        self.VS.startChunkLoadInBackground(last_cycle=predict_colname)
+                    continue # next chunk
+
                 visdata = DATA["data"]
                 if predict_colname:
                     predict = DATA.addSharedArray("predict", DATA["datashape"], DATA["datatype"])
@@ -1279,7 +1293,7 @@ class ClassImagerDeconv():
                     predict -= visdata
                     # schedule jobs for saving visibilities, then start reading next chunk (both are on io queue)
                     self.VS.startVisPutColumnInBackground(DATA, "predict", predict_colname, likecol=self.GD["Data"]["ColName"])
-                    self.VS.startChunkLoadInBackground()
+                    self.VS.startChunkLoadInBackground(last_cycle=predict_colname)
 
                 # Stacks average beam if not computed
                 self.FacetMachine.StackAverageBeam(DATA)
@@ -1994,26 +2008,19 @@ class ClassImagerDeconv():
                 _final_RMS["RMS"] = np.std(intres().ravel())
                 return _final_RMS["RMS"]
         def alphamap():
-            label = 'alphamap'
-            if label not in _images:
-                _images.addSharedArray(label, intmodel().shape, np.float32)
-                
-                # ##############################
-                # # Reverting for issue458
-                #_images[label] = ModelMachine.FreqMachine.alpha_map.reshape(intmodel().shape)
-                if self.GD["Deconv"]["Mode"] == "WSCMS":
-                    if self.GD["SPIMaps"]["Mode"] == "rapid":
-                        _images[label] = ModelMachine.GiveSpectralIndexMap()
-                    else:
-                        if "alphastdmap" not in _images:
-                            _images.addSharedArray("alphastdmap", intmodel().shape, np.float32)
-                        _images[label], _images["alphastdmap"] = ModelMachine.GiveNewSpectralIndexMap(GaussPars=self.FWHMBeam[0], ResidCube=intrescube())
-                        return _images[label], _images["alphastdmap"]
-                else:
-                    _images[label] = ModelMachine.GiveSpectralIndexMap()
-                # ##############################
+            if 'alphamap' not in _images:
+                _images.addSharedArray('alphamap', intmodel().shape, np.float32)
 
-            return _images[label], None
+            if self.GD["Deconv"]["Mode"] == "WSCMS" or self.GD["Deconv"]["Mode"] == "Hogbom":
+                if "alphastdmap" not in _images:
+                    _images.addSharedArray("alphastdmap", intmodel().shape, np.float32)
+                # LB - using apprescube since intrescube is nonsense
+                _images['alphamap'], _images["alphastdmap"] = ModelMachine.GiveSpectralIndexMap(GaussPars=self.FWHMBeamAvg, ResidCube=apprescube())
+                return _images['alphamap'], _images["alphastdmap"]
+            else:
+                _images['alphamap'] = ModelMachine.GiveSpectralIndexMap()
+
+                return _images['alphamap'], None
 
         # norm
         if havenorm and ("S" in self._saveims or "s" in self._saveims):
@@ -2113,11 +2120,10 @@ class ClassImagerDeconv():
             APP.runJob("save:alpha", self._saveImage_worker, io=0, args=(_images.readwrite(), 'alphamap',), kwargs=dict(
                 ImageName="%s.alpha" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
                 Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
-            if self.GD["Deconv"]["Mode"] == "WSCMS":
-                if self.GD["SPIMaps"]["Mode"] == "snail":
-                    APP.runJob("save:alphastd", self._saveImage_worker, io=0, args=(_images.readwrite(), 'alphastdmap',), kwargs=dict(
-                        ImageName="%s.alphastd" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
-                        Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+            if self.GD["Deconv"]["Mode"] == "WSCMS" or self.GD["Deconv"]["Mode"] == "Hogbom":
+                APP.runJob("save:alphastd", self._saveImage_worker, io=0, args=(_images.readwrite(), 'alphastdmap',), kwargs=dict(
+                    ImageName="%s.alphastd" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
+                    Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
         #  done saving images -- schedule a job to delete them all from the dict to save RAM
         APP.runJob("del:images", self._delSharedImage_worker, io=0, args=[_images.readwrite()] + list(_images.keys()))
@@ -2146,7 +2152,9 @@ class ClassImagerDeconv():
                                    beam=self.FWHMBeamAvg, beamcube=self.FWHMBeam, Freqs=self.VS.FreqBandCenters,
                                    Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         #  can delete this one now
-        APP.runJob("del:appmodelcube", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "appmodelcube"])
+        if set(["i", "I"]).intersection(self._savecubes) == set():
+            APP.runJob("del:appmodelcube", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "appmodelcube"])
+        else: pass # needed again later on
         # convolved-model cube in intrinsic flux
         if havenorm and "C" in self._savecubes:
             intconvmodelcube()
@@ -2184,8 +2192,9 @@ class ClassImagerDeconv():
                     ImageName="%s.cube.app.restored" % self.BaseName, Fits=True, delete=True,
                     beam=self.FWHMBeamAvg, beamcube=self.FWHMBeam, Freqs=self.VS.FreqBandCenters,
                     Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
-        #  can delete this one now
-        APP.runJob("del:appcubes", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "appconvmodelcube", "apprescube"])
+
+        #  can delete this one now (LB - no we can't, we need apprescube to form up the intrescube)
+        # APP.runJob("del:appcubes", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "appconvmodelcube", "apprescube"])
         # intrinsic-flux residual cube
         if havenorm and "R" in self._savecubes:
             intrescube()
@@ -2194,6 +2203,8 @@ class ClassImagerDeconv():
                                    Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         #  can delete this one now
         APP.runJob("del:sqrtnormcube", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "sqrtnormcube"])
+        APP.runJob("del:appcubes", self._delSharedImage_worker, io=0,
+                   args=[_images.readwrite(), "appconvmodelcube", "apprescube"])
 
         APP.awaitJobResults(["save:*", "del:*"])
 

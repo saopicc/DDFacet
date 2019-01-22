@@ -23,6 +23,7 @@ This is an implementation of the multi-scale algorithm implemented in wsclean
 """
 
 import numpy as np
+from scipy.integrate import cumtrapz
 import numexpr
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
@@ -361,6 +362,61 @@ class ClassImageDeconvMachine():
 
         return StopFlux, MaxDirty
 
+    def DoSubtract(self, ScaleModel):
+        for iFacet in xrange(self.GD["Facets"]["NFacets"] ** 2):
+            # set PSF in this facet
+            self.PSFServer.setFacet(iFacet)
+
+            # Note this logic assumes square facets!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
+            # get location of facet center
+            # LB - note these are not the same as those in FacetMachine but they give better results.
+            # The pixCentral in FacetMachine do not seem to be correct!!!
+            # xc, yc = self.DicoVariablePSF["Facets"][iFacet]["pixCentral"]
+            basehalf = self.NpixFacet//2
+            ix = iFacet // self.GD["Facets"]["NFacets"]
+            iy = iFacet % self.GD["Facets"]["NFacets"]
+            xc = ix * self.NpixFacet + basehalf
+            yc = iy * self.NpixFacet + basehalf
+            xl = xc - self.NpixFacet // 2
+            xu = xc + self.NpixFacet // 2 + 1
+            yl = yc - self.NpixFacet // 2
+            yu = yc + self.NpixFacet // 2 + 1
+            LocalSM = ScaleModel[:, :, xl:xu, yl:yu]
+
+            # print "iFacet = ", iFacet, ix, iy
+            # print "(xc, yc) = ", (xc, yc)
+            # print "x indices = ", xl, xu
+            # print "y indices = ", yl, yu
+            # print "NpixFacet = ", self.NpixFacet, xu - xl, yu-yl
+
+            # convolve local sky model with PSF
+            SM = self.ModelMachine.ScaleMachine.SMConvolvePSF(iFacet, LocalSM)
+
+            # TODO - figure out how to incorporate spacial weights correctly
+            # CF = np.load('/home/landman/Projects/Data/MS_dir/ddfacet_test_data/WSCMS_MinorSubtract_TestSuite/MSMF.MS_p0.F0.D0.ddfcache/CFPSF/' + str(iFacet) + '.npz')
+            # print CF["SW"].shape, CF["InvSphe"].shape, SM.shape, self.NpixFacet
+            #
+            # _, _, NpixSM, _  = SM.shape
+            # NpixCF, _ = CF["SW"].shape  # LB - why are the convolution functions so big?
+            # Aedge, Bedge = GiveEdges((NpixSM//2, NpixSM//2), NpixSM, (NpixCF//2, NpixCF//2), NpixCF)
+            # x0facet, x1facet, y0facet, y1facet = Bedge
+            # SW = CF["SW"][None, None, x0facet:x1facet, y0facet:y1facet]
+            # InvSphe = CF["InvSphe"][None, None, x0facet:x1facet, y0facet:y1facet]
+
+            # import matplotlib.pyplot as plt
+            #
+            # plt.imshow(SW[0,0] * InvSphe[0,0])
+            # plt.show()
+
+            _, _, ntmp, _ = SM.shape
+            if ntmp < 2 * self.NpixFacet:
+                print "Warning - your LocalSM is too small"
+
+            # subtract facet model
+            # self.SubStep((xc, yc), SM * SW * InvSphe)
+            self.SubStep((xc, yc), SM)
+
+
     def Deconvolve(self, **kwargs):
         """
         Runs minor cycle over image channel 'ch'.
@@ -403,6 +459,37 @@ class ClassImageDeconvMachine():
         # set peak in GainMachine (LB - deprecated?)
         # self.GainMachine.SetFluxMax(ThisFlux)
 
+        # alphamap, alphastdmap, alphacomps = self.ModelMachine.GiveNewSpectralIndexMap(GaussPars=self.PSFServer.DicoVariablePSF["FWHMBeam"][0],
+        #                                                                   ResidCube=self.DicoDirty["ImageCube"], GiveComponents=True)
+        #
+        # alphamap = alphamap[0,0]
+        # alphamap = np.where(alphamap==0.0, -0.7, alphamap)
+        #
+        # import matplotlib.pyplot as plt
+        # plt.imshow(alphamap)
+        # plt.show()
+        #
+        # minalpha = alphacomps.min()
+        # maxalpha = alphacomps.max()
+        # delalpha = maxalpha - minalpha
+        # Nbins = 7
+        # alphatmp = alphacomps*Nbins/delalpha
+        # alphaprobs, _ = np.histogram(alphatmp, Nbins, density=True)
+        # alphaprobsinv = 1.0/alphaprobs
+        # alphaprobsinv /= np.sum(alphaprobsinv)
+        # print alphaprobsinv
+        # alphabins = minalpha + maxalpha * np.cumsum(alphaprobsinv)
+        # print alphabins
+        # alphamask = np.digitize(alphamap, alphabins, right=True)
+        #
+        #
+        # plt.imshow(alphamask)
+        # plt.colorbar()
+        # plt.show()
+        #
+        # import sys
+        # sys.exit()
+
         # Do minor cycle deconvolution loop
         TrackFlux = MaxDirty.copy()
         diverged = False
@@ -410,118 +497,124 @@ class ClassImageDeconvMachine():
         stall_count = 0
         diverged_count = 0
         try:
-            for i in range(self._niter+1,self.MaxMinorIter+1):
-                self._niter = i
+            if self.GD["WSCMS"]["TestDico"] is not None:
+                import cPickle
+                DicoTest = cPickle.load(open(self.GD["WSCMS"]["TestDico"], "rb"))
+                self.ModelMachine.DicoSMStacked = DicoTest
+                ScaleModel = self.ModelMachine.GiveModelImage(self.Freqs)
+                self.FacetMachine = kwargs["FacetMachine"]
+                self.DoSubtract(ScaleModel)
 
-                # find peak
-                x, y, ThisFlux = NpParallel.A_whereMax(self._MeanDirty, NCPU=self.NCPU, DoAbs=DoAbs, Mask=self.MaskArray)
+                # write out the residual image
+                kwargs["FacetMachine"].ToCasaImage(self.DicoDirty["ImageCube"],
+                                                   ImageName="%s.MinorSubtract"%(kwargs["BaseName"]),
+                                                   Freqs=self.Freqs,
+                                                   Fits=True)
+                                                   # Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
-                # Crude hack to prevent divergences
-                if np.abs(ThisFlux) > self.GD["WSCMS"]["MinorDivergenceFactor"] * np.abs(TrackFlux):
-                    diverged_count += 1
-                    if diverged_count > 5:
-                        diverged = True
-                elif np.abs((ThisFlux - TrackFlux)/TrackFlux) < self.GD['WSCMS']['MinorStallThreshold']:
-                    stall_count += 1
-                    if stall_count > 50:
-                        stalled = True
-                else:
-                    TrackFlux = ThisFlux
-
-                # LB - deprecated?
-                # self.GainMachine.SetFluxMax(ThisFlux)
-
-                T.timeit("max0")
-
-                if ThisFlux <= StopFlux or diverged or stalled:
-                    if diverged:
-                        print>>log, ModColor.Str("    At [iter=%i] minor cycle is diverging so it has been force stopped at a flux of %.3g Jy" % (i,ThisFlux),col="green")
-                    elif stalled:
-                        print>> log, ModColor.Str("    At [iter=%i] minor cycle has stalled so it has been force stopped at a flux of %.3g Jy" % (i, ThisFlux), col="green")
-                    else:
-                        print>>log, ModColor.Str("    CLEANing [iter=%i] peak of %.3g Jy lower than stopping flux" % (i,ThisFlux),col="green")
+                x, y, ThisFlux = NpParallel.A_whereMax(self._MeanDirty, NCPU=self.NCPU, DoAbs=DoAbs,
+                                                       Mask=self.MaskArray)
+                if ThisFlux <= StopFlux:
+                    print>> log, ModColor.Str("    Peak of %.3g lower than stopping flux" % (ThisFlux), col="green")
                     cont = ThisFlux > self.FluxThreshold
-                    if not cont:
-                          print>>log, ModColor.Str("    CLEANing [iter=%i] absolute flux threshold of %.3g Jy has been reached" % (i,self.FluxThreshold),col="green",Bold=True)
                     exit_msg = exit_msg + " " + "MinFluxRms"
                     continue_deconvolution = cont or continue_deconvolution
                     update_model = True or update_model
 
-                    break # stop cleaning if threshold reached
+            else:
+                for i in range(self._niter+1,self.MaxMinorIter+1):
+                    self._niter = i
 
-                self.track_progress(i, ThisFlux)
+                    # find peak
+                    x, y, ThisFlux = NpParallel.A_whereMax(self._MeanDirty, NCPU=self.NCPU, DoAbs=DoAbs, Mask=self.MaskArray)
 
-                # run minor loop
-                if self.GD["WSCMS"]["MultiScale"]:
-                    # Find the relevant scale and do sub-minor loop. Returns the model constructed during the
-                    # sub-minor loop.
-                    # If the delta scale is found then self._Dirty and
-                    # self._MeanDirty have already had the components subtracted from them so we don't need to do
-                    # anything further.
-                    ScaleModel, iScale, x, y = self.ModelMachine.do_minor_loop(x, y, self._Dirty,
-                                                         self._MeanDirty, self._JonesNorm,
-                                                         self.WeightsChansImages, ThisFlux, StopFlux)
+                    # Crude hack to prevent divergences
+                    if np.abs(ThisFlux) > self.GD["WSCMS"]["MinorDivergenceFactor"] * np.abs(TrackFlux):
+                        diverged_count += 1
+                        if diverged_count > 5:
+                            diverged = True
+                    elif np.abs((ThisFlux - TrackFlux)/TrackFlux) < self.GD['WSCMS']['MinorStallThreshold']:
+                        stall_count += 1
+                        if stall_count > 5:
+                            stalled = True
+                    else:
+                        TrackFlux = ThisFlux
 
-                    # convolve scale model with PSF and subtract from residual (if not delta scale)
-                    if iScale:
-                        for iFacet in xrange(self.GD["Facets"]["NFacets"]**2):
-                            # set PSF in this facet
-                            self.PSFServer.setFacet(iFacet)
+                    # LB - deprecated?
+                    # self.GainMachine.SetFluxMax(ThisFlux)
 
-                            # Note this logic assumes square facets!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
-                            # get location of facet center
-                            xc, yc = self.DicoVariablePSF["Facets"][iFacet]["pixCentral"]
-                            LocalSM = ScaleModel[:, :, xc-self.NpixFacet//2:xc+self.NpixFacet//2 + 1,
-                                                 yc-self.NpixFacet//2:yc+self.NpixFacet//2 + 1]
+                    T.timeit("max0")
 
-                            # convolve local sky model with PSF
-                            if (LocalSM > 1e-8).any():
-                                SM = self.ModelMachine.ScaleMachine.SMConvolvePSF(iFacet, LocalSM)
+                    if ThisFlux <= StopFlux or diverged or stalled:
+                        if diverged:
+                            print>>log, ModColor.Str("    At [iter=%i] minor cycle is diverging so it has been force stopped at a flux of %.3g Jy" % (i,ThisFlux),col="green")
+                        elif stalled:
+                            print>> log, ModColor.Str("    At [iter=%i] minor cycle has stalled so it has been force stopped at a flux of %.3g Jy" % (i, ThisFlux), col="green")
+                        else:
+                            print>>log, ModColor.Str("    CLEANing [iter=%i] peak of %.3g Jy lower than stopping flux" % (i,ThisFlux),col="green")
+                        cont = ThisFlux > self.FluxThreshold
+                        if not cont:
+                              print>>log, ModColor.Str("    CLEANing [iter=%i] absolute flux threshold of %.3g Jy has been reached" % (i,self.FluxThreshold),col="green",Bold=True)
+                        exit_msg = exit_msg + " " + "MinFluxRms"
+                        continue_deconvolution = cont or continue_deconvolution
+                        update_model = True or update_model
 
-                                _, _, ntmp, _ = SM.shape
-                                if ntmp < 2*self.NpixFacet:
-                                    print "Warning - your LocalSM is too small"
+                        break # stop cleaning if threshold reached
 
-                                # subtract facet model
-                                self.SubStep((xc, yc), SM)
+                    self.track_progress(i, ThisFlux)
 
-                else:  # TODO - remove this and advise users to use Hogbom for SS clean
-                    # Get the JonesNorm
-                    JonesNorm = (self._JonesNorm[:, :, x, y]).reshape((self.Nchan, self.Npol, 1, 1))
+                    # run minor loop
+                    if self.GD["WSCMS"]["MultiScale"]:
+                        # Find the relevant scale and do sub-minor loop. Returns the model constructed during the
+                        # sub-minor loop.
+                        # If the delta scale is found then self._Dirty and self._MeanDirty have already had the
+                        # components subtracted from them so we don't need to do anything further.
+                        ScaleModel, iScale, x, y = self.ModelMachine.do_minor_loop(x, y, self._Dirty,
+                                                                                   self._MeanDirty, self._JonesNorm,
+                                                                                   self.WeightsChansImages, ThisFlux,
+                                                                                   StopFlux)
 
-                    # Get the solution
-                    Fpol = np.zeros([self.Nchan, self.Npol, 1, 1], dtype=np.float32)
+                        # convolve scale model with PSF and subtract from residual (if not delta scale)
+                        if iScale:
+                            self.DoSubtract(ScaleModel)
 
-                    # the dirty image has been stitched so we need to divide by the
-                    # stitched sqrt(JonesNorm) to get the intrinsic (done in freqmachine)
-                    Fpol[:, 0, 0, 0] = self._Dirty[:, 0, x, y].copy()  # /np.sqrt(JonesNorm[:, 0, 0, 0])
+                    else:  # TODO - remove this and advise users to use Hogbom for SS clean
+                        # Get the JonesNorm
+                        JonesNorm = (self._JonesNorm[:, :, x, y]).reshape((self.Nchan, self.Npol, 1, 1))
 
-                    # Find PSF corresponding to location (x,y) (need to set PSF before doing WPoly)
-                    self.PSFServer.setLocation(x, y)  # Selects the facet closest to (x,y)
+                        # Get the solution
+                        Fpol = np.zeros([self.Nchan, self.Npol, 1, 1], dtype=np.float32)
 
-                    # Fit a polynomial to get coeffs (coeffs are for intrinsic flux)
-                    self.ModelMachine.Coeffs = self.ModelMachine.FreqMachine.Fit(Fpol[:, 0, 0, 0],
-                                                                                 JonesNorm[:, 0, 0, 0],
-                                                                                 self._MeanDirty[0, 0, x, y])
+                        # the dirty image has been stitched so we need to divide by the
+                        # stitched sqrt(JonesNorm) to get the intrinsic (done in freqmachine)
+                        Fpol[:, 0, 0, 0] = self._Dirty[:, 0, x, y].copy()  # /np.sqrt(JonesNorm[:, 0, 0, 0])
 
-                    # Overwrite with polynoimial fit (this returns the apparent flux)
-                    Fpol[:, 0, 0, 0] = self.ModelMachine.FreqMachine.Eval(self.ModelMachine.Coeffs)
+                        # Find PSF corresponding to location (x,y) (need to set PSF before doing WPoly)
+                        self.PSFServer.setLocation(x, y)  # Selects the facet closest to (x,y)
 
-                    T.timeit("stuff")
+                        # Fit a polynomial to get coeffs (coeffs are for intrinsic flux)
+                        self.ModelMachine.Coeffs = self.ModelMachine.FreqMachine.Fit(Fpol[:, 0, 0, 0],
+                                                                                     JonesNorm[:, 0, 0, 0],
+                                                                                     self._MeanDirty[0, 0, x, y])
 
-                    # get the PSF in this facet
-                    PSF, _ = self.PSFServer.GivePSF()
+                        # Overwrite with polynoimial fit (this returns the apparent flux)
+                        Fpol[:, 0, 0, 0] = self.ModelMachine.FreqMachine.Eval(self.ModelMachine.Coeffs)
 
-                    T.timeit("FindScale")
+                        T.timeit("stuff")
 
-                    CurrentGain = self.GD["Deconv"]["Gain"]  # GainMachine.GiveGain()
+                        # get the PSF in this facet
+                        PSF, _ = self.PSFServer.GivePSF()
 
-                    #Update model
-                    self.ModelMachine.AppendComponentToDictStacked((x, y), self.ModelMachine.Coeffs[:], 0, CurrentGain)
+                        T.timeit("FindScale")
 
-                    # Subtract LocalSM*CurrentGain from dirty image (not JonesNorm since Fpol is already for apparent)
-                    self.SubStep((x, y), PSF*Fpol*CurrentGain)
-                    T.timeit("SubStep")
+                        CurrentGain = self.GD["Deconv"]["Gain"]  # GainMachine.GiveGain()
+
+                        #Update model
+                        self.ModelMachine.AppendComponentToDictStacked((x, y), self.ModelMachine.Coeffs[:], 0, CurrentGain)
+
+                        # Subtract LocalSM*CurrentGain from dirty image (not JonesNorm since Fpol is already for apparent)
+                        self.SubStep((x, y), PSF*Fpol*CurrentGain)
+                        T.timeit("SubStep")
 
                 T.timeit("End")
 

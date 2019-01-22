@@ -101,7 +101,7 @@ namespace DDF {
       J1kMS.setUnity();
       J0.setUnity(); J1.setUnity();
       WaveLengthMean=WaveLengthMeanIn;
-      DoApplyJones=LJones.size();
+      DoApplyJones=int(LJones.size());
 
       if (DoApplyJones)
 	{

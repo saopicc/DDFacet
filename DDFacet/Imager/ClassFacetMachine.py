@@ -343,14 +343,29 @@ class ClassFacetMachine():
         self.DicoImager[iFacet]["RaDec"] = raFacet[0], decFacet[0]
         self.LraFacet.append(raFacet[0])
         self.LdecFacet.append(decFacet[0])
+        # print "                            Npixes ", NpixOutIm, NpixFacet, iFacet
         xc, yc = int(round(l0 / self.CellSizeRad + NpixOutIm / 2)), \
             int(round(m0 / self.CellSizeRad + NpixOutIm / 2))
+
+        # basehalf = NpixFacet // 2
+        # ix = iFacet // self.GD["Facets"]["NFacets"]
+        # iy = iFacet % self.GD["Facets"]["NFacets"]
+        # xc = ix * NpixFacet + basehalf
+        # yc = iy * NpixFacet + basehalf
+        # xl = xc - NpixFacet // 2
+        # xu = xc + NpixFacet // 2 + 1
+        # yl = yc - NpixFacet // 2
+        # yu = yc + NpixFacet // 2 + 1
 
         self.DicoImager[iFacet]["pixCentral"] = xc, yc
         self.DicoImager[iFacet]["pixExtent"] = round(xc - NpixFacet / 2), \
             round(xc + NpixFacet / 2 + 1), \
             round(yc - NpixFacet / 2), \
             round(yc + NpixFacet / 2 + 1)
+        # self.DicoImager[iFacet]["pixExtent"] = (xl, xu, yl, yu)
+
+
+        # print "                      center and extent", self.DicoImager[iFacet]["pixCentral"], self.DicoImager[iFacet]["pixExtent"]
 
         self.DicoImager[iFacet]["NpixFacet"] = NpixFacet
         self.DicoImager[iFacet]["NpixFacetPadded"] = NpixPaddedGrid
@@ -1246,7 +1261,6 @@ class ClassFacetMachine():
 
             xc, yc = self.DicoImager[iFacet]["pixCentral"]
             NpixFacet = self.DicoGridMachine[iFacet]["Dirty"][0].shape[2]
-
 
             Aedge, Bedge = GiveEdges((xc, yc), NPixOut,
                                      (NpixFacet/2, NpixFacet/2), NpixFacet)

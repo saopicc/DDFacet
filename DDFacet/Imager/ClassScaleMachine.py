@@ -73,7 +73,7 @@ class ClassScaleMachine(object):
         self.NCPU = NCPU
         self.DoAbs = self.GD["Deconv"]["AllowNegative"]
 
-    def Init(self, PSFServer, FreqMachine, FTMachine2=None, cachepath=None):
+    def Init(self, PSFServer, FreqMachine, cachepath=None):
         """
         Sets everything required to perform multi-scale CLEAN. 
         :param PSFserver: Mandatory if NScales > 1
@@ -245,7 +245,7 @@ class ClassScaleMachine(object):
             while FWHMs[i] < self.GD["WSCMS"]["MaxScale"]:  # hardcoded for now
                 FWHMs.append(2.0*FWHMs[i])
                 i += 1
-            self.FWHMs = np.asarray(FWHMs)
+            self.FWHMs = np.asarray(FWHMs)[0:-1]
         else:
             print>>log, "Using user defined scales"
             self.FWHMs = np.asarray(self.GD["WSCMS"]["Scales"])

@@ -81,7 +81,7 @@ namespace DDF{
       const double l0=ptrFacetInfos[2];
       const double m0=ptrFacetInfos[3];
       const double n0=sqrt(1-l0*l0-m0*m0)-1;
-      const int facet = ptrFacetInfos[4];
+      //const int facet = ptrFacetInfos[4];
 
       /* Get size of grid. */
       const double *ptrWinfo = Winfos.data(0);
@@ -128,7 +128,7 @@ namespace DDF{
       const fcmplx* __restrict__ griddata = grid.data(0);
       fcmplx* __restrict__ visdata = vis.mutable_data(0);
       JS.resetJonesServerCounter();
-      
+
       for (size_t iBlock=0; iBlock<NTotBlocks; iBlock++)
 	{
 	const int NRowThisBlock=NRowBlocks[iBlock]-2;
@@ -226,7 +226,7 @@ namespace DDF{
 
 	/*################### Now do the correction #################*/
 	double DeCorrFactor=decorr.get(FreqMean, Row[NRowThisBlock/2]);
-	
+
 	for (auto inx=0; inx<NRowThisBlock; inx++)
 	  {
 	  size_t irow = size_t(Row[inx]);
@@ -260,15 +260,10 @@ namespace DDF{
 	    }
 
 	    fcmplx* __restrict__ visPtr = visdata + doff;
-	    //auto Sem_mutex = GiveSemaphoreFromCell(doff_chan);
 	    /* Finally subtract visibilities from current residues */
-	    //sem_wait(Sem_mutex);
 	    subtractVis<nVisCorr>(visPtr, visBuff);
-//	    for (auto ThisPol=0; ThisPol<nVisCorr; ++ThisPol)
-//	      visPtr[ThisPol] -= visBuff[ThisPol];
-	    //sem_post(Sem_mutex);
 	    }/*endfor vischan*/
-	    sem_post(Sem_mutex);
+	  sem_post(Sem_mutex);
 	  }/*endfor RowThisBlock*/
 	} /*end for Block*/
       } /* end */

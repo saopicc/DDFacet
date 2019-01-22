@@ -50,6 +50,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def setPSFServer(self, PSFServer):
         self.PSFServer = PSFServer
 
+        _, _, self.Npix, _ = self.PSFServer.ImageShape
+        self.NpixPadded = int(np.ceil(self.GD["Facets"]["Padding"] * self.Npix))
+        # make sure it is odd numbered
+        if self.NpixPadded % 2 == 0:
+            self.NpixPadded += 1
+        self.Npad = (self.NpixPadded - self.Npix) // 2
+
     def setFreqMachine(self, GridFreqs, DegridFreqs, weights=None, PSFServer=None):
         self.PSFServer = PSFServer
         # Initiaise the Frequency Machine
@@ -58,7 +65,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.FreqMachine = ClassFrequencyMachine.ClassFrequencyMachine(GridFreqs, DegridFreqs,
                                                                        self.DicoSMStacked["RefFreq"], self.GD,
                                                                        weights=weights, PSFServer=self.PSFServer)
-        self.FreqMachine.set_Method(mode="WSCMS")
+        self.FreqMachine.set_Method()
 
         if (self.GD["Freq"]["NBand"] > 1):
             self.Coeffs = np.zeros(self.GD["WSCMS"]["NumFreqBasisFuncs"])
@@ -84,7 +91,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             self.DoAbs = self.GD["Deconv"]["AllowNegative"]
             self.ScaleMachine = ClassScaleMachine.ClassScaleMachine(GD=self.GD, NCPU=NCPU, MaskArray=MaskArray)
             self.FTMachine = FTMachine
-            self.ScaleMachine.Init(PSFServer, self.FreqMachine, FTMachine2=self.FTMachine,
+            self.ScaleMachine.Init(PSFServer, self.FreqMachine,
                                    cachepath=cachepath)
             self.Nscales = self.ScaleMachine.Nscales
             # Initialise CurrentScale variable
@@ -92,12 +99,14 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             # Initialise current facet variable
             self.CurrentFacet = 999999
 
+
             self.DicoSMStacked["Scale_Info"] = {}
-            for i, sigma in enumerate(self.ScaleMachine.sigmas):
-                if sigma not in self.DicoSMStacked["Scale_Info"].keys():
-                    self.DicoSMStacked["Scale_Info"][sigma] = {}
-                self.DicoSMStacked["Scale_Info"][sigma]["kernel"] = self.ScaleMachine.kernels[i]
-                self.DicoSMStacked["Scale_Info"][sigma]["extent"] = self.ScaleMachine.extents[i]
+            for iScale, sigma in enumerate(self.ScaleMachine.sigmas):
+                if iScale not in self.DicoSMStacked["Scale_Info"].keys():
+                    self.DicoSMStacked["Scale_Info"][iScale] = {}
+                self.DicoSMStacked["Scale_Info"][iScale]["sigma"] = self.ScaleMachine.sigmas[iScale]
+                self.DicoSMStacked["Scale_Info"][iScale]["kernel"] = self.ScaleMachine.kernels[iScale]
+                self.DicoSMStacked["Scale_Info"][iScale]["extent"] = self.ScaleMachine.extents[iScale]
 
         else:
             # we need to keep track of what the sigma value of the delta scale corresponds to
@@ -137,7 +146,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.ModelShape = ModelShape
         self.Npix = self.ModelShape[-1]
 
-    def AppendComponentToDictStacked(self, key, Sols, Scale, Gain):
+    def AppendComponentToDictStacked(self, key, Sols, iScale, Gain):
         """
         Adds component to model dictionary at a scale specified by Scale. 
         The dictionary corresponding to each scale is keyed on pixel values (l,m location tupple). 
@@ -160,16 +169,16 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         """
         DicoComp = self.DicoSMStacked.setdefault("Comp", {})
 
-        if Scale not in DicoComp.keys():
-            DicoComp[Scale] = {}
+        if iScale not in DicoComp.keys():
+            DicoComp[iScale] = {}
+            DicoComp[iScale]["NumComps"] = np.zeros(1, np.int16)  # keeps track of number of components at this scale
 
-        if key not in DicoComp[Scale].keys():
-            DicoComp[Scale][key] = {}
-            DicoComp[Scale][key]["SolsArray"] = np.zeros(Sols.size, np.float32)
-            DicoComp[Scale][key]["NumComps"] = np.zeros(1, np.float32)
+        if key not in DicoComp[iScale].keys():
+            DicoComp[iScale][key] = {}
+            DicoComp[iScale][key]["SolsArray"] = np.zeros(Sols.size, np.float32)
 
-        DicoComp[Scale][key]["NumComps"] += 1
-        DicoComp[Scale][key]["SolsArray"] += Sols.ravel() * Gain
+        DicoComp[iScale]["NumComps"] += 1
+        DicoComp[iScale][key]["SolsArray"] += Sols.ravel() * Gain
 
     def GiveModelImage(self, FreqIn=None, out=None):
         RefFreq=self.DicoSMStacked["RefFreq"]
@@ -191,110 +200,58 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         else:
             ModelImage = np.zeros((nchan,npol,nx,ny),dtype=np.float32)
 
-        # get the zero scale
-        try:
-            zero_scale = self.ScaleMachine.sigmas[0]
-        except:
-            zero_scale = self.ListScales[0]
+        # # get the zero scale
+        # try:
+        #     zero_scale = self.ScaleMachine.sigmas[0]
+        # except:
+        #     zero_scale = self.ListScales[0]
 
-        for scale in DicoComp.keys():
+        for iScale in DicoComp.keys():
             # Note here we are building a spectral cube delta function representation first and then convolving by
             # the scale at the end
             ScaleModel = np.zeros((nchan, npol, nx, ny), dtype=np.float32)
-            # get the extent of the Gaussian
-            # I = np.argwhere(scale == self.ScaleMachine.sigmas).squeeze()
-            # extent = self.ScaleMachine.extents[I]
+            # get scale kernel
             if self.GD["WSCMS"]["MultiScale"]:
-                kernel = self.DicoSMStacked["Scale_Info"][scale]["kernel"]
-                extent = self.DicoSMStacked["Scale_Info"][scale]["extent"]
+                sigma = self.DicoSMStacked["Scale_Info"][iScale]["sigma"]
+                kernel = self.DicoSMStacked["Scale_Info"][iScale]["kernel"]
+                extent = self.DicoSMStacked["Scale_Info"][iScale]["extent"]
 
-            for key in DicoComp[scale].keys():
-                Sol = DicoComp[scale][key]["SolsArray"]
-                # TODO - try soft thresholding components
-                x, y = key
-
-                try:  # LB - Should we drop support for anything other than polynomials maybe?
-                    interp = self.FreqMachine.Eval_Degrid(Sol, FreqIn)
-                except:
-                    interp = np.polyval(Sol[::-1], FreqIn/RefFreq)
-
-                if interp is None:
-                    raise RuntimeError("Could not interpolate model onto degridding bands. Inspect your data, check "
-                                       "'WSCMS-NumFreqBasisFuncs' or if you think this is a bug report it.")
-
-                if self.GD["WSCMS"]["MultiScale"] and scale != zero_scale:
-                    Aedge, Bedge = GiveEdges((x, y), nx, (extent // 2, extent // 2), extent)
-
-                    x0d, x1d, y0d, y1d = Aedge
-                    x0p, x1p, y0p, y1p = Bedge
-                    try:
-                        out = np.atleast_1d(interp)[:, None, None, None] * kernel
-                        ScaleModel[:, :, x0d:x1d, y0d:y1d] += out[:, :, x0p:x1p, y0p:y1p]
+            for key in DicoComp[iScale].keys():
+                if key != "NumComps":
+                    Sol = DicoComp[iScale][key]["SolsArray"]
+                    # TODO - try soft thresholding components
+                    x, y = key
+                    try:  # LB - Should we drop support for anything other than polynomials maybe?
+                        interp = self.FreqMachine.Eval_Degrid(Sol, FreqIn)
                     except:
-                        x -= nx // 2
-                        y -= ny // 2
-                        ScaleModel += GaussianSymmetric(scale, nx, x0=x or None,
-                                                        y0=y or None, amp=interp, cube=True)
-                else:
-                    ScaleModel[:, 0, x, y] += interp
+                        interp = np.polyval(Sol[::-1], FreqIn/RefFreq)
+
+                    if interp is None:
+                        raise RuntimeError("Could not interpolate model onto degridding bands. Inspect your data, check "
+                                           "'WSCMS-NumFreqBasisFuncs' or if you think this is a bug report it.")
+
+                    if self.GD["WSCMS"]["MultiScale"] and iScale != 0:
+                        Aedge, Bedge = GiveEdges((x, y), nx, (extent // 2, extent // 2), extent)
+
+                        x0d, x1d, y0d, y1d = Aedge
+                        x0p, x1p, y0p, y1p = Bedge
+                        try:
+                            out = np.atleast_1d(interp)[:, None, None, None] * kernel
+                            ScaleModel[:, :, x0d:x1d, y0d:y1d] += out[:, :, x0p:x1p, y0p:y1p]
+                        except:
+                            x -= nx // 2
+                            y -= ny // 2
+                            ScaleModel += GaussianSymmetric(sigma, nx, x0=x or None,
+                                                            y0=y or None, amp=interp, cube=True)
+                    else:
+                        ScaleModel[:, 0, x, y] += interp
 
             ModelImage += ScaleModel
+        # print "Model - ", ModelImage.max(), ModelImage.min()
         return ModelImage
 
-    def GiveSpectralIndexMap(self, CellSizeRad=1., GaussPars=[(1, 1, 0)], DoConv=True, MaxSpi=100, MaxDR=1e+6,
-                             threshold=None):
-        dFreq = 1e6
-        # f0=self.DicoSMStacked["AllFreqs"].min()
-        # f1=self.DicoSMStacked["AllFreqs"].max()
-        RefFreq = self.DicoSMStacked["RefFreq"]
-        f0 = RefFreq / 1.5
-        f1 = RefFreq * 1.5
-
-        M0 = self.GiveModelImage(f0)
-        M1 = self.GiveModelImage(f1)
-        if DoConv:
-            # M0=ModFFTW.ConvolveGaussian(M0,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
-            # M1=ModFFTW.ConvolveGaussian(M1,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
-            # M0,_=ModFFTW.ConvolveGaussianWrapper(M0,Sig=GaussPars[0][0]/CellSizeRad)
-            # M1,_=ModFFTW.ConvolveGaussianWrapper(M1,Sig=GaussPars[0][0]/CellSizeRad)
-            M0, _ = ModFFTW.ConvolveGaussianScipy(M0, Sig=GaussPars[0][0] / CellSizeRad)
-            M1, _ = ModFFTW.ConvolveGaussianScipy(M1, Sig=GaussPars[0][0] / CellSizeRad)
-
-        # print M0.shape,M1.shape
-        # compute threshold for alpha computation by rounding DR threshold to .1 digits (i.e. 1.65e-6 rounds to 1.7e-6)
-        if threshold is not None:
-            minmod = threshold
-        elif not np.all(M0 == 0):
-            minmod = float("%.1e" % (np.max(np.abs(M0)) / MaxDR))
-        else:
-            minmod = 1e-6
-
-        # mask out pixels above threshold
-        mask = (M1 < minmod) | (M0 < minmod)
-        print>> log, "computing alpha map for model pixels above %.1e Jy (based on max DR setting of %g)" % (
-        minmod, MaxDR)
-        M0[mask] = minmod
-        M1[mask] = minmod
-        # with np.errstate(invalid='ignore'):
-        #    alpha = (np.log(M0)-np.log(M1))/(np.log(f0/f1))
-        # print
-        # print np.min(M0),np.min(M1),minmod
-        # print
-        alpha = (np.log(M0) - np.log(M1)) / (np.log(f0 / f1))
-        alpha[mask] = 0
-
-        # mask out |alpha|>MaxSpi. These are not physically meaningful anyway
-        mask = alpha > MaxSpi
-        alpha[mask] = MaxSpi
-        masked = mask.any()
-        mask = alpha < -MaxSpi
-        alpha[mask] = -MaxSpi
-        if masked or mask.any():
-            print>> log, ModColor.Str("WARNING: some alpha pixels outside +/-%g. Masking them." % MaxSpi, col="red")
-        return alpha
-
-    def GiveNewSpectralIndexMap(self, CellSizeRad=1., GaussPars=[(1, 1, 0)], DoConv=True, MaxSpi=100, MaxDR=1e+6,
-                                threshold=None, ResidCube=None):
+    def GiveSpectralIndexMap(self, GaussPars=[(1, 1, 0)], ResidCube=None,
+                                GiveComponents=False, ChannelWeights=None):
 
         # convert to radians
         ex, ey, pa = GaussPars
@@ -309,17 +266,18 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         # get Gaussian kernel
         GaussKern = ModFFTW.GiveGauss(self.Npix, CellSizeRad=CellSizeRad, GaussPars=(ex, ey, pa), parallel=False)
-        # normalise
-        # GaussKern /= np.sum(GaussKern.flatten())
+
         # take FT
         Fs = np.fft.fftshift
         iFs = np.fft.ifftshift
-        npad = self.ScaleMachine.Npad
+        npad = self.Npad
         FTarray = self.ScaleMachine.FTMachine.xhatim.view()
         FTarray[...] = iFs(np.pad(GaussKern[None, None], ((0, 0), (0, 0), (npad, npad), (npad, npad)),
                              mode='constant'), axes=(2, 3))
+
         # this puts the FT in FTarray
         self.ScaleMachine.FTMachine.FFTim()
+
         # need to copy since FTarray and FTcube are views to the same array
         FTkernel = FTarray.copy()
 
@@ -342,12 +300,19 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         ConvModelImage = Fs(FTcube, axes=(2,3))[:, :, I, I].real
 
+        ConvModelMean = np.mean(ConvModelImage.squeeze(), axis=0)
+
+        ConvModelLow = ConvModelImage[-1, 0]
+        ConvModelHigh = ConvModelImage[0, 0]
+
         if ResidCube is not None:
             ConvModelImage += ResidCube
 
         ConvModelImage = ConvModelImage.squeeze()
 
         RMS = np.std(ResidCube.flatten())
+
+        print "RMS = ", RMS
         Threshold = self.GD["SPIMaps"]["AlphaThreshold"] * RMS
 
         # get minimum along any freq axis
@@ -355,7 +320,64 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         MaskIndices = np.argwhere(MinImage > Threshold)
         FitCube = ConvModelImage[:, MaskIndices[:, 0], MaskIndices[:, 1]]
 
-        alpha, varalpha, Iref, varIref = self.FreqMachine.FitSPIComponents(FitCube, self.GridFreqs, self.RefFreq)
+        # Initial guess for I0
+        I0i = ConvModelMean[MaskIndices[:, 0], MaskIndices[:, 1]]
+
+        # initial guess for alphas
+        Ilow = ConvModelLow[MaskIndices[:, 0], MaskIndices[:, 1]]/I0i
+        Ihigh = ConvModelHigh[MaskIndices[:, 0], MaskIndices[:, 1]]/I0i
+        alphai = (np.log(Ihigh) - np.log(Ilow))/(np.log(self.GridFreqs[0]/self.RefFreq) - np.log(self.GridFreqs[-1]/self.RefFreq))
+
+        import matplotlib.pyplot as plt
+
+        for i in xrange(self.Nchan):
+            plt.imshow(np.where(ConvModelImage[i] > Threshold, ConvModelImage[i], 0.0))
+            plt.show()
+
+        if ChannelWeights is None:
+            weights = np.ones(self.Nchan, dtype=np.float32)
+        else:
+            weights = ChannelWeights.astype(np.float32)
+            if ChannelWeights.size != self.Nchan:
+                import warnings
+                warnings.warn("The provided channel weights are of incorrect length. Ignoring weights.", RuntimeWarning)
+                weights = np.ones(self.Nchan, dtype=np.float32)
+
+        try:
+            import traceback
+            from africanus.model.spi.dask import fit_spi_components
+            NCPU = self.GD["Parallel"]["NCPU"]
+            if NCPU:
+                from multiprocessing.pool import ThreadPool
+                import dask
+
+                dask.config.set(pool=ThreadPool(NCPU))
+            else:
+                import multiprocessing
+                NCPU = multiprocessing.cpu_count()
+
+            import dask.array as da
+            _, ncomps = FitCube.shape
+            FitCubeDask = da.from_array(FitCube.T.astype(np.float64), chunks=(ncomps//NCPU, self.Nchan))
+            weightsDask = da.from_array(weights.astype(np.float64), chunks=(self.Nchan))
+            freqsDask = da.from_array(self.GridFreqs.astype(np.float64), chunks=(self.Nchan))
+
+            alpha, varalpha, Iref, varIref = fit_spi_components(FitCubeDask, weightsDask,
+                                                                freqsDask, self.RefFreq,
+                                                                dtype=np.float64, I0i=I0i,
+                                                                alphai=alphai).compute()
+
+            # from africanus.model.spi import fit_spi_components
+            #
+            # alpha, varalpha, Iref, varIref = fit_spi_components(FitCube.T.astype(np.float64), weights.astype(np.float64),
+            #                                                     self.GridFreqs.astype(np.float64), self.RefFreq.astype(np.float64),
+            #                                                     dtype=np.float64, I0i=I0i, alphai=alphai)
+        except Exception as e:
+            traceback_str = traceback.format_exc(e)
+            print>>log, "Warning - Failed at importing africanus spi fitter. This could be an issue with the dask " \
+                        "version. Falling back to (slow) scipy version"
+            print>>log, "Original traceback - ", traceback_str
+            alpha, varalpha, Iref, varIref = self.FreqMachine.FitSPIComponents(FitCube, self.GridFreqs, self.RefFreq)
 
         _, _, nx, ny = ModelImage.shape
         alphamap = np.zeros([nx, ny])
@@ -368,17 +390,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         alphastdmap[MaskIndices[:, 0], MaskIndices[:, 1]] = np.sqrt(varalpha)
         Irefstdmap[MaskIndices[:, 0], MaskIndices[:, 1]] = np.sqrt(varIref)
 
-        # import matplotlib.pyplot as plt
-        # listmaps = [alphamap, alphastdmap, Irefmap, Irefstdmap]
-        # for i in xrange(4):
-        #     plt.imshow(listmaps[i])
-        #     plt.colorbar()
-        #     plt.show()
-        #
-        # import sys
-        # sys.exit(0)
-
-        return alphamap[None, None], alphastdmap[None, None]
+        if GiveComponents:
+            return alphamap[None, None], alphastdmap[None, None], alpha
+        else:
+            return alphamap[None, None], alphastdmap[None, None]
 
     def SubStep(self, (dx, dy), LocalSM, Residual):
         """
@@ -415,6 +430,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             # all the relevant information in the LRU cache which spills to disk automatically if the number
             # of elements exceeds the pre-set maximum in --WSCMS-CacheSize
             self.CurrentGain = self.ScaleMachine.give_gain(iFacet, iScale)
+
+            # print "Scale = ", self.CurrentScale, " gain = ", self.CurrentGain
 
             # twice convolve PSF with scale if not delta scale
             if not iScale:
@@ -553,7 +570,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             # Overwrite with polynoimial fit (Fpol is apparent flux)
             Fpol[:, 0, 0, 0] = self.FreqMachine.Eval(self.Coeffs)
 
-            self.AppendComponentToDictStacked((xscale, yscale), self.Coeffs / self.FpolNormFactor, sigma, self.CurrentGain)
+            self.AppendComponentToDictStacked((xscale, yscale), self.Coeffs / self.FpolNormFactor, self.CurrentScale,
+                                              self.CurrentGain)
 
             # Keep track of apparent model components (this is for subtraction in the upper minor loop, not relevant if
             # its the delta scale)
@@ -602,8 +620,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             return ScaleModel, iScale, xscale, yscale
         else:
             return None, iScale, xscale, yscale
-
-
 
 ###################### Dark magic below this line ###################################
     def PutBackSubsComps(self):
