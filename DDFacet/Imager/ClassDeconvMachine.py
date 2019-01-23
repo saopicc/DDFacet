@@ -18,7 +18,6 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
-from ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
 import numpy as np
 from pyrap.images import image
 from DDFacet.Other import MyPickle
@@ -95,6 +94,12 @@ class ClassImagerDeconv():
 
         if GD is not None:
             self.GD=GD
+
+        if self.GD["DDESolutions"]["DDSols"] is None or self.GD["DDESolutions"]["DDSols"] == "":
+            from DDFacet.Imager.ClassFacetMachine import ClassFacetMachine
+        else:
+            from DDFacet.Imager.ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
+
         # INIT: gain machine singleton once and for always
         self.GainMachine = ClassGainMachine.ClassGainMachine(GainMin=self.GD["Deconv"]["Gain"])
 
@@ -1063,13 +1068,18 @@ class ClassImagerDeconv():
                                " instead?")
 
         # This just keeps track of padded grid size for use in Hogbom-MultiScale (Can just use DicoImager instead? Is it passed in anywhere?)
-        if self.GD["Deconv"]["Mode"] == "WSCMS":
+        if self.GD["Deconv"]["Mode"] == "WSCMS" or self.GD["Deconv"]["Mode"] == "Hogbom":
             self.DicoImagesPSF["PaddedPSFInfo"] = {}
-            # self.DicoImagesPSF["CFs"] = {}
+            self.DicoImagesPSF["FacetExtentImage"] = {}
+            self.DicoImagesPSF["FacetCenter"] = {}
+            self.DicoImagesPSF["FacetExtentPSF"] = {}
             # self.DicoImagesPSF["CFs"]["SW"] = {}
             # self.DicoImagesPSF["CFs"]["InvSphe"] = {}
             for iFacet in self.FacetMachinePSF.DicoImager.keys():
                 self.DicoImagesPSF["PaddedPSFInfo"][iFacet] = self.FacetMachinePSF.DicoImager[iFacet]["NpixFacetPadded"]
+                self.DicoImagesPSF["FacetExtentImage"][iFacet] = self.FacetMachine.DicoImager[iFacet]["pixExtent"]
+                self.DicoImagesPSF["FacetCenter"][iFacet] = self.FacetMachine.DicoImager[iFacet]["pixCentral"]
+                self.DicoImagesPSF["FacetExtentPSF"][iFacet] = self.FacetMachinePSF.DicoImager[iFacet]["pixExtent"]
                 # self.DicoImagesPSF["CFs"]["SW"][iFacet] = self.FacetMachinePSF._CF[iFacet]["SW"].copy()
                 # self.DicoImagesPSF["CFs"]["InvSphe"][iFacet] = self.FacetMachinePSF._CF[iFacet]["InvSphe"].copy()
 

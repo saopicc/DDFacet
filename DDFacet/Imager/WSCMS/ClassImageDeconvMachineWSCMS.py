@@ -371,16 +371,20 @@ class ClassImageDeconvMachine():
             # get location of facet center
             # LB - note these are not the same as those in FacetMachine but they give better results.
             # The pixCentral in FacetMachine do not seem to be correct!!!
-            # xc, yc = self.DicoVariablePSF["Facets"][iFacet]["pixCentral"]
-            basehalf = self.NpixFacet//2
-            ix = iFacet // self.GD["Facets"]["NFacets"]
-            iy = iFacet % self.GD["Facets"]["NFacets"]
-            xc = ix * self.NpixFacet + basehalf
-            yc = iy * self.NpixFacet + basehalf
-            xl = xc - self.NpixFacet // 2
-            xu = xc + self.NpixFacet // 2 + 1
-            yl = yc - self.NpixFacet // 2
-            yu = yc + self.NpixFacet // 2 + 1
+
+            xc, yc = self.DicoVariablePSF["FacetCenter"][iFacet]
+            xl, xu, yl, yu = self.DicoVariablePSF["FacetExtentImage"][iFacet]
+            # basehalf = self.NpixFacet//2
+            # ix = iFacet // self.GD["Facets"]["NFacets"]
+            # iy = iFacet % self.GD["Facets"]["NFacets"]
+            # xc = ix * self.NpixFacet + basehalf
+            # yc = iy * self.NpixFacet + basehalf
+            # xl = xc - self.NpixFacet // 2
+            # xu = xc + self.NpixFacet // 2 + 1
+            # yl = yc - self.NpixFacet // 2
+            # yu = yc + self.NpixFacet // 2 + 1
+
+            # print iFacet, (xc, yc), (xl, xu, yl, yu)
             LocalSM = ScaleModel[:, :, xl:xu, yl:yu]
 
             # print "iFacet = ", iFacet, ix, iy

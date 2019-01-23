@@ -328,11 +328,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         Ihigh = ConvModelHigh[MaskIndices[:, 0], MaskIndices[:, 1]]/I0i
         alphai = (np.log(Ihigh) - np.log(Ilow))/(np.log(self.GridFreqs[0]/self.RefFreq) - np.log(self.GridFreqs[-1]/self.RefFreq))
 
-        import matplotlib.pyplot as plt
-
-        for i in xrange(self.Nchan):
-            plt.imshow(np.where(ConvModelImage[i] > Threshold, ConvModelImage[i], 0.0))
-            plt.show()
+        # import matplotlib.pyplot as plt
+        #
+        # for i in xrange(self.Nchan):
+        #     plt.imshow(np.where(ConvModelImage[i] > Threshold, ConvModelImage[i], 0.0))
+        #     plt.show()
 
         if ChannelWeights is None:
             weights = np.ones(self.Nchan, dtype=np.float32)
