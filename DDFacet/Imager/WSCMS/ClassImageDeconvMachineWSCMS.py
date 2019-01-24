@@ -384,14 +384,7 @@ class ClassImageDeconvMachine():
             # yl = yc - self.NpixFacet // 2
             # yu = yc + self.NpixFacet // 2 + 1
 
-            # print iFacet, (xc, yc), (xl, xu, yl, yu)
             LocalSM = ScaleModel[:, :, xl:xu, yl:yu]
-
-            # print "iFacet = ", iFacet, ix, iy
-            # print "(xc, yc) = ", (xc, yc)
-            # print "x indices = ", xl, xu
-            # print "y indices = ", yl, yu
-            # print "NpixFacet = ", self.NpixFacet, xu - xl, yu-yl
 
             # convolve local sky model with PSF
             SM = self.ModelMachine.ScaleMachine.SMConvolvePSF(iFacet, LocalSM)

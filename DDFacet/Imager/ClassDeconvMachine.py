@@ -95,11 +95,6 @@ class ClassImagerDeconv():
         if GD is not None:
             self.GD=GD
 
-        if self.GD["DDESolutions"]["DDSols"] is None or self.GD["DDESolutions"]["DDSols"] == "":
-            from DDFacet.Imager.ClassFacetMachine import ClassFacetMachine
-        else:
-            from DDFacet.Imager.ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
-
         # INIT: gain machine singleton once and for always
         self.GainMachine = ClassGainMachine.ClassGainMachine(GainMin=self.GD["Deconv"]["Gain"])
 
@@ -308,6 +303,11 @@ class ClassImagerDeconv():
         """Creates FacetMachines for data and/or PSF"""
         self.StokesFacetMachine = self.FacetMachine = self.FacetMachinePSF = None
         MainFacetOptions = self.GiveMainFacetOptions()
+        if self.GD["DDESolutions"]["DDSols"] is None or self.GD["DDESolutions"]["DDSols"] == "":
+            from DDFacet.Imager.ClassFacetMachine import ClassFacetMachine
+        else:
+            from DDFacet.Imager.ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
+        # from DDFacet.Imager.ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
         if self.do_stokes_residue:
             self.StokesFacetMachine = ClassFacetMachine(self.VS,
                                                         self.GD,

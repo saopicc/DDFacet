@@ -248,9 +248,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         # convert to radians
         ex, ey, pa = GaussPars
-        ex *= np.pi/180
-        ey *= np.pi/180
-        pa *= np.pi/180
+        ex *= np.pi/180/np.sqrt(2)/2
+        ey *= np.pi/180/np.sqrt(2)/2
+        # pa -= 180.0
+        pa *= np.pi/180/np.sqrt(2)/2
 
         # get in terms of number of cells
         CellSizeRad = self.GD['Image']['Cell'] * np.pi / 648000
@@ -259,6 +260,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         # get Gaussian kernel
         GaussKern = ModFFTW.GiveGauss(self.Npix, CellSizeRad=CellSizeRad, GaussPars=(ex, ey, pa), parallel=False)
+
+        import matplotlib.pyplot as plt
+        plt.imshow(GaussKern)
+        plt.show()
+
         # normalise
         # GaussKern /= np.sum(GaussKern.flatten())
         # take FT

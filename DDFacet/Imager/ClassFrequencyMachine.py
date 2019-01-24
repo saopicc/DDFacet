@@ -86,11 +86,13 @@ class ClassFrequencyMachine(object):
 
                     # construct design matrix at gridding channel resolution
                     self.Xdes = self.setDesMat(self.Freqs, order=self.order, mode="Mono")
+                    self.Xdesp = self.setDesMat(self.Freqsp, order=self.order, mode="Mono")
+                    self.Xdes_ref = self.setDesMat(self.ref_freq, order=self.order, mode="Mono")
 
                     # there is no need to recompute this every time if the beam is not enabled because same everywhere
                     if not self.BeamEnable:
                         # Fits the integrated polynomial when Mode='Andre'
-                        self.SAX = self.setDesMat(self.Freqs, order=self.order, mode='Andre')
+                        self.SAX = self.setDesMat(self.Freqs, order=self.order, mode='Mono')
                     else:
                         self.freqs_full = []
                         for iCh in xrange(self.nchan):
@@ -173,15 +175,15 @@ class ClassFrequencyMachine(object):
             w = np.log(Freqs / self.ref_freq).reshape(Freqs.size, 1)
             # create tiled array and raise each column to the correct power
             Xdesign = np.tile(w, order) ** np.arange(0, order)
-        elif mode == "Andre":
-            # we are given frequencies at bin centers convert to bin edges
-            delta_freq = Freqs[1] - Freqs[0]
-            wlow = (Freqs - delta_freq/2.0)/self.ref_freq
-            whigh = (Freqs + delta_freq/2.0)/self.ref_freq
-            wdiff = whigh - wlow
-            Xdesign = np.zeros([Freqs.size, self.order])
-            for i in xrange(1, self.order+1):
-                Xdesign[:, i-1] = (whigh**i - wlow**i)/(i*wdiff)
+        # elif mode == "Andre":
+        #     # we are given frequencies at bin centers convert to bin edges
+        #     delta_freq = Freqs[1] - Freqs[0]
+        #     wlow = (Freqs - delta_freq/2.0)/self.ref_freq
+        #     whigh = (Freqs + delta_freq/2.0)/self.ref_freq
+        #     wdiff = whigh - wlow
+        #     Xdesign = np.zeros([Freqs.size, self.order])
+        #     for i in xrange(1, self.order+1):
+        #         Xdesign[:, i-1] = (whigh**i - wlow**i)/(i*wdiff)
         else:
             raise NotImplementedError("Frequency basis %s not supported" % mode)
         return Xdesign
@@ -271,6 +273,10 @@ class ClassFrequencyMachine(object):
         if np.all(Freqsp == self.Freqs):
             # Here we don't need to reset the design matrix
             return np.dot(self.Xdes, coeffs)
+        elif np.all(Freqsp == self.Freqsp):
+            return np.dot(self.Xdesp, coeffs)
+        elif np.all(Freqsp == self.ref_freq):
+            return np.dot(self.Xdes_ref, coeffs)
         else:
             # Here we do
             Xdes = self.setDesMat(Freqsp, order=self.order, mode="Mono")

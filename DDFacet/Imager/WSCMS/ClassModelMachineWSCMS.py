@@ -312,7 +312,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         RMS = np.std(ResidCube.flatten())
 
-        print "RMS = ", RMS
         Threshold = self.GD["SPIMaps"]["AlphaThreshold"] * RMS
 
         # get minimum along any freq axis

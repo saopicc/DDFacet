@@ -47,6 +47,7 @@ import scipy.ndimage
 from scipy.spatial import Voronoi
 from SkyModel.Sky import ModVoronoi
 import Polygon
+from DDFacet.ToolsDir import rad2hmsdms
 
 class ClassFacetMachine():
     """
@@ -264,19 +265,6 @@ class ClassFacetMachine():
                                          [-RadiusTot, RadiusTot]])
         self.setFacetsLocs()
 
-        # print "Just set Facet locations"
-        # for iFacet in range(self.NFacets):
-        #     keys = self.DicoImager[iFacet].keys()
-        #     print '--------------------------------------------------------'
-        #     for key in keys:
-        #         print "        key = ", key
-        #         print self.DicoImager[iFacet][key]
-        #     print '--------------------------------------------------------'
-        #
-        #
-        # import sys
-        # sys.exit(0)
-
     def AppendFacet(self, iFacet, l0, m0, diam):
         """
         Adds facet dimentions to info dict of facets (self.DicoImager[iFacet])
@@ -423,63 +411,48 @@ class ClassFacetMachine():
         raSols, decSols = self.CoordMachine.lm2radec(lFacet.copy(), mFacet.copy())
         self.radecSols = raSols, decSols
 
-        # Set facet centers (pixels)
-        x0facet, y0facet = np.mgrid[0:self.Npix:self.NpixFacet, 0:self.Npix:self.NpixFacet]
-        x0facet = x0facet.flatten()
-        y0facet = y0facet.flatten()
-
-        xy = np.zeros((lFacet.size, 2), np.float32)
-        xy[:, 0] = lFacet
-        xy[:, 1] = mFacet
-
-        if self.NFacets == 1:
-            LPolygon = [self.CornersImageTot]
-
-        else:
-
-            vor = Voronoi(xy, furthest_site=False)
-            regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(
-                vor, radius=1.)
-
-            PP = Polygon.Polygon(self.CornersImageTot)
-
-            LPolygon = []
-            ListNode = []
-
-            # print "vor.regions", vor.regions
-            # print "regions", regions
-
-            for region, iNode in zip(regions, range(self.NFacets)):
-                # print "vertices[region]", vertices[region]
-                ThisP = np.array(PP & Polygon.Polygon(np.array(vertices[region])))
-                if ThisP.size > 0:
-                    LPolygon.append(ThisP[0])
-                    ListNode.append(iNode)
-
         # set coordinates of facet vertices
         self.DicoImager = {}
-        tmparray = np.zeros([4, 2])  # temp array to hold coordinates
-        for iFacet in xrange(self.NFacets):
-            self.DicoImager[iFacet] = {}
+        if self.NFacets == 1:
+            self.DicoImager[0]["Polygon"] = self.CornersImageTot
+        else:
+            tmparray = np.zeros([4, 2])  # temp array to hold coordinates
+            for iFacet in xrange(self.NFacets):
+                self.DicoImager[iFacet] = {}
 
-            # since we are using regular tesselation
-            tmparray[0, 0] = lFacet[iFacet] + self.RadiusFacet
-            tmparray[0, 1] = mFacet[iFacet] - self.RadiusFacet
-            tmparray[1, 0] = lFacet[iFacet] - self.RadiusFacet
-            tmparray[1, 1] = mFacet[iFacet] - self.RadiusFacet
-            tmparray[2, 0] = lFacet[iFacet] - self.RadiusFacet
-            tmparray[2, 1] = mFacet[iFacet] + self.RadiusFacet
-            tmparray[3, 0] = lFacet[iFacet] + self.RadiusFacet
-            tmparray[3, 1] = mFacet[iFacet] + self.RadiusFacet
+                # since we are using regular tesselation
+                tmparray[0, 0] = lFacet[iFacet] + self.RadiusFacet
+                tmparray[0, 1] = mFacet[iFacet] - self.RadiusFacet
+                tmparray[1, 0] = lFacet[iFacet] - self.RadiusFacet
+                tmparray[1, 1] = mFacet[iFacet] - self.RadiusFacet
+                tmparray[2, 0] = lFacet[iFacet] - self.RadiusFacet
+                tmparray[2, 1] = mFacet[iFacet] + self.RadiusFacet
+                tmparray[3, 0] = lFacet[iFacet] + self.RadiusFacet
+                tmparray[3, 1] = mFacet[iFacet] + self.RadiusFacet
 
-            self.DicoImager[iFacet]["Polygon"] = tmparray.copy()
+                self.DicoImager[iFacet]["Polygon"] = tmparray.copy()
 
         # get index of central facet (not necessarily NFacets//2)
         distances = lFacet ** 2 + mFacet **2
         self.iCentralFacet = np.argwhere(distances==distances.min()).squeeze()
 
+        NodesCat = np.zeros(
+            (raSols.size,),
+            dtype=[('ra', np.float),
+                   ('dec', np.float),
+                   ('l', np.float),
+                   ('m', np.float)])
+        NodesCat = NodesCat.view(np.recarray)
+        NodesCat.ra = raSols
+        NodesCat.dec = decSols
+        # print>>log,"Facet RA %s"%raSols
+        # print>>log,"Facet Dec %s"%decSols
+        NodesCat.l = lFacet
+        NodesCat.m = mFacet
+
+        NJonesDir = NodesCat.shape[0]
         self.JonesDirCat = np.zeros(
-            (lFacet.size,),
+            (NodesCat.shape[0],),
             dtype=[('Name', '|S200'),
                    ('ra', np.float),
                    ('dec', np.float),
@@ -488,15 +461,37 @@ class ClassFacetMachine():
                    ("l", np.float),
                    ("m", np.float),
                    ("I", np.float)])
-
         self.JonesDirCat = self.JonesDirCat.view(np.recarray)
         self.JonesDirCat.I = 1
         self.JonesDirCat.SumI = 1
+
+        self.JonesDirCat.ra=NodesCat.ra
+        self.JonesDirCat.dec=NodesCat.dec
+        self.JonesDirCat.l=NodesCat.l
+        self.JonesDirCat.m=NodesCat.m
+        self.JonesDirCat.Cluster = range(NJonesDir)
+
+        print>> log, "Sizes (%i facets):" % (self.JonesDirCat.shape[0])
+        print >>log, "   - Main field :   [%i x %i] pix" % (
+            self.Npix, self.Npix)
 
         for iFacet in xrange(lFacet.size):
             l0 = lFacet[iFacet]
             m0 = mFacet[iFacet]
             self.AppendFacet(iFacet, l0, m0, self.NpixFacet * self.CellSizeRad)
+
+        # Write facet coords to file
+        FacetCoordFile = "%s.facetCoord.%stxt" % (self.GD["Output"]["Name"], "psf." if self.DoPSF else "")
+        print>> log, "Writing facet coordinates in %s" % FacetCoordFile
+        f = open(FacetCoordFile, 'w')
+        ss = "# (Name, Type, Ra, Dec, I, Q, U, V, ReferenceFrequency='7.38000e+07', SpectralIndex='[]', MajorAxis, MinorAxis, Orientation) = format"
+        for iFacet in xrange(len(self.DicoImager)):
+            ra, dec = self.DicoImager[iFacet]["RaDec"]
+            sra = rad2hmsdms.rad2hmsdms(ra, Type="ra").replace(" ", ":")
+            sdec = rad2hmsdms.rad2hmsdms(dec).replace(" ", ".")
+            ss = "%s, %s, %f, %f" % (sra, sdec, ra, dec)
+            f.write(ss + '\n')
+        f.close()
 
         self.SetLogModeSubModules("Silent")
         self.MakeREG()
