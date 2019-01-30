@@ -261,9 +261,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # get Gaussian kernel
         GaussKern = ModFFTW.GiveGauss(self.Npix, CellSizeRad=CellSizeRad, GaussPars=(ex, ey, pa), parallel=False)
 
-        import matplotlib.pyplot as plt
-        plt.imshow(GaussKern)
-        plt.show()
+        # import matplotlib.pyplot as plt
+        # plt.imshow(GaussKern)
+        # plt.show()
 
         # normalise
         # GaussKern /= np.sum(GaussKern.flatten())
