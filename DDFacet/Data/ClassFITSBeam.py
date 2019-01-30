@@ -213,6 +213,7 @@ class ClassFITSBeam (object):
         dm.do_frame(dm.epoch("UTC",dq.quantity(t0,"s")))
         # compute PA 
         parad = dm.posangle(self.field_centre,self.zenith).get_value("rad")
+        # parad = 0.0  # LB - remember to revert
         # print>>log,"time %f, position angle %f"%(t0, parad*180/math.pi)
 
         # compute l,m per direction
