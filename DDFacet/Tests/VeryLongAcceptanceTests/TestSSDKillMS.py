@@ -45,8 +45,8 @@ class TestSSDKillMS(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.Cla
                 constant for maximum tolerance used in test case setup
         """
         return [1e-6,1e-6,1e-6,1e-4,1e-4,
-                5e-2,5e-2,
-                5e-2,5e-2]
+                5e-1,5e-1,
+                5e-1,5e-1]
 
     @classmethod
     def defMeanSquaredErrorLevel(cls):
