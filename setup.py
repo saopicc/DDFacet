@@ -120,7 +120,7 @@ requirements = [("nose >= 1.3.7", "nose >= 1.3.7"),
                 ("prettytable >= 0.7.2", "prettytable >= 0.7.2"),
                 ("pybind11 >= 2.2.2", "pybind11 >= 2.2.2"),
                 ("pyfits >= 3.5", "pyfits >= 3.5")] #kittens dependency, do not remove
-py2_requirements, py3_requirements = zip(*requirements)
+py3_requirements, py2_requirements = zip(*requirements)
 install_requirements = py2_requirements if six.PY2 else py3_requirements
 setup(name=pkg,
       version=__version__,
