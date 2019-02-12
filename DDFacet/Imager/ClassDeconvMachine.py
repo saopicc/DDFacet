@@ -2205,7 +2205,12 @@ class ClassImagerDeconv():
         APP.runJob("del:intcubes", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "intconvmodelcube", "intrestoredcube"])
 
         #  can delete this one now
-        APP.runJob("del:intmodelcube", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "intmodelcube"])
+        if set(["i", "I"]).intersection(self._savecubes) == set():
+            APP.runJob("del:intmodelcube", self._delSharedImage_worker, io=0,
+                       args=[_images.readwrite(), "intmodelcube"])
+        else: pass  # needed again later on
+        # convolved-model cube in intrinsic flux
+
         # apparent-flux residual cube
         if "r" in self._savecubes:
             APP.runJob("save:apprescube", self._saveImage_worker, io=0, args=( self.DicoDirty.readonly(), "ImageCube",),
