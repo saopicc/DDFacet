@@ -119,7 +119,7 @@ def requirements():
                     ("prettytable >= 0.7.2", "prettytable >= 0.7.2"),
                     ("pybind11 >= 2.2.2", "pybind11 >= 2.2.2"),
                     ("pyfits >= 3.5", "pyfits >= 3.5"), #kittens dependency, do not remove
-                    ("configparser >= 3.7.1", "configparser <= 3.7.0")] 
+                    ("configparser >= 3.7.1", "configparser <= 3.5.0")] 
     try:
         import six
     except ImportError, e:
@@ -132,6 +132,9 @@ def requirements():
 
     py3_requirements, py2_requirements = zip(*requirements)
     install_requirements = py2_requirements if six.PY2 else py3_requirements
+
+    return install_requirements
+
 setup(name=pkg,
       version=__version__,
       description='Facet-based radio astronomy continuum imager',
