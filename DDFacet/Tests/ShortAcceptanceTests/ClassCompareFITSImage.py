@@ -211,17 +211,20 @@ class ClassCompareFITSImage(unittest.TestCase):
         args = ['DDF.py',
             cls._outputParsetFilename,
             #'--Debug-APPVerbose=2', #enable if you ever need verbose logs
+            '--Log-Boring=1',
             '--Output-Name=%s' % cls._imagePrefix,
             '--Cache-Dir=.']
-
-        stdout_file = open(cls._stdoutLogFile, 'w')
-        stderr_file = open(cls._stderrLogFile, 'w')
+        
+        #not necessary
+        #stdout_file = open(cls._stdoutLogFile, 'w')
+        #stderr_file = open(cls._stderrLogFile, 'w')
 
         with stdout_file, stderr_file:
             p = Popen(args, 
-                      env=os.environ.copy(),
-                      stdout=stdout_file, 
-                      stderr=stderr_file)
+                      env=os.environ.copy())
+            #not necessary
+            #          stdout=stdout_file, 
+            #         stderr=stderr_file)
             x = cls.timeoutsecs()
             delay = 1.0
             timeout = int(x / delay)
