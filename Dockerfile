@@ -1,5 +1,5 @@
 #From Ubuntu 16.04
-FROM kernsuite/base:3
+FROM kernsuite/base:5
 MAINTAINER Ben Hugo "bhugo@ska.ac.za"
 
 #Package dependencies
@@ -30,27 +30,27 @@ ENV DEB_DEPENCENDIES \
     python-numpy \
     libfreetype6 \
     libfreetype6-dev \
-    libpng12.0 \
-    libpng12-dev \
+    libpng-dev \
     pkg-config \
     python2.7-dev \
     libboost-all-dev \
-    libcfitsio3-dev \
+    libcfitsio-dev \
     libhdf5-dev \
     wcslib-dev \
-    libatlas-dev \
+    libatlas-base-dev \
     liblapack-dev \
     python-tk \
     meqtrees* \
     tigger-lsm \
     # LOFAR Beam and including makems needed for ref image generation
-    lofar \
+    lofarbeam-dev \
+    makems \
     # Reference image generation dependencies
     make
 
 RUN apt-get update
 RUN apt-get install -y software-properties-common
-RUN add-apt-repository -y -s ppa:kernsuite/kern-3
+RUN add-apt-repository -y -s ppa:kernsuite/kern-5
 RUN apt-add-repository -y multiverse
 RUN apt-get update
 RUN apt-get install -y $DEB_SETUP_DEPENDENCIES

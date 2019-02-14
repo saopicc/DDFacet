@@ -219,28 +219,29 @@ class ClassCompareFITSImage(unittest.TestCase):
         #stdout_file = open(cls._stdoutLogFile, 'w')
         #stderr_file = open(cls._stderrLogFile, 'w')
 
-        with stdout_file, stderr_file:
-            p = Popen(args, 
-                      env=os.environ.copy())
-            #not necessary
-            #          stdout=stdout_file, 
-            #         stderr=stderr_file)
-            x = cls.timeoutsecs()
-            delay = 1.0
-            timeout = int(x / delay)
-            while p.poll() is None and timeout > 0:
-                time.sleep(delay)
-                timeout -= delay
-            #timeout reached, kill process if it is still rolling
-            ret = p.poll()
-            if ret is None:
-                p.kill()
-                ret = 99
+        #with stdout_file, stderr_file:
 
-            if ret == 99:
-                raise RuntimeError("Test timeout reached. Killed process.")
-            elif ret != 0:
-                raise RuntimeError("DDF exited with non-zero return code %d" % ret)
+        p = Popen(args, 
+                    env=os.environ.copy())
+        #not necessary
+        #          stdout=stdout_file, 
+        #         stderr=stderr_file)
+        x = cls.timeoutsecs()
+        delay = 1.0
+        timeout = int(x / delay)
+        while p.poll() is None and timeout > 0:
+            time.sleep(delay)
+            timeout -= delay
+        #timeout reached, kill process if it is still rolling
+        ret = p.poll()
+        if ret is None:
+            p.kill()
+            ret = 99
+
+        if ret == 99:
+            raise RuntimeError("Test timeout reached. Killed process.")
+        elif ret != 0:
+            raise RuntimeError("DDF exited with non-zero return code %d" % ret)
 
 
         #Finally open up output FITS files for testing and build a dictionary of them
