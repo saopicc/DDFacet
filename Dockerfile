@@ -42,6 +42,7 @@ ENV DEB_DEPENCENDIES \
     liblapack-dev \
     python-tk \
     meqtrees* \
+    python-owlcat \
     tigger-lsm \
     # LOFAR Beam and including makems needed for ref image generation
     lofarbeam-dev \
