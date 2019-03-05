@@ -1,4 +1,4 @@
-#From Ubuntu 16.04
+#From Ubuntu 18.04
 FROM kernsuite/base:5
 MAINTAINER Ben Hugo "bhugo@ska.ac.za"
 
@@ -43,6 +43,7 @@ ENV DEB_DEPENCENDIES \
     python-tk \
     meqtrees* \
     python-owlcat \
+    owlcat \
     tigger-lsm \
     # LOFAR Beam and including makems needed for ref image generation
     lofarbeam-dev \
@@ -71,13 +72,15 @@ ADD .gitignore /src/DDFacet/.gitignore
 ADD .gitmodules /src/DDFacet/.gitmodules
 
 # Start install
-RUN pip install -U "pip==19.0.1" setuptools wheel
+RUN pip install -U pip setuptools wheel
+RUN pip install -U "astropy == 2.0.11"
+RUN pip install -U "numpy <= 1.16.1"
 # Install Montblanc and all other optional dependencies
-RUN pip install -r /src/DDFacet/requirements.txt --force-reinstall -U
+RUN pip install -r /src/DDFacet/requirements.txt
 RUN cd /src/DDFacet/ && git submodule update --init --recursive && cd /
 # Finally install DDFacet
 RUN rm -rf /src/DDFacet/DDFacet/cbuild
-RUN pip install -I -U --force-reinstall --no-binary :all: /src/DDFacet/
+RUN pip install -I -U /src/DDFacet/
 # Nuke the unused & cached binaries needed for compilation, etc.
 RUN rm -r /src/DDFacet
 RUN apt-get remove -y $DEB_SETUP_DEPENDENCIES
@@ -90,7 +93,9 @@ RUN rm -rf /var/cache/
 RUN rm -rf LOFAR-Release-2_21_9
 
 # Set MeqTrees Cattery path to virtualenv installation directory
-ENV MEQTREES_CATTERY_PATH /usr/lib/python2.7/dist-packages/Cattery/
-# Execute virtual environment version of DDFacet
+ENV MEQTREES_CATTERY_PATH /usr/local/lib/python2.7/dist-packages/Cattery/
+# basic test of installation
+RUN DDF.py --help
+RUN fitstool.py --help
 ENTRYPOINT ["DDF.py"]
 CMD ["--help"]
