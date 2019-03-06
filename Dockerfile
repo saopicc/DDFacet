@@ -93,7 +93,7 @@ RUN rm -rf /var/cache/
 RUN rm -rf LOFAR-Release-2_21_9
 
 # Set MeqTrees Cattery path to virtualenv installation directory
-ENV MEQTREES_CATTERY_PATH /usr/local/lib/python2.7/dist-packages/Cattery/
+ENV MEQTREES_CATTERY_PATH /usr/lib/python2.7/dist-packages/Cattery/
 # basic test of installation
 RUN DDF.py --help
 RUN fitstool.py --help
