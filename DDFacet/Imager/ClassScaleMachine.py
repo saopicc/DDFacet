@@ -92,7 +92,7 @@ class ClassScaleMachine(object):
         # kept in memory limited to the number specified in self.GD['WSCMS']['CacheSize']. All new entries are also
         # automatically stored in the folder specified by cachepath as name<key>.npy files.
         conv_psf_store = Store(cachepath+'/convpsf')
-        self.Conv2PSFs = pylru.WriteThroughCacheManager(conv_psf_store, self.GD['WSCMS']['CacheSize'])
+        self.ConvPSFs = pylru.WriteThroughCacheManager(conv_psf_store, self.GD['WSCMS']['CacheSize'])
         conv_psf_mean_store = Store(cachepath+'/convpsfmean')
         self.Conv2PSFmean = pylru.WriteThroughCacheManager(conv_psf_mean_store, self.GD['WSCMS']['CacheSize'])
         gains_store = Store(cachepath+'/gains')
@@ -101,21 +101,13 @@ class ClassScaleMachine(object):
         self.FT_PSF = pylru.WriteThroughCacheManager(ft_psf_store, self.GD['WSCMS']['CacheSize'])
         ft_meanpsf_store = Store(cachepath+'/ft_meanpsf')
         self.FT_meanPSF = pylru.WriteThroughCacheManager(ft_meanpsf_store, self.GD['WSCMS']['CacheSize'])
-        conv_psf_freq_peak_store = Store(cachepath+'/convpsfpeaks')
-        self.ConvPSFFreqPeaks = pylru.WriteThroughCacheManager(conv_psf_freq_peak_store, self.GD['WSCMS']['CacheSize'])
-        if self.GD["Facets"]["PSFOversize"] < 2:
-            ft_psf_subtract_store = Store(cachepath + '/ft_psf_subtract')
-            self.FT_PSF_subtract = pylru.WriteThroughCacheManager(ft_psf_subtract_store,
-                                                                   self.GD['WSCMS']['CacheSize'])
-        else:
-            self.FT_PSF_subtract = self.FT_PSF
 
         scale_mask_store = Store(cachepath + '/scale_mask')
         self.ScaleMaskArray = pylru.WriteThroughCacheManager(scale_mask_store, self.GD['WSCMS']['CacheSize'])
 
         # set PSF server
         self.PSFServer = PSFServer
-        (self.FWHMBeamAvg, _, _)=self.PSFServer.DicoVariablePSF["EstimatesAvgPSF"]
+        (self.FWHMBeamAvg, _, _) = self.PSFServer.DicoVariablePSF["EstimatesAvgPSF"]
         self.FWHMBeam = self.PSFServer.DicoVariablePSF["FWHMBeam"]
 
         # set reference key
@@ -232,7 +224,8 @@ class ClassScaleMachine(object):
                                       local_dict=loc_dict)
         return result
 
-    # TODO: Set max scale with minimum baseline or facet size?
+    # TODO - min scale needs to be set from theoretical min beam size. Do we compute this somewhere already?
+    # TODO - Set max scale with minimum baseline or facet size?
     def set_scales(self):
         if self.GD["WSCMS"]["Scales"] is None:
             print>>log, "Setting scales automatically from FWHM of average beam"
@@ -353,38 +346,22 @@ class ClassScaleMachine(object):
             #print "Scale0PSFMax = ", self.Scale0PSFmax
             #print "ConvPSF norm factor is %f"%self.ConvPSFNormFactor
 
-        # get max of PSF convolved with scale kernel
+        # get PSF convolved with scale kernel for subtracting components from dirty cube
         self.FTMachine.Chat[...] = iFs(self.FT_PSF[str(iFacet)], axes=(2,3)) * scale_kernel
         self.FTMachine.iCFFT()
-        ConvPSF = Fs(self.FTMachine.Chat.real.copy(), axes=(2,3))[:, :, I, I]
-        # print "mean Conv PSF peak = ", ConvPSFmean[0, 0, self.NpixPSF // 2, self.NpixPSF // 2]
-        # print "Conv PSF peaks = ", ConvPSF[:, 0, self.NpixPSF // 2, self.NpixPSF // 2]
-        self.ConvPSFFreqPeaks[key] = (ConvPSFmean[0, 0, self.NpixPSF // 2, self.NpixPSF // 2] /
-                                      ConvPSF[:, 0, self.NpixPSF // 2, self.NpixPSF // 2]).reshape(self.Nchan, 1, 1, 1)
+        self.ConvPSFs[key] = Fs(self.FTMachine.Chat.real.copy(), axes=(2,3))[:, :, I, I]
 
-        # get twice convolved PSF
-        self.FTMachine.Chat[...] = iFs(self.FT_PSF[str(iFacet)], axes=(2,3)) * scale_kernel**2
-        self.FTMachine.iCFFT()
-        self.Conv2PSFs[key] = Fs(self.FTMachine.Chat.real.copy(), axes=(2,3))[:, :, I, I]/self.ConvPSFNormFactor
+        # get twice convolved mean PSF for running sub-minor loop
+        self.FTMachine.xhat[...] = iFs(self.FT_meanPSF[str(iFacet)], axes=(2,3)) * scale_kernel**2
+        self.FTMachine.iFFT()
+        self.Conv2PSFmean[key] = Fs(self.FTMachine.Chat.real.copy(), axes=(2,3))[:, :, I, I]/self.ConvPSFNormFactor
 
         # set gains
         gamma = self.GD['Deconv']['Gain']
         self.gains[key] = gamma * self.Scale0PSFmax / ConvPSFmean[0, 0, self.NpixPSF // 2, self.NpixPSF // 2]
         # print "gain for scale %i = " % iScale, self.gains[key]
 
-    def set_Central_Mean_PSFs(self):
-        I = slice(self.NpadPSF, -self.NpadPSF)
-        self.PSFServer.setFacet(self.CentralFacetID)
-        _, PSFmean = self.PSFServer.GivePSF()
-        self.Conv2PSFmean[str(0)] = PSFmean
-        for iScale in xrange(1, self.Nscales):
-            if iScale not in self.Conv2PSFmean:
-                scale_kernel = iFs(self.GaussianSymmetricFT(self.sigmas[iScale])[None, None], axes=(2, 3))
-                self.FTMachine.xhat[...] = iFs(self.FT_meanPSF[str(self.CentralFacetID)], axes=(2, 3)) * scale_kernel**2
-                self.FTMachine.iFFT()
-                self.Conv2PSFmean[str(iScale)] = Fs(self.FTMachine.xhat.real.copy(), axes=(2, 3))[:, :, I, I]/self.ConvPSFNormFactor
-
-    def do_scale_convolve(self, Dirty, MeanDirty):
+    def do_scale_convolve(self, MeanDirty):
         I = slice(self.Npad, self.NpixPadded - self.Npad)
         self.FTMachine.xhatim[...] = iFs(np.pad(MeanDirty[0:1], ((0, 0), (0,0), (self.Npad, self.Npad),
                                                           (self.Npad, self.Npad)), mode='constant'), axes=(2, 3))
@@ -419,58 +396,4 @@ class ClassScaleMachine(object):
                     CurrentDirty = ConvMeanDirtys[iScale:iScale+1]  # [None, None, :, :]
                     CurrentScale = iScale
 
-        # convolve Dirty and MeanDirty by this scale unless it's the delta scale
-        if CurrentScale != 0:
-            MeanDirty = np.ascontiguousarray(CurrentDirty)
-            self.FTMachine.Chatim[...] = iFs(np.pad(Dirty, ((0, 0), (0, 0), (self.Npad, self.Npad),
-                                                          (self.Npad, self.Npad)), mode='constant'), axes=(2,3))
-            self.FTMachine.CFFTim()
-            self.FTMachine.Chatim *= iFs(self.GaussianSymmetricFT(self.sigmas[CurrentScale], mode='Image')[None, None],
-                                       axes=(2, 3))
-            self.FTMachine.iCFFTim()
-            Dirty = Fs(self.FTMachine.Chatim.real.copy(), axes=(2,3))[:, :, I, I]
-            x, y, MaxDirty = NpParallel.A_whereMax(MeanDirty, NCPU=self.NCPU, DoAbs=self.DoAbs, Mask=self.MaskArray)
-
-        return x, y, MaxDirty, MeanDirty, Dirty, CurrentScale
-
-    # def ConvolveImageCubeWithScale(self, Image, CurrentScale):
-    #     self.FTMachine.Chatim[...] = iFs(np.pad(Image, ((0, 0), (0, 0), (self.Npad, self.Npad),
-    #                                                     (self.Npad, self.Npad)), mode='constant'), axes=(2, 3))
-    #     self.FTMachine.CFFTim()
-    #     self.FTMachine.Chatim *= iFs(self.GaussianSymmetricFT(self.sigmas[CurrentScale], mode='Image')[None, None],
-    #                                  axes=(2, 3))
-    #     self.FTMachine.iCFFTim()
-    #     I = slice(self.Npad, self.NpixPadded - self.Npad)
-    #     return Fs(self.FTMachine.Chatim.real.copy(), axes=(2, 3))[:, :, I, I]
-
-    def SMConvolvePSF(self, iFacet, LocalSM):
-        """
-        Convolves sky model in a facet with the PSF of the facet 
-        :param iFacet: 
-        :param LocalSM: 
-        :return: 
-        """
-        if str(iFacet) not in self.FT_PSF_subtract:
-            self.PSFServer.setFacet(iFacet)
-            PSF, PSFmean = self.PSFServer.GivePSF()
-            npad = (self.FTMachine.NpixPSFSubtract - self.NpixPSF) // 2
-            self.FTMachine.xsubtract[...] = iFs(np.pad(PSF, ((0, 0), (0, 0), (npad, npad), (npad, npad)), mode='constant'),
-                                                axes=(2, 3))
-            self.FTMachine.FFTsubtract()
-            self.FT_PSF_subtract[str(iFacet)] = Fs(self.FTMachine.xsubtract.copy(), axes=(2, 3))
-
-        npad = (self.FTMachine.NpixPSFSubtract - self.NpixFacet) // 2
-        # pad LocalSM onto grid reserved for FTs
-        self.FTMachine.xsubtract[...] = iFs(np.pad(LocalSM, ((0, 0), (0, 0), (npad, npad), (npad, npad)), mode='constant'),
-                                            axes=(2, 3))
-        # take the FT
-        self.FTMachine.FFTsubtract()
-        # multiply by FT of PSF
-        self.FTMachine.xsubtract[...] *= iFs(self.FT_PSF_subtract[str(iFacet)], axes=(2, 3))
-        # take inverse FFT
-        self.FTMachine.iFFTsubtract()
-        nunpad = (self.FTMachine.NpixPSFSubtract - int(np.maximum(2*self.NpixFacet, self.NpixPSF))) // 2
-        # TODO - this should be informed by --Deconv-PSFBox
-        I = slice(nunpad, -nunpad)
-        return Fs(self.FTMachine.xsubtract.real.copy(), axes=(2, 3))[:, :, I, I]
-
+        return x, y, MaxDirty, MeanDirty, CurrentScale

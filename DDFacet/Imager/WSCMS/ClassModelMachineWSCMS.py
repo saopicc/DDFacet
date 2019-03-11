@@ -37,7 +37,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         ClassModelMachinebase.ClassModelMachine.__init__(self, *args, **kwargs)
         self.DicoSMStacked={}
         self.DicoSMStacked["Type"]="WSCMS"
-        self.n_sub_minor_iter = 0
 
     def setRefFreq(self, RefFreq, Force=False):
         if self.RefFreq is not None and not Force:
@@ -199,12 +198,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             ModelImage = out
         else:
             ModelImage = np.zeros((nchan,npol,nx,ny),dtype=np.float32)
-
-        # # get the zero scale
-        # try:
-        #     zero_scale = self.ScaleMachine.sigmas[0]
-        # except:
-        #     zero_scale = self.ListScales[0]
 
         for iScale in DicoComp.keys():
             # Note here we are building a spectral cube delta function representation first and then convolving by
@@ -394,11 +387,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         else:
             return alphamap[None, None], alphastdmap[None, None]
 
-    def SubStep(self, (dx, dy), LocalSM, Residual):
+    def SubStep(self, (xc, yc), LocalSM, Residual):
         """
         Sub-minor loop subtraction
         """
-        xc, yc = dx, dy
         N0 = Residual.shape[-1]
         N1 = LocalSM.shape[-1]
 
@@ -438,16 +430,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 self.ConvPSF = PSF
                 #self.ConvPSFmean = PSFmean
                 # delta scale is not cleaned with the ConvPSF so these should all be unity
-                self.PSFFreqNormFactors = np.ones([self.Nchan, 1, 1, 1], dtype=np.float32)
                 self.FpolNormFactor = 1.0
 
             else:
                 self.ConvPSF = self.ScaleMachine.Conv2PSFs[key]
-
-                # To normalise by the frequency response of ConvPSF implicitly contained in the residual
-                # we need to keep track of the ConvPSF peaks. Note this is not done in wsclean but should give more
-                # even per band residuals
-                self.PSFFreqNormFactors = self.ScaleMachine.ConvPSFFreqPeaks[key]
 
                 # This normalisation for Fpol is required so that we don't see jumps between minor cycles.
                 # Basically, since the PSF is normalised by this factor the components also need to be normalised
@@ -560,9 +546,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             Fpol = np.zeros([self.Nchan, 1, 1, 1], dtype=np.float32)
             Fpol[:, 0, 0, 0] = ConvDirtyCube[:, 0, xscale, yscale].copy()
 
-            # correct for frequency response of PSF when convolving with scale function
-            Fpol *= self.PSFFreqNormFactors
-
             # Fit frequency axis to get coeffs (coeffs correspond to intrinsic flux)
             self.Coeffs = self.FreqMachine.Fit(Fpol[:, 0, 0, 0], JN, CurrentDirty[0, 0, xscale, yscale])
 
@@ -580,7 +563,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 Component_list[xy] += self.CurrentGain * Fpol / self.FpolNormFactor
 
             # Restore ConvPSF frequency response and subtract component from residual
-            Fpol /= self.PSFFreqNormFactors
             ConvDirtyCube = self.SubStep((xscale, yscale), self.ConvPSF * Fpol * self.CurrentGain,
                                          ConvDirtyCube)
 
@@ -592,33 +574,14 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             xscale, yscale, ConvMaxDirty = NpParallel.A_whereMax(CurrentDirty, NCPU=self.NCPU, DoAbs=self.DoAbs,
                                                                  Mask=CurrentMask)
 
-            # Update counters TODO - should add subminor cycle count to minor cycle count
+            # Update counters
             k += 1
-            self.n_sub_minor_iter += 1
 
         # report if max sub-iterations exceeded
         if k >= self.ScaleMachine.NSubMinorIter:
             print>>log, "Maximum subiterations reached. "
 
-        # print "Value at end = ", CurrentDirty[0, 0, xscale, yscale]
-
-        # Add components onto grid (not needed if we are cleaning the delta scale)
-        if iScale:
-            # create a model for this scale
-            ScaleModel = np.zeros_like(ConvDirtyCube, dtype=np.float32)
-            for xy in Component_list.keys():
-                x, y = xy
-                # get overlap indices
-                Aedge, Bedge = GiveEdges((x, y), self.Npix, (extent // 2, extent // 2), extent)
-                x0d, x1d, y0d, y1d = Aedge
-                x0p, x1p, y0p, y1p = Bedge
-                # Note apparent since we convolve with a normalised PSF
-                out = Component_list[xy] * kernel
-                ScaleModel[:, :, x0d:x1d, y0d:y1d] += out[:, :, x0p:x1p, y0p:y1p]
-
-            return ScaleModel, iScale, xscale, yscale
-        else:
-            return None, iScale, xscale, yscale
+        return k
 
 ###################### Dark magic below this line ###################################
     def PutBackSubsComps(self):
