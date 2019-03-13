@@ -19,6 +19,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
 import numpy as np
+import numba
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
 log=MyLogger.getLogger("ClassModelMachine")
@@ -31,6 +32,31 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.Imager import ClassModelMachine as ClassModelMachinebase
 from DDFacet.Imager import ClassFrequencyMachine, ClassScaleMachine
 import os
+
+# @numba.jit(nopython=True, nogil=True, cache=True)
+def substep(A, psf, sol, Ip, Iq, pq, npixpsf):
+    """
+    Subtract psf from the set A where they overlap
+    :param A: the active set
+    :param psf: the psf (not necessarily the size of the image)
+    :param Ip, Iq: indices of active set relative to image
+    :param pq: the location of a component relative to the active set
+    :return: 
+    """
+    halfnpixpsf = npixpsf//2
+    p = Ip[pq]
+    q = Iq[pq]
+    # loop over active indices
+    for i, ipq in enumerate(zip(Ip, Iq)):
+        ip, iq = ipq
+        # check that there is an overlap with psf
+        delp = p - ip
+        delq = q - iq
+        if abs(delp) <= halfnpixpsf and abs(delq) <= halfnpixpsf:
+            pp = halfnpixpsf - delp
+            qq = halfnpixpsf - delq
+            A[i] -= sol * psf[pp, qq]
+    return A
 
 class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def __init__(self,*args,**kwargs):
@@ -77,7 +103,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # self.DicoSMStacked["Eval_Degrid"] = self.FreqMachine.Eval_Degrid
 
 
-    def setScaleMachine(self, PSFServer, NCPU=None, MaskArray=None, FTMachine=None, cachepath=None):
+    def setScaleMachine(self, PSFServer, NCPU=None, MaskArray=None, cachepath=None):
         if self.GD["WSCMS"]["MultiScale"]:
             if NCPU is None:
                 self.NCPU = self.GD['Parallel'][NCPU]
@@ -89,9 +115,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                  self.NCPU = NCPU
             self.DoAbs = self.GD["Deconv"]["AllowNegative"]
             self.ScaleMachine = ClassScaleMachine.ClassScaleMachine(GD=self.GD, NCPU=NCPU, MaskArray=MaskArray)
-            self.FTMachine = FTMachine
             self.ScaleMachine.Init(PSFServer, self.FreqMachine,
                                    cachepath=cachepath)
+            self.NpixPSF = self.ScaleMachine.NpixPSF
+            self.halfNpixPSF = self.NpixPSF//2
             self.Nscales = self.ScaleMachine.Nscales
             # Initialise CurrentScale variable
             self.CurrentScale = 999999
@@ -410,7 +437,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # note will always be set initially since comparison to 999999 will fail
         if iFacet != self.CurrentFacet or self.CurrentScale != iScale:
             key = 'S' + str(iScale) + 'F' + str(iFacet)
-            # update facet (need to make sure PSFserver has been updated when we get here)
+            # update facet (NB - ensure PSFserver has been updated before we get here)
             self.CurrentFacet = iFacet
 
             # update scale
@@ -422,24 +449,23 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             # of elements exceeds the pre-set maximum in --WSCMS-CacheSize
             self.CurrentGain = self.ScaleMachine.give_gain(iFacet, iScale)
 
-            # print "Scale = ", self.CurrentScale, " gain = ", self.CurrentGain
-
             # twice convolve PSF with scale if not delta scale
             if not iScale:
                 PSF, PSFmean = self.PSFServer.GivePSF()
                 self.ConvPSF = PSF
-                #self.ConvPSFmean = PSFmean
+                self.Conv2PSFmean = PSFmean
+
                 # delta scale is not cleaned with the ConvPSF so these should all be unity
                 self.FpolNormFactor = 1.0
-
             else:
-                self.ConvPSF = self.ScaleMachine.Conv2PSFs[key]
+                self.ConvPSF = self.ScaleMachine.ConvPSFs[key]
+                self.Conv2PSFmean = self.ScaleMachine.Conv2PSFmean[key]
 
                 # This normalisation for Fpol is required so that we don't see jumps between minor cycles.
                 # Basically, since the PSF is normalised by this factor the components also need to be normalised
                 # by the same factor for the subtraction in the sub-minor cycle to be the same as the subtraction
                 # in the minor and major cycles.
-                self.FpolNormFactor = self.ScaleMachine.ConvPSFNormFactor
+                self.FpolNormFactor = self.ScaleMachine.Conv2PSFNormFactor
 
 
     def give_scale_mask(self, meanDirty, meanPSF, gain):
@@ -472,7 +498,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         return mask
 
 
-    def do_minor_loop(self, x, y, Dirty, meanDirty, JonesNorm, W, MaxDirty, Stopping_flux=None):
+    def do_minor_loop(self, x, y, Dirty, meanDirty, JonesNorm, WeightsChansImages, MaxDirty, Stopping_flux=None):
         """
         Runs the sub-minor loop at a specific scale 
         :param Dirty: 
@@ -480,27 +506,21 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         :param JonesNorm: 
         :return: The scale convolved model and a list of components 
         """
-        # determine most relevant scale. This is the most time consuming step hence the sub-minor cycle
-        xscale, yscale, ConvMaxDirty, CurrentDirty, ConvDirtyCube, iScale,  = \
-            self.ScaleMachine.do_scale_convolve(Dirty.copy(), meanDirty.copy())
+        # determine most relevant scale
+        xscale, yscale, ConvMaxDirty, CurrentDirty, iScale,  = \
+            self.ScaleMachine.do_scale_convolve(meanDirty.copy())
         if iScale == 0:
             xscale = x
             yscale = y
             ConvMaxDirty = MaxDirty
             CurrentDirty = meanDirty.view()
-            ConvDirtyCube = Dirty.view()
-
-        # print "iScale = ", iScale
 
         # set PSF at current location
         self.PSFServer.setLocation(xscale, yscale)
 
-        # get GaussPars for scale
-        sigma = self.ScaleMachine.sigmas[iScale]
-        extent = self.ScaleMachine.extents[iScale]
-        kernel = self.ScaleMachine.kernels[iScale]
-
-        # set twice convolve PSF for scale and facet if either has changed
+        # set convolved PSFs for scale and facet if either has changed
+        # the once convolved PSF cubes used to subtract from the dirty cube are stored in self.ConvPSF
+        # the twice convolved PSF used to subtract from the mean convolved dirty is held in self.Conv2PSFmean
         self.set_ConvPSF(self.PSFServer.iFacet, iScale)
 
         # update scale dependent mask
@@ -515,20 +535,26 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         else:
             CurrentMask = self.ScaleMachine.MaskArray
 
-        # Create new component list
-        Component_list = {}
+        # # Create new component list
+        # Component_list = {}
 
-        # Set stopping threshold.
-        # We cannot use StoppingFlux from minor cycle directly since the maxima of the scale convolved residual
+        # set stopping threshold.
+        # we cannot use StoppingFlux from minor cycle directly since the maxima of the scale convolved residual
         # is different from the maximum of the residual
         Threshold = self.ScaleMachine.PeakFactor * ConvMaxDirty
-        if iScale:
-            DirtyRatio = ConvMaxDirty / MaxDirty
-            # scale_fact = self.ScaleMachine.FWHMs[iScale]/self.ScaleMachine.FWHMs[0]
-            Threshold = Threshold * DirtyRatio * self.GD["WSCMS"]["ThresholdBias"] ** (iScale + 1)
-        else:
-            if Stopping_flux is not None:
-                Threshold = np.maximum(Threshold, Stopping_flux)
+        DirtyRatio = ConvMaxDirty / MaxDirty  # should be 1 for zero scale
+        Threshold = np.maximum(Threshold, Stopping_flux * DirtyRatio)
+
+        # get the set A (in which we do peak finding)
+        # assumes mask is 1 where we should do peak finding (reverse of Cyril's convention)
+        # absdirty = np.abs(CurrentDirty.squeeze() * CurrentMask.squeeze())
+        absdirty = np.abs(CurrentDirty.squeeze())
+        I = np.argwhere(absdirty > Threshold)
+        Ip = I[:, 0]
+        Iq = I[:, 1]
+        A = CurrentDirty[0, 0, Ip, Iq]
+        absA = np.abs(A)
+        pq = int(np.argwhere(absA == ConvMaxDirty))
 
         # run subminor loop
         k = 0
@@ -544,7 +570,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
             # JonesNorm is corrected for in FreqMachine so we just need to pass in the apparent
             Fpol = np.zeros([self.Nchan, 1, 1, 1], dtype=np.float32)
-            Fpol[:, 0, 0, 0] = ConvDirtyCube[:, 0, xscale, yscale].copy()
+            Fpol[:, 0, 0, 0] = Dirty[:, 0, xscale, yscale].copy()
 
             # Fit frequency axis to get coeffs (coeffs correspond to intrinsic flux)
             self.Coeffs = self.FreqMachine.Fit(Fpol[:, 0, 0, 0], JN, CurrentDirty[0, 0, xscale, yscale])
@@ -552,34 +578,47 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             # Overwrite with polynoimial fit (Fpol is apparent flux)
             Fpol[:, 0, 0, 0] = self.FreqMachine.Eval(self.Coeffs)
 
-            self.AppendComponentToDictStacked((xscale, yscale), self.Coeffs / self.FpolNormFactor, self.CurrentScale,
-                                              self.CurrentGain)
+            # LB - self.Coeffs -> self.Coeffs / self.FpolNormFactor ??
+            self.AppendComponentToDictStacked((xscale, yscale), self.Coeffs, self.CurrentScale, self.CurrentGain)
 
-            # Keep track of apparent model components (this is for subtraction in the upper minor loop, not relevant if
-            # its the delta scale)
-            if iScale != 0:
-                xy = (xscale, yscale)
-                Component_list.setdefault(xy, np.zeros([self.Nchan, 1, 1, 1], dtype=np.float32))
-                Component_list[xy] += self.CurrentGain * Fpol / self.FpolNormFactor
+            # LB - not needed anymore since we are doing the subtraction in the sub-minor loop using convPSFs
+            # # Keep track of apparent model components (this is for subtraction in the upper minor loop, not relevant if
+            # # its the delta scale)
+            # if iScale != 0:
+            #     xy = (xscale, yscale)
+            #     Component_list.setdefault(xy, np.zeros([self.Nchan, 1, 1, 1], dtype=np.float32))
+            #     Component_list[xy] += self.CurrentGain * Fpol / self.FpolNormFactor
 
-            # Restore ConvPSF frequency response and subtract component from residual
-            ConvDirtyCube = self.SubStep((xscale, yscale), self.ConvPSF * Fpol * self.CurrentGain,
-                                         ConvDirtyCube)
+            # Subtract fitted component from residual cube
+            Dirty = self.SubStep((xscale, yscale), self.ConvPSF * Fpol * self.CurrentGain, Dirty)
 
-            # get the weighted mean over freq axis
-            CurrentDirty[...] = np.sum(ConvDirtyCube * W.reshape((W.size, 1, 1, 1)), axis=0)[None, :, :, :]
+            # LB - removed since we only subtract from the set A
+            # # get the weighted mean over freq axis
+            # CurrentDirty[...] = np.sum(ConvDirtyCube * W.reshape((W.size, 1, 1, 1)), axis=0)[None, :, :, :]
 
-            # find the peak
-            #PeakMap = np.ascontiguousarray(CurrentDirty*self.ScaleMachine.ScaleMaskArray[sigma])
-            xscale, yscale, ConvMaxDirty = NpParallel.A_whereMax(CurrentDirty, NCPU=self.NCPU, DoAbs=self.DoAbs,
-                                                                 Mask=CurrentMask)
+            # subtract component from convolved dirty image
+            A = substep(A, self.Conv2PSFmean.squeeze(), float(ConvMaxDirty * self.CurrentGain), Ip, Iq, pq, self.NpixPSF)
+
+            # find new peak
+            absA = np.abs(A)
+            ConvMaxDirty = absA.max()
+            pq = int(np.argwhere(absA == ConvMaxDirty))
+
+            # get location of component in residual frame
+            xscale = Ip[pq]
+            yscale = Iq[pq]
+
+            # # find the peak
+            # #PeakMap = np.ascontiguousarray(CurrentDirty*self.ScaleMachine.ScaleMaskArray[sigma])
+            # xscale, yscale, ConvMaxDirty = NpParallel.A_whereMax(CurrentDirty, NCPU=self.NCPU, DoAbs=self.DoAbs,
+            #                                                      Mask=CurrentMask)
 
             # Update counters
             k += 1
 
-        # report if max sub-iterations exceeded
-        if k >= self.ScaleMachine.NSubMinorIter:
-            print>>log, "Maximum subiterations reached. "
+        # # report if max sub-iterations exceeded
+        # if k >= self.ScaleMachine.NSubMinorIter:
+        #     print>>log, "Maximum subiterations reached. "
 
         return k
 

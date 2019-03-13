@@ -150,10 +150,6 @@ class ClassScaleMachine(object):
         # we always need to set the gain for the central facet and scale 0 to initialise
         self.set_gains(self.CentralFacetID, 0)
 
-        # we need the scale convolved psf's at the central facet for AutoMasking
-        if self.GD['WSCMS']['AutoMask']:
-            self.set_Central_Mean_PSFs()
-
     def set_coordinates(self):
         # get pixel coordinates for unpadded image
         n = self.Npix//2
@@ -336,15 +332,15 @@ class ClassScaleMachine(object):
 
         # a few things we need to keep track of if we are at the central facet and scale 0
         if iFacet == self.CentralFacetID and iScale == 0:
-            self.Scale0PSFmax = ConvPSFmean[0, 0, self.NpixPSF // 2, self.NpixPSF // 2]
             # get the normalisation factor for the ConvPSF's (must set ConvPSF for scale zero to unity)
             self.FTMachine.xhat[...] = iFs(self.FT_meanPSF[str(iFacet)], axes=(2, 3)) * scale_kernel ** 2
             self.FTMachine.iFFT()
             Conv2PSF0 = Fs(self.FTMachine.xhat.real.copy(), axes=(2,3))[:, :, I, I]
-            self.ConvPSFNormFactor = Conv2PSF0[0, 0, self.NpixPSF // 2, self.NpixPSF // 2]
-
-            #print "Scale0PSFMax = ", self.Scale0PSFmax
-            #print "ConvPSF norm factor is %f"%self.ConvPSFNormFactor
+            # LB - this normalisation factor is used to ensure that the twice convolved PSF for scale 0
+            # (if we were using it) would be normalised to have a maximum of 1 and is applied to normalise
+            # the PSF's
+            self.ConvPSFNormFactor = ConvPSFmean.max()
+            self.Conv2PSFNormFactor = Conv2PSF0.max()
 
         # get PSF convolved with scale kernel for subtracting components from dirty cube
         self.FTMachine.Chat[...] = iFs(self.FT_PSF[str(iFacet)], axes=(2,3)) * scale_kernel
@@ -354,14 +350,18 @@ class ClassScaleMachine(object):
         # get twice convolved mean PSF for running sub-minor loop
         self.FTMachine.xhat[...] = iFs(self.FT_meanPSF[str(iFacet)], axes=(2,3)) * scale_kernel**2
         self.FTMachine.iFFT()
-        self.Conv2PSFmean[key] = Fs(self.FTMachine.Chat.real.copy(), axes=(2,3))[:, :, I, I]/self.ConvPSFNormFactor
+        self.Conv2PSFmean[key] = Fs(self.FTMachine.xhat.real.copy(), axes=(2,3))[:, :, I, I]/self.Conv2PSFNormFactor
 
         # set gains
         gamma = self.GD['Deconv']['Gain']
-        self.gains[key] = gamma * self.Scale0PSFmax / ConvPSFmean[0, 0, self.NpixPSF // 2, self.NpixPSF // 2]
+        if iScale:
+            self.gains[key] = gamma / ConvPSFmean.max()
+        else:
+            self.gains[key] = gamma
         # print "gain for scale %i = " % iScale, self.gains[key]
 
     def do_scale_convolve(self, MeanDirty):
+        # convolve mean dirty with each scale in parallel
         I = slice(self.Npad, self.NpixPadded - self.Npad)
         self.FTMachine.xhatim[...] = iFs(np.pad(MeanDirty[0:1], ((0, 0), (0,0), (self.Npad, self.Npad),
                                                           (self.Npad, self.Npad)), mode='constant'), axes=(2, 3))
@@ -372,7 +372,7 @@ class ClassScaleMachine(object):
         self.FTMachine.iSFFT()
         ConvMeanDirtys = np.ascontiguousarray(Fs(self.FTMachine.Shat.real, axes=(2, 3))[:, :, I, I])
 
-        # find the one with the highest peak
+        # find most relevant scale
         maxvals = np.zeros(self.Nscales)
         for iScale in xrange(self.Nscales):
             xtmp, ytmp, ConvMaxDirty = NpParallel.A_whereMax(ConvMeanDirtys[iScale:iScale+1],
@@ -396,4 +396,4 @@ class ClassScaleMachine(object):
                     CurrentDirty = ConvMeanDirtys[iScale:iScale+1]  # [None, None, :, :]
                     CurrentScale = iScale
 
-        return x, y, MaxDirty, MeanDirty, CurrentScale
+        return x, y, MaxDirty, CurrentDirty, CurrentScale

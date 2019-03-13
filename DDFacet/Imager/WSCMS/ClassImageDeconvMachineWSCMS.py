@@ -138,6 +138,7 @@ class ClassImageDeconvMachine():
         self._PNRStop = None  # in _peakMode "sigma", provides addiitonal stopping criterion
 
         # # this is so that the relevant functions are registered as job handlers with APP
+        # # pass to ModelMachine.setScaleMachine to set workers
         # self.FTMachine = FFTW_Scale_Manager(wisdom_file=self.GD["Cache"]["DirWisdomFFTW"])
         #
         # APP.registerJobHandlers(self)
@@ -169,7 +170,7 @@ class ClassImageDeconvMachine():
                                          weights=kwargs["PSFVar"]["WeightChansImages"], PSFServer=self.PSFServer)
 
         self.ModelMachine.setScaleMachine(self.PSFServer, NCPU=self.NCPU, MaskArray=self.MaskArray,
-                                          FTMachine=self.FTMachine, cachepath=cachepath)
+                                          cachepath=cachepath)
 
 
     def Reset(self):
@@ -440,10 +441,16 @@ class ClassImageDeconvMachine():
 
                 self.track_progress(self._niter, ThisFlux)
 
-                # Find the relevant scale and do sub-minor loop. Returns the model constructed during the
-                # sub-minor loop.
+                # Find the relevant scale and do sub-minor loop. Note that the dirty cube is updated during the
+                # sub-minor loop by subtracting the once convolved PSF's as components are added to the model.
+                # The model is updated by adding components to the ModelMachine dictionary.
                 niter = self.ModelMachine.do_minor_loop(x, y, self._Dirty, self._MeanDirty, self._JonesNorm,
                                                         self.WeightsChansImages, ThisFlux, StopFlux)
+
+                # compute the new mean image from the weighted sum of over frequency
+                self._MeanDirty = np.sum(self._Dirty * self.WeightsChansImages, axis=0, keepdims=True)
+
+                # update counter
                 self._niter += niter
 
 
