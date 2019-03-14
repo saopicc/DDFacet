@@ -73,7 +73,7 @@ class ClassScaleMachine(object):
         self.NCPU = NCPU
         self.DoAbs = self.GD["Deconv"]["AllowNegative"]
 
-    def Init(self, PSFServer, FreqMachine, cachepath=None):
+    def Init(self, PSFServer, FreqMachine, cachepath=None, MaxBaseline=None):
         """
         Sets everything required to perform multi-scale CLEAN. 
         :param PSFserver: Mandatory if NScales > 1
@@ -134,6 +134,7 @@ class ClassScaleMachine(object):
         self.set_coordinates()
 
         # get scales (in pixel units)
+        self.MaxBaseline=MaxBaseline
         self.set_scales()
 
         # get the FFT and convolution utility
@@ -147,8 +148,13 @@ class ClassScaleMachine(object):
         # get the Gaussian pars, volume factors and FWHMs corresponding to dictionary functions
         self.set_kernels()
 
-        # we always need to set the gain for the central facet and scale 0 to initialise
-        self.set_gains(self.CentralFacetID, 0)
+        # Initialise gains for central facet (logs scale info)
+        for i in xrange(self.Nscales):
+            self.set_gains(self.CentralFacetID, i)
+            key = 'S' + str(i) + 'F' + str(self.CentralFacetID)
+            print>> log, " - Scale %i, bias factor=%f, psfpeak=%f, gain=%f, kernel peak=%f" % \
+                               (self.alphas[i], self.bias[i], self.ConvPSFmeanMax,
+                                self.gains[key], self.kernels[i].max())
 
     def set_coordinates(self):
         # get pixel coordinates for unpadded image
@@ -224,26 +230,28 @@ class ClassScaleMachine(object):
     # TODO - Set max scale with minimum baseline or facet size?
     def set_scales(self):
         if self.GD["WSCMS"]["Scales"] is None:
-            print>>log, "Setting scales automatically from FWHM of average beam"
-            # FWHM is in degrees so first convert to radians
-            # The sqrt(2) factor corrects for the fact that we fit to first null instead of the FWHM
-            FWHM0 = ((self.FWHMBeamAvg[0] + self.FWHMBeamAvg[1])*np.pi / 180) / \
-                    (2.0 * self.GD['Image']['Cell'] * np.pi / 648000)
-            FWHMs = [FWHM0, 2.5*FWHM0]  # empirically determined to work pretty well
+            print>>log, "Setting scales automatically from theoretical minimum beam size"
+            min_beam = 1.0/self.MaxBaseline  # computed at max frequency
+            cell_size_rad = self.GD["Image"]["Cell"] * np.pi / (180 * 3600)
+            FWHM0_pix = np.sqrt(2) * min_beam/cell_size_rad  # sqrt(2) is fiddle factor which gives approx same scales as wsclean
+            alpha0 = np.ceil(FWHM0_pix / 0.45)
+            alphas = [alpha0, 4*alpha0]
             i = 1
-            while FWHMs[i] < self.GD["WSCMS"]["MaxScale"]:  # hardcoded for now
-                FWHMs.append(2.0*FWHMs[i])
+            while alphas[i] < self.GD["WSCMS"]["MaxScale"]:  # hardcoded for now
+                alphas.append(2.0*alphas[i])
                 i += 1
-            self.FWHMs = np.asarray(FWHMs)[0:-1]
+            self.alphas = np.asarray(alphas[0:-1])
+            self.Nscales = self.alphas.size
         else:
             print>>log, "Using user defined scales"
-            self.FWHMs = np.asarray(self.GD["WSCMS"]["Scales"])
-            self.FWHMs[0] = 1.0/np.sqrt(2)*((self.FWHMBeamAvg[0] + self.FWHMBeamAvg[1])*np.pi / 180) / \
-                            (2.0 * self.GD['Image']['Cell'] * np.pi / 648000)
+            self.alphas = np.asarray(self.GD["WSCMS"]["Scales"], dtype=float)
+            self.Nscales = self.alphas.size
 
-        self.Nscales = self.FWHMs.size
+        for i in xrange(self.Nscales):
+            if self.alphas[i] % 2 == 0:
+                self.alphas[i] += 1
 
-        print>>log, "Using %i scales with FWHMs of %s pixels" % (self.Nscales, self.FWHMs)
+        self.FWHMs = self.alphas/0.45
 
     def set_bias(self):
         # get scale bias factor
@@ -251,10 +259,9 @@ class ClassScaleMachine(object):
 
         # set scale bias according to Offringa definition implemented i.t.o. inverse bias
         self.bias = np.ones(self.Nscales, dtype=np.float64)
-        try:
-            self.bias[1::] = self.beta**(-1.0 - np.log2(self.FWHMs[1::]/self.FWHMs[1]))
-        except:  # in case there is only a single scale it will be the delta scale
-            self.bias = np.array([1.0])
+        for scale in xrange(1, self.Nscales):
+            self.bias[scale] = self.beta**(-1.0 - np.log2(self.alphas[scale]/self.alphas[1]))
+
 
     def set_kernels(self):
         """
@@ -264,26 +271,24 @@ class ClassScaleMachine(object):
         self.sigmas = np.zeros(self.Nscales, dtype=np.float64)
         self.extents = np.zeros(self.Nscales, dtype=np.int32)
         self.volumes = np.zeros(self.Nscales, dtype=np.float64)
-        self.kernels = []
-        xtmp = np.arange(0.0, self.Npix)
+        self.kernels = np.empty(self.Nscales, dtype=object)
         for i in xrange(self.Nscales):
-            self.sigmas[i] = self.FWHMs[i]/(2*np.sqrt(2*np.log(2.0)))
+            self.sigmas[i] = 3.0 * self.alphas[i] / 16.0
+
             # support of Gaussian components in pixels
-            tmpkern = np.exp(-xtmp**2/(2*self.sigmas[i]**2))/(np.sqrt(2*np.pi*self.sigmas[i]**2))
-            I = int(2*np.round(np.argwhere(tmpkern >= self.GD["WSCMS"]["GaussianCutoff"]).squeeze()[-1]))
-            self.extents[i] = int(np.minimum(I, int(self.Npix)))
-            # make sure extents are odd (for compatibility with GiveEdges)
-            if self.extents[i] % 2 == 0:
-                self.extents[i] -= 1
-            self.volumes[i] = 2*np.pi*self.sigmas[i]**2  # volume = normalisation constant of 2D Gaussian
-            # print " i = ", i, self.volumes[i]
-            diff = int((self.Npix - self.extents[i]) // 2)
-            if diff==0:
-                I = slice(None)
-            else:
-                I = slice(diff, -diff)
-            out = np.exp(-self.rsq_unpadded[I, I]/(2*self.sigmas[i]**2))/self.volumes[i]
-            self.kernels.append(out)
+            half_alpha = self.alphas[i] / 2.0
+
+            # set grid of x, y coordinates
+            x, y = np.mgrid[-half_alpha:half_alpha:self.alphas[i] * 1j, -half_alpha:half_alpha:self.alphas[i] * 1j]
+
+            # evaluate scale kernel
+            self.kernels[i] = np.exp(-(x ** 2 + y ** 2) / (2 * self.sigmas[i] ** 2))
+
+            self.extents[i] = self.alphas[i]
+
+            self.volumes[i] = np.sum(self.kernels[i])
+
+            self.kernels[i] /= self.volumes[i]
 
     def give_gain(self, iFacet, iScale):
         """
@@ -329,6 +334,7 @@ class ClassScaleMachine(object):
         # TODO - this FT should not be necessary since we only need the value at the central pixel
         self.FTMachine.iFFT()
         ConvPSFmean = Fs(self.FTMachine.xhat.real.copy(), axes=(2,3))[:, :, I, I]
+        self.ConvPSFmeanMax = ConvPSFmean.max()  # just for logging scale info in Init()
 
         # a few things we need to keep track of if we are at the central facet and scale 0
         if iFacet == self.CentralFacetID and iScale == 0:
@@ -358,7 +364,6 @@ class ClassScaleMachine(object):
             self.gains[key] = gamma / ConvPSFmean.max()
         else:
             self.gains[key] = gamma
-        # print "gain for scale %i = " % iScale, self.gains[key]
 
     def do_scale_convolve(self, MeanDirty):
         # convolve mean dirty with each scale in parallel
@@ -375,16 +380,21 @@ class ClassScaleMachine(object):
         # find most relevant scale
         maxvals = np.zeros(self.Nscales)
         for iScale in xrange(self.Nscales):
-            xtmp, ytmp, ConvMaxDirty = NpParallel.A_whereMax(ConvMeanDirtys[iScale:iScale+1],
-                                                             NCPU=self.NCPU, DoAbs=self.DoAbs,
-                                                             Mask=self.MaskArray)
+            if iScale:
+                xtmp, ytmp, ConvMaxDirty = NpParallel.A_whereMax(ConvMeanDirtys[iScale:iScale+1],
+                                                                 NCPU=self.NCPU, DoAbs=self.DoAbs,
+                                                                 Mask=self.MaskArray)
+            else:
+                xtmp, ytmp, ConvMaxDirty = NpParallel.A_whereMax(MeanDirty,
+                                                                 NCPU=self.NCPU, DoAbs=self.DoAbs,
+                                                                 Mask=self.MaskArray)
             maxvals[iScale] = ConvMaxDirty * self.bias[iScale]
             if iScale == 0:
                 x = xtmp
                 y = ytmp
                 BiasedMaxVal = ConvMaxDirty * self.bias[iScale]
                 MaxDirty = ConvMaxDirty
-                CurrentDirty = ConvMeanDirtys[iScale:iScale+1]  # [None, None, :, :]
+                CurrentDirty = MeanDirty  # [None, None, :, :]
                 CurrentScale = iScale
             else:
                 # only update if new scale is more significant

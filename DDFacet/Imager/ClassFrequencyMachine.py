@@ -220,7 +220,7 @@ class ClassFrequencyMachine(object):
         res = np.linalg.solve(Dinv, A.T.dot(W * Iapp))
         return res
 
-    def FitPoly(self, Vals, JonesNorm, MaxDirty):
+    def FitPoly(self, Vals, JonesNorm):
         """
         This is for the new frequency fit mode incorporating FreqBandsFluxRation
         :param Vals: Values in the imaging bands

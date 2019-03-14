@@ -99,6 +99,7 @@ class ClassImageDeconvMachine():
         self.maincache = MainCache
         self.CacheFileName = CacheFileName
         self.PSFHasChanged = False
+        self.LastScale = 99999
 
         #  TODO - use MaskMachine for this
         CleanMaskImage = self.GD["Mask"]["External"]
@@ -169,8 +170,10 @@ class ClassImageDeconvMachine():
         self.ModelMachine.setFreqMachine(self.Freqs, self.Freqs_degrid,
                                          weights=kwargs["PSFVar"]["WeightChansImages"], PSFServer=self.PSFServer)
 
+        from africanus.constants import c as lightspeed
+        minlambda = lightspeed/self.Freqs.min()
         self.ModelMachine.setScaleMachine(self.PSFServer, NCPU=self.NCPU, MaskArray=self.MaskArray,
-                                          cachepath=cachepath)
+                                          cachepath=cachepath, MaxBaseline=kwargs["MaxBaseline"] / minlambda)
 
 
     def Reset(self):
@@ -402,10 +405,6 @@ class ClassImageDeconvMachine():
         diverged_count = 0
         try:
             while self._niter <= self.MaxMinorIter:
-
-                # find peak
-                x, y, ThisFlux = NpParallel.A_whereMax(self._MeanDirty, NCPU=self.NCPU, DoAbs=DoAbs, Mask=self.MaskArray)
-
                 # Crude hack to prevent divergences
                 if np.abs(ThisFlux) > self.GD["WSCMS"]["MinorDivergenceFactor"] * np.abs(TrackFlux):
                     diverged_count += 1
@@ -439,19 +438,27 @@ class ClassImageDeconvMachine():
 
                     break # stop cleaning if threshold reached
 
-                self.track_progress(self._niter, ThisFlux)
+                # self.track_progress(self._niter, ThisFlux)
 
                 # Find the relevant scale and do sub-minor loop. Note that the dirty cube is updated during the
                 # sub-minor loop by subtracting the once convolved PSF's as components are added to the model.
                 # The model is updated by adding components to the ModelMachine dictionary.
-                niter = self.ModelMachine.do_minor_loop(x, y, self._Dirty, self._MeanDirty, self._JonesNorm,
-                                                        self.WeightsChansImages, ThisFlux, StopFlux)
+                niter, iScale = self.ModelMachine.do_minor_loop(self._Dirty, self._MeanDirty, self._JonesNorm,
+                                                                self.WeightsChansImages, ThisFlux, StopFlux)
 
                 # compute the new mean image from the weighted sum of over frequency
                 self._MeanDirty = np.sum(self._Dirty * self.WeightsChansImages, axis=0, keepdims=True)
 
+                # find peak
+                x, y, ThisFlux = NpParallel.A_whereMax(self._MeanDirty, NCPU=self.NCPU, DoAbs=DoAbs,
+                                                       Mask=self.MaskArray)
+
                 # update counter
                 self._niter += niter
+
+                if iScale != self.LastScale:
+                    print>>log, "    [iter=%i] peak residual %.3g, scale = %i" % (self._niter, ThisFlux, iScale)
+                    self.LastScale = iScale
 
 
                 T.timeit("End")

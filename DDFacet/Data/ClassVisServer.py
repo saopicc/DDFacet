@@ -717,6 +717,8 @@ class ClassVisServer():
         cPickle.dump(wmax,open(wmax_path, "w"))
         self.maincache.saveCache("wmax")
         self._weight_dict["wmax"] = wmax
+        # LB - Probably need to cache this (needed to set scales in ScaleMachine)
+        self._weight_dict["uvmax"] = self._uvmax
         if self._ignore_vis_weights:
             return
         if not self._uvmax:
