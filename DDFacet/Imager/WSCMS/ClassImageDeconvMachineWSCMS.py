@@ -444,7 +444,7 @@ class ClassImageDeconvMachine():
                 # sub-minor loop by subtracting the once convolved PSF's as components are added to the model.
                 # The model is updated by adding components to the ModelMachine dictionary.
                 niter, iScale = self.ModelMachine.do_minor_loop(self._Dirty, self._MeanDirty, self._JonesNorm,
-                                                                self.WeightsChansImages, ThisFlux, StopFlux)
+                                                                self.WeightsChansImages, ThisFlux, StopFlux, self.RMS)
 
                 # compute the new mean image from the weighted sum of over frequency
                 self._MeanDirty = np.sum(self._Dirty * self.WeightsChansImages, axis=0, keepdims=True)

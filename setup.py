@@ -141,7 +141,6 @@ setup(name=pkg,
             "tables >= 3.3.0",
             "prettytable >= 0.7.2",
             "pybind11 >= 2.2.2",
-            "pyfits >= 3.5", #kittens dependency, do not remove
             "pylru >= 1.1.0",
       ],
       include_package_data=True,

@@ -495,7 +495,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         return mask
 
 
-    def do_minor_loop(self, Dirty, meanDirty, JonesNorm, WeightsChansImages, MaxDirty, Stopping_flux=None):
+    def do_minor_loop(self, Dirty, meanDirty, JonesNorm, WeightsChansImages, MaxDirty, Stopping_flux=None, RMS=None):
         """
         Runs the sub-minor loop at a specific scale 
         :param Dirty: 
@@ -517,13 +517,14 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         # update scale dependent mask
         if self.GD["WSCMS"]["AutoMask"]:
-            mask = self.give_scale_mask(CurrentDirty.copy(),
-                                        self.ScaleMachine.Conv2PSFmean[str(iScale)],
-                                        self.CurrentGain)
-            if str(iScale) not in self.ScaleMachine.ScaleMaskArray:
-                self.ScaleMachine.ScaleMaskArray[str(iScale)] = np.ones_like(meanDirty, dtype=np.bool)
-            self.ScaleMachine.ScaleMaskArray[str(iScale)] &= mask
-            CurrentMask = self.ScaleMachine.ScaleMaskArray[str(iScale)].view()
+            if self.GD["WSCMS"]["AutoMaskThreshold"] is not None:
+                MaskThreshold = self.GD["WSCMS"]["AutoMaskThreshold"]
+            else:
+                MaskThreshold = 5 * RMS
+            if MaxDirty >= MaskThreshold:
+                CurrentMask = self.ScaleMachine.ScaleMaskArray[iScale].view()
+            else:
+                CurrentMask = self.ScaleMachine.MaskArray
         else:
             CurrentMask = self.ScaleMachine.MaskArray
 
@@ -546,9 +547,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         try:
             pq = int(np.argwhere(absA == AbsConvMaxDirty))
         except:
-            print "Got here 1"
-            print np.argwhere(absA == AbsConvMaxDirty), I, Threshold
-            pq = int(np.argwhere(absA == AbsConvMaxDirty)[0])
+            raise RuntimeError("Somehow Threshold > MeanDirty.max()? This is a bug!")
         ConvMaxDirty = A[pq]
 
 
@@ -592,7 +591,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             # find new peak
             absA = np.abs(A)
             AbsConvMaxDirty = absA.max()
-            # it seems sometimes we have two components with the same max flux
+            # TODO - How does this happen? It seems sometimes we have two components with the same max flux
             try:
                 pq = int(np.argwhere(absA == AbsConvMaxDirty))
             except:
