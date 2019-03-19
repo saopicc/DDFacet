@@ -414,6 +414,7 @@ class ClassFacetMachine():
         # set coordinates of facet vertices
         self.DicoImager = {}
         if self.NFacets == 1:
+            self.DicoImager[0] = {}
             self.DicoImager[0]["Polygon"] = self.CornersImageTot
         else:
             tmparray = np.zeros([4, 2])  # temp array to hold coordinates
