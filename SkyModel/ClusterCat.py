@@ -68,6 +68,16 @@ class ClusterImage():
         for key, value in kwargs.items(): setattr(self, key, value)
         print>>log,"Reading %s"%self.SourceCat
         f=fits.open(self.SourceCat)
+        # fix up comments
+        keywords=[('CRVAL1',float),('CRVAL2',float),('CDELT1',float),('NAXIS1',int)]
+        c=f[1].header['COMMENT']
+        for l in c:
+            for k,ty in keywords:
+                if k in l:
+                    bits=l.split()
+                    print >>log,"Warning: getting keyword %s from comments" % k
+                    f[1].header['I_'+k]=ty(bits[2])
+                    
         decc,rac=f[1].header["I_CRVAL1"],f[1].header["I_CRVAL2"]
         rac,decc=f[1].header["I_CRVAL1"],f[1].header["I_CRVAL2"]
         self.dPix=abs(f[1].header["I_CDELT1"])
