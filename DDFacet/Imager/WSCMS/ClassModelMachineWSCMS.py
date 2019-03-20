@@ -465,36 +465,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 self.FpolNormFactor = self.ScaleMachine.Conv2PSFNormFactor
 
 
-    def give_scale_mask(self, meanDirty, meanPSF, gain):
-        """
-        Automatically creates a mask for this scale by doing a shallow clean meanDirty 
-        :param meanDirty: The mean dirty image convolved with scale function for the current scale 
-        :param meanPSF: The mean PSF twice convolved with the scale function for the current scale
-        :param gain: scale dependent gain
-        :return: 
-        """
-        x, y, MaxDirty = NpParallel.A_whereMax(meanDirty, NCPU=self.NCPU, DoAbs=self.DoAbs,
-                                               Mask=self.ScaleMachine.MaskArray)
-
-        mask = np.ones_like(meanDirty, dtype=np.bool)
-
-        threshold = 0.9*np.abs(MaxDirty)
-
-        i = 0
-        maxit = 100
-        while i < maxit and np.abs(MaxDirty) > threshold:
-            val = meanDirty[0, 0, x, y]
-            # print i, val, gain*val*meanPSF[0,0,:,:].max(), val - gain*val*meanPSF[0,0,:,:].max()
-            mask[:, :, x, y] = 0
-            meanDirty = self.SubStep((x, y), gain*val*meanPSF, meanDirty)
-            x, y, MaxDirty = NpParallel.A_whereMax(meanDirty, NCPU=self.NCPU, DoAbs=self.DoAbs,
-                                                   Mask=self.ScaleMachine.MaskArray)
-            i += 1
-        # if i >= maxit:
-        #     print "Warning - max iterations reached"
-        return mask
-
-
     def do_minor_loop(self, Dirty, meanDirty, JonesNorm, WeightsChansImages, MaxDirty, Stopping_flux=None, RMS=None):
         """
         Runs the sub-minor loop at a specific scale 
@@ -517,12 +487,22 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         # update scale dependent mask
         if self.GD["WSCMS"]["AutoMask"]:
+            ScaleMask = self.ScaleMachine.ScaleMaskArray[iScale].view()
             if self.GD["WSCMS"]["AutoMaskThreshold"] is not None:
                 MaskThreshold = self.GD["WSCMS"]["AutoMaskThreshold"]
             else:
-                MaskThreshold = 5 * RMS
-            if MaxDirty >= MaskThreshold:
-                CurrentMask = self.ScaleMachine.ScaleMaskArray[iScale].view()
+                MaskThreshold = self.GD["WSCMS"]["AutoMaskRMSFactor"] * RMS
+            if MaxDirty <= MaskThreshold:
+                # This should only happen once
+                if self.ScaleMachine.AppendMaskComponents:
+                    print>>log, "Starting auto-masking at a threshold of %f" % MaskThreshold
+                    # we need to add this last component to the mask otherwise
+                    # we might end up with Threshold > CurrentDirty.max()
+                    ScaleMask[0, 0, xscale, yscale] = 0
+                    # we shan't be updating the mask any longer
+                    self.ScaleMachine.AppendMaskComponents = False
+                CurrentMask = ScaleMask
+
             else:
                 CurrentMask = self.ScaleMachine.MaskArray
         else:
@@ -536,9 +516,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         Threshold = np.maximum(Threshold, Stopping_flux * DirtyRatio)
 
         # get the set A (in which we do peak finding)
-        # assumes mask is 1 where we should do peak finding (reverse of Cyril's convention)
-        # absdirty = np.abs(CurrentDirty.squeeze() * CurrentMask.squeeze())
-        absdirty = np.abs(CurrentDirty.squeeze())
+        # assumes mask is 0 where we should do peak finding (same as Cyril's convention)
+        if CurrentMask is not None:
+            absdirty = np.where(CurrentMask.squeeze(), 0.0, np.abs(CurrentDirty.squeeze()))
+        else:
+            absdirty = np.abs(CurrentDirty.squeeze())
         I = np.argwhere(absdirty > Threshold)
         Ip = I[:, 0]
         Iq = I[:, 1]
@@ -547,7 +529,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         try:
             pq = int(np.argwhere(absA == AbsConvMaxDirty))
         except:
-            raise RuntimeError("Somehow Threshold > MeanDirty.max()? This is a bug!")
+            raise RuntimeError("Somehow Threshold > CurrentDirty.max()? This is a bug!")
         ConvMaxDirty = A[pq]
 
 
@@ -587,6 +569,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 self.SubStep((xscale, yscale), self.ConvPSF * Fpol * self.CurrentGain, Dirty.view())
                 # subtract component from convolved dirty image
                 A = substep(A, self.Conv2PSFmean[0, 0], float(ConvMaxDirty * self.CurrentGain), Ip, Iq, pq, self.NpixPSF)
+
+            # update scale dependent mask
+            if self.ScaleMachine.AppendMaskComponents:
+                ScaleMask[0, 0, xscale, yscale] = 0
 
             # find new peak
             absA = np.abs(A)

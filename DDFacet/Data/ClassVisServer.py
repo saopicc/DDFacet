@@ -672,8 +672,11 @@ class ClassVisServer():
         cache_keys = dict([(section, self.GD[section]) for section
               in ("Data", "Selection", "Freq", "Image", "Weight")])
         wmax_path, wmax_valid = self.maincache.checkCache("wmax", cache_keys)
+        uvmax_path, uvmax_valid = self.maincache.checkCache("uvmax", cache_keys)
         if wmax_valid:
             self._weight_dict["wmax"] = cPickle.load(open(wmax_path))
+        if uvmax_valid:
+            self._weight_dict["uvmax"] = cPickle.load(open(uvmax_path))
         # check cache first
         have_all_weights = wmax_valid
         for iMS, MS in enumerate(self.ListMS):
@@ -717,7 +720,9 @@ class ClassVisServer():
         cPickle.dump(wmax,open(wmax_path, "w"))
         self.maincache.saveCache("wmax")
         self._weight_dict["wmax"] = wmax
-        # LB - Probably need to cache this (needed to set scales in ScaleMachine)
+        # LB - Need to cache this to set scales in ScaleMachine
+        cPickle.dump(self._uvmax, open(uvmax_path, "w"))
+        self.maincache.saveCache("uvmax")
         self._weight_dict["uvmax"] = self._uvmax
         if self._ignore_vis_weights:
             return

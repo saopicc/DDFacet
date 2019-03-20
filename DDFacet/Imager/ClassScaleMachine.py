@@ -148,6 +148,14 @@ class ClassScaleMachine(object):
         # get the Gaussian pars, volume factors and FWHMs corresponding to dictionary functions
         self.set_kernels()
 
+        # initialise Scale dependent masks (everything masked initially)
+        if self.GD["WSCMS"]["AutoMask"]:
+            self.AppendMaskComponents = True  # set to false once masking kicks in
+            for iScale in xrange(self.Nscales):
+                self.ScaleMaskArray[iScale] = np.ones((1, 1, self.Npix, self.Npix), dtype=np.bool)
+        else:
+            self.AppendMaskComponents = False
+
         # Initialise gains for central facet (logs scale info)
         for i in xrange(self.Nscales):
             self.set_gains(self.CentralFacetID, i)
@@ -226,7 +234,8 @@ class ClassScaleMachine(object):
                                       local_dict=loc_dict)
         return result
 
-    # TODO - min scale needs to be set from theoretical min beam size. Do we compute this somewhere already?
+    # TODO - min scale needs to be set from theoretical min beam size. MaxBaseline taken from VS._uvmax but
+    # doesn't seem correct hence the sqrt(2) factor. Is this baseline length or baseline?
     # TODO - Set max scale with minimum baseline or facet size?
     def set_scales(self):
         if self.GD["WSCMS"]["Scales"] is None:
@@ -380,23 +389,22 @@ class ClassScaleMachine(object):
         # find most relevant scale
         maxvals = np.zeros(self.Nscales)
         for iScale in xrange(self.Nscales):
+            # get mask for scale (once auto-masking kicks in we use that instead of external mask)
+            if self.AppendMaskComponents:
+                CurrentMask = self.MaskArray
+            else:
+                CurrentMask = self.ScaleMaskArray[iScale]
+
             if iScale:
                 xtmp, ytmp, ConvMaxDirty = NpParallel.A_whereMax(ConvMeanDirtys[iScale:iScale+1],
                                                                  NCPU=self.NCPU, DoAbs=self.DoAbs,
-                                                                 Mask=self.MaskArray)
+                                                                 Mask=CurrentMask)
             else:
                 xtmp, ytmp, ConvMaxDirty = NpParallel.A_whereMax(MeanDirty,
                                                                  NCPU=self.NCPU, DoAbs=self.DoAbs,
-                                                                 Mask=self.MaskArray)
+                                                                 Mask=CurrentMask)
             maxvals[iScale] = ConvMaxDirty * self.bias[iScale]
-            if iScale == 0:
-                x = xtmp
-                y = ytmp
-                BiasedMaxVal = ConvMaxDirty * self.bias[iScale]
-                MaxDirty = ConvMaxDirty
-                CurrentDirty = MeanDirty  # [None, None, :, :]
-                CurrentScale = iScale
-            else:
+            if iScale:
                 # only update if new scale is more significant
                 if ConvMaxDirty * self.bias[iScale] >= BiasedMaxVal:
                     x = xtmp
@@ -405,5 +413,12 @@ class ClassScaleMachine(object):
                     MaxDirty = ConvMaxDirty
                     CurrentDirty = ConvMeanDirtys[iScale:iScale+1]  # [None, None, :, :]
                     CurrentScale = iScale
+            else:
+                x = xtmp
+                y = ytmp
+                BiasedMaxVal = ConvMaxDirty * self.bias[iScale]
+                MaxDirty = ConvMaxDirty
+                CurrentDirty = MeanDirty
+                CurrentScale = iScale
 
         return x, y, MaxDirty, CurrentDirty, CurrentScale
