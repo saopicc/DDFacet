@@ -487,7 +487,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         # update scale dependent mask
         if self.GD["WSCMS"]["AutoMask"]:
-            ScaleMask = self.ScaleMachine.ScaleMaskArray[iScale].view()
+            ScaleMask = self.ScaleMachine.ScaleMaskArray[str(iScale)].view()
             if self.GD["WSCMS"]["AutoMaskThreshold"] is not None:
                 MaskThreshold = self.GD["WSCMS"]["AutoMaskThreshold"]
             else:

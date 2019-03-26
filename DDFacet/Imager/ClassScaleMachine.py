@@ -152,7 +152,7 @@ class ClassScaleMachine(object):
         if self.GD["WSCMS"]["AutoMask"]:
             self.AppendMaskComponents = True  # set to false once masking kicks in
             for iScale in xrange(self.Nscales):
-                self.ScaleMaskArray[iScale] = np.ones((1, 1, self.Npix, self.Npix), dtype=np.bool)
+                self.ScaleMaskArray[str(iScale)] = np.ones((1, 1, self.Npix, self.Npix), dtype=np.bool)
         else:
             self.AppendMaskComponents = False
 
@@ -393,7 +393,7 @@ class ClassScaleMachine(object):
             if self.AppendMaskComponents:
                 CurrentMask = self.MaskArray
             else:
-                CurrentMask = self.ScaleMaskArray[iScale]
+                CurrentMask = self.ScaleMaskArray[str(iScale)]
 
             if iScale:
                 xtmp, ytmp, ConvMaxDirty = NpParallel.A_whereMax(ConvMeanDirtys[iScale:iScale+1],
