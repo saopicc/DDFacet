@@ -512,8 +512,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # we cannot use StoppingFlux from minor cycle directly since the maxima of the scale convolved residual
         # is different from the maximum of the residual
         Threshold = self.ScaleMachine.PeakFactor * AbsConvMaxDirty
-        DirtyRatio = AbsConvMaxDirty / MaxDirty  # should be 1 for zero scale
-        Threshold = np.maximum(Threshold, Stopping_flux * DirtyRatio)
+        # DirtyRatio = AbsConvMaxDirty / MaxDirty  # should be 1 for zero scale
+        # Threshold = np.maximum(Threshold, Stopping_flux * DirtyRatio)
 
         # get the set A (in which we do peak finding)
         # assumes mask is 0 where we should do peak finding (same as Cyril's convention)
