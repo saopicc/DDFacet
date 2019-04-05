@@ -508,6 +508,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                     self.ScaleMachine.AppendMaskComponents = False
                     # MaskArray needs to be the union of all the Scale masks so that we can use it in
                     # CheckConvergenceCriteria in ImageDeconvMachine
+                    # bit flip first if no external mask
+                    if not self.ScaleMachine.MaskArray.any():
+                        self.ScaleMachine.MaskArray |= 1
                     for i in xrange(self.ScaleMachine.Nscales):
                         tmpScaleMask = self.ScaleMachine.ScaleMaskArray[str(iScale)]
                         self.ScaleMachine.MaskArray &= tmpScaleMask
