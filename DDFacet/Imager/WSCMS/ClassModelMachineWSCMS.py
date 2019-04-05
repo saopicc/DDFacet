@@ -563,7 +563,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             Fpol[:, 0, 0, 0] = Dirty[:, 0, xscale, yscale].copy()
 
             # Fit frequency axis to get coeffs (coeffs correspond to intrinsic flux)
-            self.Coeffs = self.FreqMachine.Fit(Fpol[:, 0, 0, 0], JN, WeightsChansImages)
+            self.Coeffs = self.FreqMachine.Fit(Fpol[:, 0, 0, 0], JN, WeightsChansImages.squeeze())
 
             # Overwrite with polynoimial fit (Fpol is apparent flux)
             Fpol[:, 0, 0, 0] = self.FreqMachine.Eval(self.Coeffs)
