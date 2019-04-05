@@ -176,7 +176,7 @@ class ClassImageDeconvMachine():
         # so we should avoid keeping it as None
         # if self.MaskArray is None:
         #     self.MaskArray = np.zeros([1, 1, self.Npix, self.Npix], dtype=np.bool8)
-        self.ModelMachine.setScaleMachine(self.PSFServer, NCPU=self.NCPU, MaskArray=self.MaskArray.view(),
+        self.ModelMachine.setScaleMachine(self.PSFServer, NCPU=self.NCPU, MaskArray=self.MaskArray,
                                           cachepath=cachepath, MaxBaseline=kwargs["MaxBaseline"] / minlambda)
 
 
