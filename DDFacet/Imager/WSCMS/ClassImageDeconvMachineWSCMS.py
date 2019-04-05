@@ -172,7 +172,11 @@ class ClassImageDeconvMachine():
 
         from africanus.constants import c as lightspeed
         minlambda = lightspeed/self.Freqs.min()
-        self.ModelMachine.setScaleMachine(self.PSFServer, NCPU=self.NCPU, MaskArray=self.MaskArray,
+        # LB - note MaskArray might be modified by ScaleMachine if GD{"WSCMS"]["AutoMask"] is True
+        # so we should avoid keeping it as None
+        if self.MaskArray is None:
+            self.MaskArray = np.zeros([1, 1, self.Npix, self.Npix], dtype=np.bool8)
+        self.ModelMachine.setScaleMachine(self.PSFServer, NCPU=self.NCPU, MaskArray=self.MaskArray.view(),
                                           cachepath=cachepath, MaxBaseline=kwargs["MaxBaseline"] / minlambda)
 
 
@@ -272,18 +276,18 @@ class ClassImageDeconvMachine():
         self._JonesNorm = self.DicoDirty["JonesNorm"]
         self.WeightsChansImages = np.mean(np.float32(self.DicoDirty["WeightChansImages"]), axis=1)[:, None, None, None]
 
-        if self._peakMode is "sigma":
-            print>> log, "Will search for the peak in the SNR-weighted dirty map"
-            a, b = self._MeanDirty, self._NoiseMap.reshape(self._MeanDirty.shape)
-            self._PeakSearchImage = numexpr.evaluate("a/b")
-        else:
-            print>> log, "Will search for the peak in the unweighted dirty map"
-            self._PeakSearchImage = self._MeanDirty
-
-        if self.ModelImage is None:
-            self._ModelImage = np.zeros_like(self._Dirty)
-        if self.MaskArray is None:
-            self._MaskArray = np.zeros(self._Dirty.shape, dtype=np.bool8)
+        # if self._peakMode is "sigma":
+        #     print>> log, "Will search for the peak in the SNR-weighted dirty map"
+        #     a, b = self._MeanDirty, self._NoiseMap.reshape(self._MeanDirty.shape)
+        #     self._PeakSearchImage = numexpr.evaluate("a/b")
+        # else:
+        #     print>> log, "Will search for the peak in the unweighted dirty map"
+        #     self._PeakSearchImage = self._MeanDirty
+        #
+        # if self.ModelImage is None:
+        #     self._ModelImage = np.zeros_like(self._Dirty)
+        # if self.MaskArray is None:
+        #     self._MaskArray = np.zeros(self._Dirty.shape, dtype=np.bool8)
 
 
     def SubStep(self,(dx,dy),LocalSM):
@@ -387,7 +391,7 @@ class ClassImageDeconvMachine():
         T=ClassTimeIt.ClassTimeIt()
         T.disable()
 
-        ThisFlux=MaxDirty
+        ThisFlux=MaxDirty.copy()
 
         if ThisFlux < StopFlux:
             print>>log, ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done CLEANing" % (ThisFlux),col="green" )

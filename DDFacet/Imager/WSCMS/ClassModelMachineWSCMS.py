@@ -104,41 +104,41 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
 
     def setScaleMachine(self, PSFServer, NCPU=None, MaskArray=None, cachepath=None, MaxBaseline=None):
-        if self.GD["WSCMS"]["MultiScale"]:
-            if NCPU is None:
-                self.NCPU = self.GD['Parallel'][NCPU]
-                if self.NCPU == 0:
-                    import multiprocessing
+        # if self.GD["WSCMS"]["MultiScale"]:
+        if NCPU is None:
+            self.NCPU = self.GD['Parallel'][NCPU]
+            if self.NCPU == 0:
+                import multiprocessing
 
-                    self.NCPU = multiprocessing.cpu_count()
-            else:
-                 self.NCPU = NCPU
-            self.DoAbs = self.GD["Deconv"]["AllowNegative"]
-            self.ScaleMachine = ClassScaleMachine.ClassScaleMachine(GD=self.GD, NCPU=NCPU, MaskArray=MaskArray)
-            self.ScaleMachine.Init(PSFServer, self.FreqMachine, cachepath=cachepath, MaxBaseline=MaxBaseline)
-            self.NpixPSF = self.ScaleMachine.NpixPSF
-            self.halfNpixPSF = self.NpixPSF//2
-            self.Nscales = self.ScaleMachine.Nscales
-            # Initialise CurrentScale variable
-            self.CurrentScale = 999999
-            # Initialise current facet variable
-            self.CurrentFacet = 999999
-
-
-            self.DicoSMStacked["Scale_Info"] = {}
-            for iScale, sigma in enumerate(self.ScaleMachine.sigmas):
-                if iScale not in self.DicoSMStacked["Scale_Info"].keys():
-                    self.DicoSMStacked["Scale_Info"][iScale] = {}
-                self.DicoSMStacked["Scale_Info"][iScale]["sigma"] = self.ScaleMachine.sigmas[iScale]
-                self.DicoSMStacked["Scale_Info"][iScale]["kernel"] = self.ScaleMachine.kernels[iScale]
-                self.DicoSMStacked["Scale_Info"][iScale]["extent"] = self.ScaleMachine.extents[iScale]
-
+                self.NCPU = multiprocessing.cpu_count()
         else:
-            # we need to keep track of what the sigma value of the delta scale corresponds to
-            # even if we don't do multiscale (because we need it in GiveModelImage)
-            (self.FWHMBeamAvg, _, _) = PSFServer.DicoVariablePSF["EstimatesAvgPSF"]
-            self.ListScales = [1.0/np.sqrt(2)*((self.FWHMBeamAvg[0] + self.FWHMBeamAvg[1])*np.pi / 180) / \
-                                (2.0 * self.GD['Image']['Cell'] * np.pi / 648000)]
+             self.NCPU = NCPU
+        self.DoAbs = self.GD["Deconv"]["AllowNegative"]
+        self.ScaleMachine = ClassScaleMachine.ClassScaleMachine(GD=self.GD, NCPU=NCPU, MaskArray=MaskArray)
+        self.ScaleMachine.Init(PSFServer, self.FreqMachine, cachepath=cachepath, MaxBaseline=MaxBaseline)
+        self.NpixPSF = self.ScaleMachine.NpixPSF
+        self.halfNpixPSF = self.NpixPSF//2
+        self.Nscales = self.ScaleMachine.Nscales
+        # Initialise CurrentScale variable
+        self.CurrentScale = 999999
+        # Initialise current facet variable
+        self.CurrentFacet = 999999
+
+
+        self.DicoSMStacked["Scale_Info"] = {}
+        for iScale, sigma in enumerate(self.ScaleMachine.sigmas):
+            if iScale not in self.DicoSMStacked["Scale_Info"].keys():
+                self.DicoSMStacked["Scale_Info"][iScale] = {}
+            self.DicoSMStacked["Scale_Info"][iScale]["sigma"] = self.ScaleMachine.sigmas[iScale]
+            self.DicoSMStacked["Scale_Info"][iScale]["kernel"] = self.ScaleMachine.kernels[iScale]
+            self.DicoSMStacked["Scale_Info"][iScale]["extent"] = self.ScaleMachine.extents[iScale]
+
+        # else:
+        #     # we need to keep track of what the sigma value of the delta scale corresponds to
+        #     # even if we don't do multiscale (because we need it in GiveModelImage)
+        #     (self.FWHMBeamAvg, _, _) = PSFServer.DicoVariablePSF["EstimatesAvgPSF"]
+        #     self.ListScales = [1.0/np.sqrt(2)*((self.FWHMBeamAvg[0] + self.FWHMBeamAvg[1])*np.pi / 180) / \
+        #                         (2.0 * self.GD['Image']['Cell'] * np.pi / 648000)]
 
     def ToFile(self, FileName, DicoIn=None):
         print>> log, "Saving dico model to %s" % FileName
@@ -149,10 +149,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         D["GD"] = self.GD
         D["Type"] = "WSCMS"
-        try:
-            D["ListScales"] = list(self.ScaleMachine.sigmas)  # list containing std of Gaussian components
-        except:
-            D["ListScales"] = self.ListScales
+        # try:
+        #     D["ListScales"] = list(self.ScaleMachine.sigmas)  # list containing std of Gaussian components
+        # except:
+        #     D["ListScales"] = self.ListScales
         D["ModelShape"] = self.ModelShape
         MyPickle.Save(D, FileName)
 
@@ -164,7 +164,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def FromDico(self, DicoSMStacked):
         self.DicoSMStacked = DicoSMStacked
         self.RefFreq = self.DicoSMStacked["RefFreq"]
-        self.ListScales = self.DicoSMStacked["ListScales"]
+        # self.ListScales = self.DicoSMStacked["ListScales"]
         self.ModelShape = self.DicoSMStacked["ModelShape"]
 
     def setModelShape(self, ModelShape):
@@ -176,21 +176,18 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         Adds component to model dictionary at a scale specified by Scale. 
         The dictionary corresponding to each scale is keyed on pixel values (l,m location tupple). 
         Each model component is therefore represented parametrically by a pixel value a scale and a set of coefficients
-        associated with the spectral function that is fit to the frequency axis.
+        describing the spectral axis.
         Currently only Stokes I is supported.
         Args:
-            key: the (l,m) centre of the component
-            Fpol: Weight of the solution
-            Sols: Nd array of solutions with length equal to the number of basis functions representing the component.
-            Scale: the sigma value (Gaussian standard deviation) of the scale at which to append the component    
-        Post conditions:
+            key: the (l,m) centre of the component in pixels
+            Sols: Nd array of coeffs with length equal to the number of basis functions representing the component.
+            iScale: the scale index
+            Gain: clean loop gain
+            
         Added component list to dictionary for particular scale. This dictionary is stored in
-        self.DicoSMStacked["Comp"][Scale] and has keys:
+        self.DicoSMStacked["Comp"][iScale] and has keys:
             "SolsArray": solutions ndArray with shape [#basis_functions,#stokes_terms]
-            "SumWeights": weights ndArray with shape [#stokes_terms]
-            
-            
-        LB - Note I have added and extra scale layer to the dictionary structure
+            "NumComps": scalar keeps tracl of the number of components found at a particular scale
         """
         DicoComp = self.DicoSMStacked.setdefault("Comp", {})
 
@@ -226,8 +223,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             ModelImage = np.zeros((nchan,npol,nx,ny),dtype=np.float32)
 
         for iScale in DicoComp.keys():
-            # Note here we are building a spectral cube delta function representation first and then convolving by
-            # the scale at the end
             ScaleModel = np.zeros((nchan, npol, nx, ny), dtype=np.float32)
             # get scale kernel
             if self.GD["WSCMS"]["MultiScale"]:
@@ -236,7 +231,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 extent = self.DicoSMStacked["Scale_Info"][iScale]["extent"]
 
             for key in DicoComp[iScale].keys():
-                if key != "NumComps":
+                if key != "NumComps":  # LB - dirty dirty hack needs to die!!!
                     Sol = DicoComp[iScale][key]["SolsArray"]
                     # TODO - try soft thresholding components
                     x, y = key
@@ -468,12 +463,22 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def do_minor_loop(self, Dirty, meanDirty, JonesNorm, WeightsChansImages, MaxDirty, Stopping_flux=None, RMS=None):
         """
         Runs the sub-minor loop at a specific scale 
-        :param Dirty: 
-        :param meanDirty: 
-        :param JonesNorm: 
-        :return: The scale convolved model and a list of components 
+        :param Dirty: dirty cube
+        :param meanDirty: mean dirty
+        :param JonesNorm: "average" DDE map
+        :param WeightsChansImages: The sum of the weights in each channel normalised to sum to one
+        :param MaxDirty: maximum of mean dirty computed in last minor loop
+        :param Stopping_flux: stopping flux for unconvolved mean image
+        :param RMS: RMS of mean dirty computed in last minor loop (for auto-masking) 
+        :return: number of iterations k, the dominant scale
+        
+        Components are only searched for in the active set A defined as all pixels in s scale convolved dirty
+        above GD[WSCMS][SubMinorPeakFactor] * AbsConvMaxDirty. The PSF for A is the PSF twice convolved with the
+        dominant scale kernel. At the same time, once a component has been found in A, it is subtracted from the 
+        dirty cube using the PSF once convolved with the scale kernel. The actual MeanDirty image is only updated
+        once we drop back into the minor loop by computing the weighted sum over channels.
         """
-        # determine most relevant scale (note ConvMaxDirty given as absolute value)
+        # determine most relevant scale (note AbsConvMaxDirty given as absolute value)
         xscale, yscale, AbsConvMaxDirty, CurrentDirty, iScale,  = \
             self.ScaleMachine.do_scale_convolve(meanDirty)
 
@@ -501,6 +506,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                     ScaleMask[0, 0, xscale, yscale] = 0
                     # we shan't be updating the mask any longer
                     self.ScaleMachine.AppendMaskComponents = False
+                    # MaskArray needs to be the union of all the Scale masks so that we can use it in
+                    # CheckConvergenceCriteria in ImageDeconvMachine
+                    for i in xrange(self.ScaleMachine.Nscales):
+                        tmpScaleMask = self.ScaleMachine.ScaleMaskArray[str(iScale)]
+                        self.ScaleMachine.MaskArray &= tmpScaleMask
                 CurrentMask = ScaleMask
 
             else:
@@ -550,12 +560,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             Fpol[:, 0, 0, 0] = Dirty[:, 0, xscale, yscale].copy()
 
             # Fit frequency axis to get coeffs (coeffs correspond to intrinsic flux)
-            self.Coeffs = self.FreqMachine.Fit(Fpol[:, 0, 0, 0], JN)
+            self.Coeffs = self.FreqMachine.Fit(Fpol[:, 0, 0, 0], JN, WeightsChansImages)
 
             # Overwrite with polynoimial fit (Fpol is apparent flux)
             Fpol[:, 0, 0, 0] = self.FreqMachine.Eval(self.Coeffs)
 
-            # This is an attempt to minimise the amount of negative flux in the model
+            # This is an attempt to minimise the amount of negative flux in the model by reducing the gain if
+            # a negative component has been found
             if (Fpol<0).any():
                 self.AppendComponentToDictStacked((xscale, yscale), self.Coeffs, self.CurrentScale, 0.25 * self.CurrentGain)
                 # Subtract fitted component from residual cube
@@ -581,7 +592,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             try:
                 pq = int(np.argwhere(absA == AbsConvMaxDirty))
             except:
-                print "Got here 2"
+                print "                              Got here 2"  # LB - debugging
                 pq = int(np.argwhere(absA == AbsConvMaxDirty)[0])
             ConvMaxDirty = A[pq]
 

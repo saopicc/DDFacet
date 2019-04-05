@@ -220,7 +220,7 @@ class ClassFrequencyMachine(object):
         res = np.linalg.solve(Dinv, A.T.dot(W * Iapp))
         return res
 
-    def FitPoly(self, Vals, JonesNorm):
+    def FitPoly(self, Vals, JonesNorm, WeightsChansImages):
         """
         This is for the new frequency fit mode incorporating FreqBandsFluxRation
         :param Vals: Values in the imaging bands
@@ -256,9 +256,9 @@ class ClassFrequencyMachine(object):
             # self.SAX = SAmat.dot(self.Xdes_full)
             self.SAX = np.sqrt(JonesNorm)[:, None] * self.Xdes
         # get MFS weights
-        W = self.PSFServer.DicoVariablePSF['SumWeights'].squeeze().astype(np.float64)
-        Ig = Vals.astype(np.float64)
-        theta = self.solve_ML(Ig, self.SAX, W)
+        # W = self.PSFServer.DicoVariablePSF['SumWeights'].squeeze().astype(np.float64)
+        # Ig = Vals.astype(np.float64)
+        theta = self.solve_ML(Vals, self.SAX, WeightsChansImages)
         return theta
 
     def EvalPoly(self, coeffs, Freqsp=None):
