@@ -390,7 +390,7 @@ class ClassScaleMachine(object):
         maxvals = np.zeros(self.Nscales)
         for iScale in xrange(self.Nscales):
             # get mask for scale (once auto-masking kicks in we use that instead of external mask)
-            if self.AppendMaskComponents:
+            if self.AppendMaskComponents or not self.GD["WSCMS"]["AutoMask"]:
                 CurrentMask = self.MaskArray
             else:
                 CurrentMask = self.ScaleMaskArray[str(iScale)]
