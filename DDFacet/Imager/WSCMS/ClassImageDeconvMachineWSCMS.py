@@ -174,8 +174,8 @@ class ClassImageDeconvMachine():
         minlambda = lightspeed/self.Freqs.min()
         # LB - note MaskArray might be modified by ScaleMachine if GD{"WSCMS"]["AutoMask"] is True
         # so we should avoid keeping it as None
-        if self.MaskArray is None:
-            self.MaskArray = np.zeros([1, 1, self.Npix, self.Npix], dtype=np.bool8)
+        # if self.MaskArray is None:
+        #     self.MaskArray = np.zeros([1, 1, self.Npix, self.Npix], dtype=np.bool8)
         self.ModelMachine.setScaleMachine(self.PSFServer, NCPU=self.NCPU, MaskArray=self.MaskArray.view(),
                                           cachepath=cachepath, MaxBaseline=kwargs["MaxBaseline"] / minlambda)
 
@@ -416,7 +416,7 @@ class ClassImageDeconvMachine():
                         diverged = True
                 elif np.abs((ThisFlux - TrackFlux)/TrackFlux) < self.GD['WSCMS']['MinorStallThreshold']:
                     stall_count += 1
-                    if stall_count > 50:
+                    if stall_count > 50000000000000000000:
                         stalled = True
 
                 TrackFlux = ThisFlux.copy()
