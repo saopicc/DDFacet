@@ -393,7 +393,7 @@ class ClassImageDeconvMachine():
 
         ThisFlux=MaxDirty.copy()
 
-        if ThisFlux < StopFlux:
+        if ThisFlux < self.FluxThreshold:
             print>>log, ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done CLEANing" % (ThisFlux),col="green" )
             exit_msg = exit_msg + " " + "FluxThreshold"
             continue_deconvolution = False or continue_deconvolution
@@ -414,10 +414,10 @@ class ClassImageDeconvMachine():
                     diverged_count += 1
                     if diverged_count > 5:
                         diverged = True
-                elif np.abs((ThisFlux - TrackFlux)/TrackFlux) < self.GD['WSCMS']['MinorStallThreshold']:
-                    stall_count += 1
-                    if stall_count > 50000000000000000000:
-                        stalled = True
+                # elif np.abs((ThisFlux - TrackFlux)/TrackFlux) < self.GD['WSCMS']['MinorStallThreshold']:
+                #     stall_count += 1
+                #     if stall_count > 50000000000000000000:
+                #         stalled = True
 
                 TrackFlux = ThisFlux.copy()
 
@@ -433,7 +433,7 @@ class ClassImageDeconvMachine():
                         print>> log, ModColor.Str("    At [iter=%i] minor cycle has stalled so it has been force stopped at a flux of %.3g Jy" % (self._niter, ThisFlux), col="green")
                     else:
                         print>>log, ModColor.Str("    CLEANing [iter=%i] peak of %.3g Jy lower than stopping flux" % (self._niter, ThisFlux),col="green")
-                    cont = ThisFlux > StopFlux
+                    cont = ThisFlux > self.FluxThreshold
                     if not cont:
                           print>>log, ModColor.Str("    CLEANing [iter=%i] absolute flux threshold of %.3g Jy has been reached" % (self._niter, StopFlux),col="green",Bold=True)
                     exit_msg = exit_msg + " " + "MinFluxRms"
