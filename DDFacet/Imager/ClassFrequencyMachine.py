@@ -93,29 +93,29 @@ class ClassFrequencyMachine(object):
                     if not self.BeamEnable:
                         # Fits the integrated polynomial when Mode='Andre'
                         self.SAX = self.setDesMat(self.Freqs, order=self.order, mode='Mono')
-                    else:
-                        self.freqs_full = []
-                        for iCh in xrange(self.nchan):
-                            self.freqs_full.append(self.PSFServer.DicoVariablePSF["freqs"][iCh])
-                        self.freqs_full = np.concatenate(self.freqs_full)
-                        self.nchan_full = np.size(self.freqs_full)
-
-                        self.Xdes_full = self.setDesMat(self.freqs_full, order=self.order,
-                                                        mode="Mono")
-                        # build the S matrix
-                        ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
-                        ChanMappingFull = []
-                        for iMS in ChanMappingGrid.keys():
-                            ChanMappingFull.append(ChanMappingGrid[iMS])
-                        ChanMappingFull = np.concatenate(ChanMappingFull)
-                        self.S = np.zeros([self.nchan, self.nchan_full], dtype=np.float32)
-                        for iChannel in range(self.nchan):
-                            ind = np.argwhere(ChanMappingFull == iChannel).squeeze()
-                            nchunk = np.size(ind)
-                            if nchunk:
-                                self.S[iChannel, ind] = 1.0/nchunk
-                            else:
-                                self.S[iChannel, ind] = 0.0
+                    # else:
+                    #     self.freqs_full = []
+                    #     for iCh in xrange(self.nchan):
+                    #         self.freqs_full.append(self.PSFServer.DicoVariablePSF["freqs"][iCh])
+                    #     self.freqs_full = np.concatenate(self.freqs_full)
+                    #     self.nchan_full = np.size(self.freqs_full)
+                    #
+                    #     self.Xdes_full = self.setDesMat(self.freqs_full, order=self.order,
+                    #                                     mode="Mono")
+                    #     # build the S matrix
+                    #     ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
+                    #     ChanMappingFull = []
+                    #     for iMS in ChanMappingGrid.keys():
+                    #         ChanMappingFull.append(ChanMappingGrid[iMS])
+                    #     ChanMappingFull = np.concatenate(ChanMappingFull)
+                    #     self.S = np.zeros([self.nchan, self.nchan_full], dtype=np.float32)
+                    #     for iChannel in range(self.nchan):
+                    #         ind = np.argwhere(ChanMappingFull == iChannel).squeeze()
+                    #         nchunk = np.size(ind)
+                    #         if nchunk:
+                    #             self.S[iChannel, ind] = 1.0/nchunk
+                    #         else:
+                    #             self.S[iChannel, ind] = 0.0
 
                     self.Fit = self.FitPoly
                     self.Eval = self.EvalPolyApparent
