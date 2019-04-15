@@ -249,14 +249,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
                         x0d, x1d, y0d, y1d = Aedge
                         x0p, x1p, y0p, y1p = Bedge
-                        try:
-                            out = np.atleast_1d(interp)[:, None, None, None] * kernel
-                            ScaleModel[:, :, x0d:x1d, y0d:y1d] += out[:, :, x0p:x1p, y0p:y1p]
-                        except:
-                            x -= nx // 2
-                            y -= ny // 2
-                            ScaleModel += GaussianSymmetric(sigma, nx, x0=x or None,
-                                                            y0=y or None, amp=interp, cube=True)
+
+                        out = np.atleast_1d(interp)[:, None, None, None] * kernel
+                        ScaleModel[:, :, x0d:x1d, y0d:y1d] += out[:, :, x0p:x1p, y0p:y1p]
                     else:
                         ScaleModel[:, 0, x, y] += interp
 
