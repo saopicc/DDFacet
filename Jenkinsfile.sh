@@ -30,4 +30,4 @@ docker run -m 100g --cap-add sys_ptrace \
                    -v $WORKSPACE_ROOT:/workspace \
                    --entrypoint sh \
                    $IMAGENAME:$BUILD_NUMBER \
-                   -c "nosetests -s --with-xunit --xunit-file /workspace/nosetests.xml /usr/local/lib/python2.7/dist-packages/DDFacet/Tests"
+                   -c "nosetests -s --with-xunit --xunit-file /workspace/nosetests.xml /root/.local/lib/python2.7/site-packages/DDFacet/Tests"
