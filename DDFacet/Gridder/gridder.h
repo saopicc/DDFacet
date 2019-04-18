@@ -95,7 +95,7 @@ namespace DDF {
       const double l0=ptrFacetInfos[2];
       const double m0=ptrFacetInfos[3];
       const double n0=sqrt(1-l0*l0-m0*m0)-1;
-      const int facet = int(ptrFacetInfos[4]);
+//      const int facet = int(ptrFacetInfos[4]);
 
       /* Get size of grid. */
       const double *ptrWinfo = Winfos.data(0);
@@ -177,11 +177,7 @@ namespace DDF {
 	const int *Row = StartRow+2;
 	/* advance pointer to next blocklist */
 	StartRow += NRowBlocks[iBlock];
-	
-//        if(facet==60 && iBlock==67)
-//        {
-//        	cerr<<"NR "<<NRowThisBlock<<" of "<<NTotBlocks<<" CH "<<chStart<<" "<<chEnd<<endl;
-//	}
+
 
 	if (sparsificationFlag && !sparsificationFlag[iBlock])
 	  continue;
@@ -291,19 +287,6 @@ namespace DDF {
             for (size_t visChan=chStart; visChan<chEnd; ++visChan)
                 ThisSumJonesChan[visChan] = ThisSumSqWeightsChan[visChan]*JS.BB;
             }
-            
-//        if(facet==60 && iBlock==67)
-//        {
-//                cerr<<" "<<Vis[0]<<" "<<Vis[1]<<" "<<Vis[2]<<" "<<Vis[3]<<endl;
-//        	cerr<<"JS.J0[0] "<<JS.J0[0]<<endl;
-//        	cerr<<"NV "<<NVisThisblock<<"\nTSJC ";
-//        	for( int i=chStart; i<chEnd; i++)
-//        	  cerr<<ThisSumJonesChan[i]<<" ";
-//        	cerr<<"\nTSSQC ";
-//        	for( int i=chStart; i<chEnd; i++)
-//        	  cerr<<ThisSumSqWeightsChan[i]<<" ";
-//        	cerr<<"\nTSJ "<<ThisSumJones<<" TSSQ "<<ThisSumSqWeights<<" TW "<<ThisWeight<<endl<<endl;
-//        }
 
 	const int gridChan = p_ChanMapping[chStart];
 	const double diffChan=visChanMean-gridChan;

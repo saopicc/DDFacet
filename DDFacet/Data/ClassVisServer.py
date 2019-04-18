@@ -391,7 +391,7 @@ class ClassVisServer():
             APP.awaitJobResults(self._put_vis_column_job_id, progress="Writing %s" % self._put_vis_column_label)
             self._put_vis_column_job_id = None
 
-    def startChunkLoadInBackground(self):
+    def startChunkLoadInBackground(self, last_cycle=False):
         """
         Called in main process. Increments chunk counter, initiates chunk load in background thread.
         Returns None if we get past the last chunk, else returns the chunk label.
@@ -414,8 +414,8 @@ class ClassVisServer():
                 continue
             self._next_chunk_name = "DATA:%d:%d" % (self.iCurrentMS, self.iCurrentChunk)
             self._next_chunk_label = "%d.%d" % (self.iCurrentMS + 1, self.iCurrentChunk + 1)
-            # null chunk? skip to next chunk
-            if not self._ignore_vis_weights:
+            # null chunk? skip to next chunk, unless we're in the last major cycle
+            if not self._ignore_vis_weights and not last_cycle:
                 self.awaitWeights()
                 if self.VisWeights[self.iCurrentMS][self.iCurrentChunk]["null"]:
                     print>>log, ModColor.Str("chunk %s is null, skipping"%self._next_chunk_label)
@@ -430,7 +430,7 @@ class ClassVisServer():
                            io=0)#,serial=True)
             return self._next_chunk_label
 
-    def collectLoadedChunk(self, start_next=True):
+    def collectLoadedChunk(self, start_next=True, last_cycle=False):
         # previous data dict can now be discarded from shm
         if self.nTotalChunks > 1 and self.DATA is not None:
             self.DATA.delete()
@@ -453,7 +453,7 @@ class ClassVisServer():
                 self._saved_data = self.DATA["data"].copy()
         # schedule next event
         if start_next:
-            self.startChunkLoadInBackground()
+            self.startChunkLoadInBackground(last_cycle=last_cycle)
         # return the data dict
         return self.DATA
 
@@ -720,7 +720,7 @@ class ClassVisServer():
         if self._ignore_vis_weights:
             return
         if not self._uvmax:
-            raise RuntimeError("data appears to be fully flagged: can't compute imaging weights")
+            UserWarning("data appears to be fully flagged: can't compute imaging weights")
         # in natural mode, leave the weights as is. In other modes, setup grid for calculations
         self._weight_grid = shared_dict.create("VisWeights.Grid")
         cell = npix = npixx = nbands = xymax = None
@@ -728,6 +728,7 @@ class ClassVisServer():
             nch, npol, npixIm, _ = self.FullImShape
             FOV = self.CellSizeRad * npixIm
             nbands = self.NFreqBands
+            
             cell = 1. / (self.Super * FOV)
             if self.MFSWeighting or self.NFreqBands < 2:
                 nbands = 1
@@ -1003,8 +1004,9 @@ class ClassVisServer():
                 uvw = tab.getcol("UVW", row0, nrows)
                 rowflags = tab.getcol("FLAG_ROW", row0, nrows)
                 # max of |u|, |v| in wavelengths
-                uvmax_wavelengths = abs(uvw[~rowflags, :2]).max() * max_freq / _cc
-                self._uvmax = max(self._uvmax, uvmax_wavelengths)
+                if not rowflags.all():
+                    uvmax_wavelengths = abs(uvw[~rowflags, :2]).max() * max_freq / _cc
+                    self._uvmax = max(self._uvmax, uvmax_wavelengths)
 
         # setup uv-grid for non-natural weights
         if self.Weighting != "natural":

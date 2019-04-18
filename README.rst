@@ -83,7 +83,30 @@ widely supported containerization framework, called Docker. This package is on P
 8. When you're done deactivate the virtual environment::
 
         (stimelavenv)$ deactivate
+        
 
+Installing locally with conda as the packaging manager:
+==========================================================
+Using conda as the packaging manager may be more conducive to your workflow. It's superior to vitrualenv in many ways (https://jakevdp.github.io/blog/2016/08/25/conda-myths-and-misconceptions/).
+The recommended way to do this:
+
+1. Install miniconda (or conda if you like) from (https://conda.io/miniconda.html)
+
+2. Make a python 2.7 env ```conda create -n ddfacet python=2.7```
+
+3. Activate the env ```source activate ddfacet```
+    
+    3a. Install all dependencies with ```pip```
+        
+4. Clone the repo (possibly swithc branch) ```cd ~/git; git clone https://github.com/cyriltasse/DDFacet.git```
+
+5. Ensure ```gcc>=5``` is loaded. You may be able to do something like ```module load gcc/5.4```
+    
+6. ```cd DDFacet; python setup.py install```
+
+    If it does not find the correct GCC you can specify it like this e.g. ```CC=/usr/local/bin/gcc-5.4 python setup.py install```
+    
+    Note if you need to recompile that you should first ```rm -r DDFacet/cbuild```
         
 (Users / PyPI alternative) Virtual environment and pip:
 ==========================================================

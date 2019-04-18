@@ -57,13 +57,13 @@ static PyObject *pyWhereMaxMask(PyObject */*self*/, PyObject *args)
       &doabs
       )) return NULL;
 
-  PyArrayObject *Ans = (PyArrayObject *) PyArray_ContiguousFromObject(ObjAns, PyArray_FLOAT32, 0, 4);
+  PyArrayObject *Ans = (PyArrayObject *) PyArray_ContiguousFromObject(ObjAns, NPY_FLOAT32, 0, 4);
 
-  int NX=int(A->dimensions[0]), NY=int(A->dimensions[1]);
+  int NX=int(PyArray_DIMS(A)[0]), NY=int(PyArray_DIMS(A)[1]);
 
   const bool *pMask=p_bool(Mask);
   const int *pBlocks=p_int32(Blocks);
-  int nblocks=int(Blocks->dimensions[0]);
+  int nblocks=int(PyArray_DIMS(Blocks)[0]);
   vector<float> MaxBlock(nblocks-1);
   vector<int> xMaxBlock(nblocks-1), yMaxBlock(nblocks-1);
 
@@ -120,11 +120,11 @@ static PyObject *pyWhereMax(PyObject */*self*/, PyObject *args)
       &doabs
       )) return NULL;
 
-  PyArrayObject *Ans = (PyArrayObject *) PyArray_ContiguousFromObject(ObjAns, PyArray_FLOAT32, 0, 4);
-  int NX=int(A->dimensions[0]), NY=int(A->dimensions[1]);
+  PyArrayObject *Ans = (PyArrayObject *) PyArray_ContiguousFromObject(ObjAns, NPY_FLOAT32, 0, 4);
+  int NX=int(PyArray_DIMS(A)[0]), NY=int(PyArray_DIMS(A)[1]);
 
   const int *pBlocks=p_int32(Blocks);
-  int nblocks=int(Blocks->dimensions[0]);
+  int nblocks=int(PyArray_DIMS(Blocks)[0]);
   vector<float> MaxBlock(nblocks-1);
   vector<int> xMaxBlock(nblocks-1), yMaxBlock(nblocks-1);
 
@@ -195,10 +195,10 @@ template<typename Op>static PyObject *pyOpArray(PyObject *args, Op op)
       &PyArray_Type,  &Blocks
       )) return NULL;
 
-  A = (PyArrayObject *)PyArray_ContiguousFromObject(ObjA, PyArray_FLOAT32, 0, 4);
+  A = (PyArrayObject *)PyArray_ContiguousFromObject(ObjA, NPY_FLOAT32, 0, 4);
 
-  int NYa=int(A->dimensions[1]);
-  int NYb=int(B->dimensions[1]);
+  int NYa=int(PyArray_DIMS(A)[1]);
+  int NYb=int(PyArray_DIMS(B)[1]);
 
   const int *aedge = p_int32(Aedge);
   int a_x0=aedge[0], a_x1=aedge[1], a_y0=aedge[2], a_y1=aedge[3];
@@ -207,7 +207,7 @@ template<typename Op>static PyObject *pyOpArray(PyObject *args, Op op)
   int b_x0=bedge[0], b_y0=bedge[2];
 
   const int *pBlocks=p_int32(Blocks);
-  int nblocks=(int)Blocks->dimensions[0];
+  int nblocks=int(PyArray_DIMS(Blocks)[0]);
 #pragma omp parallel for
   for (long iblock=0; iblock<nblocks-1; iblock++){
    float *a = p_float32(A);

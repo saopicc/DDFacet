@@ -829,7 +829,7 @@ class ClassImagerDeconv():
 	
         # tell the I/O thread to go load the first chunk
         self.VS.ReInitChunkCount()
-        self.VS.startChunkLoadInBackground()
+        self.VS.startChunkLoadInBackground(last_cycle=True)
 
         self.FacetMachine.ReinitDirty()
 
@@ -899,7 +899,7 @@ class ClassImagerDeconv():
         while True:
             # get loaded chunk from I/O thread, schedule next chunk
             # self.VS.startChunkLoadInBackground()
-            DATA = self.VS.collectLoadedChunk(start_next=True)
+            DATA = self.VS.collectLoadedChunk(start_next=True, last_cycle=True)
             if self.VS.StokesConverter.RequiredStokesProducts() != ['I']:
                 raise RuntimeError("Unsupported: Polarization prediction is not defined")
             if type(DATA) is str:
@@ -1158,7 +1158,7 @@ class ClassImagerDeconv():
 
             # in the meantime, tell the I/O thread to go reload the first data chunk
             self.VS.ReInitChunkCount()
-            self.VS.startChunkLoadInBackground()
+            self.VS.startChunkLoadInBackground(last_cycle=predict_colname)
 
             # determine whether data still needs to be sparsified
             # last major cycle is always done at full precision, but also if the sparsification_list ends we go to full precision
@@ -1216,9 +1216,17 @@ class ClassImagerDeconv():
                 if type(DATA) is str:
                     print>>log,ModColor.Str("no more data: %s"%DATA, col="red")
                     break
+
                 # None weights indicates an all-flagged chunk: go on to the next chunk
                 if DATA["Weights"] is None:
-                    continue
+                    if predict_colname: #write out empty MODEL for this chunk during last cycle
+                        predict = DATA.addSharedArray("predict", DATA["datashape"], DATA["datatype"])
+                        predict[...] = 0.0
+                        # schedule jobs for saving visibilities, then start reading next chunk (both are on io queue)
+                        self.VS.startVisPutColumnInBackground(DATA, "predict", predict_colname, likecol=self.GD["Data"]["ColName"])
+                        self.VS.startChunkLoadInBackground(last_cycle=predict_colname)
+                    continue # next chunk
+
                 visdata = DATA["data"]
                 if predict_colname:
                     predict = DATA.addSharedArray("predict", DATA["datashape"], DATA["datatype"])
@@ -1267,7 +1275,7 @@ class ClassImagerDeconv():
                     predict -= visdata
                     # schedule jobs for saving visibilities, then start reading next chunk (both are on io queue)
                     self.VS.startVisPutColumnInBackground(DATA, "predict", predict_colname, likecol=self.GD["Data"]["ColName"])
-                    self.VS.startChunkLoadInBackground()
+                    self.VS.startChunkLoadInBackground(last_cycle=predict_colname)
 
                 # Stacks average beam if not computed
                 self.FacetMachine.StackAverageBeam(DATA)
@@ -2186,7 +2194,9 @@ class ClassImagerDeconv():
                                    beam=self.FWHMBeamAvg, beamcube=self.FWHMBeam, Freqs=self.VS.FreqBandCenters,
                                    Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         #  can delete this one now
-        APP.runJob("del:appmodelcube", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "appmodelcube"])
+        if set(["i", "I"]).intersection(self._savecubes) == set():
+            APP.runJob("del:appmodelcube", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "appmodelcube"])
+        else: pass # needed again later on
         # convolved-model cube in intrinsic flux
         if havenorm and "C" in self._savecubes:
             intconvmodelcube()
@@ -2224,6 +2234,7 @@ class ClassImagerDeconv():
                     ImageName="%s.cube.app.restored" % self.BaseName, Fits=True, delete=True,
                     beam=self.FWHMBeamAvg, beamcube=self.FWHMBeam, Freqs=self.VS.FreqBandCenters,
                     Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+            
         #  can delete this one now
         APP.runJob("del:appcubes", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "appconvmodelcube", "apprescube"])
         # intrinsic-flux residual cube
