@@ -34,8 +34,7 @@ class TestSSDKillMS(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.Cla
         """
         return ['dirty', 'dirty.corr', 'psf', 'NormFacets', 'Norm',
                 'app.residual', 'app.model',
-                'app.convmodel', 'app.restored',
-                'restored']
+                'app.convmodel', 'app.restored']
 
     @classmethod
     def defineMaxSquaredError(cls):
@@ -45,10 +44,9 @@ class TestSSDKillMS(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.Cla
             Returns:
                 constant for maximum tolerance used in test case setup
         """
-        return [1e-6,1e-6,1e-6,1e-6,1e-6,
-                1e-4,1e-4,
-                1e-4,1e-4,
-                1e-1]
+        return [1e-6,1e-6,1e-6,1e-4,1e-4,
+                5e-1,5e-1,
+                5e-1,5e-1]
 
     @classmethod
     def defMeanSquaredErrorLevel(cls):
@@ -60,8 +58,7 @@ class TestSSDKillMS(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.Cla
         """
         return [1e-7,1e-7,1e-7,1e-7,1e-7,
                 1e-5,1e-5,
-                1e-5,1e-5,
-                1e-5]
+                1e-5,1e-5]
 
     @classmethod
     def timeoutsecs(cls):

@@ -34,7 +34,7 @@ skymodel_pkg='SkyModel'
 __version__ = "0.4.0.0"
 build_root=os.path.dirname(__file__)
 
-preinstall_dependencies = ["'pybind11 >= 2.2.2'"]
+preinstall_dependencies = ["'pybind11 >= 2.2.2'", "'six >= 1.12.0'"]
 
 def backend(compile_options):
 
@@ -95,6 +95,46 @@ def readme():
     with open('README.rst') as f:
         return f.read()
 
+def requirements():
+
+    requirements = [("nose >= 1.3.7", "nose >= 1.3.7"),
+                    ("Cython >= 0.25.2", "Cython >= 0.25.2"),
+                    ("numpy > 1.16.2", "numpy <= 1.16.1"),
+                    ("SharedArray >= 2.0.2", "SharedArray >= 2.0.2"),
+                    ("Polygon2 >= 2.0.8", "Polygon2 >= 2.0.8"),
+                    ("pyFFTW >= 0.10.4", "pyFFTW >= 0.10.4"),
+                    ("astropy >= 3.0", "astropy <= 2.0.11"),
+                    ("deap >= 1.0.1", "deap >= 1.0.1"),
+                    ("ptyprocess>=0.5", "ptyprocess<=0.5"), #workaround for ipdb on py2
+                    ("ipdb >= 0.10.3", "ipdb <= 0.10.3"),
+                    ("python-casacore >= 2.1.0", "python-casacore >= 2.1.0"),
+                    ("pyephem >= 3.7.6.0", "pyephem >= 3.7.6.0"),
+                    ("numexpr >= 2.6.2", "numexpr >= 2.6.2"),
+                    ("matplotlib >= 2.0.0", "matplotlib >= 2.0.0"),
+                    ("scipy >= 0.16.0", "scipy >= 0.16.0"),
+                    ("astLib >= 0.8.0", "astLib >= 0.8.0"),
+                    ("psutil >= 5.2.2", "psutil >= 5.2.2"),
+                    ("py-cpuinfo >= 3.2.0", "py-cpuinfo >= 3.2.0"),
+                    ("tables >= 3.3.0", "tables >= 3.3.0"),
+                    ("prettytable >= 0.7.2", "prettytable >= 0.7.2"),
+                    ("pybind11 >= 2.2.2", "pybind11 >= 2.2.2"),
+                    ("pyfits >= 3.5", "pyfits >= 3.5"), #kittens dependency, do not remove
+                    ("configparser >= 3.7.1", "configparser <= 3.5.0")] 
+    try:
+        import six
+    except ImportError, e:
+        subprocess.check_call(["cd .. && pip install %s" %
+                           (" ".join(preinstall_dependencies)), ""], shell=True)
+        try:
+            import six
+        except ImportError, e:
+            raise ImportError("Six autoinstall failed. Please install Python 2.x compatibility package six before running DDFacet install")
+
+    py3_requirements, py2_requirements = zip(*requirements)
+    install_requirements = py2_requirements if six.PY2 else py3_requirements
+
+    return install_requirements
+
 setup(name=pkg,
       version=__version__,
       description='Facet-based radio astronomy continuum imager',
@@ -117,32 +157,7 @@ setup(name=pkg,
                },
       python_requires='<3.0',
       packages=[pkg, skymodel_pkg],
-      install_requires=[
-            "nose >= 1.3.7",
-            "Cython >= 0.25.2",
-            "numpy >= 1.11.0",
-            "SharedArray >= 2.0.2",
-            "Polygon2 >= 2.0.8",
-            "pyFFTW >= 0.10.4",
-            "astropy >= 1.3.3",
-            "deap >= 1.0.1",
-            "ipdb >= 0.10.3",
-            "python-casacore >= 2.1.0",
-            "pyephem >= 3.7.6.0",
-            "numexpr >= 2.6.2",
-            "matplotlib >= 2.0.0",
-            "scipy >= 0.16.0",
-            "astro-kittens >= 0.3.3",
-            "meqtrees-cattery >= 1.5.1",
-            "owlcat >= 1.4.2",
-            "astLib >= 0.8.0",
-            "psutil >= 5.2.2",
-            "py-cpuinfo >= 3.2.0",
-            "tables >= 3.3.0",
-            "prettytable >= 0.7.2",
-            "pybind11 >= 2.2.2",
-            "pyfits >= 3.5", #kittens dependency, do not remove
-      ],
+      install_requires=requirements(),
       include_package_data=True,
       zip_safe=False,
       scripts=define_scripts()
