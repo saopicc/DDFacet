@@ -1121,6 +1121,10 @@ class ClassImagerDeconv():
             # stop
             # ###
 
+            if self.GD["Output"]["Mode"]=="CleanMinor":
+                print>> log, "Requested no residual image after minor cycle... exiting..."
+                return
+            
             ## returned with nothing done in minor cycle? Break out
             if not update_model or iMajor == NMajor:
                 continue_deconv = False

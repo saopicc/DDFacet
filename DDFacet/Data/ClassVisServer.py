@@ -116,8 +116,8 @@ class ClassVisServer():
                 1 else None,
                 ChanStep)
 
-        min_freq = 1e+999
-        max_freq = 0
+        min_freq_Data = 1e+999
+        max_freq_Data = 0
 
         # max chunk shape accumulated here
         self._chunk_shape = [0, 0, 0]
@@ -140,8 +140,8 @@ class ClassVisServer():
             self.ListMS.append(MS)
             # accumulate global set of frequencies, and min/max frequency
             global_freqs.update(MS.ChanFreq)
-            min_freq = min(min_freq, (MS.ChanFreq-MS.ChanWidth/2).min())
-            max_freq = max(max_freq, (MS.ChanFreq+MS.ChanWidth/2).max())
+            min_freq_Data = min(min_freq_Data, (MS.ChanFreq-MS.ChanWidth/2).min())
+            max_freq_Data = max(max_freq_Data, (MS.ChanFreq+MS.ChanWidth/2).max())
 
             # accumulate largest chunk shape
             for row0, row1 in MS.getChunkRow0Row1():
@@ -187,29 +187,33 @@ class ClassVisServer():
         # make list of unique frequencies
         self.GlobalFreqs = np.array(sorted(global_freqs))
 
-
+        
         self.RefFreq=np.mean(self.GlobalFreqs)
 
-
-        bandwidth = max_freq - min_freq
+        max_freq_Cube, min_freq_Cube = max_freq_Data, min_freq_Data
+        bandwidth_Cube = max_freq_Cube - min_freq_Cube
         print>>log, "Total bandwidth is %g MHz (%g to %g MHz), with %d channels" % (
-            bandwidth*1e-6, min_freq*1e-6, max_freq*1e-6, len(global_freqs))
+            bandwidth_Cube*1e-6, min_freq_Data*1e-6, max_freq_Data*1e-6, len(global_freqs))
 
         # print>>log,"GlobalFreqs: %d: %s"%(len(self.GlobalFreqs),repr(self.GlobalFreqs))
 
         # OMS: ok couldn't resist adding a bandwidth option since I need it for 3C147
         # if this is 0, then looks at NFreqBands parameter
         grid_bw = self.GD["Freq"]["BandMHz"]*1e+6
-
+        
+        if self.GD["Freq"]["FMinMHz"]: min_freq_Cube=self.GD["Freq"]["FMinMHz"]*1e6
+        if self.GD["Freq"]["FMaxMHz"]: max_freq_Cube=self.GD["Freq"]["FMaxMHz"]*1e6
+        bandwidth_Cube =  max_freq_Cube - min_freq_Cube
+        
         if grid_bw:
-            grid_bw = min(grid_bw, bandwidth)
+            grid_bw = min(grid_bw, bandwidth_Cube)
             NFreqBands = self.GD["Freq"][
-                "NBand"] = int(math.ceil(bandwidth/grid_bw))
+                "NBand"] = int(math.ceil(bandwidth_Cube/grid_bw))
         else:
             NFreqBands = np.min(
                 [self.GD["Freq"]["NBand"],
                  len(self.GlobalFreqs)])  # self.nMS])
-            grid_bw = bandwidth/NFreqBands
+            grid_bw = bandwidth_Cube/NFreqBands
 
         self.NFreqBands = NFreqBands
         self.MultiFreqMode = NFreqBands > 1
@@ -242,14 +246,14 @@ class ClassVisServer():
 
         # grid_band: array of ints, same size as self.GlobalFreqs, giving the
         # grid band number of each frequency channel
-        grid_band = np.floor((self.GlobalFreqs - min_freq)/grid_bw).astype(int)
+        grid_band = np.floor((self.GlobalFreqs - min_freq_Cube)/grid_bw).astype(int)
         # freq_to_grid_band: mapping from frequency to grid band number
         freq_to_grid_band = dict(zip(self.GlobalFreqs, grid_band))
         # print>>log,sorted(freq_to_grid_band.items())
 
 ### not sure why linspace is here and not arange?
 # <<<<<<< HEAD
-        self.FreqBandCenters = np.linspace(min_freq+grid_bw/2, max_freq-grid_bw/2,self.NFreqBands)
+        self.FreqBandCenters = np.linspace(min_freq_Cube+grid_bw/2, max_freq_Cube-grid_bw/2,self.NFreqBands)
 # =======
 #        self.FreqBandCenters = min_freq+grid_bw/2 + np.arange(0, self.NFreqBands)*grid_bw
 #>>>>>>> master
@@ -258,7 +262,7 @@ class ClassVisServer():
         # freq_to_grid_band_chan: mapping from frequency to channel number
         # within its grid band
         freq_to_grid_band_chan = {}
-        for iBand in xrange(self.NFreqBands):
+        for iBand in range(self.NFreqBands):
             freqlist = sorted([freq for freq, band
                                in freq_to_grid_band.iteritems()
                                if band == iBand])
