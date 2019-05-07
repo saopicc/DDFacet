@@ -53,6 +53,7 @@ from DDFacet.Parset import MyOptParse
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
 from DDFacet.report_version import report_version
+import DDFacet.Array.shared_dict
 log = None
 
 import numpy as np
@@ -250,29 +251,35 @@ class DDFParallel():
         PP=self.PP
 
         for iMajorCycle in range(NMajorCycle):
-            
+
+            # #########################################################
+            # Compute the residual PSF and Dirty cubes in parallel
+            CacheList=[]
             for ThisNodeName in DicoNodes.keys():
                 ThisNameOut="%s/%s_%s"%(self.WorkDirNodes,MainOutputName,ThisNodeName)
                 ThisMSlist=DicoNodes[ThisNodeName]
                 if DicoModelName is not None:
                     DicoModelName=os.path.abspath(DicoModelName)
-                
                 Str="DDF.py %s --Output-Mode=Clean --Deconv-MaxMajorIter 0 --Data-MS %s "\
                     " --Output-Name=%s --Predict-InitDicoModel %s --Debug-Pdb=never"%(ParsetName,
                                                                                       DicoNodes[ThisNodeName]["NameListMS"],
                                                                                       ThisNameOut,
                                                                                       str(DicoModelName))
-    
-                PP.AppendCommand("ComputeResidual_%s"%ThisNodeName,
-                                 Str,
-                                 NodeName=ThisNodeName)
-    
+                DicoNodes[ThisNodeName]["Cache"]="%s.ddfcache"%DicoNodes[ThisNodeName]["NameListMS"]
+                PP.AppendCommand("ComputeResidual_%s"%ThisNodeName,Str,NodeName=ThisNodeName)
             PP.WaitJob("ComputeResidual_*")
-                
+            # #########################################################
+            
         
             # # Compute the average redidual from the (redidual_i, all iNodes), and create a fake <mslist.ddfcache>
-            # Some code 
-        
+            # Some code
+            for ThisNodeName in DicoNodes.keys():
+                DicoNodes[ThisNodeName]["DicoPSF"]={}
+                DicoNodes[ThisNodeName]["DicoPSF"]=DDFacet.Array.shared_dict.create("DicoPSF_%s"%ThisNodeName)
+                ThisCache="%s/PSF"%(DicoNodes[ThisNodeName]["Cache"])
+                DicoNodes[ThisNodeName]["DicoPSF"].restore(ThisCache)
+            
+
             # Make DDF to think that the cache is valid, or force it to use  <mslist.ddfcache>, and run a minor cycle on it, and generate
             ThisCycleName="%s_MinorCycle_%i"%(MainOutputName,iMajorCycle)
             PP.AppendCommand("CleanMinor",
