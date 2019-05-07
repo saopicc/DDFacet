@@ -123,7 +123,7 @@ def test():
     
 
 
-def GetMSListSet(mslist):
+def GetMSListSet(mslist,WorkDir=None):
     ListMS=[s.strip() for s in open(mslist,"r").readlines()]
 
     DicoNodes={}
@@ -132,7 +132,8 @@ def GetMSListSet(mslist):
             Node,MSPath=MSName.split(":")
         else:
             Node,MSPath="localhost",MSName
-        print Node,MSPath
+
+        MSPath=os.path.abspath(MSPath)
         if not(Node in DicoNodes.keys()):
             DicoNodes[Node]={"ListMS":[MSPath]}
         else:
@@ -140,6 +141,8 @@ def GetMSListSet(mslist):
     
     for NodeName in DicoNodes.keys():
         ThisListName="mslist.%s.txt"%NodeName
+        if WorkDir:
+            ThisListName="%s/%s"%(WorkDir,ThisListName)
         f=open(ThisListName,"w")
         for MSName in DicoNodes[NodeName]["ListMS"]:
             f.write("%s\n"%MSName)
@@ -149,13 +152,13 @@ def GetMSListSet(mslist):
     return DicoNodes
             
 class ParamikoPool():
-    def __init__(self):
+    def __init__(self,WorkDir):
         self.JobPool={}
+        self.WorkDir=WorkDir
         pass
     
-    def AppendCommand(self,JobName,Str,NodeName=None):
+    def AppendCommand(self,JobName,Str,NodeName=None,CheckFile=None):
     
-        print>>log,ModColor.Str("[%s] %s"%(NodeName,Str))
         if NodeName is None:
             os.system(Str)
         else:
@@ -166,79 +169,119 @@ class ParamikoPool():
                         username='tasse',
                         #password=p,
                         key_filename='/home/tasse/.ssh/id_rsa')
-            stdin, stdout, stderr = ssh.exec_command("source /media/tasse/data/Wirtinger_Pack/init.sh; cd /media/tasse/data/Wirtinger_Pack/TestMinorCycleMode; %s"%Str)
+
+            S="source /media/tasse/data/Wirtinger_Pack/init.sh; cd %s; %s"%(self.WorkDir,Str)
+            print>>log,ModColor.Str("[%s] %s"%(NodeName,S),col="blue")
+            stdin, stdout, stderr = ssh.exec_command(S)
+#            stdin, stdout, stderr = ssh.exec_command("source /media/tasse/data/Wirtinger_Pack/init.sh; %s"%(Str))
             #print stdout.readlines()
             self.JobPool[JobName]={"ssh":ssh,
                                    "stdin":stdin,
                                    "stdout":stdout,
-                                   "stderr":stderr}
+                                   "stderr":stderr,
+                                   "CheckFile":CheckFile}
         
     def WaitJob(self,JobName):
         if "*" in JobName:
             JobPrefix=JobName.replace("*","")
-            for Job in self.JobPool.keys():
-                if JobPrefix in Job:
-                    print>>log,"waiting for %s"%Job
-                    self.JobPool[Job]["stdout"].channel.recv_exit_status()
-                    print >>log,"   [done] %s"%Job
-                    self.JobPool[Job]["ssh"].close()
-        
-def main(OP=None, messages=[]):
-    if OP is None:
-        OP = MyPickle.Load(SaveFile)
-        print "Using settings from %s, then command line."%SaveFile
-
-    DicoConfig = OP.DicoConfig
-
-    MainOutputName = ImageName = DicoConfig["Output"]["Name"]
-
-    # print current options
-    OP.Print(dest=log)
-    
-    # write parset
-    ParsetName="%s.parset"%ImageName
-    OP.ToParset(ParsetName)
-    
-    Mode = DicoConfig["Output"]["Mode"]
-    
-    DicoNodes=GetMSListSet(DicoConfig["Data"]["MS"])
-    # Compute residual image_i on all nodes_i
-    DicoModelName=None
-    MotherNode = DicoConfig["Parallel"]["MotherNode"]
-    NMajorCycle= DicoConfig["Deconv"]["MaxMajorIter"]
-    
-    PP=ParamikoPool()
-
-    for iMajorCycle in range(NMajorCycle):
-        
-        for ThisNodeName in DicoNodes.keys():
-            ThisNameOut="%s_Node_%s"%(MainOutputName,ThisNodeName)
-            ThisMSlist=DicoNodes[ThisNodeName]
-            Str="DDF.py %s --Output-Mode=Clean --Deconv-MaxMajorIter 0 --Data-MS %s "\
-                " --Output-Name=%s --Predict-InitDicoModel %s"%(ParsetName,
-                                                                DicoNodes[ThisNodeName]["NameListMS"],
-                                                                ThisNameOut,
-                                                                str(DicoModelName))
-
-            PP.AppendCommand("ComputeResidual_%s"%ThisNodeName,
-                             Str,
-                             NodeName=ThisNodeName)
-
-        PP.WaitJob("ComputeResidual_*")
+        else:
+            JobPrefix=JobName
             
-        # # Wait for the processes to finish
-        # Some code
+        for Job in self.JobPool.keys():
+            if JobPrefix in Job:
+                print>>log,ModColor.Str("Waiting for %s..."%Job,col="blue")
+                #self.JobPool[Job]["stdout"].channel.recv_exit_status()
+                STDOUT=self.JobPool[Job]["stdout"].read()
+                STDERR=self.JobPool[Job]["stderr"].read()
+                STDERROUT=STDOUT+STDERR
+                Cond0=("DDFacet has encountered an unexpected error" in STDERROUT)
+                Cond1=("There was a problem after" in STDERROUT)
+                if Cond0 or Cond1:
+                    print>>log,ModColor.Str("DDFacet produced an error")
+                    print>>log,STDERROUT
+                    raise RuntimeError("DDFacet crashed")
+                else:
+                    print>>log,ModColor.Str("  Job %s finished sucessfully"%Job,col="green")
+                    
+                self.JobPool[Job]["ssh"].close()
+                print >>log,"   [done] %s"%Job
+                del(self.JobPool[Job])
+
+
+class DDFParallel():
+    def __init__(self,OP=None, messages=[]):
+        self.OP=OP
+        self.messages=messages
+        if OP is None:
+            OP = MyPickle.Load(SaveFile)
+            print "Using settings from %s, then command line."%SaveFile
+        self.GD=OP.DicoConfig
+        ImageName = self.GD["Output"]["Name"]
+        self.WorkDir=os.getcwd()
+        self.WorkDirNodes=os.path.abspath("%s.logNodes"%ImageName)
+        os.system("mkdir -p %s"%self.WorkDirNodes)
+        self.PP=ParamikoPool(self.WorkDir)
+        
+
+    def main(self):
+        OP=self.OP
+        messages=self.messages
+        
     
-        # # Compute the average redidual from the (redidual_i, all iNodes), and create a fake <mslist.ddfcache>
-        # Some code 
+        MainOutputName = ImageName = self.GD["Output"]["Name"]
+        
     
-        # Make DDF to think that the cache is valid, or force it to use  <mslist.ddfcache>, and run a minor cycle on it, and generate
-        ThisCycleName="%s_MinorCycle_%i"%(MainOutputName,iMajorCycle)
-        PP.AppendCommand("CleanMinor",
-                         "DDF.py %s --Mode=CleanMinor --Cache-Reset 0 --Cache-Dirty forceresidual --Cache-PSF force --Output-Name %s"%(ParsetName,ThisCycleName),
-                         NodeName=MotherNode)
-        PP.WaitJob("CleanMinor")
-        DicoModelName="%s.DicoModel"%ThisCycleName
+        # print current options
+        OP.Print(dest=log)
+    
+        # write parset
+        ParsetName="%s.parset"%ImageName
+        OP.ToParset(ParsetName)
+        ParsetName=os.path.abspath(ParsetName)
+        
+        Mode = self.GD["Output"]["Mode"]
+        
+        DicoNodes=GetMSListSet(self.GD["Data"]["MS"],
+                               WorkDir=self.WorkDirNodes)
+        # Compute residual image_i on all nodes_i
+        DicoModelName=None
+        MotherNode = self.GD["Parallel"]["MotherNode"]
+        NMajorCycle= self.GD["Deconv"]["MaxMajorIter"]
+        PP=self.PP
+
+        for iMajorCycle in range(NMajorCycle):
+            
+            for ThisNodeName in DicoNodes.keys():
+                ThisNameOut="%s/%s_%s"%(self.WorkDirNodes,MainOutputName,ThisNodeName)
+                ThisMSlist=DicoNodes[ThisNodeName]
+                if DicoModelName is not None:
+                    DicoModelName=os.path.abspath(DicoModelName)
+                
+                Str="DDF.py %s --Output-Mode=Clean --Deconv-MaxMajorIter 0 --Data-MS %s "\
+                    " --Output-Name=%s --Predict-InitDicoModel %s --Debug-Pdb=never"%(ParsetName,
+                                                                                      DicoNodes[ThisNodeName]["NameListMS"],
+                                                                                      ThisNameOut,
+                                                                                      str(DicoModelName))
+    
+                PP.AppendCommand("ComputeResidual_%s"%ThisNodeName,
+                                 Str,
+                                 NodeName=ThisNodeName)
+    
+            PP.WaitJob("ComputeResidual_*")
+                
+        
+            # # Compute the average redidual from the (redidual_i, all iNodes), and create a fake <mslist.ddfcache>
+            # Some code 
+        
+            # Make DDF to think that the cache is valid, or force it to use  <mslist.ddfcache>, and run a minor cycle on it, and generate
+            ThisCycleName="%s_MinorCycle_%i"%(MainOutputName,iMajorCycle)
+            PP.AppendCommand("CleanMinor",
+                             "DDF.py %s --Output-Mode=CleanMinor --Cache-Reset 0 --Cache-Dirty forceresidual"\
+                             " --Cache-PSF force --Output-Name %s --Debug-Pdb=never"%(ParsetName,ThisCycleName),
+                             NodeName=MotherNode)
+            PP.WaitJob("CleanMinor")
+
+            DicoModelName="%s.DicoModel"%ThisCycleName
 
 
 ##########################################################################
@@ -253,6 +296,9 @@ if __name__ == "__main__":
     args = OP.GiveArguments()
 
     DicoConfig = OP.DicoConfig
+    
+    
+    
     ImageName = DicoConfig["Output"]["Name"]
     if not ImageName:
         raise Exceptions.UserInputError("--Output-Name not specified, can't continue.")
@@ -311,5 +357,5 @@ if __name__ == "__main__":
 
     retcode = report_error = 0
 
-    main(OP, messages)
-        
+    DDFp=DDFParallel(OP, messages)
+    DDFp.main()
