@@ -163,7 +163,7 @@ class ClassImagerDeconv():
                               parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
                               verbose=self.GD["Debug"]["APPVerbose"],
                               pause_on_start=self.GD["Debug"]["PauseWorkers"])
-
+        
         self.VS = ClassVisServer.ClassVisServer(mslist,ColName=DC["Data"]["ColName"] if self.do_readcol else None,
                                                 TChunkSize=DC["Data"]["ChunkHours"],
                                                 GD=self.GD)
@@ -213,9 +213,9 @@ class ClassImagerDeconv():
 
 
         self.ImageNoiseMachine=ClassImageNoiseMachine.ClassImageNoiseMachine(self.GD,self.ModelMachine,
-                                                                        DegridFreqs=self.VS.FreqBandChannelsDegrid[0],
-                                                                        GridFreqs=self.VS.FreqBandCenters,
-                                                                        MainCache=self.VS.maincache)
+                                                                             DegridFreqs=self.VS.FreqBandChannelsDegrid[0],
+                                                                             GridFreqs=self.VS.FreqBandCenters,
+                                                                             MainCache=self.VS.maincache)
         self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
         self.MaskMachine.setImageNoiseMachine(self.ImageNoiseMachine)
 

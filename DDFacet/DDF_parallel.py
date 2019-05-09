@@ -290,46 +290,66 @@ class DDFParallel():
             DicoModelName="%s.DicoModel"%ThisCycleName
 
     def StackNodesImages(self,DicoNodes):
-        
+
+        # ############################################
+        # Reading cache of the various PSF and Dirty images from the various nodes
         for ThisNodeName in DicoNodes.keys():
             if "DicoPSF" not in DicoNodes[ThisNodeName].keys():
                 DicoNodes[ThisNodeName]["DicoPSF"]={}
                 DicoNodes[ThisNodeName]["DicoPSF"]=DDFacet.Array.shared_dict.create("DicoPSF_%s"%ThisNodeName)
                 ThisCache="%s/PSF"%(DicoNodes[ThisNodeName]["Cache"])
+                print>>log,"Reading PSF cache of [%s] %s"%(ThisNodeName,ThisCache)
                 DicoNodes[ThisNodeName]["DicoPSF"].restore(ThisCache)
                 LastCacheName_PSF=ThisCache
                 
             DicoNodes[ThisNodeName]["DicoDirty"]={}
             DicoNodes[ThisNodeName]["DicoDirty"]=DDFacet.Array.shared_dict.create("DicoDirty_%s"%ThisNodeName)
             ThisCache="%s/Dirty"%(DicoNodes[ThisNodeName]["Cache"])
+            print>>log,"Reading Dirty cache of [%s] %s"%(ThisNodeName,ThisCache)
             DicoNodes[ThisNodeName]["DicoDirty"].restore(ThisCache)
             LastCacheName_Dirty=ThisCache
 
-        DicoStackPSF=DDFacet.Array.shared_dict.create("DicoStackPSF_%s"%ThisNodeName)
-        DicoStackPSF.restore(LastCacheName_PSF)
+        # ############################################
+        # Creating cache where we will store the results
+        # for the Dirty image / cube
+        print>>log,"Computing the average of the residual images..."
         DicoStackDirty=DDFacet.Array.shared_dict.create("DicoStackDirty_%s"%ThisNodeName)
         DicoStackDirty.restore(LastCacheName_Dirty)
-        
-        # Residual_i.shape = 1, npol, nx, ny 
-        # Cube_i.shape = nBand, npol, nx, ny
-        # SumWeight_i.shape = nBand, npol, 1, 1
-        SumWeight=DicoStackDirty["SumWeights"].reshape((nch,1,1,1))
         Cube=DicoStackDirty["ImageCube"]
+        nch,npol,nx,ny=Cube.shape
+        SumWeight=DicoStackDirty["SumWeights"].reshape((nch,1,1,1))
         SumWeight.fill(0)
         Cube.fill(0)
-        nch,npol,nx,py=Cube.shape
-            
+        
+        # Now doing the averaging
         for ThisNodeName in DicoNodes.keys():
             Cube_i=DicoNodes[ThisNodeName]["DicoDirty"]["ImageCube"]
             SumWeights_i=DicoNodes[ThisNodeName]["DicoDirty"]["SumWeights"].reshape((nch,1,1,1))
             Cube_i *= SumWeights_i 
             Cube += Cube_i
-            SumWeight += SumWeight_i
-
+            SumWeight += SumWeights_i
+            for ich in range(nch):
+                print 
+                DicoStackDirty["freqs"][ich]=DicoStackDirty["freqs"][ich]+DicoNodes[ThisNodeName]["DicoDirty"]["freqs"][ich]
+                
+        for ich in range(nch):
+            DicoStackDirty["freqs"][ich]=sorted(list(set(DicoStackDirty["freqs"][ich])))
+            
         Cube /= SumWeight.reshape((nch,1,1,1))
-        WBand=SumWeight/np.sum(SumWeight)
+        WBAND=SumWeight/np.sum(SumWeight)
         MeanCube = np.sum(Cube * WBAND.reshape((nch,1,1,1)), axis=0).reshape((1, npol, nx, ny))
-        stop
+        print>>log,"Saving the cache of the average residual image..."
+        DicoStackDirty.save("CACA")
+
+        # ############################################
+        # Creating cache where we will store the results
+        # for the PSF image / cube
+        DicoStackPSF=DDFacet.Array.shared_dict.create("DicoStackPSF_%s"%ThisNodeName)
+        DicoStackPSF.restore(LastCacheName_PSF)
+
+
+        
+        
 ##########################################################################
 ##########################################################################
 ##########################################################################
