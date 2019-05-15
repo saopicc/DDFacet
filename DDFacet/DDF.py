@@ -225,10 +225,7 @@ def main(OP=None, messages=[]):
                                                   readcol=(Mode != "Predict" and Mode != "PSF"),
                                                   deconvolve=("Clean" in Mode))
 
-    if Mode!="CleanMinor":
-        Imager.Init()
-    else:
-        Imager.InitFromImagingCache()
+    Imager.Init()
         
 
     # Imager.testDegrid()

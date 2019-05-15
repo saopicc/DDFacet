@@ -329,7 +329,6 @@ class DDFParallel():
             Cube += Cube_i
             SumWeight += SumWeights_i
             for ich in range(nch):
-                print 
                 DicoStackDirty["freqs"][ich]=DicoStackDirty["freqs"][ich]+DicoNodes[ThisNodeName]["DicoDirty"]["freqs"][ich]
                 
         for ich in range(nch):
@@ -338,15 +337,60 @@ class DDFParallel():
         Cube /= SumWeight.reshape((nch,1,1,1))
         WBAND=SumWeight/np.sum(SumWeight)
         MeanCube = np.sum(Cube * WBAND.reshape((nch,1,1,1)), axis=0).reshape((1, npol, nx, ny))
-        print>>log,"Saving the cache of the average residual image..."
-        DicoStackDirty.save("CACA")
-
+        DicoStackDirty["WeightChansImages"].flat[:]=WBAND.flat[:]
+        MainCache="%s.ddfcache"%self.GD["Data"]["MS"]
+        os.system("mkdir -p %s"%MainCache)
+        DirtyCacheName="%s/Dirty"%MainCache
+        print>>log,"Saving the cache of the average residual image in %s"%DirtyCacheName
+        DicoStackDirty.save(DirtyCacheName)
+        
         # ############################################
         # Creating cache where we will store the results
         # for the PSF image / cube
         DicoStackPSF=DDFacet.Array.shared_dict.create("DicoStackPSF_%s"%ThisNodeName)
         DicoStackPSF.restore(LastCacheName_PSF)
 
+        Cube=DicoStackPSF["ImageCube"]
+        nch,npol,nx,ny=Cube.shape
+        SumWeight=DicoStackPSF["SumWeights"].reshape((nch,1,1,1))
+        SumWeight.fill(0)
+        Cube.fill(0)
+        CubeVariablePSF=DicoStackPSF['CubeVariablePSF']
+        CubeVariablePSF.fill(0)
+        NFacet,nch,npol,nx_facet,ny_facet=CubeVariablePSF.shape
+
+        # ['freqs', 'ImageInfo', 'SumWeights', 'WeightChansImages', 'Facets', 'CubeVariablePSF', 'CubeMeanVariablePSF', 'CentralFacet', 'PeakNormed_CubeVariablePSF', 'PeakNormed_CubeMeanVariablePSF', 'MeanFacetPSF', 'OutImShape', 'CellSizeRad', 'MeanJonesBand', 'SumJonesChan', 'ChanMappingGrid', 'ChanMappingGridChan', 'ImageCube', 'MeanImage', 'FacetNorm', 'JonesNorm', 'FWHMBeam', 'PSFGaussPars', 'PSFSidelobes', 'EstimatesAvgPSF']
+        
+        # Now doing the averaging
+        for ThisNodeName in DicoNodes.keys():
+            Cube_i=DicoNodes[ThisNodeName]["DicoPSF"]["ImageCube"]
+            SumWeights_i=DicoNodes[ThisNodeName]["DicoPSF"]["SumWeights"].reshape((nch,1,1,1))
+            Cube_i *= SumWeights_i 
+            Cube += Cube_i
+            SumWeight += SumWeights_i
+            for iFacet in range(NFacet):
+                ThisCubeFacetPSF=DicoNodes[ThisNodeName]["DicoPSF"]["CubeVariablePSF"][iFacet]
+                ThisCubeFacetPSF=ThisCubeFacetPSF*SumWeights_i
+                CubeVariablePSF+=ThisCubeFacetPSF
+                
+            for ich in range(nch):
+                DicoStackPSF["freqs"][ich]=DicoStackPSF["freqs"][ich]+DicoNodes[ThisNodeName]["DicoPSF"]["freqs"][ich]
+            
+        for ich in range(nch):
+            DicoStackPSF["freqs"][ich]=sorted(list(set(DicoStackPSF["freqs"][ich])))
+            
+        Cube /= SumWeight.reshape((nch,1,1,1))
+        WBAND=SumWeight/np.sum(SumWeight)
+        MeanCube = np.sum(Cube * WBAND.reshape((nch,1,1,1)), axis=0).reshape((1, npol, nx, ny))
+        CubeVariablePSF/= SumWeight.reshape((1,nch,1,1,1))
+        MeanCubeVariablePSF= np.sum(CubeVariablePSF * WBAND.reshape((1,nch,1,1,1)), axis=1).reshape((NFacet, 1, npol, nx_facet, ny_facet))
+        DicoStackPSF["WeightChansImages"].flat[:]=WBAND.flat[:]
+        
+        MainCache="%s.ddfcache"%self.GD["Data"]["MS"]
+        os.system("mkdir -p %s"%MainCache)
+        PSFCacheName="%s/PSF"%MainCache
+        print>>log,"Saving the cache of the average residual image in %s"%PSFCacheName
+        DicoStackPSF.save(PSFCacheName)
 
         
         
