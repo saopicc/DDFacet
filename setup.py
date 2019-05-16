@@ -162,5 +162,6 @@ setup(name=pkg,
       install_requires=requirements(),
       include_package_data=True,
       zip_safe=False,
+      long_description_content_type='text/markdown',
       scripts=define_scripts()
 )
