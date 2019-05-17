@@ -26,7 +26,7 @@ you really want them to do.
 """
 
 import random
-from killMS.Other.progressbar import ProgressBar
+from DDFacet.Other.progressbar import ProgressBar
 
 from deap import tools
 from DDFacet.Other import ClassTimeIt

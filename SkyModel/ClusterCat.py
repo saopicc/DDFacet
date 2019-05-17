@@ -5,7 +5,7 @@ from DDFacet.Other import MyLogger
 from DDFacet.Other import MyPickle
 log=MyLogger.getLogger("ClusterImage")
 import pyfits
-import Sky.ClassClusterDEAP
+import SkyModel.Sky.ClassClusterDEAP
 from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 import optparse
 import pickle
