@@ -343,7 +343,9 @@ class DDFParallel():
         DirtyCacheName="%s/Dirty"%MainCache
         print>>log,"Saving the cache of the average residual image in %s"%DirtyCacheName
         DicoStackDirty.save(DirtyCacheName)
-        
+
+        DicoStackDirty.save("HackyParallel.Dirty.ddfcache")
+
         # ############################################
         # Creating cache where we will store the results
         # for the PSF image / cube
