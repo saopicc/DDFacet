@@ -100,7 +100,7 @@ def requirements():
 
     requirements = [("nose >= 1.3.7", "nose >= 1.3.7"),
                     ("Cython >= 0.25.2", "Cython >= 0.25.2"),
-                    ("numpy > 1.16.2", "numpy <= 1.16.1"),
+                    ("numpy > 1.16.2", "numpy >= 1.16.1"),
                     ("SharedArray >= 2.0.2", "SharedArray >= 2.0.2"),
                     ("Polygon2 >= 2.0.8", "Polygon2 >= 2.0.8"),
                     ("pyFFTW >= 0.10.4", "pyFFTW >= 0.10.4"),
@@ -126,12 +126,8 @@ def requirements():
     try:
         import six
     except ImportError, e:
-        subprocess.check_call(["cd .. && pip install %s" %
-                           (" ".join(preinstall_dependencies)), ""], shell=True)
-        try:
-            import six
-        except ImportError, e:
-            raise ImportError("Six autoinstall failed. Please install Python 2.x compatibility package six before running DDFacet install")
+        raise ImportError("Six not installed. Please install Python 2.x compatibility package six before running DDFacet install. "
+                          "You should not see this message unless you are not running pip install -- run pip install!")
 
     py3_requirements, py2_requirements = zip(*requirements)
     install_requirements = py2_requirements if six.PY2 else py3_requirements

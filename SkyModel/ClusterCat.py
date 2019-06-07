@@ -13,6 +13,7 @@ from DDFacet.ToolsDir import ModCoord
 import Polygon
 SaveFile="ClusterImage.last"
 from SkyModel.Sky import ModVoronoiToReg
+from SkyModel import Sky
 import MakeCatalog
 import os
 
