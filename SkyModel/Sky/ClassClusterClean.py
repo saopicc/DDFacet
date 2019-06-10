@@ -35,8 +35,8 @@ class ClassClusterClean():
         Np=100
         xx,yy=np.mgrid[x0:x1:Np*1j,y0:y1:Np*1j]
         
-        sigx=1.5*(x0-x1)/nk
-        sigy=1.5*(y0-y1)/nk
+        sigx=.5*(x0-x1)/nk
+        sigy=.5*(y0-y1)/nk
         #sigx=1.*(x0-x1)/nk
         #sigy=1.*(y0-y1)/nk
     
@@ -49,8 +49,8 @@ class ClassClusterClean():
     
         C=1./(2.*np.pi*sigx*sigy)
         for i in range(x.shape[0]):
-            ss+=s[i]*C*np.exp(-((xx-x[i])**2/sigx**2+(yy-y[i])**2/sigy**2))*dx*dy
-            ss0+=C*np.exp(-((xx-x[i])**2/sigx**2+(yy-y[i])**2/sigy**2))*dx*dy
+            ss+=s[i]*C*np.exp(-((xx-x[i])**2/(2.*sigx**2)+(yy-y[i])**2/(2.*sigy**2)))*dx*dy
+            ss0+=C*np.exp(-((xx-x[i])**2/(2.*sigx**2)+(yy-y[i])**2/(2.*sigy**2)))*dx*dy
             
         # xr=np.random.rand(1000)
         # yr=np.random.rand(1000)
@@ -76,13 +76,13 @@ class ClassClusterClean():
         if DoPlot:
             import pylab
             pylab.ion()
-            #pylab.scatter(xx,yy,marker="s",c=ss,s=50,vmin=vmin,vmax=vmax)
             pylab.imshow(ss.reshape((Np,Np)).T[::-1,:],vmin=vmin,vmax=vmax,extent=(x0,x1,y0,y1))
+            pylab.scatter(self.X,self.Y)#,marker="s",c=ss,s=50,vmin=vmin,vmax=vmax)
             pylab.xlim(x0,x1)
             pylab.ylim(y0,y1)
             pylab.draw()
             pylab.show(False)
-            pylab.pause(0.1)
+            pylab.pause(1)
         for i in range(nk):
             ind=np.where(ss==np.max(ss))
             xnode.append(xx[ind])
