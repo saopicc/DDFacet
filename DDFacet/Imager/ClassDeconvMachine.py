@@ -1081,7 +1081,6 @@ class ClassImagerDeconv():
                 self.DicoImagesPSF["FacetExtentImage"][iFacet] = self.FacetMachine.DicoImager[iFacet]["pixExtent"]
                 self.DicoImagesPSF["FacetCenter"][iFacet] = self.FacetMachine.DicoImager[iFacet]["pixCentral"]
                 self.DicoImagesPSF["FacetExtentPSF"][iFacet] = self.FacetMachinePSF.DicoImager[iFacet]["pixExtent"]
-                print "                  For facet %i the center is at "%iFacet, self.DicoImagesPSF["FacetCenter"][iFacet]
                 # self.DicoImagesPSF["CFs"]["SW"][iFacet] = self.FacetMachinePSF._CF[iFacet]["SW"].copy()
                 # self.DicoImagesPSF["CFs"]["InvSphe"][iFacet] = self.FacetMachinePSF._CF[iFacet]["InvSphe"].copy()
 
