@@ -211,33 +211,37 @@ class ClassCompareFITSImage(unittest.TestCase):
         args = ['DDF.py',
             cls._outputParsetFilename,
             #'--Debug-APPVerbose=2', #enable if you ever need verbose logs
+            '--Log-Boring=1',
             '--Output-Name=%s' % cls._imagePrefix,
             '--Cache-Dir=.']
+        
+        #not necessary
+        #stdout_file = open(cls._stdoutLogFile, 'w')
+        #stderr_file = open(cls._stderrLogFile, 'w')
 
-        stdout_file = open(cls._stdoutLogFile, 'w')
-        stderr_file = open(cls._stderrLogFile, 'w')
+        #with stdout_file, stderr_file:
 
-        with stdout_file, stderr_file:
-            p = Popen(args, 
-                      env=os.environ.copy(),
-                      stdout=stdout_file, 
-                      stderr=stderr_file)
-            x = cls.timeoutsecs()
-            delay = 1.0
-            timeout = int(x / delay)
-            while p.poll() is None and timeout > 0:
-                time.sleep(delay)
-                timeout -= delay
-            #timeout reached, kill process if it is still rolling
-            ret = p.poll()
-            if ret is None:
-                p.kill()
-                ret = 99
+        p = Popen(args, 
+                    env=os.environ.copy())
+        #not necessary
+        #          stdout=stdout_file, 
+        #         stderr=stderr_file)
+        x = cls.timeoutsecs()
+        delay = 1.0
+        timeout = int(x / delay)
+        while p.poll() is None and timeout > 0:
+            time.sleep(delay)
+            timeout -= delay
+        #timeout reached, kill process if it is still rolling
+        ret = p.poll()
+        if ret is None:
+            p.kill()
+            ret = 99
 
-            if ret == 99:
-                raise RuntimeError("Test timeout reached. Killed process.")
-            elif ret != 0:
-                raise RuntimeError("DDF exited with non-zero return code %d" % ret)
+        if ret == 99:
+            raise RuntimeError("Test timeout reached. Killed process.")
+        elif ret != 0:
+            raise RuntimeError("DDF exited with non-zero return code %d" % ret)
 
 
         #Finally open up output FITS files for testing and build a dictionary of them

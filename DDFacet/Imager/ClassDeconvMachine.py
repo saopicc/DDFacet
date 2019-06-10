@@ -18,6 +18,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
 import numpy as np
 from pyrap.images import image
 from DDFacet.Other import MyPickle
@@ -49,7 +50,7 @@ import numexpr
 from DDFacet.Imager import ClassImageNoiseMachine
 from DDFacet.Data import ClassStokes
 from DDFacet.Imager import ClassGainMachine
-
+from DDFacet.Data.PointingProvider import PointingProvider
 # from astropy import wcs
 # from astropy.io import fits
 #
@@ -212,14 +213,7 @@ class ClassImagerDeconv():
 
         self.ModelMachine=ModelMachine
 
-        # # if this is not set for these two mode we won't be able to use an InitDicoModel but we need a PSFServer
-        # # to pass to FreqMachine
-        # if self.GD["Deconv"]['Mode'] == 'Hogbom' or self.GD["Deconv"]["Mode"] == "WSCMS":
-        #     AllDegridFreqs = []
-        #     for i in self.VS.FreqBandChannelsDegrid.keys():
-        #         AllDegridFreqs.append(self.VS.FreqBandChannelsDegrid[i])
-        #     AllDegridFreqs = np.asarray(AllDegridFreqs).flatten()
-        #     self.ModelMachine.setFreqMachine(GridFreqs=self.VS.FreqBandCenters, DegridFreqs=AllDegridFreqs)
+
 
         self.ImageNoiseMachine=ClassImageNoiseMachine.ClassImageNoiseMachine(self.GD,self.ModelMachine,
                                                                         DegridFreqs=self.VS.FreqBandChannelsDegrid,
@@ -238,15 +232,13 @@ class ClassImagerDeconv():
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                     raise NotImplementedError("Multi-polarization CLEAN is not supported in MSMF")
                 from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
-                self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.VS.maincache,
-                                                                                       **MinorCycleConfig)
+                self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
                 print>>log,"Using MSMF algorithm"
             elif self.GD["Deconv"]["Mode"]=="SSD":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                     raise NotImplementedError("Multi-polarization is not supported in SSD")
                 from DDFacet.Imager.SSD import ClassImageDeconvMachineSSD
-                self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(MainCache=self.VS.maincache,
-                                                                                      **MinorCycleConfig)
+                self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
                 print>>log,"Using SSD with %s Minor Cycle algorithm"%self.GD["SSDClean"]["IslandDeconvMode"]
             elif self.GD["Deconv"]["Mode"] == "Hogbom":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
@@ -258,15 +250,13 @@ class ClassImagerDeconv():
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                     raise NotImplementedError("Multi-polarization is not supported in MORESANE")
                 from DDFacet.Imager.MORESANE import ClassImageDeconvMachineMoresane
-                self.DeconvMachine=ClassImageDeconvMachineMoresane.ClassImageDeconvMachine(MainCache=self.VS.maincache,
-                                                                                           **MinorCycleConfig)
+                self.DeconvMachine=ClassImageDeconvMachineMoresane.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
                 print>>log,"Using MORESANE algorithm"
             elif self.GD["Deconv"]["Mode"]=="MUFFIN":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                     raise NotImplementedError("Multi-polarization is not supported in MORESANE")
                 from DDFacet.Imager.MUFFIN import ClassImageDeconvMachineMUFFIN
-                self.DeconvMachine=ClassImageDeconvMachineMUFFIN.ClassImageDeconvMachine(MainCache=self.VS.maincache,
-                                                                                         **MinorCycleConfig)
+                self.DeconvMachine=ClassImageDeconvMachineMUFFIN.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
                 print>>log,"Using MUFFIN algorithm"
             elif self.GD["Deconv"]["Mode"]=="WSCMS":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
@@ -803,7 +793,19 @@ class ClassImagerDeconv():
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         else:
             self.MeanJonesNorm = None
-
+            
+    def _init_pointing_sols(self):
+        """ Initialize pointing solutions provider """
+        if self.PredictMode == "Montblanc":
+            self._pointing_machines = []
+            for iMS, MS in enumerate(self.VS.ListMS):
+                print>> log, ModColor.Str("Initializing pointing solutions for measurement %d / %d" % (iMS + 1,len(self.VS.ListMS)))
+                point_sols_csv = self.GD["PointingSolutions"].get("PointingSolsCSV", None)
+                point_sols_interp_mode = self.GD["PointingSolutions"].get("InterpolationMode", None)
+                self._pointing_machines.append(PointingProvider(MS, point_sols_csv, point_sols_interp_mode))
+        else:
+            print>> log, ModColor.Str("Montblanc predict not enabled. Will not apply pointing corrections.")
+            
     def GiveMontblancPredict(self, DATA, datacolumn):
         """
             Predicts montblanc model from given source model with gaussians and deltas
@@ -814,21 +816,15 @@ class ClassImagerDeconv():
         old_OMP_setting = os.environ["OMP_NUM_THREADS"]
         os.environ["OMP_NUM_THREADS"] = str(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
 
-        if set(self.VS.StokesConverter.AvailableCorrelationProducts()) <= set(["XX", "XY", "YX", "YY"]):
-            polarization_type = "linear"
-            print>>log, "Setting Montblanc solver up for linear feeds"
-        elif set(self.VS.StokesConverter.AvailableCorrelationProducts()) <= set(["RR", "RL", "LR", "LL"]):
-            polarization_type = "circular"
-            print>>log, "Setting Montblanc solver up for circular feeds"
-        else:
-            raise RuntimeError("Montblanc only supports linear or circular feed measurements.")
         MS = self.VS.ListMS[DATA["iMS"]]
+        pointing_sols = self._pointing_machines[DATA["iMS"]]
         model = self.ModelMachine.GiveModelList(MS.ChanFreq)
         mb_machine = ClassMontblancMachine(self.GD,
                                            self.FacetMachine.Npix,
                                            self.FacetMachine.CellSizeRad,
-                                           polarization_type)
-        mb_machine.get_chunk(DATA, datacolumn, model, MS)
+                                           MS,
+                                           pointing_sols)
+        mb_machine.get_chunk(DATA, datacolumn, model)
         mb_machine.close()
         os.environ["OMP_NUM_THREADS"] = old_OMP_setting
 
@@ -847,7 +843,7 @@ class ClassImagerDeconv():
 	
         # tell the I/O thread to go load the first chunk
         self.VS.ReInitChunkCount()
-        self.VS.startChunkLoadInBackground()
+        self.VS.startChunkLoadInBackground(last_cycle=True)
 
         self.FacetMachine.ReinitDirty()
 
@@ -908,13 +904,16 @@ class ClassImagerDeconv():
 
         current_model_freqs = np.array([])
         ModelImage = None
-
+        
+        #Initialize pointing solutions if montblanc is being used to predict
+        self._init_pointing_sols()
+        
         self.FacetMachine.awaitInitCompletion()
         self.FacetMachine.BuildFacetNormImage()
         while True:
             # get loaded chunk from I/O thread, schedule next chunk
             # self.VS.startChunkLoadInBackground()
-            DATA = self.VS.collectLoadedChunk(start_next=True)
+            DATA = self.VS.collectLoadedChunk(start_next=True, last_cycle=True)
             if self.VS.StokesConverter.RequiredStokesProducts() != ['I']:
                 raise RuntimeError("Unsupported: Polarization prediction is not defined")
             if type(DATA) is str:
@@ -1059,6 +1058,7 @@ class ClassImagerDeconv():
             sparsify = previous_sparsify = 0
         if sparsify:
             print>> log, "applying a sparsification factor of %f to data for dirty image" % sparsify
+        
         # if running in NMajor=0 mode, then we simply want to subtract/predict the model probably
         self.GiveDirty(psf=True, sparsify=sparsify, last_cycle=(NMajor==0))
 
@@ -1085,6 +1085,9 @@ class ClassImagerDeconv():
                 # self.DicoImagesPSF["CFs"]["SW"][iFacet] = self.FacetMachinePSF._CF[iFacet]["SW"].copy()
                 # self.DicoImagesPSF["CFs"]["InvSphe"][iFacet] = self.FacetMachinePSF._CF[iFacet]["InvSphe"].copy()
 
+        
+        #Initialize pointing solutions (per MS)
+        self._init_pointing_sols()
 
         # if we reached a sparsification of 1, we shan't be re-making the PSF
         if not sparsify:
@@ -2188,7 +2191,12 @@ class ClassImagerDeconv():
         APP.runJob("del:intcubes", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "intconvmodelcube", "intrestoredcube"])
 
         #  can delete this one now
-        APP.runJob("del:intmodelcube", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "intmodelcube"])
+        if set(["i", "I"]).intersection(self._savecubes) == set():
+            APP.runJob("del:intmodelcube", self._delSharedImage_worker, io=0,
+                       args=[_images.readwrite(), "intmodelcube"])
+        else: pass  # needed again later on
+        # convolved-model cube in intrinsic flux
+
         # apparent-flux residual cube
         if "r" in self._savecubes:
             APP.runJob("save:apprescube", self._saveImage_worker, io=0, args=( self.DicoDirty.readonly(), "ImageCube",),

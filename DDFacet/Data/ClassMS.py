@@ -575,14 +575,15 @@ class ClassMS():
         Returns:
             DATA dictionary containing all read elements
         """
-
-        if row0 >= self.F_nrows:
-            return "EndMS"
-        if row1 > self.F_nrows:
-            row1 = self.F_nrows
         self.ROW0 = row0
         self.ROW1 = row1
         self.nRowRead = nRowRead = row1-row0
+
+        if row0 >= self.F_nrows:# or nRowRead == 0:
+            return "EndMS"
+        if row1 > self.F_nrows:
+            row1 = self.F_nrows
+        
         # expected data column shape
         DATA["datashape"] = datashape = (nRowRead, len(self.ChanFreq), len(self.CorrelationNames))
         DATA["datatype"]  = np.complex64
@@ -989,6 +990,8 @@ class ClassMS():
             chunk_t0 = np.arange(T0, T1, self.TimeChunkSize*3600)
             # chunk_t0 now gives starting time of each chunk
             chunk_row0 = [ np.argmax(all_times>=ch_t0) for ch_t0 in chunk_t0 ]
+            # ensure there is no duplicate starting rows
+            chunk_row0 = sorted(set(chunk_row0))
             # chunk_row0 gives the starting row of each chunk
             if len(chunk_row0) == 1:
                 print>>log,"MS %s DDID %d FIELD %d (%d rows) column %s will be processed as a single chunk"%(self.MSName, self.DDID, self.Field, self.F_nrows, self.ColName)
