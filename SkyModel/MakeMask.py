@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+import sys,os
+if "PYTHONPATH_FIRST" in os.environ.keys() and int(os.environ["PYTHONPATH_FIRST"]):
+    sys.path = os.environ["PYTHONPATH"].split(":") + sys.path
 import os
 import sys
 #sys.path=os.environ["PYTHONPATH"].split(":")+sys.path
@@ -28,6 +31,9 @@ from DDFacet.ToolsDir import ModFFTW
 import DDFacet.Imager.SSD.ClassIslandDistanceMachine
 from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 from DDFacet.Other import MyPickle
+from DDFacet.ToolsDir import ModCoord
+import DDFacet.Other.MyPickle
+from matplotlib.path import Path
 
 def read_options():
     desc=""" cyril.tasse@obspm.fr"""
@@ -45,6 +51,7 @@ def read_options():
     group.add_option('--RevertInput',type="int",help="look at the code",default=0)
     group.add_option('--ConvNoise',type="int",help="look at the code",default=0)
     group.add_option('--OutMaskExtended',type="str",help="look at the code",default=0)
+    group.add_option('--BaseImageName',type="str",help="look at the code",default="")
     
     #group.add_option("--MedFilter",type="str",default="50,10")
     opt.add_option_group(group)
@@ -94,6 +101,10 @@ class ClassMakeMask():
         c=im.coordinates()
         incr=np.abs(c.dict()["direction0"]["cdelt"][0])
         self.incr_rad=incr
+
+        ra,dec=c.dict()["direction0"]["crval"]
+        self.rarad, self.decrad = ra*np.pi/180, dec*np.pi/180
+        self.CoordMachine = ModCoord.ClassCoordConv(self.rarad, self.decrad)
 
         if self.UseIslands:
             PMaj=(im.imageinfo()["restoringbeam"]["major"]["value"])
@@ -150,6 +161,123 @@ class ClassMakeMask():
             value="%8.2f mJy"%(A.T[x,y]*1000.)
         return "x=%4i, y=%4i, value=%10s"%(x,y,value)
 
+
+    def giveBrightFaintMask(self):
+        print>>log,"Build facetted bright/faint mask..."
+        GD=None
+        Mask=self.ImMask
+        nx=Mask.shape[-1]
+        CurrentNegMask=np.logical_not(Mask).reshape((1,1,nx,nx))
+        PSFServer=None
+        IdSharedMem=None
+        DicoDirty=None
+        
+        IslandDistanceMachine=DDFacet.Imager.SSD.ClassIslandDistanceMachine.ClassIslandDistanceMachine(GD,
+                                                                                                       CurrentNegMask,
+                                                                                                       PSFServer,
+                                                                                                       DicoDirty,
+                                                                                                       IdSharedMem=IdSharedMem)
+        ListIslands=IslandDistanceMachine.SearchIslands(None,Image=self.Restored)
+        ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)#,PolygonFile="%s.pickle"%OutMaskExtended)
+        Mask=np.zeros((nx,nx),np.float32)
+        for Island in ListIslands:
+            x,y=np.array(Island).T
+            Mask[x,y]=1
+
+ 
+        OutTest="%s.convex_mask"%self.FitsFile
+        os.system("rm -rf %s"%OutTest)
+        os.system("rm -rf %s.fits"%OutTest)
+        ImWrite=Mask.reshape((1,1,nx,nx))
+        PutDataInNewImage(self.FitsFile,OutTest,np.float32(ImWrite))
+
+
+        ListPolygons=IslandDistanceMachine.ListPolygons
+        
+        BaseImageName=self.FitsFile.split(".app.")[0]
+        if self.options.BaseImageName: BaseImageName=self.options.BaseImageName 
+        D=DDFacet.Other.MyPickle.Load("%s.DicoFacet"%BaseImageName)
+
+        #LSol=[D[iFacet]["iSol"][0] for iFacet in D.keys()]
+        DicoDir={}
+        for iFacet in D.keys():
+            iSol=D[iFacet]["iSol"][0]
+            if not iSol in DicoDir.keys():
+                DicoDir[iSol]=[iFacet]
+            else:
+                DicoDir[iSol].append(iFacet)
+            
+        MaskBright=np.zeros((nx,nx),np.float32)
+        MaskFaint=np.zeros((nx,nx),np.float32)
+        for iSol in DicoDir.keys():
+            print>>log,"===================== Processing direction %2.2i/%2.2i ====================="%(iSol,len(DicoDir))
+            ThisFacetMask=np.zeros_like(Mask)-1
+            for iFacet in DicoDir[iSol]:
+                PolyGon=D[iFacet]["Polygon"]
+                l,m=PolyGon.T
+                x,y=((l/self.incr_rad+nx/2)), ((m/self.incr_rad+nx/2))
+                poly2=np.array([x,y]).T
+                x0,x1=x.min(),x.max()
+                y0,y1=y.min(),y.max()
+                xx,yy=np.mgrid[x0:x1:(x1-x0+1)*1j,y0:y1:(y1-y0+1)*1j]
+                xx=np.int16(xx)
+                yy=np.int16(yy)
+                
+                pp=np.zeros((poly2.shape[0]+1,2),dtype=poly2.dtype)
+                pp[0:-1,:]=poly2[:,:]
+                pp[-1,:]=poly2[0,:]
+                #ListPolygons.append(pp)
+                mpath = Path(pp)
+                
+                p_grid=np.zeros((xx.size,2),np.int16)
+                p_grid[:,0]=xx.ravel()
+                p_grid[:,1]=yy.ravel()
+                mask_flat = mpath.contains_points(p_grid)
+                
+                IslandOut=np.array([xx.ravel()[mask_flat],yy.ravel()[mask_flat]])
+                x,y=IslandOut
+                ThisFacetMask[x,y]=1
+                #raFacet, decFacet = self.CoordMachine.lm2radec(np.array([lmShift[0]]),
+                #                                               np.array([lmShift[1]]))
+            ThisFacetMask=ThisFacetMask[::-1,:].T
+            ThisFacetMask= (np.abs(Mask - ThisFacetMask)<1e-6)
+            
+            IslandDistanceMachine=DDFacet.Imager.SSD.ClassIslandDistanceMachine.ClassIslandDistanceMachine(GD,
+                                                                                                           1-ThisFacetMask.reshape((1,1,nx,nx)),
+                                                                                                           PSFServer,
+                                                                                                           DicoDirty,
+                                                                                                           IdSharedMem=IdSharedMem)
+            ListIslands=IslandDistanceMachine.SearchIslands(None,Image=self.Restored)
+            ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
+            DFlux=np.zeros((len(ListIslands),),np.float32)
+            for iIsland,Island in enumerate(ListIslands):
+                x,y=np.array(Island).T
+                DFlux[iIsland]=np.sum(self.Restored[0,0,x,y])
+
+            iIsland_bright=np.argmax(DFlux)
+            
+            for iIsland,Island in enumerate(ListIslands):
+                x,y=np.array(Island).T
+                if iIsland==iIsland_bright:
+                    MaskBright[x,y]=1
+                else:
+                    MaskFaint[x,y]=1
+
+        OutTest="%s.bright_mask"%self.FitsFile
+        os.system("rm -rf %s"%OutTest)
+        os.system("rm -rf %s.fits"%OutTest)
+        ImWrite=MaskBright.reshape((1,1,nx,nx))
+        PutDataInNewImage(self.FitsFile,"%s.fits"%OutTest,np.float32(ImWrite))
+ 
+        OutTest="%s.faint_mask"%self.FitsFile
+        os.system("rm -rf %s"%OutTest)
+        os.system("rm -rf %s.fits"%OutTest)
+        ImWrite=MaskFaint.reshape((1,1,nx,nx))
+        PutDataInNewImage(self.FitsFile,"%s.fits"%OutTest,np.float32(ImWrite))
+
+        
+
+    
     def ComputeNoiseMap(self):
         print>>log, "Compute noise map..."
         Boost=self.Boost
@@ -213,6 +341,13 @@ class ClassMakeMask():
             ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)#,PolygonFile="%s.pickle"%OutMaskExtended)
             ListPolygons=IslandDistanceMachine.ListPolygons
 
+            MaskOut=np.zeros_like(CurrentNegMask)
+            N=0
+            for Island in ListIslands:
+                x,y=np.array(Island).T
+                #if x.size<=10: continue
+                MaskOut[0,0,x,y]=1
+            
             #ff,pol,_,_dec,ra=self.CasaIm.toworld((0,0,0,0))
             ListPolygonsRADEC=[]
             for Polygon in ListPolygons:
@@ -223,6 +358,7 @@ class ClassMakeMask():
                     ff,pol,dec,ra=self.CasaIm.toworld((0,0,xcc,ycc))
                     ThisPolygon.append((ra,dec))
                 ListPolygonsRADEC.append(np.array(ThisPolygon))
+
             FName="%s.pickle"%OutMaskExtended
             print>>log,"Saving %s"%FName
             MyPickle.Save(ListPolygonsRADEC,FName)
@@ -629,19 +765,19 @@ class ClassMakeMask():
             CleanMaskImage = np.bool8(ClassCasaImage.FileToArray(CleanMaskImageName,False))[0,0]
             self.ImMask=(self.ImMask & CleanMaskImage)
 
-
         if self.UseIslands:
             # Make island list
             self.BuildIslandList()
             self.FilterIslands()
             self.IslandsToMask()
 
-        #self.plot()
+        # self.plot()
         nx,ny=self.ImMask.shape
         ImWrite=self.ImMask.reshape((1,1,nx,ny))
         
         PutDataInNewImage(self.FitsFile,self.FitsFile+"."+self.OutName,np.float32(ImWrite))
 
+    
     def plot(self):
         import pylab
         pylab.clf()
@@ -688,6 +824,7 @@ def main(options=None):
                               OutNameNoiseMap=options.OutNameNoiseMap,
                               options=options)
     MaskMachine.CreateMask()
+    #MaskMachine.giveBrightFaintMask()
 
 if __name__=="__main__":
     read_options()

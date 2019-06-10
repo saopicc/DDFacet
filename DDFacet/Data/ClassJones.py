@@ -34,13 +34,14 @@ import tables
 
 class ClassJones():
 
-    def __init__(self, GD, MS, FacetMachine=None):
+    def __init__(self, GD, MS, FacetMachine=None, CacheMode=True):
         self.GD = GD
         self.FacetMachine = FacetMachine
         self.MS = MS
         self.HasKillMSSols = False
         self.BeamTimes_kMS = np.array([], np.float32)
-
+        self.CacheMode=CacheMode
+        
         # self.JonesNormSolsFile_killMS="%s/JonesNorm_killMS.npz"%ThisMSName
         # self.JonesNormSolsFile_Beam="%s/JonesNorm_Beam.npz"%ThisMSName
 
@@ -48,22 +49,23 @@ class ClassJones():
         GD = self.GD
         SolsFile = GD["DDESolutions"]["DDSols"]
         self.ApplyCal = False
-        if SolsFile != "":
+        if SolsFile != "" and SolsFile is not None:
             self.ApplyCal = True
-            self.JonesNormSolsFile_killMS, valid = self.MS.cache.checkCache(
-                "JonesNorm_killMS",
-                dict(VisData=GD["Data"], 
-                     DDESolutions=GD["DDESolutions"], 
-                     DataSelection=self.GD["Selection"],
-                     ImagerMainFacet=self.GD["Image"],
-                     Facets=self.GD["Facets"],
-                     PhaseCenterRADEC=self.GD["Image"]["PhaseCenterRADEC"]))
+            valid=False
+            if self.CacheMode:
+                self.JonesNormSolsFile_killMS, valid = self.MS.cache.checkCache("JonesNorm_killMS",
+                                                                                dict(VisData=GD["Data"], 
+                                                                                     DDESolutions=GD["DDESolutions"], 
+                                                                                     DataSelection=self.GD["Selection"],
+                                                                                     ImagerMainFacet=self.GD["Image"],
+                                                                                     Facets=self.GD["Facets"],
+                                                                                     PhaseCenterRADEC=self.GD["Image"]["PhaseCenterRADEC"]))
             if valid:
                 print>>log, "  using cached Jones matrices from %s" % self.JonesNormSolsFile_killMS
                 DicoSols, TimeMapping, DicoClusterDirs = self.DiskToSols(self.JonesNormSolsFile_killMS)
             else:
                 DicoSols, TimeMapping, DicoClusterDirs = self.MakeSols("killMS", DATA, quiet=quiet)
-                self.MS.cache.saveCache("JonesNorm_killMS")
+                if self.CacheMode: self.MS.cache.saveCache("JonesNorm_killMS")
 
             DATA["killMS"] =  dict(Jones=DicoSols, TimeMapping=TimeMapping, Dirs=DicoClusterDirs)
             self.DicoClusterDirs_kMS=DicoClusterDirs
@@ -71,22 +73,24 @@ class ClassJones():
             self.HasKillMSSols = True
 
 
-        ApplyBeam=(GD["Beam"]["Model"] is not None)
+        ApplyBeam=(GD["Beam"]["Model"] is not None) and (GD["Beam"]["Model"] is not "")
         if ApplyBeam:
             self.ApplyCal = True
-            self.JonesNormSolsFile_Beam, valid = self.MS.cache.checkCache("JonesNorm_Beam.npz", 
-                                                                          dict(VisData=GD["Data"], 
-                                                                               Beam=GD["Beam"], 
-                                                                               Facets=self.GD["Facets"],
-                                                                               DataSelection=self.GD["Selection"],
-                                                                               DDESolutions=GD["DDESolutions"],
-                                                                               ImagerMainFacet=self.GD["Image"]))
+            valid=False
+            if self.CacheMode:
+                self.JonesNormSolsFile_Beam, valid = self.MS.cache.checkCache("JonesNorm_Beam.npz", 
+                                                                              dict(VisData=GD["Data"], 
+                                                                                   Beam=GD["Beam"], 
+                                                                                   Facets=self.GD["Facets"],
+                                                                                   DataSelection=self.GD["Selection"],
+                                                                                   DDESolutions=GD["DDESolutions"],
+                                                                                   ImagerMainFacet=self.GD["Image"]))
             if valid:
                 print>>log, "  using cached Jones matrices from %s" % self.JonesNormSolsFile_Beam
                 DicoSols, TimeMapping, DicoClusterDirs = self.DiskToSols(self.JonesNormSolsFile_Beam)
             else:
                 DicoSols, TimeMapping, DicoClusterDirs = self.MakeSols("Beam", DATA, quiet=quiet)
-                self.MS.cache.saveCache("JonesNorm_Beam.npz")
+                if self.CacheMode: self.MS.cache.saveCache("JonesNorm_Beam.npz")
             DATA["Beam"] =  dict(Jones=DicoSols, TimeMapping=TimeMapping, Dirs=DicoClusterDirs)
 
     # def ToShared(self, StrType, DicoSols, TimeMapping, DicoClusterDirs):
@@ -170,11 +174,11 @@ class ClassJones():
             print>>log, "  Build VisTime-to-Solution mapping"
             TimeMapping = self.GiveTimeMapping(DicoSols, DATA["times"])
             DicoClusterDirs["l"],DicoClusterDirs["m"]=self.MS.radec2lm_scalar(DicoClusterDirs["ra"],DicoClusterDirs["dec"])
-            self.SolsToDisk(
-                self.JonesNormSolsFile_killMS,
-                DicoSols,
-                DicoClusterDirs_killMS,
-                TimeMapping)
+            if self.CacheMode:
+                self.SolsToDisk(self.JonesNormSolsFile_killMS,
+                                DicoSols,
+                                DicoClusterDirs_killMS,
+                                TimeMapping)
         BeamJones = None
         if StrType == "Beam":
 
@@ -241,11 +245,11 @@ class ClassJones():
             TimeMapping = self.GiveTimeMapping(DicoSols, DATA["times"])
             DicoClusterDirs["l"],DicoClusterDirs["m"]=self.MS.radec2lm_scalar(DicoClusterDirs["ra"],DicoClusterDirs["dec"])
 
-            self.SolsToDisk(
-                self.JonesNormSolsFile_Beam,
-                DicoSols,
-                DicoClusterDirs_Beam,
-                TimeMapping)
+            if self.CacheMode:
+                self.SolsToDisk(self.JonesNormSolsFile_Beam,
+                                DicoSols,
+                                DicoClusterDirs_Beam,
+                                TimeMapping)
 
         # if (BeamJones is not None)&(KillMSSols is not None):
         #     print>>log,"  Merging killMS and Beam Jones matrices"
@@ -321,21 +325,29 @@ class ClassJones():
                              ]*len(GD["DDESolutions"]["DDSols"])
 
         ListDicoSols = []
-
+        isol=0
         for File, ThisGlobalMode, ThisJonesMode in zip(
                 SolsFileList, GlobalNormList, JonesNormList):
-
             
             DicoClusterDirs, DicoSols, VisToJonesChanMapping = self.GiveKillMSSols_SingleFile(
                 File, GlobalMode=ThisGlobalMode, JonesMode=ThisJonesMode)
             print>>log, "  VisToJonesChanMapping: %s" % str(VisToJonesChanMapping)
             ListDicoSols.append(DicoSols)
+            #if isol==1: stop
+            #isol+=1
 
         DicoJones = ListDicoSols[0]
+        # DicoJones["Jones"][...,0,0]=1
+        # DicoJones["Jones"][...,1,0]=0
+        # DicoJones["Jones"][...,0,1]=0
+        # DicoJones["Jones"][...,1,1]=1
         for DicoJones1 in ListDicoSols[1::]:
             DicoJones = self.MergeJones(DicoJones1, DicoJones)
-
+            VisToJonesChanMapping = self.GiveVisToJonesChanMapping(DicoJones["FreqDomains"])
+            print>>log, "  VisToJonesChanMapping: %s" % str(VisToJonesChanMapping)
+        #stop
         DicoJones["VisToJonesChanMapping"] = VisToJonesChanMapping
+
 
         return DicoClusterDirs, DicoJones
 
@@ -364,14 +376,35 @@ class ClassJones():
         DicoSols["t0"] = Sols.t0
         DicoSols["t1"] = Sols.t1
         DicoSols["tm"] = (Sols.t1+Sols.t0)/2.
-        nt, nf, na, nd, _, _ = Sols.G.shape
-        G = np.swapaxes(Sols.G, 1, 3).reshape((nt, nd, na, nf, 2, 2))
+
+        if "MaskedSols" in DicoSolsFile.keys():
+            m0=np.bool8(DicoSolsFile["MaskedSols"][0,:,0,0,0,0])
+            m=np.bool8(1-DicoSolsFile["MaskedSols"][0,:,0,0,0,0])
+            # GSel=Sols.G[:,m,:,:,:,:]
+            GSel=Sols.G
+            GSel[:,m0,:,:,0,0]=1
+            GSel[:,m0,:,:,0,1]=0
+            GSel[:,m0,:,:,1,0]=0
+            GSel[:,m0,:,:,1,1]=1
+        else:
+            m=slice(None)
+            GSel=Sols.G
+
+        
+        nt, nf, na, nd, _, _ = GSel.shape
+        G = np.swapaxes(GSel, 1, 3).reshape((nt, nd, na, nf, 2, 2))
 
         if "FreqDomains" in DicoSolsFile.keys():
+            print>>log,"  Getting Jones frequency domains from solutions file"
             FreqDomains = DicoSolsFile["FreqDomains"]
+            # FreqDomains = FreqDomains[m,:]
             VisToJonesChanMapping = self.GiveVisToJonesChanMapping(FreqDomains)
+            DicoSols["FreqDomains"]=FreqDomains
         else:
+            print>>log,"  No frequency domains informations..."
             VisToJonesChanMapping = np.zeros((self.MS.NSPWChan,), np.int32)
+
+        #print>>log,(G.shape,FreqDomains.shape,VisToJonesChanMapping )
 
         self.BeamTimes_kMS = DicoSolsFile["BeamTimes"]
 
@@ -469,12 +502,26 @@ class ClassJones():
 
 
         if not ".h5" in SolsFile:
+            # if not(".npz" in SolsFile):
+            #     Method = SolsFile
+            #     ThisMSName = reformat.reformat(
+            #         os.path.abspath(self.MS.MSName),
+            #         LastSlash=False)
+            #     SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, Method)
+
             if not(".npz" in SolsFile):
-                Method = SolsFile
-                ThisMSName = reformat.reformat(
-                    os.path.abspath(self.MS.MSName),
-                    LastSlash=False)
-                SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, Method)
+                SolsDir=self.GD["DDESolutions"]["SolsDir"]
+                if SolsDir is None or SolsDir=="":
+                    Method = SolsFile
+                    ThisMSName = reformat.reformat(os.path.abspath(self.MS.MSName), LastSlash=False)
+                    SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, SolsFile)
+                else:
+                    _MSName=reformat.reformat(os.path.abspath(self.MS.MSName).split("/")[-1])
+                    DirName=os.path.abspath("%s%s"%(reformat.reformat(SolsDir),_MSName))
+                    if not os.path.isdir(DirName):
+                        os.makedirs(DirName)
+                    SolsFile="%s/killMS.%s.sols.npz"%(DirName,SolsFile)
+
             VisToJonesChanMapping,DicoClusterDirs,DicoSols,G=self.ReadNPZ(SolsFile)
         else:
             VisToJonesChanMapping,DicoClusterDirs,DicoSols,G=self.ReadH5(SolsFile)
@@ -597,6 +644,7 @@ class ClassJones():
         # G=Gc
 
         DicoSols["Jones"] = G
+        #print G[:,:,:,VisToJonesChanMapping,:,:]
 
         return DicoClusterDirs, DicoSols, VisToJonesChanMapping
 
@@ -639,7 +687,7 @@ class ClassJones():
             # self.DtBeamDeg = GD["Beam"]["FITSParAngleIncrement"]
             # print>>log, "  Estimating FITS beam model every %5.1f min."%DtBeamMin
 
-    def GiveBeam(self, times, quiet=False):
+    def GiveBeam(self, times, quiet=False,RaDec=None):
         GD = self.GD
         if (GD["Beam"]["Model"] is None) | (GD["Beam"]["Model"] == ""):
             print>>log, "  Not applying any beam"
@@ -653,9 +701,12 @@ class ClassJones():
         else:
             beam_times = self.BeamMachine.getBeamSampleTimes(times, quiet=quiet)
 
-        RAs = self.ClusterCatBeam.ra
-        DECs = self.ClusterCatBeam.dec
-
+        if RaDec is None:
+            RAs = self.ClusterCatBeam.ra
+            DECs = self.ClusterCatBeam.dec
+        else:
+            RAs,DECs=RaDec
+            
         # from killMS2.Other.rad2hmsdms import rad2hmsdms
         # for i in range(RAs.size):
         #     ra,dec=RAs[i],DECs[i]
@@ -668,8 +719,11 @@ class ClassJones():
     def GiveVisToJonesChanMapping(self, FreqDomains):
         NChanJones = FreqDomains.shape[0]
         MeanFreqJonesChan = (FreqDomains[:, 0]+FreqDomains[:, 1])/2.
+        #print NChanJones,MeanFreqJonesChan 
         DFreq = np.abs(self.MS.ChanFreq.reshape(
             (self.MS.NSPWChan, 1))-MeanFreqJonesChan.reshape((1, NChanJones)))
+        #print np.argmin(DFreq, axis=1)
+
         return np.argmin(DFreq, axis=1)
 
     def EstimateBeam(self, TimesBeam, RA, DEC,progressBar=True, quiet=False):
@@ -693,6 +747,7 @@ class ClassJones():
         DicoBeam["t0"]=np.zeros((Tm.size,),np.float64)
         DicoBeam["t1"]=np.zeros((Tm.size,),np.float64)
         DicoBeam["tm"]=np.zeros((Tm.size,),np.float64)
+        DicoBeam["FreqDomains"]=FreqDomains
         
         
         rac,decc=self.MS.OriginalRadec
@@ -712,9 +767,9 @@ class ClassJones():
                 nd,_,_,_,_=Beam.shape
                 Ones=np.ones((nd, 1, 1, 1, 1),np.float32)
                 Beam0inv=Beam0inv*Ones
-                Beam= ModLinAlg.BatchDot(Beam0inv, Beam)
-                
- 
+                BeamN= ModLinAlg.BatchDot(Beam0inv, Beam)
+                Beam=BeamN
+
             DicoBeam["Jones"][itime]=Beam
             NDone=itime+1
             pBAR.render(NDone,Tm.size)
@@ -732,6 +787,12 @@ class ClassJones():
         return DicoBeam
 
     def MergeJones(self, DicoJ0, DicoJ1):
+        import DDFacet.Other.ClassJonesDomains
+        DomainMachine=DDFacet.Other.ClassJonesDomains.ClassJonesDomains()
+        JonesSols=DomainMachine.MergeJones(DicoJ0, DicoJ1)
+        print>>log, "There are %i channels in the merged Jones array"%JonesSols["FreqDomains"].shape[0]
+        return JonesSols
+    
         T0 = DicoJ0["t0"][0]
         DicoOut = {}
         DicoOut["t0"] = []
@@ -769,8 +830,11 @@ class ClassJones():
         DicoOut["tm"] = np.array(DicoOut["tm"])
 
         _, nd, na, nch, _, _ = DicoJ0["Jones"].shape
+        _, nd1, na1, nch1, _, _ = DicoJ1["Jones"].shape
         nt = DicoOut["tm"].size
-        DicoOut["Jones"] = np.zeros((nt, nd, na, 1, 2, 2), np.complex64)
+        nchout=np.max([nch,nch1])
+        
+        DicoOut["Jones"] = np.zeros((nt, nd, na, nchout, 2, 2), np.complex64)
 
         nt0 = DicoJ0["t0"].size
         nt1 = DicoJ1["t0"].size
@@ -779,6 +843,8 @@ class ClassJones():
             (nt, 1))-DicoJ0["tm"].reshape((1, nt0))), axis=1)
         iG1 = np.argmin(np.abs(DicoOut["tm"].reshape(
             (nt, 1))-DicoJ1["tm"].reshape((1, nt1))), axis=1)
+
+        
 
         for itime in xrange(nt):
             G0 = DicoJ0["Jones"][iG0[itime]]

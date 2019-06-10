@@ -100,9 +100,21 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         if SolsFile and (not (".npz" in SolsFile)) and (not (".h5" in SolsFile)):
             Method = SolsFile
-            ThisMSName = reformat.reformat(
-                os.path.abspath(MSName), LastSlash=False)
-            SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, Method)
+            # ThisMSName = reformat.reformat(
+            #     os.path.abspath(MSName), LastSlash=False)
+            # SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, Method)
+            SolsDir=self.GD["DDESolutions"]["SolsDir"]
+            if SolsDir is None or SolsDir=="":
+                ThisMSName = reformat.reformat(os.path.abspath(MSName), LastSlash=False)
+                SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, Method)
+            else:
+                _MSName=reformat.reformat(os.path.abspath(MSName).split("/")[-1])
+                DirName=os.path.abspath("%s%s"%(reformat.reformat(SolsDir),_MSName))
+                if not os.path.isdir(DirName):
+                    os.makedirs(DirName)
+                SolsFile = "%s/killMS.%s.sols.npz"%(DirName,SolsFile)
+
+
 
 #        if "CatNodes" in self.GD.keys():
         regular_grid = False
@@ -113,14 +125,14 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             raNode = ClusterNodes.ra
             decNode = ClusterNodes.dec
             lFacet, mFacet = self.CoordMachine.radec2lm(raNode, decNode)
-        elif ".npz" in SolsFile:
+        elif SolsFile is not None and ".npz" in SolsFile:
             print>> log, "Taking facet directions from solutions file: %s" % SolsFile
             ClusterNodes = np.load(SolsFile)["ClusterCat"]
             ClusterNodes = ClusterNodes.view(np.recarray)
             raNode = ClusterNodes.ra
             decNode = ClusterNodes.dec
             lFacet, mFacet = self.CoordMachine.radec2lm(raNode, decNode)
-        elif ".h5" in  SolsFile:
+        elif SolsFile is not None and ".h5" in  SolsFile:
             print>> log, "Taking facet directions from HDF5 solutions file: %s" % SolsFile
             H=tables.open_file(SolsFile)
             raNode,decNode=H.root.sol000.source[:]["dir"].T

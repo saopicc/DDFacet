@@ -29,7 +29,30 @@ def test():
     DM.setRefSample(X,W)
     DM.GiveSample(1000)
 
+def GiveNonRedundantSample(Weight,N):
+    # Ngen=1000
+    # indices=np.arange(Ngen)
+    # S=np.random.rand(Ngen)
+    # Nsel=100
 
+    indices=np.arange(Weight.size)
+    S=Weight.copy()
+    Nsel=N
+
+    IList=[]
+    SSel=S.copy()
+    for iSel in range(Nsel ):
+        #print iSel
+        DM=ClassDistMachine()
+        DM.setRefSample(indices,W=SSel,Ns=10000)
+        iSel=int(round(DM.GiveSample(1)[0]))
+        II=set(indices)
+        II.remove(iSel)
+        indices=np.array(sorted(list(II)))
+        SSel=S[indices].copy()
+        
+        IList.append(iSel)
+    return IList
 
 class ClassDistMachine():
     def __init__(self):
@@ -110,3 +133,4 @@ class ClassDistMachine():
         # pylab.pause(0.1)
         
         return xp
+

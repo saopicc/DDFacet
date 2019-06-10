@@ -109,7 +109,6 @@ class ClassImageDeconvMachine():
     def setMaskMachine(self,MaskMachine):
         self.MaskMachine=MaskMachine
 
-
     def setDeconvMode(self,Mode="MetroClean"):
         self.DeconvMode=Mode
 
@@ -287,7 +286,6 @@ class ClassImageDeconvMachine():
         #     SModel,AModel=InitMachine.giveModel(Island)
         #     DicoInitIndiv[iIsland]={"S":SModel,"Alpha":AModel}
         # self.DicoInitIndiv=DicoInitIndiv
-        
         # ######################
         # Parallel
         self.ListSizeIslands=[]

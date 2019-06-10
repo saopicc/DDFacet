@@ -670,7 +670,7 @@ class ClassVisServer():
         self._weight_dict = shared_dict.create("VisWeights")
         # check for wmax in cache
         cache_keys = dict([(section, self.GD[section]) for section
-              in ("Data", "Selection", "Freq", "Image", "Weight")])
+              in ("Data", "Selection", "Freq", "Image", "Weight", "DDESolutions")])
         wmax_path, wmax_valid = self.maincache.checkCache("wmax", cache_keys)
         if wmax_valid:
             self._weight_dict["wmax"] = cPickle.load(open(wmax_path))
@@ -680,7 +680,7 @@ class ClassVisServer():
             msweights = self._weight_dict.addSubdict(iMS)
             for ichunk, (row0, row1) in enumerate(MS.getChunkRow0Row1()):
                 msw = msweights.addSubdict(ichunk)
-                path, valid = MS.getChunkCache(row0, row1).checkCache("ImagingWeights.npy", cache_keys)
+                path, valid = MS.getChunkCache(row0, row1).checkCache("ImagingWeights.npy", cache_keys, reset=(self.GD["Cache"]["Weight"]=="reset"))
                 have_all_weights = have_all_weights and valid
                 msw["cachepath"] = path
                 if valid:

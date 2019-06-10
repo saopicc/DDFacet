@@ -1,10 +1,17 @@
 #!/usr/bin/env python
+import sys,os
+if "PYTHONPATH_FIRST" in os.environ.keys() and int(os.environ["PYTHONPATH_FIRST"]):
+    sys.path = os.environ["PYTHONPATH"].split(":") + sys.path
+
+
 import numpy as np
-import pylab
+np.random.seed(1)
+import random
+random.seed(1)
 from DDFacet.Other import MyLogger
 from DDFacet.Other import MyPickle
 log=MyLogger.getLogger("ClusterImage")
-import pyfits
+from astropy.io import fits
 import SkyModel.Sky.ClassClusterDEAP
 from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 import optparse
@@ -15,6 +22,7 @@ SaveFile="ClusterImage.last"
 from SkyModel.Sky import ModVoronoiToReg
 from SkyModel import Sky
 import MakeCatalog
+
 import os
 
 def test():
@@ -36,7 +44,8 @@ def read_options():
     group = optparse.OptionGroup(opt, "* Data-related options")
     group.add_option('--SourceCat',type="str",help="Name of the source catalog",default="")
     group.add_option('--AvoidPolygons',type="str",help="Name of the avoidace polygon file",default="")
-    group.add_option('--FluxMin',type=float,help="",default=0.03)#5)
+    group.add_option('--CentralRadius',type="float",help="Central radius to avoid",default=0.)
+    group.add_option('--FluxMin',type=float,help="Flux threshold to apply to the catalog, default is %default",default=0.03)#5)
     group.add_option('--ExtentMax',type=float,help="",default=0.)#01)
     group.add_option('--NPop',type=int,help="",default=1000)
     group.add_option('--NGen',type=int,help="",default=300)
@@ -44,6 +53,7 @@ def read_options():
     group.add_option('--BigPolygonSize',type=float,help="",default=0.5)
     group.add_option('--NCluster',type=int,help="",default=45)
     group.add_option('--NCPU',type=int,help="",default=1)
+    group.add_option('--OutClusterCat',type=str,help="",default="")
     
     opt.add_option_group(group)
 
@@ -59,7 +69,17 @@ class ClusterImage():
     def __init__(self,**kwargs):
         for key, value in kwargs.items(): setattr(self, key, value)
         print>>log,"Reading %s"%self.SourceCat
-        f=pyfits.open(self.SourceCat)
+        f=fits.open(self.SourceCat)
+        # fix up comments
+        keywords=[('CRVAL1',float),('CRVAL2',float),('CDELT1',float),('NAXIS1',int)]
+        c=f[1].header['COMMENT']
+        for l in c:
+            for k,ty in keywords:
+                if k in l:
+                    bits=l.split()
+                    print >>log,"Warning: getting keyword %s from comments" % k
+                    f[1].header['I_'+k]=ty(bits[2])
+                    
         decc,rac=f[1].header["I_CRVAL1"],f[1].header["I_CRVAL2"]
         rac,decc=f[1].header["I_CRVAL1"],f[1].header["I_CRVAL2"]
         self.dPix=abs(f[1].header["I_CDELT1"])
@@ -86,7 +106,7 @@ class ClusterImage():
     def setCatName(self,CatName):
         print>>log,"Reading source catalog %s"%CatName
         self.CatName=CatName
-        self.c=pyfits.open(CatName)[1]
+        self.c=fits.open(CatName)[1]
         self.c.data.RA*=np.pi/180.
         self.c.data.DEC*=np.pi/180.
 
@@ -110,12 +130,16 @@ class ClusterImage():
 
     def SelectSources(self):
         if self.FluxMin>0.:
+            s=self.Cat.S.size
             ind=np.where(self.Cat.S>self.FluxMin)[0]
             self.Cat=self.Cat[ind]
+            print>>log,"  Seleted %i sources [out of %i] with flux density > %f Jy"%(ind.size,s,self.FluxMin)
 
         if self.ExtentMax>0.:
+            s=self.Cat.S.size
             ind=np.where(self.Cat.Maj<self.ExtentMax)[0]
             self.Cat=self.Cat[ind]
+            print>>log,"  Seleted %i sources [out of %i] with extent < %f"%(ind.size,s,self.Cat.Maj)
             
         
     def GroupSources(self,RadiusArcmin=2.):
@@ -202,10 +226,14 @@ class ClusterImage():
         l,m=self.radec2lm(self.Cat.ra,self.Cat.dec)
         S=self.Cat.S.copy()
         PolyList=None
+        self.BigPolygon=[]
+        PolyList=[]
         if self.AvoidPolygons!="":
             print>>log,"Reading polygon file: %s"%self.AvoidPolygons
-            self.BigPolygon=[]
-            PolyList=MyPickle.Load(self.AvoidPolygons)
+            PolyList+=MyPickle.Load(self.AvoidPolygons)
+
+            
+        if len(PolyList)>0:
             LPoly=[]
             inside=np.zeros((l.size,),np.float32)
             for iPolygon,Poly in enumerate(PolyList):
@@ -220,11 +248,22 @@ class ClusterImage():
                     if P.isInside(l[ip],m[ip]):
                         inside[ip]=1
 
-            l=l[inside==0]
-            m=m[inside==0]
-            S=S[inside==0]
+            # l=l[inside==0]
+            # m=m[inside==0]
+            # S=S[inside==0]
             print>>log,"There are %i big polygons"%len(self.BigPolygon)
             
+        if self.CentralRadius>0:
+            print>>log,"Create central polygon with radius %f degrees"%self.CentralRadius
+            Rad=self.CentralRadius*np.pi/180
+            th=np.arange(0,2.*np.pi,2.*np.pi/100)
+            lp=np.cos(th)*Rad
+            mp=np.sin(th)*Rad
+            Poly=np.zeros((lp.size,2),np.float32)
+            Poly[:,0]=lp
+            Poly[:,1]=mp
+            PolyList+=[Poly]
+        
         CC=Sky.ClassClusterDEAP.ClassCluster(l,m,S,nNode=self.NCluster,
                                              NGen=self.NGen,
                                              NPop=self.NPop,
@@ -253,7 +292,11 @@ class ClusterImage():
             ClusterCat.dec[iDir]=decmean
             ClusterCat.SumI[iDir]=0.
             ClusterCat.Cluster[iDir]=iDir
-        fOut="%s.ClusterCat.npy"%self.SourceCat
+        if not self.OutClusterCat:
+            fOut="%s.ClusterCat.npy"%self.SourceCat
+        else:
+            fOut=self.OutClusterCat
+
         print>>log,"Saving %s"%fOut
         np.save(fOut,ClusterCat)
         self.WriteTessel()
