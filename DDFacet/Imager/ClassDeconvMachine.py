@@ -49,8 +49,8 @@ from DDFacet.Other import ClassTimeIt
 import numexpr
 from DDFacet.Imager import ClassImageNoiseMachine
 from DDFacet.Data import ClassStokes
-
-
+from DDFacet.Imager import ClassGainMachine
+from DDFacet.Data.PointingProvider import PointingProvider
 # from astropy import wcs
 # from astropy.io import fits
 #
@@ -95,6 +95,8 @@ class ClassImagerDeconv():
 
         if GD is not None:
             self.GD=GD
+        # INIT: gain machine singleton once and for always
+        self.GainMachine = ClassGainMachine.ClassGainMachine(GainMin=self.GD["Deconv"]["Gain"])
 
         self.BaseName=BaseName
         self.DicoModelName="%s.DicoModel"%self.BaseName
@@ -784,7 +786,42 @@ class ClassImagerDeconv():
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         else:
             self.MeanJonesNorm = None
+            
+    def _init_pointing_sols(self):
+        """ Initialize pointing solutions provider """
+        if self.PredictMode == "Montblanc":
+            self._pointing_machines = []
+            for iMS, MS in enumerate(self.VS.ListMS):
+                print>> log, ModColor.Str("Initializing pointing solutions for measurement %d / %d" % (iMS + 1,len(self.VS.ListMS)))
+                point_sols_csv = self.GD["PointingSolutions"].get("PointingSolsCSV", None)
+                point_sols_interp_mode = self.GD["PointingSolutions"].get("InterpolationMode", None)
+                self._pointing_machines.append(PointingProvider(MS, point_sols_csv, point_sols_interp_mode))
+        else:
+            print>> log, ModColor.Str("Montblanc predict not enabled. Will not apply pointing corrections.")
+            
+    def GiveMontblancPredict(self, DATA, datacolumn):
+        """
+            Predicts montblanc model from given source model with gaussians and deltas
+        """
+        from ClassMontblancMachine import ClassMontblancMachine
+        import psutil
+        import os
+        old_OMP_setting = os.environ["OMP_NUM_THREADS"]
+        os.environ["OMP_NUM_THREADS"] = str(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
 
+        MS = self.VS.ListMS[DATA["iMS"]]
+        pointing_sols = self._pointing_machines[DATA["iMS"]]
+        model = self.ModelMachine.GiveModelList(MS.ChanFreq)
+        mb_machine = ClassMontblancMachine(self.GD,
+                                           self.FacetMachine.Npix,
+                                           self.FacetMachine.CellSizeRad,
+                                           MS,
+                                           pointing_sols)
+        mb_machine.get_chunk(DATA, datacolumn, model)
+        mb_machine.close()
+        os.environ["OMP_NUM_THREADS"] = old_OMP_setting
+
+        return model
 
     def GivePredict(self, subtract=False, from_fits=True):
         if subtract:
@@ -799,7 +836,7 @@ class ClassImagerDeconv():
 	
         # tell the I/O thread to go load the first chunk
         self.VS.ReInitChunkCount()
-        self.VS.startChunkLoadInBackground()
+        self.VS.startChunkLoadInBackground(last_cycle=True)
 
         self.FacetMachine.ReinitDirty()
 
@@ -860,13 +897,16 @@ class ClassImagerDeconv():
 
         current_model_freqs = np.array([])
         ModelImage = None
-
+        
+        #Initialize pointing solutions if montblanc is being used to predict
+        self._init_pointing_sols()
+        
         self.FacetMachine.awaitInitCompletion()
         self.FacetMachine.BuildFacetNormImage()
         while True:
             # get loaded chunk from I/O thread, schedule next chunk
             # self.VS.startChunkLoadInBackground()
-            DATA = self.VS.collectLoadedChunk(start_next=True)
+            DATA = self.VS.collectLoadedChunk(start_next=True, last_cycle=True)
             if self.VS.StokesConverter.RequiredStokesProducts() != ['I']:
                 raise RuntimeError("Unsupported: Polarization prediction is not defined")
             if type(DATA) is str:
@@ -961,11 +1001,7 @@ class ClassImagerDeconv():
             if self.PredictMode == "BDA-degrid" or self.PredictMode == "Classic" or self.PredictMode == "BDA-degrid-classic":  # latter for backwards compatibility
                 self.FacetMachine.getChunkInBackground(DATA)
             elif self.PredictMode == "Montblanc":
-                from ClassMontblancMachine import ClassMontblancMachine
-                model = self.ModelMachine.GiveModelList()
-                mb_machine = ClassMontblancMachine(self.GD, self.FacetMachine.Npix, self.FacetMachine.CellSizeRad)
-                mb_machine.getChunk(DATA, predict, model, self.VS.ListMS[DATA["iMS"]])
-                mb_machine.close()
+                model = self.GiveMontblancPredict(DATA, predict)
             else:
                 raise ValueError("Invalid PredictMode '%s'" % self.PredictMode)
             self.FacetMachine.collectDegriddingResults()
@@ -1021,6 +1057,7 @@ class ClassImagerDeconv():
             sparsify = previous_sparsify = 0
         if sparsify:
             print>> log, "applying a sparsification factor of %f to data for dirty image" % sparsify
+        
         # if running in NMajor=0 mode, then we simply want to subtract/predict the model probably
         self.GiveDirty(psf=True, sparsify=sparsify, last_cycle=(NMajor==0))
 
@@ -1029,7 +1066,10 @@ class ClassImagerDeconv():
             raise RuntimeError("Unsupported: Polarization cleaning is not"\
                                " supported. Maybe you meant Output-StokesResidues"\
                                " instead?")
-
+        
+        #Initialize pointing solutions (per MS)
+        self._init_pointing_sols()
+        
         # if we reached a sparsification of 1, we shan't be re-making the PSF
         if not sparsify:
             self.FacetMachinePSF.releaseGrids()
@@ -1109,7 +1149,7 @@ class ClassImagerDeconv():
             ###
             self.ModelMachine.ToFile(self.DicoModelName)
             # ###
-            model_freqs=np.array([self.RefFreq],np.float64)
+            model_freqs = np.array([self.RefFreq],np.float64)
             ModelImage = self.FacetMachine.setModelImage(self.DeconvMachine.GiveModelImage(model_freqs))
             # write out model image, if asked to
             current_model_freqs = model_freqs
@@ -1131,7 +1171,7 @@ class ClassImagerDeconv():
 
             # in the meantime, tell the I/O thread to go reload the first data chunk
             self.VS.ReInitChunkCount()
-            self.VS.startChunkLoadInBackground()
+            self.VS.startChunkLoadInBackground(last_cycle=predict_colname)
 
             # determine whether data still needs to be sparsified
             # last major cycle is always done at full precision, but also if the sparsification_list ends we go to full precision
@@ -1189,9 +1229,17 @@ class ClassImagerDeconv():
                 if type(DATA) is str:
                     print>>log,ModColor.Str("no more data: %s"%DATA, col="red")
                     break
+
                 # None weights indicates an all-flagged chunk: go on to the next chunk
                 if DATA["Weights"] is None:
-                    continue
+                    if predict_colname: #write out empty MODEL for this chunk during last cycle
+                        predict = DATA.addSharedArray("predict", DATA["datashape"], DATA["datatype"])
+                        predict[...] = 0.0
+                        # schedule jobs for saving visibilities, then start reading next chunk (both are on io queue)
+                        self.VS.startVisPutColumnInBackground(DATA, "predict", predict_colname, likecol=self.GD["Data"]["ColName"])
+                        self.VS.startChunkLoadInBackground(last_cycle=predict_colname)
+                    continue # next chunk
+
                 visdata = DATA["data"]
                 if predict_colname:
                     predict = DATA.addSharedArray("predict", DATA["datashape"], DATA["datatype"])
@@ -1230,11 +1278,7 @@ class ClassImagerDeconv():
                 if self.PredictMode == "BDA-degrid" or self.PredictMode == "DeGridder" or self.PredictMode == "BDA-degrid-classic":
                     self.FacetMachine.getChunkInBackground(DATA)
                 elif self.PredictMode == "Montblanc":
-                    from ClassMontblancMachine import ClassMontblancMachine
-                    model = self.ModelMachine.GiveModelList()
-                    mb_machine = ClassMontblancMachine(self.GD, self.FacetMachine.Npix, self.FacetMachine.CellSizeRad)
-                    mb_machine.getChunk(DATA, DATA["data"], model, self.VS.ListMS[DATA["iMS"]])
-                    mb_machine.close()
+                    model = self.GiveMontblancPredict(DATA, DATA["data"])
                 else:
                     raise ValueError("Invalid PredictMode '%s'" % self.PredictMode)
 
@@ -1244,7 +1288,7 @@ class ClassImagerDeconv():
                     predict -= visdata
                     # schedule jobs for saving visibilities, then start reading next chunk (both are on io queue)
                     self.VS.startVisPutColumnInBackground(DATA, "predict", predict_colname, likecol=self.GD["Data"]["ColName"])
-                    self.VS.startChunkLoadInBackground()
+                    self.VS.startChunkLoadInBackground(last_cycle=predict_colname)
 
                 # Stacks average beam if not computed
                 self.FacetMachine.StackAverageBeam(DATA)
@@ -1407,11 +1451,7 @@ class ClassImagerDeconv():
             if self.PredictMode == "BDA-degrid" or self.PredictMode == "DeGridder":
                 self.FacetMachine.getChunkInBackground(DATA)
             elif self.PredictMode == "Montblanc":
-                from ClassMontblancMachine import ClassMontblancMachine
-                model = self.ModelMachine.GiveModelList()
-                mb_machine = ClassMontblancMachine(self.GD, fm_predict.Npix, self.FacetMachine.CellSizeRad)
-                mb_machine.getChunk(DATA, DATA["data"], model, self.VS.ListMS[DATA["iMS"]])
-                mb_machine.close()
+                model = self.GiveMontblancPredict(DATA, DATA["data"])
             else:
                 raise ValueError("Invalid PredictMode '%s'" % self.PredictMode)
 
@@ -2167,7 +2207,9 @@ class ClassImagerDeconv():
                                    beam=self.FWHMBeamAvg, beamcube=self.FWHMBeam, Freqs=self.VS.FreqBandCenters,
                                    Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         #  can delete this one now
-        APP.runJob("del:appmodelcube", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "appmodelcube"])
+        if set(["i", "I"]).intersection(self._savecubes) == set():
+            APP.runJob("del:appmodelcube", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "appmodelcube"])
+        else: pass # needed again later on
         # convolved-model cube in intrinsic flux
         if havenorm and "C" in self._savecubes:
             intconvmodelcube()
@@ -2189,7 +2231,12 @@ class ClassImagerDeconv():
         APP.runJob("del:intcubes", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "intconvmodelcube", "intrestoredcube"])
 
         #  can delete this one now
-        APP.runJob("del:intmodelcube", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "intmodelcube"])
+        if set(["i", "I"]).intersection(self._savecubes) == set():
+            APP.runJob("del:intmodelcube", self._delSharedImage_worker, io=0,
+                       args=[_images.readwrite(), "intmodelcube"])
+        else: pass  # needed again later on
+        # convolved-model cube in intrinsic flux
+
         # apparent-flux residual cube
         if "r" in self._savecubes:
             APP.runJob("save:apprescube", self._saveImage_worker, io=0, args=( self.DicoDirty.readonly(), "ImageCube",),
@@ -2205,6 +2252,7 @@ class ClassImagerDeconv():
                     ImageName="%s.cube.app.restored" % self.BaseName, Fits=True, delete=True,
                     beam=self.FWHMBeamAvg, beamcube=self.FWHMBeam, Freqs=self.VS.FreqBandCenters,
                     Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+            
         #  can delete this one now
         APP.runJob("del:appcubes", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "appconvmodelcube", "apprescube"])
         # intrinsic-flux residual cube

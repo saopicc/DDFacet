@@ -421,7 +421,11 @@ class ClassJones():
         lFacet, mFacet = self.FacetMachine.CoordMachine.radec2lm(raNode, decNode)
         # nt, na, nd, 1
         tec=H.root.sol000.tec000.val[:]
-        scphase=H.root.sol000.scalarphase000.val[:]
+        try:
+            scphase=H.root.sol000.scalarphase000.val[:]
+            use_scalarphase = True
+        except:
+            use_scalarphase = False
         H.close()
         del(H)
 
@@ -465,9 +469,14 @@ class ClassJones():
         #freqs=self.FacetMachine.VS.GlobalFreqs.reshape((1,1,1,-1))
         freqs=self.MS.ChanFreq.ravel()
 
-        scphase=scphase.reshape((nt,na,nd,1))
+        
         freqs=freqs.reshape((1,1,1,-1))
-        phase = (-8.4479745e9 * tecvals/freqs) + scphase
+        phase = (-8.4479745e9 * tecvals/freqs)
+
+        if use_scalarphase:
+            scphase = scphase.reshape((nt,na,nd,1))
+            phase += scphase
+
         # nt,na,nd,nf,1
         phase=np.swapaxes(phase,1,2)
         nf=freqs.size

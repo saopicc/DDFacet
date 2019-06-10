@@ -32,6 +32,8 @@ These are useful when working with visibility data (https://casa.nrao.edu/Memos/
 '''
 StokesTypes = {'I': 1, 'Q': 2, 'U': 3, 'V': 4, 'RR': 5, 'RL': 6, 'LR': 7, 'LL': 8, 'XX': 9, 'XY': 10, 'YX': 11,
                'YY': 12}
+ReverseStokesTypes = {1: 'I', 2: 'Q', 3: 'U', 4: 'V', 5: 'RR', 6: 'RL', 7: 'LR', 8: 'LL', 9: 'XX', 10: 'XY', 11: 'YX',
+                      12: 'YY'}
 
 '''
 The following definition can be found in Table 28,
@@ -202,11 +204,12 @@ class ClassStokes:
         secondIdImag = 1 if vals.group("secondIdImag") is None else 0 + 1j
         return (sc,imag,firstId,op,secondId, firstIdImag, secondIdImag)
 
-    def corrs2stokes(self, corrCube):
+    def corrs2stokes(self, corrCube, inplace=False):
         """
         Converts a cube of correlations to a cube of stokes parameters
         Args:
             corrCube: numpy complex cube of the form [channels,corrs,nY,nX]
+            inplace: bool indicating whether to do the transformation in place
         Raises:
             TypeError if correlation cube is not of complex type (required to compute V from linear feeds and U from
             circular feeds)
@@ -237,18 +240,28 @@ class ClassStokes:
         nStokesOut = len(self._FITSstokesList)
         nV = corrCube.shape[2]
         nU = corrCube.shape[3]
-        stokesCube = np.empty([nChan,nStokesOut,nV,nU], dtype=corrCube.dtype)
-        for stokesId, (stokes, depExprId) in enumerate(zip(self._FITSstokesList, _stokesExpr)):
-            ops = self._extractStokesCombinationExpression(StokesDependencies[stokes][depExprId])
-            stokesCube[:, stokesId, :, :] = (ops[0]*ops[1])*ops[3](ops[5] * corrCube[:, self._gridMSCorrMapping[ops[2]], :, :],
-                                                                   ops[6] * corrCube[:, self._gridMSCorrMapping[ops[4]], :, :])
+        if not inplace:
+            stokesCube = np.empty([nChan,nStokesOut,nV,nU], dtype=corrCube.dtype)
+        else:
+            stokesCube = corrCube.view()
+        # only read one row at a time to keep the memory footprint down on the conversion of large cubes
+        for ch in xrange(nChan):
+            for v in xrange(nV):
+                resQ = []
+                for stokesId, (stokes, depExprId) in enumerate(zip(self._FITSstokesList, _stokesExpr)):
+                    ops = self._extractStokesCombinationExpression(StokesDependencies[stokes][depExprId])
+                    resQ.append((ops[0]*ops[1])*ops[3](ops[5] * corrCube[ch, self._gridMSCorrMapping[ops[2]], v, :],
+                                                       ops[6] * corrCube[ch, self._gridMSCorrMapping[ops[4]], v, :]))
+                for stokesId, (stokes, depExprId) in enumerate(zip(self._FITSstokesList, _stokesExpr)):
+                    stokesCube[ch, stokesId, v, :] = resQ.pop(0)
         return stokesCube
 
-    def stokes2corrs(self, stokesCube):
+    def stokes2corrs(self, stokesCube, inplace=False):
         """
         Converts a cube of stokes components to a cube of correlations
         Args:
             stokesCube: numpy complex cube of the form [channels,stokes,nY,nX]
+            inplace: bool indicating whether to do the transformation inplace
         Raises:
             TypeError if stokes cube is not of complex type
             ValueError if one or more correlation products cannot be formed from the requested stokes products in the image
@@ -279,12 +292,20 @@ class ClassStokes:
         nCorrOut = len(self._MSDataDescriptor)
         nV = stokesCube.shape[2]
         nU = stokesCube.shape[3]
-        corrCube = np.empty([nChan, nCorrOut, nV, nU], dtype=stokesCube.dtype)
-        for corrId, (corr,depExprId) in enumerate(zip(self._MScorrLabels, _corrsExpr)):
-            ops = self._extractStokesCombinationExpression(CorrelationDependencies[corr][depExprId])
-            corrCube[:,corrId,:,:] = (ops[0]*ops[1])*ops[3](ops[5] * stokesCube[:, self._FITSstokesSliceLookup[ops[2]], :, :],
-                                                            ops[6] * stokesCube[:, self._FITSstokesSliceLookup[ops[4]], :, :])
-
+        if not inplace:
+            corrCube = np.empty([nChan, nCorrOut, nV, nU], dtype=stokesCube.dtype)
+        else:
+            corrCube = stokesCube.view()
+        # only read one row at a time to keep the memory footprint down on the conversion of large cubes
+        for ch in xrange(nChan):
+            for v in xrange(nV):
+                resQ = []
+                for corrId, (corr,depExprId) in enumerate(zip(self._MScorrLabels, _corrsExpr)):
+                    ops = self._extractStokesCombinationExpression(CorrelationDependencies[corr][depExprId])
+                    resQ.append((ops[0]*ops[1])*ops[3](ops[5] * stokesCube[ch, self._FITSstokesSliceLookup[ops[2]], v, :],
+                                                       ops[6] * stokesCube[ch, self._FITSstokesSliceLookup[ops[4]], v, :]))
+                for corrId, (corr,depExprId) in enumerate(zip(self._MScorrLabels, _corrsExpr)):
+                    corrCube[ch, corrId, v, :] = resQ.pop(0)
         return corrCube
 
     def NStokesInImage(self):
@@ -310,3 +331,9 @@ class ClassStokes:
         Returns the stokes.h ids for the available MS correlation products
         """
         return self._MSDataDescriptor
+
+    def AvailableCorrelationProducts(self):
+        """
+        Returns the available MS correlation products
+        """
+        return [ReverseStokesTypes[s] for s in self._MSDataDescriptor]

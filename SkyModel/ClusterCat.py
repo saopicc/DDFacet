@@ -12,7 +12,7 @@ from DDFacet.Other import MyLogger
 from DDFacet.Other import MyPickle
 log=MyLogger.getLogger("ClusterImage")
 from astropy.io import fits
-import Sky.ClassClusterDEAP
+import SkyModel.Sky.ClassClusterDEAP
 from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 import optparse
 import pickle
@@ -20,7 +20,9 @@ from DDFacet.ToolsDir import ModCoord
 import Polygon
 SaveFile="ClusterImage.last"
 from SkyModel.Sky import ModVoronoiToReg
-#import MakeCatalog
+from SkyModel import Sky
+import MakeCatalog
+
 import os
 
 def test():

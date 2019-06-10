@@ -108,6 +108,71 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         DicoComp[key]["SumWeights"][pol_array_index] += Weight
         DicoComp[key]["SolsArray"][:, pol_array_index] += Weight * SolNorm
 
+    def GiveModelList(self, FreqIn=None, DoAbs=False, threshold=0.1):
+        """
+        Iterates through components in the "Comp" dictionary of DicoSMStacked,
+        returning a list of model sources in tuples looking like
+        (model_type, coord, flux, ref_freq, alpha, model_params).
+
+        model_type is obtained from self.ListScales
+        coord is obtained from the keys of "Comp"
+        flux is obtained from the entries in Comp["SolsArray"]
+        ref_freq is obtained from DicoSMStacked["RefFreq"]
+        alpha is obtained from self.ListScales
+        model_params is obtained from self.ListScales
+
+        If multiple scales exist, multiple sources will be created
+        at the same position, but different fluxes, alphas etc.
+
+        """
+        if DoAbs:
+            f_apply = np.abs
+        else:
+            f_apply = lambda x: x
+            
+        DicoComp = self.DicoSMStacked["Comp"]
+        ref_freq = self.DicoSMStacked["RefFreq"]
+        
+        if FreqIn is None:
+           FreqIn=np.array([ref_freq], dtype=np.float32)
+            
+        # Construct alpha map
+        IM = self.GiveModelImage(self.FreqMachine.Freqsp)
+        nchan, npol, Nx, Ny = IM.shape
+        # Fit the alpha map
+        self.FreqMachine.FitAlphaMap(IM[:, 0, :, :],
+                                     threshold=1.0e-6)  # should set threshold based on SNR of final residual
+        alpha = self.FreqMachine.weighted_alpha_map.reshape((1, 1, Nx, Ny))
+
+        # Assumptions:
+        # DicoSMStacked is a dictionary of "Solution" dictionaries
+        # keyed on (l, m), corresponding to some point  source. 
+        # Components associated with the source for each scale are
+        # located in self.ListScales.
+
+        def _model_map(coord, component):
+            """
+            Given a coordinate and component obtained from DicoMap
+            returns a tuple with the following information
+            (ModelType, coordinate, vector of STOKES solutions per basis function, alpha, shape data)
+            """
+            sa = component["SolsArray"]
+            return [("Delta",                         # type
+                     coord,                           # coordinate
+                     f_apply(self.FreqMachine.Eval_Degrid(sa,
+                                                          FreqIn)), # only a solution for I
+                     ref_freq,                        # reference frequency
+                     alpha[0, 0, coord[0], coord[1]], # alpha estimate
+                     None)]                           # shape
+
+        # Lazily iterate through DicoComp entries and associated ListScales and SolsArrays,
+        # assigning values to arrays
+        source_iter = itertools.chain.from_iterable(_model_map(coord, comp)
+            for coord, comp in DicoComp.iteritems())
+
+        # Create list with iterator results
+        return [s for s in source_iter]
+
 
     def GiveModelImage(self, FreqIn=None, DoAbs=False, out=None):
         if DoAbs:
@@ -143,7 +208,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 if interp is None:
                     raise RuntimeError("Could not interpolate model onto degridding bands. Inspect your data, check 'Hogbom-PolyFitOrder' or "
                                        "if you think this is a bug report it.")
-                ModelImage[:, pol, x, y] += f_apply(interp)
+                else:
+                    ModelImage[:, pol, x, y] += f_apply(interp)
 
         return ModelImage
 
@@ -226,3 +292,62 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 self.DicoSMStacked["Comp"][(x1, y1)] = ModelMachine0.DicoSMStacked["Comp"][(x0, y0)]
             else:
                 self.DicoSMStacked["Comp"][(x1, y1)] += ModelMachine0.DicoSMStacked["Comp"][(x0, y0)]
+
+    def ToNPYModel(self,FitsFile,SkyModel,BeamImage=None):
+        """ Makes a numpy model for use for killms calibration using SkyModel/MakeModel.py """
+
+        AlphaMap=self.GiveSpectralIndexMap()
+        ModelMap=self.GiveModelImage()
+        nch,npol,_,_=ModelMap.shape
+
+        for ch in range(nch):
+            for pol in range(npol):
+                ModelMap[ch,pol]=ModelMap[ch,pol][::-1]#.T
+                AlphaMap[ch,pol]=AlphaMap[ch,pol][::-1]#.T
+
+        if BeamImage is not None:
+            ModelMap*=(BeamImage)
+
+        im=image(FitsFile)
+        pol,freq,decc,rac=im.toworld((0,0,0,0))
+
+        Lx,Ly=np.where(ModelMap[0,0]!=0)
+
+        X=np.array(Lx)
+        Y=np.array(Ly)
+
+        #pol,freq,decc1,rac1=im.toworld((0,0,1,0))
+        dx=abs(im.coordinates().dict()["direction0"]["cdelt"][0])
+
+        SourceCat=np.zeros((X.shape[0],),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('Sref',np.float),('I',np.float),('Q',np.float),\
+                                           ('U',np.float),('V',np.float),('RefFreq',np.float),('alpha',np.float),('ESref',np.float),\
+                                           ('Ealpha',np.float),('kill',np.int),('Cluster',np.int),('Type',np.int),('Gmin',np.float),\
+                                           ('Gmaj',np.float),('Gangle',np.float),("Select",np.int),('l',np.float),('m',np.float),("Exclude",bool),
+                                           ("X",np.int32),("Y",np.int32)])
+        SourceCat=SourceCat.view(np.recarray)
+
+        IndSource=0
+
+        SourceCat.RefFreq[:]=self.DicoSMStacked["RefFreq"]
+        _,_,nx,ny=ModelMap.shape
+
+        for iSource in range(X.shape[0]):
+            x_iSource,y_iSource=X[iSource],Y[iSource]
+            _,_,dec_iSource,ra_iSource=im.toworld((0,0,y_iSource,x_iSource))
+            SourceCat.ra[iSource]=ra_iSource
+            SourceCat.dec[iSource]=dec_iSource
+            SourceCat.X[iSource]=(nx-1)-X[iSource]
+            SourceCat.Y[iSource]=Y[iSource]
+
+            #print self.DicoSMStacked["Comp"][(SourceCat.X[iSource],SourceCat.Y[iSource])]
+            # SourceCat.Cluster[IndSource]=iCluster
+            Flux=ModelMap[0,0,x_iSource,y_iSource]
+            Alpha=AlphaMap[0,0,x_iSource,y_iSource]
+            # print iSource,"/",X.shape[0],":",x_iSource,y_iSource,Flux,Alpha
+            SourceCat.I[iSource]=Flux
+            SourceCat.alpha[iSource]=Alpha
+
+
+        SourceCat=(SourceCat[SourceCat.ra!=0]).copy()
+        np.save(SkyModel,SourceCat)
+        self.AnalyticSourceCat=ClassSM.ClassSM(SkyModel)

@@ -223,7 +223,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             print>>log,ModColor.Str("WARNING: some alpha pixels outside +/-%g. Masking them."%MaxSpi,col="red")
         return alpha
 
-    def GiveModelList(self):
+    def GiveModelList(self, FreqIn=None):
         """
         Iterates through components in the "Comp" dictionary of DicoSMStacked,
         returning a list of model sources in tuples looking like
@@ -242,7 +242,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         """
         DicoComp = self.DicoSMStacked["Comp"]
         ref_freq = self.DicoSMStacked["RefFreq"]
-
+        if FreqIn is None:
+           FreqIn=np.array([ref_freq], dtype=np.float32)
+           
         # Assumptions:
         # DicoSMStacked is a dictionary of "Solution" dictionaries
         # keyed on (l, m), corresponding to some point or
@@ -259,12 +261,12 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             """
             sa = component["SolsArray"]
 
-            return map(lambda (i, sol, ls): (ls["ModelType"],               # type
-                                             coord,                         # coordinate
-                                             sol,                           # vector of STOKES parameters
-                                             ref_freq,                      # reference frequency
-                                             ls.get("Alpha", 0.0),          # alpha
-                                             ls.get("ModelParams", None)),  # shape
+            return map(lambda (i, sol, ls): (ls["ModelType"],                                      # type
+                                             coord,                                                # coordinate
+                                             sol[0] * (FreqIn / ref_freq) ** ls.get("Alpha", 0.0), # only stokes I
+                                             ref_freq,                                             # reference frequency
+                                             ls.get("Alpha", 0.0),                                 # alpha
+                                             ls.get("ModelParams", None)),                         # shape
                map(lambda i: (i, sa[i], self.ListScales[i]), range(sa.size)))
 
         # Lazily iterate through DicoComp entries and associated ListScales and SolsArrays,

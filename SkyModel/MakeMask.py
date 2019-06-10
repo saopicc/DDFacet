@@ -7,16 +7,16 @@ import sys
 #sys.path=os.environ["PYTHONPATH"].split(":")+sys.path
 from pyrap.tables import table
 from pyrap.images import image
-from Sky import ClassSM
+from SkyModel.Sky import ClassSM
 import optparse
 import numpy as np
 import glob
 import os
-from Other import reformat
+from SkyModel.Other import reformat
 SaveFile="last_MyCasapy2BBS.obj"
 import pickle
 import scipy.ndimage
-from Tools import ModFFTW
+from SkyModel.Tools import ModFFTW
 from SkyModel.PSourceExtract import ClassIslands
 from SkyModel.Other.ClassCasaImage import PutDataInNewImage
 import scipy.special

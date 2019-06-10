@@ -35,26 +35,27 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 namespace DDF{
   namespace degridder {
-    namespace policies {
-      using ApplyJonesType = void (*) (const DDEs::JonesServer &JS, const dcMat &corr_vis, dcmplx corr, dcMat &visBuff);
-      inline void ApplyJones_4_Corr(const DDEs::JonesServer &JS, const dcMat &corr_vis, dcmplx corr, dcMat &visBuff)
-	{
-	visBuff = JS.J0.times(corr_vis);
-	visBuff = visBuff.times(JS.J1H);
-	visBuff.scale(corr);
-	}
 
-      inline void ApplyJones_2_Corr(const DDEs::JonesServer &JS, const dcMat &corr_vis, dcmplx corr, dcMat &visBuff)
-	{
-	dcMat padded_corr_vis(corr_vis[0],0.,0.,corr_vis[1]);
-	visBuff = JS.J0.times(padded_corr_vis);
-	visBuff = visBuff.times(JS.J1H);
-	visBuff.scale(corr);
-	visBuff[1] = visBuff[3];
-	}
+    inline void ApplyJones(const DDEs::JonesServer &JS, const dcMat &corr_vis, dcmplx corr, dcMat &visBuff)
+    {
+        visBuff = JS.J0.times(corr_vis);
+        visBuff = visBuff.times(JS.J1H);
+        visBuff.scale(corr);
     }
 
-    template <StokesDegridType StokesDegrid, int nVisPol, int nVisCorr, policies::ApplyJonesType ApplyJones>
+    template<int nVisCorr> inline void subtractVis(fcmplx* __restrict__ visPtr, const dcMat &visBuff)
+    {
+        for (auto ThisPol=0; ThisPol<nVisCorr; ++ThisPol)
+          visPtr[ThisPol] -= visBuff[ThisPol];
+    }
+
+    template<> inline void subtractVis<2>(fcmplx* __restrict__ visPtr, const dcMat &visBuff)
+    {
+        visPtr[0] -= visBuff[0];
+        visPtr[1] -= visBuff[3];
+    }
+
+    template <StokesDegridType StokesDegrid, int nVisPol, int nVisCorr>
     void degridder(
       const py::array_t<std::complex<float>, py::array::c_style>& grid,
       py::array_t<std::complex<float>, py::array::c_style>& vis,
@@ -80,7 +81,7 @@ namespace DDF{
       const double l0=ptrFacetInfos[2];
       const double m0=ptrFacetInfos[3];
       const double n0=sqrt(1-l0*l0-m0*m0)-1;
-      const int facet = ptrFacetInfos[4];
+      //const int facet = ptrFacetInfos[4];
 
       /* Get size of grid. */
       const double *ptrWinfo = Winfos.data(0);
@@ -127,7 +128,7 @@ namespace DDF{
       const fcmplx* __restrict__ griddata = grid.data(0);
       fcmplx* __restrict__ visdata = vis.mutable_data(0);
       JS.resetJonesServerCounter();
-      
+
       for (size_t iBlock=0; iBlock<NTotBlocks; iBlock++)
 	{
 	const int NRowThisBlock=NRowBlocks[iBlock]-2;
@@ -225,7 +226,7 @@ namespace DDF{
 
 	/*################### Now do the correction #################*/
 	double DeCorrFactor=decorr.get(FreqMean, Row[NRowThisBlock/2]);
-	
+
 	for (auto inx=0; inx<NRowThisBlock; inx++)
 	  {
 	  size_t irow = size_t(Row[inx]);
@@ -253,18 +254,16 @@ namespace DDF{
 	    if (JS.DoApplyJones==1)
 	      ApplyJones(JS, corr_vis, corr, visBuff);
 	    else
-	      for(auto ThisPol=0; ThisPol<nVisCorr; ++ThisPol)
-		visBuff[ThisPol] = corr_vis[ThisPol]*corr;
+	    {
+		visBuff = corr_vis;
+		visBuff.scale(corr);
+	    }
 
 	    fcmplx* __restrict__ visPtr = visdata + doff;
-	    //auto Sem_mutex = GiveSemaphoreFromCell(doff_chan);
 	    /* Finally subtract visibilities from current residues */
-	    //sem_wait(Sem_mutex);
-	    for (auto ThisPol=0; ThisPol<nVisCorr; ++ThisPol)
-	      visPtr[ThisPol] -= visBuff[ThisPol];
-	    //sem_post(Sem_mutex);
+	    subtractVis<nVisCorr>(visPtr, visBuff);
 	    }/*endfor vischan*/
-	    sem_post(Sem_mutex);
+	  sem_post(Sem_mutex);
 	  }/*endfor RowThisBlock*/
 	} /*end for Block*/
       } /* end */

@@ -19,20 +19,43 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
 import numpy as np
+from DDFacet.Other import MyLogger
+from DDFacet.Other import ClassTimeIt
+from DDFacet.Other import ModColor
+from DDFacet.Other.progressbar import ProgressBar
+import threading
+
+log=MyLogger.getLogger("ClassGainMachine")
+
+def get_instance():
+    return ClassGainMachine.get_instance()
 
 class ClassGainMachine():
+    __SINGLETON__ = None
+    __SINGLETON_LOCK__ = threading.Lock()
+    @classmethod
+    def get_instance(cls):
+        return cls.__SINGLETON__
+
     def __init__(self,
                  GainMax=0.9,
                  GainMin=0.1,
                  SigmaScale=10.,
                  Sigma0=1.,
                  Mode="Constant"):
-        self.SigmaScale=SigmaScale
-        self.Sigma0=Sigma0
-        self.Mode=Mode
-        self.GainMax=GainMax
-        self.GainMin=GainMin
-        self.CurrentGain=GainMin
+        # double checked locking pattern:
+        if not self.get_instance():
+            with ClassGainMachine.__SINGLETON_LOCK__:
+                if not self.get_instance():
+                    ClassGainMachine.__SINGLETON__ = self
+                    self.SigmaScale=SigmaScale
+                    self.Sigma0=Sigma0
+                    self.Mode=Mode
+                    self.GainMax=GainMax
+                    self.GainMin=GainMin
+                    self.CurrentGain=GainMin
+        else:
+            raise RuntimeError("Singleton is already initialized. This is a bug.")
 
     def SetRMS(self,rms):
         self.rms=rms
