@@ -362,7 +362,7 @@ class ClassImageDeconvMachine():
 
         return StopFlux, MaxDirty
 
-    def Deconvolve(self, **kwargs):
+    def Deconvolve(self):
         """
         Runs minor cycle over image channel 'ch'.
         initMinor is number of minor iteration (keeps continuous count through major iterations)
