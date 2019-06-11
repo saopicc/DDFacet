@@ -284,7 +284,7 @@ class ClassImageDeconvMachine():
             print>>log, "HMP approximation mode: using PSF of central facet (%d)" % centralFacet
             for iFacet in xrange(self.PSFServer.NFacets):
                 self.DicoMSMachine[iFacet] = MSM0
-        elif self.GD["Facets"]["NFacets"]==1:
+        elif (self.GD["Facets"]["NFacets"]==1)&(not self.GD["DDESolutions"]["DDSols"]):
             self.DicoMSMachine[0] = MSM0
             
         else:
