@@ -26,7 +26,7 @@ you really want them to do.
 """
 
 import random
-from killMS.Other.progressbar import ProgressBar
+from DDFacet.Other.progressbar import ProgressBar
 
 from deap import tools
 from DDFacet.Other import ClassTimeIt
@@ -185,6 +185,7 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
         
         # Evaluate the individuals with an invalid fitness
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
+        #print len(invalid_ind)
         fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
         for ind, fit in zip(invalid_ind, fitnesses):
             ind.fitness.values = fit
@@ -205,8 +206,8 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
 #        if verbose:
 #            print logbook.stream        
         T.timeit(iT); iT+=1
-
-        if PlotMachine is not None:
+        #print halloffame[-1].fitness
+        if PlotMachine is not None and PlotMachine is not False:
             PlotMachine.Plot(halloffame)
         T.timeit(iT); iT+=1
 

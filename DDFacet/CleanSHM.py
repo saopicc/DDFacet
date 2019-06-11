@@ -62,7 +62,7 @@ if __name__=="__main__":
     ListSemaphores=[".".join(l.split(".")[1::]) for l in ll]
 
     _pyGridderSmear.pySetSemaphores(ListSemaphores)
-    _pyGridderSmear.pyDeleteSemaphore(ListSemaphores)
+    _pyGridderSmear.pyDeleteSemaphore()
 
     print>>log, "Clear shared dictionaries"
     ll=glob.glob("/dev/shm/shared_dict:*")

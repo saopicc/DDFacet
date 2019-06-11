@@ -260,7 +260,7 @@ class ClassImageDeconvMachine():
             cachehash = dict(
                 [(section, self.GD[section]) for section in (
                     "Data", "Beam", "Selection", "Freq",
-                    "Image", "Facets", "Weight", "RIME",
+                    "Image", "Facets", "Weight", "RIME","DDESolutions",
                     "Comp", "CF",
                     "HMP")])
             cachepath, valid = self.maincache.checkCache(self.CacheFileName, cachehash, reset=not cache or self.PSFHasChanged)
@@ -282,6 +282,7 @@ class ClassImageDeconvMachine():
         # in any mode, start by initializing a MS machine for the central facet. This will precompute the scale
         # functions
         centralFacet = self.PSFServer.DicoVariablePSF["CentralFacet"]
+
         self.DicoMSMachine[centralFacet] = MSM0 = \
             self._initMSM_facet(centralFacet,
                                 self.facetcache.addSubdict(centralFacet) if init_cache else self.facetcache[centralFacet],
@@ -290,6 +291,9 @@ class ClassImageDeconvMachine():
             print>>log, "HMP approximation mode: using PSF of central facet (%d)" % centralFacet
             for iFacet in xrange(self.PSFServer.NFacets):
                 self.DicoMSMachine[iFacet] = MSM0
+        elif (self.GD["Facets"]["NFacets"]==1)&(not self.GD["DDESolutions"]["DDSols"]):
+            self.DicoMSMachine[0] = MSM0
+            
         else:
             # if no facet cache, init in parallel
             if init_cache:
@@ -369,6 +373,19 @@ class ClassImageDeconvMachine():
             self._PeakSearchImage = self._MeanDirty
 
 
+        # ########################################
+        # op=lambda x: np.abs(x)
+        # AA=op(self._PeakSearchImage)
+        # _,_,xx, yx = np.where(AA==np.max(AA))
+        # print "--!!!!!!!!!!!!!!!!!!!!!!",xx, yx
+        # W=np.float32(self.DicoDirty["WeightChansImages"])
+        # W=W/np.sum(W)
+        # print "W",W
+        # print np.sum(self._CubeDirty[:,0,xx,yx].ravel()*W.ravel()),self._MeanDirty[0,0,xx,yx]
+        # #print np.mean(self._CubeDirty[:,0,xx,yx])
+        # print "--!!!!!!!!!!!!!!!!!!!!!!"
+        # ########################################
+            
         NPixStats = self.GD["Deconv"]["NumRMSSamples"]
         if NPixStats>0:
             self.IndStats=np.int64(np.linspace(0,self._PeakSearchImage.size-1,NPixStats))
@@ -509,6 +526,27 @@ class ClassImageDeconvMachine():
 # =======
         # self._CubeDirty[:,:,x0d:x1d,y0d:y1d] -= LocalSM[:,:,x0p:x1p,y0p:y1p]
         cube, sm = self._CubeDirty[:,:,x0d:x1d,y0d:y1d], LocalSM[:,:,x0p:x1p,y0p:y1p]
+
+
+        # if self.DoPlot:
+        #     AA0=cube[0,0,:,:].copy()
+        #     vmin,vmax=np.min(AA0),np.max(AA0)
+        #     AA1=sm[0,0,:,:].copy()
+        #     import pylab
+        #     pylab.clf()
+        #     pylab.subplot(1,3,1)
+        #     pylab.imshow(AA0,interpolation="nearest")
+        #     pylab.colorbar()
+        #     pylab.subplot(1,3,2)
+        #     pylab.imshow(AA1,interpolation="nearest")
+        #     pylab.colorbar()
+        #     pylab.subplot(1,3,3)
+        #     pylab.imshow((AA0-AA1),interpolation="nearest")
+        #     pylab.colorbar()
+        #     pylab.draw()
+        #     pylab.show(False)
+        #     pylab.pause(0.1)
+
         numexpr.evaluate('cube-sm',out=cube,casting="unsafe")
         #a-=b
 
@@ -516,16 +554,19 @@ class ClassImageDeconvMachine():
             ### old code, got MeanDirty out of alignment with CubeDirty somehow
             ## W=np.float32(self.DicoDirty["WeightChansImages"])
             ## self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.sum(LocalSM[:,:,x0p:x1p,y0p:y1p]*W.reshape((W.size,1,1,1)),axis=0)
-            meanimage = self._MeanDirty[0, :, x0d:x1d, y0d:y1d]
+            meanimage = self._MeanDirty[:, :, x0d:x1d, y0d:y1d]
 
+                
+            
             # cube.mean(axis=0, out=meanimage) should be a bit faster, but we experienced problems with some numpy versions,
             # see https://github.com/cyriltasse/DDFacet/issues/325
             # So use array copy instead (which makes an intermediate array)
             if cube.shape[0] > 1:
                 meanimage[...] = (cube*self._band_weights).sum(axis=0)
+
                 # cube.mean(axis=0, out=meanimage)
             else:
-                meanimage[...] = cube[0,...]
+                meanimage[0,...] = cube[0,...]
 
             # ## this is slower:
             # self._MeanDirty[0,:,x0d:x1d,y0d:y1d] = self._CubeDirty[:,:,x0d:x1d,y0d:y1d].mean(axis=0)
@@ -534,28 +575,7 @@ class ClassImageDeconvMachine():
             # np.save("_MeanDirty",self._MeanDirty)
             # np.save("_CubeDirty",self._CubeDirty)
             # stop
-            # AA=self._MeanDirty[0,:,x0d:x1d,y0d:y1d].copy()
 
-            # self._CubeDirty[:,:,x0d:x1d,y0d:y1d].mean(axis=0, out=self._MeanDirty[0,:,x0d:x1d,y0d:y1d])
-            # AA0=self._MeanDirty[0,:,x0d:x1d,y0d:y1d].copy()
-
-            # self._MeanDirty[0,:,x0d:x1d,y0d:y1d]=AA[:,:,:]
-
-            # self._MeanDirty[0,:,x0d:x1d,y0d:y1d] = self._CubeDirty[:,:,x0d:x1d,y0d:y1d].mean(axis=0)
-            # AA1=self._MeanDirty[0,:,x0d:x1d,y0d:y1d].copy()
-            # pylab.clf()
-            # pylab.subplot(1,3,1)
-            # pylab.imshow(AA0[0],interpolation="nearest")
-            # pylab.colorbar()
-            # pylab.subplot(1,3,2)
-            # pylab.imshow(AA1[0],interpolation="nearest")
-            # pylab.colorbar()
-            # pylab.subplot(1,3,3)
-            # pylab.imshow((AA0-AA1)[0],interpolation="nearest")
-            # pylab.colorbar()
-            # pylab.draw()
-            # pylab.show(False)
-            # stop
             
         if self._peakMode is "sigma":
             a, b = self._MeanDirty[:, :, x0d:x1d, y0d:y1d], self._NoiseMap[:, :, x0d:x1d, y0d:y1d]
@@ -764,6 +784,8 @@ class ClassImageDeconvMachine():
 
         divergence_factor = 1 + max(self.GD["HMP"]["AllowResidIncrease"],0)
 
+        xlast,ylast,Flast=None,None,None
+        
         def GivePercentDone(ThisMaxFlux):
             fracDone = 1.-(ThisMaxFlux-StopFlux)/(MaxDirty-StopFlux)
             return max(int(round(100*fracDone)), 100)
@@ -777,7 +799,6 @@ class ClassImageDeconvMachine():
                 # x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
                 x, y, peak = NpParallel.A_whereMax(
                     self._PeakSearchImage, NCPU=self.NCPU, DoAbs=DoAbs, Mask=CurrentNegMask)
-
                 if self.GD["HMP"]["FractionRandomPeak"] is not None:
                     op=lambda x: x
                     if DoAbs: op=lambda x: np.abs(x)
@@ -791,6 +812,16 @@ class ClassImageDeconvMachine():
                 if DoAbs:
                     ThisFlux = abs(ThisFlux)
 
+
+                if xlast is not None:
+                    if x==xlast and y==ylast and np.abs((Flast-peak)/Flast)<1e-6:
+                        print>>log, ModColor.Str("    [iter=%i] peak of %.3g Jy stuck"%(i, ThisFlux), col="red")
+                        return "Stuck", False, True
+                xlast=x
+                ylast=y
+                Flast=peak
+
+                
                 #x,y=self.PSFServer.SolveOffsetLM(self._MeanDirty[0,0],x,y); ThisFlux=self._MeanDirty[0,0,x,y]
                 self.GainMachine.SetFluxMax(ThisFlux)
 
@@ -871,8 +902,8 @@ class ClassImageDeconvMachine():
                 Fpol = np.float32(
                     (self._CubeDirty[
                         :, :, x, y].reshape(
-                        (nch, npol, 1, 1))).copy())
-                # print "Fpol",Fpol
+                            (nch, npol, 1, 1))).copy())
+                #print "Fpol",Fpol
                 dx = x-xc
                 dy = y-xc
 

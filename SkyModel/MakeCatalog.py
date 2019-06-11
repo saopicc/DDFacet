@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+import sys,os
+if "PYTHONPATH_FIRST" in os.environ.keys() and int(os.environ["PYTHONPATH_FIRST"]):
+    sys.path = os.environ["PYTHONPATH"].split(":") + sys.path
 import numpy as np
 from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("MakeCatalog")
@@ -87,6 +90,7 @@ class MakeCatalog():
                                rmsmean_map_filename=rmsmean_map_filename)
         img.write_catalog(catalog_type="srl",clobber=True,format="fits")
         img.write_catalog(catalog_type="gaul",clobber=True,format="fits")
+        img.write_catalog(catalog_type="gaul",clobber=True,format="bbs")
         if WriteNoise:
             img.export_image(img_type="rms",clobber=True)
             img.export_image(img_type="mean",clobber=True)

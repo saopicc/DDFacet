@@ -46,7 +46,8 @@ class ClassLOFARBeam():
         self.SR = lsr.stationresponse(self.MS.MSName,
                                       useElementResponse=useElementBeam,
                                       #useElementBeam=useElementBeam,
-                                      useArrayFactor=useArrayFactor)#,useChanFreq=True)
+                                      useArrayFactor=useArrayFactor,
+                                      useChanFreq=True)
         self.SR.setDirection(self.MS.rarad,self.MS.decrad)
 
 

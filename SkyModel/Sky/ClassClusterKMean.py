@@ -34,8 +34,9 @@ class ClassClusterKMean():
         self.DoPlot=DoPlot
         self.PreCluster=PreCluster
         self.InitLM=InitLM
-        
-
+        # print self.NCluster
+        # np.savez("LL.npz",x=x,y=y,s=s,NCluster=NCluster)
+        # stop
 
 
 

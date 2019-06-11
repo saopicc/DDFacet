@@ -37,6 +37,8 @@ def Print(CatIn,RemoveFieldName='ChanFreq',HideList=None):
         for field in HideList:
             Cat=remove_field_name(Cat, field)
 
+    
     x = PrettyTable(Cat.dtype.names)
-    for row in Cat: x.add_row(row)
+    for row in Cat: 
+        x.add_row(row)
     print x
