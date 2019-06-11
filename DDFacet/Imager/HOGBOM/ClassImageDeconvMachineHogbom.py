@@ -170,6 +170,7 @@ class ClassImageDeconvMachine():
 
     def SetDirty(self,DicoDirty):
         self.DicoDirty=DicoDirty
+        self.WeightsChansImages = DicoDirty["WeightChansImages"].squeeze()
         self._Dirty = self.DicoDirty["ImageCube"]
         self._MeanDirty = self.DicoDirty["MeanImage"]
 
@@ -373,7 +374,7 @@ class ClassImageDeconvMachine():
                 Fpol = self._Dirty[:, 0, x, y]
 
                 # Fit a polynomial to get coeffs
-                Coeffs = self.ModelMachine.FreqMachine.Fit(Fpol, JonesNorm, ThisFlux)
+                Coeffs = self.ModelMachine.FreqMachine.Fit(Fpol, JonesNorm, self.WeightsChansImages)
 
                 # Overwrite with polynoimial fit
                 Fpol = self.ModelMachine.FreqMachine.Eval(Coeffs)
