@@ -213,8 +213,8 @@ class ClassFITSBeam (object):
         dm.do_frame(dm.epoch("UTC",dq.quantity(t0,"s")))
         # compute PA 
         parad = dm.posangle(self.field_centre,self.zenith).get_value("rad")
-        # parad = 0.0  # LB - remember to revert
-        # print>>log,"time %f, position angle %f"%(t0, parad*180/math.pi)
+        import math
+        print>>log,"time %f, position angle %f"%(t0, parad*180/math.pi)
 
         # compute l,m per direction
         ndir = len(ra)
@@ -230,9 +230,10 @@ class ClassFITSBeam (object):
         l = r*numpy.cos(angle+parad)
         m = r*numpy.sin(angle+parad)  
 
-        # print>>log,"Beam evaluated for l,m"
+        # # print>>log,"Beam evaluated for l,m"
         # print>>log,l
         # print>>log,m
+        # print>>log,"time %f, position angle %f"%(t0, parad*180/math.pi)
 
         # get interpolated values. Output shape will be [ndir,nfreq]
         beamjones = [ self.vbs[corr].interpolate(l,m,freq=self.freqs,freqaxis=1) for corr in self.corrs ]

@@ -275,7 +275,8 @@ class ClassImagerDeconv():
         if self.DoSmoothBeam:
             AverageBeamMachine=ClassBeamMean.ClassBeamMean(self.VS)
             self.FacetMachine.setAverageBeamMachine(AverageBeamMachine)
-            self.StokesFacetMachine and self.StokesFacetMachine.setAverageBeamMachine(AverageBeamMachine)
+            if self.StokesFacetMachine:
+                self.StokesFacetMachine.setAverageBeamMachine(AverageBeamMachine)
         # tell VisServer to not load weights
         if self.do_predict_only:
             self.VS.IgnoreWeights()
@@ -762,7 +763,13 @@ class ClassImagerDeconv():
                                           Fits=True)
 
         if self.DicoDirty["JonesNorm"] is not None:
-            DirtyCorr = self.DicoDirty["ImageCube"]/np.sqrt(self.DicoDirty["JonesNorm"])
+            NormImage=self.DicoDirty["JonesNorm"]
+
+            if self.DoSmoothBeam and self.FacetMachine.SmoothJonesNorm is not None:
+                NormImage=self.FacetMachine.SmoothJonesNorm
+
+            DirtyCorr = self.DicoDirty["ImageCube"]/np.sqrt(NormImage)
+
             nch,npol,nx,ny = DirtyCorr.shape
             if "D" in self._saveims:
                 MeanCorr = np.mean(DirtyCorr, axis=0).reshape((1, npol, nx, ny))
@@ -975,7 +982,13 @@ class ClassImagerDeconv():
                     ModelImage[InSquare]=0
                 elif SquareMaskMode=="Outside":
                     ModelImage[np.logical_not(InSquare)]=0
-                #ModelImage = self.FacetMachine.setModelImage(ModelImage)
+                ModelImage = self.FacetMachine.setModelImage(ModelImage)
+                self.FacetMachine.ToCasaImage(ModelImage,
+                                              ImageName="%s.cutsq.model"%(self.BaseName),
+                                              Fits=True,
+                                              Freqs=model_freqs,
+                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+
 
             ## OMS 16/04/17: @cyriltasse this code looks all wrong and was giving me errors. ChanMappingDegrid has size equal to the
             ## number of channels. I guess this is meant for the case where we predict from a FixedModelImage

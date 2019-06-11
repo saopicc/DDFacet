@@ -390,3 +390,62 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 self.DicoSMStacked["Comp"][(x1, y1)] = ModelMachine0.DicoSMStacked["Comp"][(x0, y0)]
             else:
                 self.DicoSMStacked["Comp"][(x1, y1)] += ModelMachine0.DicoSMStacked["Comp"][(x0, y0)]
+
+    def ToNPYModel(self,FitsFile,SkyModel,BeamImage=None):
+        """ Makes a numpy model for use for killms calibration using SkyModel/MakeModel.py """
+
+        AlphaMap=self.GiveSpectralIndexMap()
+        ModelMap=self.GiveModelImage()
+        nch,npol,_,_=ModelMap.shape
+
+        for ch in range(nch):
+            for pol in range(npol):
+                ModelMap[ch,pol]=ModelMap[ch,pol][::-1]#.T
+                AlphaMap[ch,pol]=AlphaMap[ch,pol][::-1]#.T
+
+        if BeamImage is not None:
+            ModelMap*=(BeamImage)
+
+        im=image(FitsFile)
+        pol,freq,decc,rac=im.toworld((0,0,0,0))
+
+        Lx,Ly=np.where(ModelMap[0,0]!=0)
+
+        X=np.array(Lx)
+        Y=np.array(Ly)
+
+        #pol,freq,decc1,rac1=im.toworld((0,0,1,0))
+        dx=abs(im.coordinates().dict()["direction0"]["cdelt"][0])
+
+        SourceCat=np.zeros((X.shape[0],),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('Sref',np.float),('I',np.float),('Q',np.float),\
+                                           ('U',np.float),('V',np.float),('RefFreq',np.float),('alpha',np.float),('ESref',np.float),\
+                                           ('Ealpha',np.float),('kill',np.int),('Cluster',np.int),('Type',np.int),('Gmin',np.float),\
+                                           ('Gmaj',np.float),('Gangle',np.float),("Select",np.int),('l',np.float),('m',np.float),("Exclude",bool),
+                                           ("X",np.int32),("Y",np.int32)])
+        SourceCat=SourceCat.view(np.recarray)
+
+        IndSource=0
+
+        SourceCat.RefFreq[:]=self.DicoSMStacked["RefFreq"]
+        _,_,nx,ny=ModelMap.shape
+
+        for iSource in range(X.shape[0]):
+            x_iSource,y_iSource=X[iSource],Y[iSource]
+            _,_,dec_iSource,ra_iSource=im.toworld((0,0,y_iSource,x_iSource))
+            SourceCat.ra[iSource]=ra_iSource
+            SourceCat.dec[iSource]=dec_iSource
+            SourceCat.X[iSource]=(nx-1)-X[iSource]
+            SourceCat.Y[iSource]=Y[iSource]
+
+            #print self.DicoSMStacked["Comp"][(SourceCat.X[iSource],SourceCat.Y[iSource])]
+            # SourceCat.Cluster[IndSource]=iCluster
+            Flux=ModelMap[0,0,x_iSource,y_iSource]
+            Alpha=AlphaMap[0,0,x_iSource,y_iSource]
+            # print iSource,"/",X.shape[0],":",x_iSource,y_iSource,Flux,Alpha
+            SourceCat.I[iSource]=Flux
+            SourceCat.alpha[iSource]=Alpha
+
+
+        SourceCat=(SourceCat[SourceCat.ra!=0]).copy()
+        np.save(SkyModel,SourceCat)
+        self.AnalyticSourceCat=ClassSM.ClassSM(SkyModel)

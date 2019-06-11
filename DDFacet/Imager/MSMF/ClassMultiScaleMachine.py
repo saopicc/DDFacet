@@ -195,6 +195,7 @@ class ClassMultiScaleMachine():
         self.ListScales = cachedict.get("ListScales", None)
         self.CubePSFScales = cachedict.get("CubePSFScales", None)
         self._cubepsf_buf = None
+
         self.DicoBasisMatrix = cachedict.get("BasisMatrix", None)
         if self.DicoBasisMatrix is not None:
             self.GlobalWeightFunction = self.DicoBasisMatrix["GlobalWeightFunction"]
@@ -868,6 +869,8 @@ class ClassMultiScaleMachine():
         #dirtyNorm=dirtyNorm-MeanData.reshape((nchan,1,1,1))
 
         # dirtyNormIm=dirtyNormIm/FpolMean
+        
+        HasReverted=False
 
 
         #print "0",np.max(dirtyNormIm)
@@ -903,7 +906,8 @@ class ClassMultiScaleMachine():
         #self.SolveMode="NNLS"
 
         # MeanFluxTrue=np.sum(FpolTrue.ravel()*self.WeightMuellerSignal)/np.sum(self.WeightMuellerSignal)
-        MeanFluxTrue = Fpol.mean()/np.sqrt(JonesNorm).mean()
+        W=np.float32(self.DicoDirty["WeightChansImages"]).ravel()
+        MeanFluxTrue = np.sum(Fpol.ravel()*W/np.sqrt(JonesNorm).ravel())#mean()
         
         if  self.SolveMode=="MatchingPursuit":
             #Sol=np.dot(BM.T,WVecPSF*dirtyVec)
@@ -1063,17 +1067,27 @@ class ClassMultiScaleMachine():
                     #print "Max abs model",np.max(np.abs(LocalSM))
             #print "Min Max model",LocalSM.min(),LocalSM.max()
         elif self.SolveMode=="NNLS":
-            #HasReverted=False
-            Peak=np.max(dirtyVec)
-            # if Peak<0:
-            #     dirtyVec=dirtyVec*-1
-            #     HasReverted=True
+            OrigDirty=dirtyVec.copy().reshape((nchan,1,nxp,nyp))[:,0]
+            #MeanOrigDirty=np.mean(OrigDirty,axis=0)
+            WCHAN=np.float32(self.DicoDirty["WeightChansImages"]).ravel()
+            MeanOrigDirty=np.sum(OrigDirty*WCHAN.reshape((-1,1,1)),axis=0).reshape((nxp,nyp))
+
+            Ad=np.abs(MeanOrigDirty)
+            iind=np.where(Ad==np.max(Ad))
+            Peak=MeanOrigDirty[iind]
+            if Peak[0]<0:
+                HasReverted=True
+                dirtyVec=dirtyVec*-1
+                MeanFluxTrue*=-1
+                Fpol*=-1
                 
             W=WVecPSF.copy()
             # print ":::::::::"
             # W.fill(1.)
             OrigDirty=dirtyVec.copy().reshape((nchan,1,nxp,nyp))[:,0]
-            MeanOrigDirty=np.mean(OrigDirty,axis=0)
+            #MeanOrigDirty=np.mean(OrigDirty,axis=0)
+            MeanOrigDirty=np.sum(OrigDirty*WCHAN.reshape((-1,1,1)),axis=0).reshape((nxp,nyp))
+
             xc0,yc0=np.where(np.abs(MeanOrigDirty) == np.max(np.abs(MeanOrigDirty)))
             PeakMeanOrigDirty=MeanOrigDirty[xc0[0],yc0[0]]
             dirtyVec=dirtyVec.copy()
@@ -1082,153 +1096,168 @@ class ClassMultiScaleMachine():
             T=ClassTimeIt.ClassTimeIt()
             T.disable()
             NNLSStep=10
-            for iIter in range(100):
-                A=W*BM
-                y=W*dirtyVec
-                d=dirtyVec.reshape((nchan,1,nxp,nyp))[:,0]
-                PeakMeanOrigResid=np.mean(d,axis=0)[xc0[0],yc0[0]]
 
-                FactNorm=np.abs(PeakMeanOrigDirty/PeakMeanOrigResid)
-                if np.isnan(FactNorm) or np.isinf(FactNorm):
-                    #print "Cond1 %i"%iIter 
-                    Sol=np.zeros((A.shape[1],),dtype=np.float32)
-                    break
-                T.timeit("0")
-                if 1.<FactNorm<10.:
-                    y*=FactNorm
-                #print "  ",PeakMeanOrigDirty,PeakMeanOrigResid,PeakMeanOrigDirty/PeakMeanOrigResid
+            
+            ########################################################
+            ########################################################
+            ########################################################
 
-                if not(iIter%NNLSStep):
-                    x,_=scipy.optimize.nnls(A, y.ravel())
-                    T.timeit("1")
-                    #x0=x.copy()
-                    # Compute "dirty" solution and residuals
-                    ConvSM=np.dot(BM,x.reshape((-1,1))).reshape((nchan,1,nxp,nyp))[:,0]
-                Resid=d-ConvSM
+            A=W*BM
+            y=W*dirtyVec
+            x,_=scipy.optimize.nnls(A, y.ravel())
+            Sol=x
+            ConvSM=np.dot(BM,x.reshape((-1,1))).reshape((nchan,1,nxp,nyp))[:,0]
+            ########################################################
+            ########################################################
+            ########################################################
 
-                T.timeit("2")
-                # # ### debug
-                # print "x",x
-                # VecConvSM=np.dot(BM,x.reshape((-1,1))).ravel()
-                # x2=np.zeros_like(x)
-                # x2[3]=1.#*0.95
-                # #x0=x2
-                # VecConvSM=np.dot(BM,x2.reshape((-1,1))).ravel()
-                # import pylab
-                # pylab.clf()
-                # pylab.plot(dirtyVec.ravel())
-                # pylab.plot(VecConvSM)
-                # pylab.plot(dirtyVec.ravel()-VecConvSM)
-                # #pylab.plot(dirtyVec.ravel()-VecConvSM2)
-                # pylab.draw()
-                # pylab.show(False)
-                # stop
-                # # ###########
+            # for iIter in range(100):
+            #     A=W*BM
+            #     y=W*dirtyVec
+            #     d=dirtyVec.reshape((nchan,1,nxp,nyp))[:,0]
+            #     PeakMeanOrigResid=np.mean(d,axis=0)[xc0[0],yc0[0]]
+
+            #     FactNorm=np.abs(PeakMeanOrigDirty/PeakMeanOrigResid)
+            #     if np.isnan(FactNorm) or np.isinf(FactNorm):
+            #         #print "Cond1 %i"%iIter 
+            #         Sol=np.zeros((A.shape[1],),dtype=np.float32)
+            #         break
+            #     T.timeit("0")
+            #     if 1.<FactNorm<10.:
+            #         y*=FactNorm
+            #     #print "  ",PeakMeanOrigDirty,PeakMeanOrigResid,PeakMeanOrigDirty/PeakMeanOrigResid
+
+            #     if not(iIter%NNLSStep):
+            #         x,_=scipy.optimize.nnls(A, y.ravel())
+            #         T.timeit("1")
+            #         #x0=x.copy()
+            #         # Compute "dirty" solution and residuals
+            #         ConvSM=np.dot(BM,x.reshape((-1,1))).reshape((nchan,1,nxp,nyp))[:,0]
+            #     Resid=d-ConvSM
+
+            #     T.timeit("2")
+            #     # # ### debug
+            #     # print "x",x
+            #     # VecConvSM=np.dot(BM,x.reshape((-1,1))).ravel()
+            #     # x2=np.zeros_like(x)
+            #     # x2[3]=1.#*0.95
+            #     # #x0=x2
+            #     # VecConvSM=np.dot(BM,x2.reshape((-1,1))).ravel()
+            #     # import pylab
+            #     # pylab.clf()
+            #     # pylab.plot(dirtyVec.ravel())
+            #     # pylab.plot(VecConvSM)
+            #     # pylab.plot(dirtyVec.ravel()-VecConvSM)
+            #     # #pylab.plot(dirtyVec.ravel()-VecConvSM2)
+            #     # pylab.draw()
+            #     # pylab.show(False)
+            #     # stop
+            #     # # ###########
                 
-                # Max_d=np.mean(np.max(np.max(d,axis=-1),axis=-1))
-                # Max_ConvSM=np.mean(np.max(np.max(ConvSM,axis=-1),axis=-1))
-                # #r=Max_d/Max_ConvSM
-                # #x*=r
-                # #ConvSM*=r
+            #     # Max_d=np.mean(np.max(np.max(d,axis=-1),axis=-1))
+            #     # Max_ConvSM=np.mean(np.max(np.max(ConvSM,axis=-1),axis=-1))
+            #     # #r=Max_d/Max_ConvSM
+            #     # #x*=r
+            #     # #ConvSM*=r
 
 
 
-                #x,_=scipy.optimize.nnls(A, y.ravel())
-                #ConvSM=np.dot(BM,x.reshape((-1,1))).reshape((nchan,1,nxp,nyp))[:,0]
-                w=W.reshape((nchan,1,nxp,nyp))[:,0]
-                m=Mask.reshape((nchan,1,nxp,nyp))[:,0]
+            #     #x,_=scipy.optimize.nnls(A, y.ravel())
+            #     #ConvSM=np.dot(BM,x.reshape((-1,1))).reshape((nchan,1,nxp,nyp))[:,0]
+            #     w=W.reshape((nchan,1,nxp,nyp))[:,0]
+            #     m=Mask.reshape((nchan,1,nxp,nyp))[:,0]
 
-                sig=self.RMS#np.std(Resid)
-                MaxResid=np.max(Resid)
-                #sig=np.sqrt(np.sum(w*Resid**2)/np.sum(w))
-                #MaxResid=np.max(w*Resid)
+            #     sig=self.RMS#np.std(Resid)
+            #     MaxResid=np.max(Resid)
+            #     #sig=np.sqrt(np.sum(w*Resid**2)/np.sum(w))
+            #     #MaxResid=np.max(w*Resid)
                 
-                # Check if there is contamining nearby sources
-                _,xc1,yc1=np.where((Resid>self.GD["HMP"]["OuterSpaceTh"]*sig)&(Resid==MaxResid))
+            #     # Check if there is contamining nearby sources
+            #     _,xc1,yc1=np.where((Resid>self.GD["HMP"]["OuterSpaceTh"]*sig)&(Resid==MaxResid))
 
-                dirtyVecSub=d
-                Sol=x
+            #     dirtyVecSub=d
+            #     Sol=x
 
-                # Compute flux in each spacial scale
-                SumCoefScales=np.zeros((self.NScales,),np.float32)
-                for iScale in range(self.NScales):
-                    indAlpha=self.IndexScales[iScale]
-                    SumCoefScales[iScale]=np.sum(Sol[indAlpha])
-                #print "  SumCoefScales",SumCoefScales
-
-
-                # If source is contaminating, substract it with the delta (with alpha=0)
-                T.timeit("3")
-                if xc1.size>0 and MaxResid>Peak/100.:
-                    CentralPixel=(xc1[0]==xc0[0] and yc1[0]==yc0[0])
-                    if CentralPixel: 
-                        #print "CondCentralPix %i"%iIter 
-                        break
-                    F=Resid[:,xc1[0],yc1[0]]
-                    dx,dy=nxp/2-xc1[0],nyp/2-yc1[0]
-                    _,_,nxPSF,nyPSF=self.SubPSF.shape
-
-                    #xc2,yc2=nxPSF/2+dx,nyPSF/2+dy
-                    #ThisPSF=self.SubPSF[:,0,xc2-nxp/2:xc2+nxp/2+1,yc2-nyp/2:yc2+nyp/2+1]
-
-                    N0x,N0y=d.shape[-2::]
-                    Aedge,Bedge=GiveEdgesDissymetric((xc1[0],yc1[0]),(N0x,N0y),(nxPSF/2,nyPSF/2),(nxPSF,nyPSF))
-                    x0d,x1d,y0d,y1d=Aedge
-                    x0p,x1p,y0p,y1p=Bedge
-                    ThisPSF=self.SubPSF[:,0,x0p:x1p,y0p:y1p]
-                    _,nxThisPSF,nyThisPSF=ThisPSF.shape
-
-                    #############
-                    ThisDirty=ThisPSF*F.reshape((-1,1,1))
-                    dirtyVecSub[:,x0d:x1d,y0d:y1d]=d[:,x0d:x1d,y0d:y1d]-ThisDirty
-                    dirtyVec=dirtyVecSub.reshape((-1,1))
-                    DoBreak=False
-
-                else:
-                    #print "NotContam %i"%iIter 
-                    #print "  xc1.size>0, MaxResid>Peak/100.: ",xc1.size>0, MaxResid>Peak/100.
-
-                    x,_=scipy.optimize.nnls(A, y.ravel())
-                    DoBreak=True
-
-                # ####### debug
-                # import pylab
-                # pylab.clf()
-                # pylab.subplot(2,3,1)
-                # pylab.imshow(OrigDirty[0],interpolation="nearest")
-                # pylab.title("Dirty")
-                # pylab.subplot(2,3,2)
-                # pylab.imshow(d[0],interpolation="nearest")
-                # pylab.title("Dirty iter=%i"%iIter)
-                # pylab.colorbar()
-                # pylab.subplot(2,3,3)
-                # pylab.imshow(ConvSM[0],interpolation="nearest")
-                # pylab.title("Model")
-                # pylab.colorbar()
-                # pylab.subplot(2,3,4)
-                # pylab.imshow((Resid)[0],interpolation="nearest")
-                # pylab.title("Residual")
-                # pylab.colorbar()
-                # pylab.subplot(2,3,5)
-                # pylab.imshow(dirtyVecSub[0],interpolation="nearest")
-                # pylab.title("NewDirty")
-                # pylab.colorbar()
-                # pylab.draw()
-                # pylab.show(False)
-                # pylab.pause(0.1)
-                # #####################
-
-                T.timeit("4")
-                if DoBreak: break
+            #     # Compute flux in each spacial scale
+            #     SumCoefScales=np.zeros((self.NScales,),np.float32)
+            #     for iScale in range(self.NScales):
+            #         indAlpha=self.IndexScales[iScale]
+            #         SumCoefScales[iScale]=np.sum(Sol[indAlpha])
+            #     #print "  SumCoefScales",SumCoefScales
 
 
-                # if indTh[0].size>0:
-                #     w[indTh]=0
-                #     m[indTh]=1
-                #     W=w.reshape((-1,1))
-                #     Mask=m.reshape((-1,1))
-                # else:
-                #     break
+            #     # If source is contaminating, substract it with the delta (with alpha=0)
+            #     T.timeit("3")
+            #     if xc1.size>0 and MaxResid>Peak/100.:
+            #         CentralPixel=(xc1[0]==xc0[0] and yc1[0]==yc0[0])
+            #         if CentralPixel: 
+            #             #print "CondCentralPix %i"%iIter 
+            #             break
+            #         F=Resid[:,xc1[0],yc1[0]]
+            #         dx,dy=nxp/2-xc1[0],nyp/2-yc1[0]
+            #         _,_,nxPSF,nyPSF=self.SubPSF.shape
+
+            #         #xc2,yc2=nxPSF/2+dx,nyPSF/2+dy
+            #         #ThisPSF=self.SubPSF[:,0,xc2-nxp/2:xc2+nxp/2+1,yc2-nyp/2:yc2+nyp/2+1]
+
+            #         N0x,N0y=d.shape[-2::]
+            #         Aedge,Bedge=GiveEdgesDissymetric((xc1[0],yc1[0]),(N0x,N0y),(nxPSF/2,nyPSF/2),(nxPSF,nyPSF))
+            #         x0d,x1d,y0d,y1d=Aedge
+            #         x0p,x1p,y0p,y1p=Bedge
+            #         ThisPSF=self.SubPSF[:,0,x0p:x1p,y0p:y1p]
+            #         _,nxThisPSF,nyThisPSF=ThisPSF.shape
+
+            #         #############
+            #         ThisDirty=ThisPSF*F.reshape((-1,1,1))
+            #         dirtyVecSub[:,x0d:x1d,y0d:y1d]=d[:,x0d:x1d,y0d:y1d]-ThisDirty
+            #         dirtyVec=dirtyVecSub.reshape((-1,1))
+            #         DoBreak=False
+
+            #     else:
+            #         #print "NotContam %i"%iIter 
+            #         #print "  xc1.size>0, MaxResid>Peak/100.: ",xc1.size>0, MaxResid>Peak/100.
+
+            #         x,_=scipy.optimize.nnls(A, y.ravel())
+            #         DoBreak=True
+
+            #     # ####### debug
+            #     # import pylab
+            #     # pylab.clf()
+            #     # pylab.subplot(2,3,1)
+            #     # pylab.imshow(OrigDirty[0],interpolation="nearest")
+            #     # pylab.title("Dirty")
+            #     # pylab.subplot(2,3,2)
+            #     # pylab.imshow(d[0],interpolation="nearest")
+            #     # pylab.title("Dirty iter=%i"%iIter)
+            #     # pylab.colorbar()
+            #     # pylab.subplot(2,3,3)
+            #     # pylab.imshow(ConvSM[0],interpolation="nearest")
+            #     # pylab.title("Model")
+            #     # pylab.colorbar()
+            #     # pylab.subplot(2,3,4)
+            #     # pylab.imshow((Resid)[0],interpolation="nearest")
+            #     # pylab.title("Residual")
+            #     # pylab.colorbar()
+            #     # pylab.subplot(2,3,5)
+            #     # pylab.imshow(dirtyVecSub[0],interpolation="nearest")
+            #     # pylab.title("NewDirty")
+            #     # pylab.colorbar()
+            #     # pylab.draw()
+            #     # pylab.show(False)
+            #     # pylab.pause(0.1)
+            #     # #####################
+
+            #     T.timeit("4")
+            #     if DoBreak: break
+
+
+            #     # if indTh[0].size>0:
+            #     #     w[indTh]=0
+            #     #     m[indTh]=1
+            #     #     W=w.reshape((-1,1))
+            #     #     Mask=m.reshape((-1,1))
+            #     # else:
+            #     #     break
 
         
 
@@ -1236,7 +1265,12 @@ class ClassMultiScaleMachine():
             #Sol.flat[:]/=self.SumFuncScales.flat[:]
             #print Sol
 
-            #if HasReverted: Sol*=-1
+            # Compute flux in each spacial scale
+            SumCoefScales=np.zeros((self.NScales,),np.float32)
+            for iScale in range(self.NScales):
+                indAlpha=self.IndexScales[iScale]
+                SumCoefScales[iScale]=np.sum(Sol[indAlpha])
+
             
             Mask=np.zeros((Sol.size,),np.float32)
             FuncScale=1.#self.giveSmallScaleBias()
@@ -1252,6 +1286,10 @@ class ClassMultiScaleMachine():
             Mask[self.IndexScales[ChosenScale]]=1
             Sol.flat[:]*=Mask.flat[:]
 
+            ########################################################
+            ########################################################
+            ########################################################
+
 
 
             SolReg = np.zeros_like(Sol)
@@ -1261,6 +1299,11 @@ class ClassMultiScaleMachine():
                 self._cubepsf_buf = np.empty_like(self.CubePSFScales)
                 self._localsm_buf = np.empty(self.CubePSFScales.shape[1:], self.CubePSFScales.dtype)
 
+
+            #Peak=np.mean(np.max(np.max(ConvSM,axis=-1),axis=-1))
+            Peak=np.sum(np.max(np.max(ConvSM,axis=-1),axis=-1)*WCHAN.ravel())
+
+            #if (np.sign(SolReg[0]) != np.sign(np.sum(Sol))) or (np.max(np.abs(Sol))<1e-6*np.abs(Peak)):
             if (np.sign(SolReg[0]) != np.sign(np.sum(Sol))) or (np.max(np.abs(Sol))==0):
                 Sol = SolReg
                 ## this causes memory thashing sometimes?
@@ -1273,6 +1316,7 @@ class ClassMultiScaleMachine():
                 #self._cubepsf_buf[:] = self.CubePSFScales
                 #self._cubepsf_buf *= Sol[:,np.newaxis,np.newaxis,np.newaxis]
                 #LocalSM = self._cubepsf_buf.sum(axis=0,out=self._localsm_buf)
+
             else:
                 coef = np.min([np.abs(Peak / MeanFluxTrue), 1.])
                 Sol = Sol * coef + SolReg * (1. - coef)
@@ -1301,8 +1345,10 @@ class ClassMultiScaleMachine():
                 #print "Sol1",Sol
                 LocalSM*=(MeanFluxTrue/Peak)
                 Sol*=(MeanFluxTrue/Peak)
-                #print coef,MeanFluxTrue,Peak,Sol
-            #print "Sol2",Sol
+            #     print "==========="
+            #     print coef,MeanFluxTrue,Peak,Sol
+            #     print Fpol,np.sum(Fpol.ravel()*WCHAN.ravel())
+            # #print "Sol2",Sol
 
 
             if self._dump:
@@ -1368,15 +1414,20 @@ class ClassMultiScaleMachine():
 
         nch,nx,ny = LocalSM.shape
         LocalSM = LocalSM.reshape((nch,1,nx,ny))
-#        LocalSM *= np.sqrt(JonesNorm)
-        numexpr.evaluate('LocalSM*sqrt(JonesNorm)',out=LocalSM)
+        LocalSM *= np.sqrt(JonesNorm)
+        #numexpr.evaluate('LocalSM*sqrt(JonesNorm)',out=LocalSM)
 
         # print self.AlphaVec,Sol
         # print "alpha",np.sum(self.AlphaVec.ravel()*Sol.ravel())/np.sum(Sol)
 
         FpolMean=1.
 
-        self.ModelMachine.AppendComponentToDictStacked((xc,yc),FpolMean,Sol)
+
+        factInvert=1.
+        if HasReverted:
+            factInvert=-1.
+        
+        self.ModelMachine.AppendComponentToDictStacked((xc,yc),FpolMean,Sol*factInvert)
 
         BM=DicoBasisMatrix["BM"]
         #print "MaxSM=",np.max(LocalSM)
@@ -1474,7 +1525,7 @@ class ClassMultiScaleMachine():
 
 #             # stop
 
-        return LocalSM
+        return LocalSM*factInvert
 
             
 

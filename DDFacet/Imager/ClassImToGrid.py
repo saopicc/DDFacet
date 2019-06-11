@@ -187,8 +187,14 @@ class ClassImToGrid():
 
                 ##print "!!!!!!!!!!!!!!!!!!!!!!"
                 if ApplyNorm:
+                    # #print NormIm.max()
+                    # #print np.count_nonzero(np.isnan(NormIm))
+                    # #print np.count_nonzero(np.isinf(NormIm))
+                    # print NormIm.min()
+                    # np.save("NormIm",NormIm)
+                    # stop
                     ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=NormIm[x0d:x1d,y0d:y1d].real
-
+                    
                 #ModelCutOrig_GNorm=NormIm[x0d:x1d,y0d:y1d].real.copy()
 
                 T.timeit("4")
