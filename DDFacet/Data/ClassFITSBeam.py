@@ -230,10 +230,10 @@ class ClassFITSBeam (object):
         l = r*numpy.cos(angle+parad)
         m = r*numpy.sin(angle+parad)  
 
-        # print>>log,"Beam evaluated for l,m"
-        print>>log,l
-        print>>log,m
-        print>>log,"time %f, position angle %f"%(t0, parad*180/math.pi)
+        # # print>>log,"Beam evaluated for l,m"
+        # print>>log,l
+        # print>>log,m
+        # print>>log,"time %f, position angle %f"%(t0, parad*180/math.pi)
 
         # get interpolated values. Output shape will be [ndir,nfreq]
         beamjones = [ self.vbs[corr].interpolate(l,m,freq=self.freqs,freqaxis=1) for corr in self.corrs ]
