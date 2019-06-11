@@ -530,6 +530,7 @@ class ClassJones():
 
         # G[:,:,:,:,0,0]=0.
         # G[:,:,:,:,1,1]=0.
+
         # G[:,0,:,:,0,0]=1.
         # G[:,0,:,:,1,1]=1.
 
@@ -538,7 +539,7 @@ class ClassJones():
         # G.fill(0)
         # G[:,:,:,:,0,0]=1
         # G[:,:,:,:,1,1]=1
-        # print>>log, "!!!!!!!!!!!!!!"
+        # print>>log, "SOLUTIONS RESET TO UNITY!!!!!!!!!!!!!!"
 
         if GlobalMode == "MeanAbsAnt":
             print>>log, "  Normalising by the mean of the amplitude (against time, freq)"
