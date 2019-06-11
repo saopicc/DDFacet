@@ -598,7 +598,26 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             self.DicoImager[iFacet]["lm_min"]=lmin,mmin
             
 
-
+        self.FacetDirCat = np.zeros((len(self.DicoImager),),
+                                    dtype=[('Name', '|S200'),
+                                           ('ra', np.float),
+                                           ('dec', np.float),
+                                           ('SumI', np.float),
+                                           ("Cluster", int),
+                                           ("l", np.float),
+                                           ("m", np.float),
+                                           ("I", np.float)])
+        self.FacetDirCat = self.FacetDirCat.view(np.recarray)
+        self.FacetDirCat.I = 1
+        self.FacetDirCat.SumI = 1
+        for iFacet in self.DicoImager.keys():
+            l,m=self.DicoImager[iFacet]["lmShift"]
+            ra,dec=self.DicoImager[iFacet]["RaDec"]
+            self.FacetDirCat.ra[iFacet]=ra
+            self.FacetDirCat.dec[iFacet]=dec
+            self.FacetDirCat.l[iFacet]=l
+            self.FacetDirCat.m[iFacet]=m
+            self.FacetDirCat.Cluster[iFacet] = iFacet
 
         print>> log, "Saving DicoImager in %s" % DicoName
         MyPickle.Save(self.DicoImager, DicoName)
