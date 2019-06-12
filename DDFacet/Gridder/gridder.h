@@ -235,6 +235,7 @@ namespace DDF {
 	    if (!dopsf)
 	      readcorr(visdata+doff, VisMeas);
 
+	    //cout<<JS.WeightVaryJJ<<endl;
 	    const double FWeight = imgWtPtr[0]*JS.WeightVaryJJ;
 	    const dcmplx Weight   = FWeight*corr;
 	    const double FWeightDecorr = FWeight*DeCorrFactor*DeCorrFactor;

@@ -242,7 +242,7 @@ namespace DDF {
 	  CurrentJones_kMS_Time=i_t;
 	  CurrentJones_kMS_Chan=i_JonesChan;
 	  SomeJonesHaveChanged=true;
-
+	  //std::cout<< "EstimateWeight"<<EstimateWeight <<std::endl;
 	  if (EstimateWeight){
 	    int i_t_p1=i_t+1;
 	    if (i_t==nt_Jones-1) i_t_p1=i_t;
@@ -264,7 +264,11 @@ namespace DDF {
 
 	    double abs_g0_3=abs(J0kMS[3]);
 	    double abs_g1_3=abs(J1kMS[3]);
-	    if ((abs_g0*abs_g1>2.) || (abs_g0_3*abs_g1_3>2.)) WeightVaryJJ=0.;
+	    //std::cout<< "aa"<<WeightVaryJJ <<std::endl;
+	    //cout<<"dd"<<endl;
+	    if ((abs_g0*abs_g1>2.) || (abs_g0_3*abs_g1_3>2.)) {
+	      //std::cout<<  "bb"<<WeightVaryJJ <<std::endl;
+	      WeightVaryJJ=0.;};
 	    }
 	  }
 	}

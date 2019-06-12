@@ -36,6 +36,7 @@ def read_options():
     group.add_option('--DoPrint',help='Deprecated',default="0")
     group.add_option('--CMethod',help='Clustering method [1,2,3,4] - look at the code for detail. Default is %default',default="4")
     group.add_option('--ds9PreClusterFile',help='For manual clustering. Do a ds9 .reg file with green circles (should be default) - and these will ne the nodes of the clustering',default="")
+    
     group.add_option('--FromClusterCat',help='To use an external .ClusterCat.npy file.',type=str,default="")
     group.add_option('--ApparantFlux',type="int",help='Cluster the sources optimising the apparant flux. Default is %default',default=1)
     opt.add_option_group(group)
