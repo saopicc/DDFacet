@@ -187,7 +187,7 @@ class ClassJones():
                     print>>log, "  Getting beam Jones directions from facets"
                     DicoImager = self.FacetMachine.DicoImager
                     NFacets = len(DicoImager)
-                    self.ClusterCatBeam = self.FacetMachine.FacetDirCat
+                    self.ClusterCatBeam = self.FacetMachine.JonesDirCat
                     DicoClusterDirs = {}
                     DicoClusterDirs["l"] = self.ClusterCatBeam.l
                     DicoClusterDirs["m"] = self.ClusterCatBeam.m
