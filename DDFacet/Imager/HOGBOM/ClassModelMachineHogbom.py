@@ -166,13 +166,14 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         if FreqIn is None:
            FreqIn=np.array([ref_freq], dtype=np.float32)
             
-        # Construct alpha map
-        IM = self.GiveModelImage(self.FreqMachine.Freqsp)
-        nchan, npol, Nx, Ny = IM.shape
-        # Fit the alpha map
-        self.FreqMachine.FitAlphaMap(IM[:, 0, :, :],
-                                     threshold=1.0e-6)  # should set threshold based on SNR of final residual
-        alpha = self.FreqMachine.weighted_alpha_map.reshape((1, 1, Nx, Ny))
+        # Construct alpha map (LB - this should work but untested)
+        alpha, _ = self.GiveSpectralIndexMap(GaussPars=self.PSFServer.DicoVariablePSF["FWHMBeam"])
+        # IM = self.GiveModelImage(self.FreqMachine.Freqsp)
+        # nchan, npol, Nx, Ny = IM.shape
+        # # Fit the alpha map
+        # self.FreqMachine.FitAlphaMap(IM[:, 0, :, :],
+        #                              threshold=1.0e-6)  # should set threshold based on SNR of final residual
+        # alpha = self.FreqMachine.weighted_alpha_map.reshape((1, 1, Nx, Ny))
 
         # Assumptions:
         # DicoSMStacked is a dictionary of "Solution" dictionaries
