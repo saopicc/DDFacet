@@ -19,6 +19,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
 import numpy as np
+import warnings
+warnings.simplefilter('ignore', np.RankWarning)
 from scipy.optimize import curve_fit, fmin_l_bfgs_b
 from DDFacet.Other import MyLogger
 log = MyLogger.getLogger("ClassScaleMachine")
@@ -74,9 +76,11 @@ class ClassFrequencyMachine(object):
         :return: 
         """
         if self.nchan==1: #hack to deal with a single channel
-            self.Fit = lambda vals: vals
+            self.Fit = lambda vals, a, b: vals
             self.Eval = lambda vals: vals # this will just be the value in that channel
-            self.Eval_Degrid = lambda vals, Freqs: np.tile(vals, Freqs.size) # Freqs unused - nothing to be done but use the same model through the entire passband
+            self.Eval_Degrid = lambda vals, Freqs: np.tile(vals, Freqs.size)
+            # Freqs unused here - nothing to be done but use the same model through
+            # the entire passband. LB - Give SPI of -0.7 maybe?
         else:
             if mode == "Poly":
                 self.Eval_Degrid = lambda coeffs, Freqs: self.EvalPoly(coeffs, Freqsp=Freqs)
@@ -216,8 +220,12 @@ class ClassFrequencyMachine(object):
         return ListBeamFactor, ListBeamFactorWeightSq, self.PSFServer.DicoMappingDesc['MeanJonesBand'][iFacet]
 
     def solve_ML(self, Iapp, A, W):
-        Dinv = A.T.dot(W[:, None] * A)
-        res = np.linalg.solve(Dinv, A.T.dot(W * Iapp))
+        if self.nchan >= self.order:
+            Dinv = A.T.dot(W[:, None] * A)
+            res = np.linalg.solve(Dinv, A.T.dot(W * Iapp))
+        else:
+            tmp = np.linalg.solve(A.dot(A.T), W * Iapp)
+            res = A.T.dot(W * tmp)
         return res
 
     def FitPoly(self, Vals, JonesNorm, WeightsChansImages):
@@ -258,7 +266,11 @@ class ClassFrequencyMachine(object):
         # get MFS weights
         # W = self.PSFServer.DicoVariablePSF['SumWeights'].squeeze().astype(np.float64)
         # Ig = Vals.astype(np.float64)
-        theta = self.solve_ML(Vals, self.SAX, WeightsChansImages)
+        try:
+            theta = self.solve_ML(Vals, self.SAX, WeightsChansImages)
+        except:
+            theta = np.polyfit(self.Freqs/self.ref_freq, Vals/np.sqrt(JonesNorm), w=np.sqrt(WeightsChansImages))[::-1]
+            print>>log, "ML fit failed. Using numpy to fit Iapp/sqrt(JonesNorm)."
         return theta
 
     def EvalPoly(self, coeffs, Freqsp=None):

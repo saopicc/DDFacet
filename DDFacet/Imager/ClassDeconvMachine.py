@@ -299,7 +299,7 @@ class ClassImagerDeconv():
         #     from DDFacet.Imager.ClassFacetMachine import ClassFacetMachine
         # else:
         #     from DDFacet.Imager.ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
-        from DDFacet.Imager.ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
+        # from DDFacet.Imager.ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
         if self.do_stokes_residue:
             self.StokesFacetMachine = ClassFacetMachine(self.VS,
                                                         self.GD,
