@@ -22,8 +22,7 @@ import unittest
 
 import DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage
 
-
-class TestDEEP2(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCompareFITSImage):
+class TestDEEP2Montblanc(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCompareFITSImage):
     @classmethod
     def defineImageList(cls):
         """ Method to define set of reference images to be tested.
