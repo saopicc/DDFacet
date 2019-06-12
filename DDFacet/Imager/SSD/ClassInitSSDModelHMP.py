@@ -118,8 +118,8 @@ class ClassInitSSDModelParallel():
             if not ListDoIsland or ListDoIsland[iIsland]:
                 subdict = DicoInitIndiv.addSubdict(iIsland)
                 self._initIsland_worker(subdict, iIsland, Island,
-                                 self.DicoVariablePSF, DicoDirty,
-                                 ParmDict, self.InitMachine.DeconvMachine.facetcache,1)
+                                        self.DicoVariablePSF, DicoDirty,
+                                        ParmDict, self.InitMachine.DeconvMachine.facetcache,1)
             pBAR.render(iIsland, len(ListIslands))
         else:
           for iIsland,Island in enumerate(ListIslands):
@@ -262,6 +262,7 @@ class ClassInitSSDModel():
         T.timeit("0")
         self.blc=(x0d,y0d)
         self.DeconvMachine.PSFServer.setBLC(self.blc)
+        #self.DeconvMachine.PSFServer.iFacet=118
         _,_,nx,ny=self.SubDirty.shape
         ArrayPixParms=np.array(ListPixParms)
         ArrayPixParms[:,0]-=x0d
@@ -291,6 +292,21 @@ class ClassInitSSDModel():
         Mask[x,y]=1
         self.SubMask=Mask
 
+
+        # PSF,MeanPSF=self.DeconvMachine.PSFServer.GivePSF()
+        # import pylab
+        # pylab.clf()
+        # ax=pylab.subplot(1,3,1)
+        # N=self.DicoSubDirty["MeanImage"].shape[-1]
+        # pylab.imshow(self.DicoSubDirty["MeanImage"][0,0],
+        #              interpolation="nearest",extent=(-N/2.,N/2.,-N/2.,N/2.),vmin=-0.1,vmax=1.)
+        # pylab.colorbar()
+        # pylab.subplot(1,3,2,sharex=ax,sharey=ax)
+        # N=MeanPSF.shape[-1]
+        # pylab.imshow(MeanPSF[0,0],interpolation="nearest",extent=(-N/2.,N/2.,-N/2.,N/2.),vmin=-0.1,vmax=1.)
+        # pylab.colorbar()
+        # pylab.draw()
+        # pylab.show()
 
         if self.SSDModelImage is not None:
             self.SubSSDModelImage=self.SSDModelImage[:,:,x0d:x1d,y0d:y1d].copy()
@@ -411,7 +427,7 @@ class ClassInitSSDModel():
         # pylab.draw()
         # pylab.show(False)
         # pylab.pause(0.1)
-
+        # stop
 
         x,y=self.ArrayPixParms.T
 

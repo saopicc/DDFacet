@@ -133,6 +133,10 @@ class ClassSM():
                 d=np.sqrt((self.SourceCat.ra-ExcludeCat.ra[j])**2+(self.SourceCat.dec-ExcludeCat.dec[j])**2)
                 self.SourceCat.Exclude[d<ExcludeCat.Radius[j]]=True
 
+        if FromClusterCat and (NCluster==0):
+            NCluster=np.load(FromClusterCat).shape[0]
+
+                
         if NCluster==0:
             self.SourceCat.Cluster=np.arange(self.SourceCat.shape[0])
         elif NCluster==1:
@@ -287,11 +291,13 @@ class ClassSM():
             xc,yc=self.radec2lm_scalar(SourceCatRef.ra,SourceCatRef.dec)
             lc=np.zeros((len(ClusterList),),dtype=np.float32)
             mc=np.zeros((len(ClusterList),),dtype=np.float32)
-            for iCluster in ClusterList:
-                indC=np.where(SourceCatRef.Cluster==iCluster)[0]
-                lc[iCluster]=np.sum(SourceCatRef.I[indC]*xc[indC])/np.sum(SourceCatRef.I[indC])
-                mc[iCluster]=np.sum(SourceCatRef.I[indC]*yc[indC])/np.sum(SourceCatRef.I[indC])
+            # for iCluster in ClusterList:
+            #     indC=np.where(SourceCatRef.Cluster==iCluster)[0]
+            #     lc[iCluster]=np.sum(SourceCatRef.I[indC]*xc[indC])/np.sum(SourceCatRef.I[indC])
+            #     mc[iCluster]=np.sum(SourceCatRef.I[indC]*yc[indC])/np.sum(SourceCatRef.I[indC])
+            lc,mc=xc,yc
             Ns=x.size
+            
             Nc=lc.size
             D=np.sqrt((x.reshape((Ns,1))-lc.reshape((1,Nc)))**2+(y.reshape((Ns,1))-mc.reshape((1,Nc)))**2)
             Cid=np.argmin(D,axis=1)
