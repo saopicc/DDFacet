@@ -526,10 +526,10 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 l_m_Diam[iFacet, 3]]["Polygon"]
             x0 = round(l_m_Diam[iFacet, 0] / self.CellSizeRad)
             y0 = round(l_m_Diam[iFacet, 1] / self.CellSizeRad)
-            if x0 % 2 == 0:
-                x0 += 1
-            if y0 % 2 == 0:
-                y0 += 1
+            # if x0 % 2 == 0:
+            #     x0 += 1
+            # if y0 % 2 == 0:
+            #     y0 += 1
             l0 = x0 * self.CellSizeRad
             m0 = y0 * self.CellSizeRad
             diam = round(
