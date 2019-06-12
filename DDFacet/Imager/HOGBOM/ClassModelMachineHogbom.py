@@ -100,7 +100,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def setModelShape(self, ModelShape):
         self.ModelShape = ModelShape
 
-    def AppendComponentToDictStacked(self, key, Fpol, Sols, pol_array_index=0):
+    def AppendComponentToDictStacked(self, key, Sols, pol_array_index=0):
         """
         Adds component to model dictionary (with key l,m location tupple). Each
         component may contain #basis_functions worth of solutions. Note that
@@ -129,14 +129,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 DicoComp[key]["SolsArray"] = np.zeros((Sols.size, npol), np.float32)
                 DicoComp[key]["SumWeights"] = np.zeros((npol), np.float32)
 
-        Weight = 1.
-        Gain = self.GainMachine.GiveGain()
+        SolNorm = Sols.ravel() * self.GD["Deconv"]["Gain"]
 
-        #tmp = Sols.ravel()
-        SolNorm = Sols.ravel() * Gain * np.mean(Fpol)
-
-        DicoComp[key]["SumWeights"][pol_array_index] += Weight
-        DicoComp[key]["SolsArray"][:, pol_array_index] += Weight * SolNorm
+        DicoComp[key]["SumWeights"][pol_array_index] += 1.0
+        DicoComp[key]["SolsArray"][:, pol_array_index] += SolNorm
 
     def GiveModelList(self, FreqIn=None, DoAbs=False, threshold=0.1):
         """
