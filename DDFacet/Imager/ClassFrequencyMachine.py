@@ -97,29 +97,29 @@ class ClassFrequencyMachine(object):
                     if not self.BeamEnable:
                         # Fits the integrated polynomial when Mode='Andre'
                         self.SAX = self.setDesMat(self.Freqs, order=self.order, mode='Mono')
-                    # else:
-                    #     self.freqs_full = []
-                    #     for iCh in xrange(self.nchan):
-                    #         self.freqs_full.append(self.PSFServer.DicoVariablePSF["freqs"][iCh])
-                    #     self.freqs_full = np.concatenate(self.freqs_full)
-                    #     self.nchan_full = np.size(self.freqs_full)
-                    #
-                    #     self.Xdes_full = self.setDesMat(self.freqs_full, order=self.order,
-                    #                                     mode="Mono")
-                    #     # build the S matrix
-                    #     ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
-                    #     ChanMappingFull = []
-                    #     for iMS in ChanMappingGrid.keys():
-                    #         ChanMappingFull.append(ChanMappingGrid[iMS])
-                    #     ChanMappingFull = np.concatenate(ChanMappingFull)
-                    #     self.S = np.zeros([self.nchan, self.nchan_full], dtype=np.float32)
-                    #     for iChannel in range(self.nchan):
-                    #         ind = np.argwhere(ChanMappingFull == iChannel).squeeze()
-                    #         nchunk = np.size(ind)
-                    #         if nchunk:
-                    #             self.S[iChannel, ind] = 1.0/nchunk
-                    #         else:
-                    #             self.S[iChannel, ind] = 0.0
+                    else:
+                        self.freqs_full = []
+                        for iCh in xrange(self.nchan):
+                            self.freqs_full.append(self.PSFServer.DicoVariablePSF["freqs"][iCh])
+                        self.freqs_full = np.concatenate(self.freqs_full)
+                        self.nchan_full = np.size(self.freqs_full)
+
+                        self.Xdes_full = self.setDesMat(self.freqs_full, order=self.order,
+                                                        mode="Mono")
+                        # build the S matrix
+                        ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
+                        ChanMappingFull = []
+                        for iMS in ChanMappingGrid.keys():
+                            ChanMappingFull.append(ChanMappingGrid[iMS])
+                        ChanMappingFull = np.concatenate(ChanMappingFull)
+                        self.S = np.zeros([self.nchan, self.nchan_full], dtype=np.float32)
+                        for iChannel in range(self.nchan):
+                            ind = np.argwhere(ChanMappingFull == iChannel).squeeze()
+                            nchunk = np.size(ind)
+                            if nchunk:
+                                self.S[iChannel, ind] = 1.0/nchunk
+                            else:
+                                self.S[iChannel, ind] = 0.0
 
                     self.Fit = self.FitPoly
                     self.Eval = self.EvalPolyApparent
@@ -256,7 +256,7 @@ class ClassFrequencyMachine(object):
             # # incorporate stitched JonesNorm
             # JonesFactor = np.sqrt(MeanJonesBand/JonesNorm)
             # # scale I0 by beam at ref_freq
-            # I0 = MaxDirty / BeamFactor[self.ref_freq_index]  # TODO - learn optimal I0 for prior from evidence
+            # # I0 = MaxDirty / BeamFactor[self.ref_freq_index]  # TODO - learn optimal I0 for prior from evidence
             # # next compute the product of the averaging matrix and beam matrix
             # # ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
             # # ChanMappingGridChan = self.PSFServer.DicoMappingDesc["ChanMappingGridChan"]
@@ -297,7 +297,7 @@ class ClassFrequencyMachine(object):
 
     # IMPORTANT!!!! If beam is enabled assumes self.SAX is set in previous call to FitPoly
     # TODO - more reliable way to do this, maybe store in dict keyed on components
-    def EvalPolyApparent(self, coeffs, Freqsp=None):
+    def EvalPolyApparent(self, coeffs):
         """
         Gives the apparent flux for coeffs given beam in this facet
         Args:
