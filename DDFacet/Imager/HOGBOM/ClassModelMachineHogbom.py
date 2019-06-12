@@ -80,6 +80,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         else:
             D = DicoIn
 
+        if self.GD is None:
+            print>>log, "Warning - You have not initialised self.GD in ModelMachine so " \
+                        "we can't write it to the DicoModel"
+
         D["GD"] = self.GD
         D["Type"] = "Hogbom"
         D["ListScales"] = "Delta"
