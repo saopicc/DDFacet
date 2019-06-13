@@ -42,6 +42,7 @@ class ClassModModelMachine():
         self.MORSANEMM = None
         self.MUFFINMM = None
         self.HOGBOMMM = None
+        self.WSCMSMM = None
 
     def GiveInitialisedMMFromFile(self,FileName):
         """
@@ -137,5 +138,13 @@ class ClassModModelMachine():
             else:
                 print>> log, "HOGBOM model machine already initialised"
             return self.HOGBOMMM
+        elif Mode == "WSCMS":
+            if self.WSCMSMM is None:
+                print>> log, "Initialising WSCMS model machine"
+                from DDFacet.Imager.WSCMS import ClassModelMachineWSCMS
+                self.WSCMSMM = ClassModelMachineWSCMS.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.get_instance())
+            else:
+                print>> log, "WSCMS model machine already initialised"
+            return self.WSCMSMM
         else:
             raise NotImplementedError("Unknown model type '%s'"%Mode)

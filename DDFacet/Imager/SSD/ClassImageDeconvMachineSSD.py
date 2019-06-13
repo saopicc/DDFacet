@@ -153,8 +153,11 @@ class ClassImageDeconvMachine():
         # store grid and degrid freqs for ease of passing to MSMF
         #print kwargs["GridFreqs"],kwargs["DegridFreqs"]
         self.GridFreqs=kwargs["GridFreqs"]
-        self.DegridFreqs=kwargs["DegridFreqs"]
-        self.ModelMachine.setFreqMachine(kwargs["GridFreqs"], kwargs["DegridFreqs"])
+        AllDegridFreqs = []
+        for i in kwargs["DegridFreqs"].keys():
+            AllDegridFreqs.append(kwargs["DegridFreqs"][i])
+        self.DegridFreqs = np.unique(np.asarray(AllDegridFreqs).flatten())
+        self.ModelMachine.setFreqMachine(kwargs["GridFreqs"], self.DegridFreqs)
 
 
     def AdaptArrayShape(self,A,Nout):
