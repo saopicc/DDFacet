@@ -155,10 +155,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         at the same position, but different fluxes, alphas etc.
 
         """
-        if DoAbs:
-            f_apply = np.abs
-        else:
-            f_apply = lambda x: x
             
         DicoComp = self.DicoSMStacked["Comp"]
         ref_freq = self.DicoSMStacked["RefFreq"]
@@ -181,8 +177,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             sa = component["SolsArray"]
             return [("Delta",                         # type
                      coord,                           # coordinate
-                     f_apply(self.FreqMachine.Eval_Degrid(sa,
-                                                          FreqIn)), # only a solution for I
+                     self.FreqMachine.Eval_Degrid(sa, FreqIn).flatten(), # only a solution for I
                      ref_freq,                        # reference frequency
                      np.nan,                          # supposed to be alpha estimate but not used anymore
                      None)]                           # shape
