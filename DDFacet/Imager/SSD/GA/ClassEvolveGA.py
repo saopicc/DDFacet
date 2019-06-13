@@ -4,6 +4,7 @@ from deap import tools
 import numpy
 from DDFacet.Imager.SSD.GA import algorithms
 import numpy as np
+import random
 
 from DDFacet.Imager.SSD import ClassArrayMethodSSD
 
@@ -23,8 +24,8 @@ class ClassEvolveGA():
                  ParallelFitness=False,
                  ListInitIslands=None):
         if GD["Misc"]["RandomSeed"] is not None:
-            random.seed(GD["Misc"]["RandomSeed"])
-            np.random.seed(GD["Misc"]["RandomSeed"])
+            random.seed(int(GD["Misc"]["RandomSeed"]))
+            np.random.seed(int(GD["Misc"]["RandomSeed"]))
             
         self.ListInitIslands=ListInitIslands
         _,_,NPixPSF,_ = PSF.shape

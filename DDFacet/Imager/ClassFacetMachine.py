@@ -284,7 +284,6 @@ class ClassFacetMachine():
             diam:
         """
         diam *= self.Oversize
-
         DicoConfigGM = None
         lmShift = (l0, m0)
         self.DicoImager[iFacet]["lmShift"] = lmShift
@@ -703,7 +702,7 @@ class ClassFacetMachine():
         #NB: this spatial weighting is a bit arbitrary.... 
         #it may be better to do something like Montage's background
         #normalization (http://montage.ipac.caltech.edu/docs/algorithms.html#background)
-        GaussPars = (10, 10, 0)
+        GaussPars = (self.GD["Facets"]["MixingWidth"], self.GD["Facets"]["MixingWidth"], 0)
 
         # compute spatial weight term
         sw = np.float32(mask.reshape((1, 1, Npix, Npix)))
