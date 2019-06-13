@@ -100,7 +100,7 @@ def requirements():
 
     requirements = [("nose >= 1.3.7", "nose >= 1.3.7"),
                     ("Cython >= 0.25.2", "Cython >= 0.25.2"),
-                    ("numpy > 1.16.2", "numpy >= 1.16.1"),
+                    ("numpy > 1.16.2", "numpy <= 1.17.0"),
                     ("SharedArray >= 2.0.2", "SharedArray >= 2.0.2"),
                     ("Polygon2 >= 2.0.8", "Polygon2 >= 2.0.8"),
                     ("pyFFTW >= 0.10.4", "pyFFTW >= 0.10.4"),

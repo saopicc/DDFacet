@@ -144,6 +144,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             lFacet = lFacet.flatten()
             mFacet = mFacet.flatten()
         print>> log, "  There are %i Jones-directions" % lFacet.size
+
+
         self.lmSols = lFacet.copy(), mFacet.copy()
 
         raSols, decSols = self.CoordMachine.lm2radec(
@@ -163,6 +165,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         # print>>log,"Facet Dec %s"%decSols
         NodesCat.l = lFacet
         NodesCat.m = mFacet
+
         ## saving below
         # NodeFile = "%s.NodesCat.%snpy" % (self.GD["Output"]["Name"], "psf." if self.DoPSF else "")
         # print>> log, "Saving Nodes catalog in %s" % NodeFile
@@ -178,9 +181,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         NFacets = self.NFacets = lFacet.size
         rac, decc = self.MainRaDec
         VM = ModVoronoiToReg.VoronoiToReg(rac, decc)
-        
+
         if NFacets > 2:
-            
+
             vor = Voronoi(xy, furthest_site=False)
             regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(
                 vor, radius=1.)
@@ -438,7 +441,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.JonesDirCat = self.JonesDirCat.view(np.recarray)
         self.JonesDirCat.I = 1
         self.JonesDirCat.SumI = 1
-        
+
         self.JonesDirCat.ra=NodesCat.ra
         self.JonesDirCat.dec=NodesCat.dec
         self.JonesDirCat.l=NodesCat.l
@@ -449,7 +452,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         print >>log, "   - Main field :   [%i x %i] pix" % (
             self.Npix, self.Npix)
 
-        
+
         l_m_Diam = np.zeros((NFacets, 4), np.float32)
         l_m_Diam[:, 3] = np.arange(NFacets)
 
@@ -511,10 +514,10 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 l_m_Diam[iFacet, 3]]["Polygon"]
             x0 = round(l_m_Diam[iFacet, 0] / self.CellSizeRad)
             y0 = round(l_m_Diam[iFacet, 1] / self.CellSizeRad)
-            if x0 % 2 == 0:
-                x0 += 1
-            if y0 % 2 == 0:
-                y0 += 1
+            # if x0 % 2 == 0:
+            #     x0 += 1
+            # if y0 % 2 == 0:
+            #     y0 += 1
             l0 = x0 * self.CellSizeRad
             m0 = y0 * self.CellSizeRad
             diam = round(

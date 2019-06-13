@@ -54,6 +54,8 @@ class ClassPSFServer():
         self.ShapePSF=nch,npol,NPixMin,NPixMin
         self.NPSF=NPixMin
 
+        self.ImageShape = self.DicoVariablePSF["ImageCube"].shape
+
         if NormalisePSF:
             if not quiet:
                 print>>log,"Using peak-normalised PSFs"

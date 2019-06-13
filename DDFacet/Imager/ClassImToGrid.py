@@ -171,7 +171,7 @@ class ClassImToGrid():
                 
                 if (ModelIm[ch,pol] == 0).all(): 
                     continue
-                
+                    
                 T.timeit("0")
 
                 M=ModelIm[ch,pol][dx:dx+N1NonPadded+1,dx:dx+N1NonPadded+1].copy()
@@ -212,7 +212,9 @@ class ClassImToGrid():
                 #SumFlux=np.sum(ModelIm)
 
                 if ApplyNorm:
-                    ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=Sphe[x0p:x1p,y0p:y1p].real
+                    ModelIm[ch, pol][x0p:x1p, y0p:y1p] /= Sphe[x0p:x1p, y0p:y1p].real
+                    # ModelIm[ch, pol][x0p:x1p, y0p:y1p] *= ModelCutOrig_SW / Sphe[x0p:x1p,
+                    #                                                         y0p:y1p].real  # LB - added *SW
 
                 #ModelCutOrig_Sphe=Sphe[x0p:x1p,y0p:y1p].real.copy()
 

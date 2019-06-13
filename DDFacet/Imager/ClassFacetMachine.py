@@ -22,41 +22,32 @@ import ClassDDEGridMachine
 import numpy as np
 import ClassCasaImage
 import pyfftw
-from DDFacet.Array import NpShared
+from DDFacet.Array import NpShared, NpParallel, shared_dict
 from DDFacet.Imager.ClassImToGrid import ClassImToGrid
-from DDFacet.Other import ClassTimeIt
-from DDFacet.Other import MyLogger
+from DDFacet.Other import ClassTimeIt, MyLogger, ModColor, Multiprocessing
 from DDFacet.Other.progressbar import ProgressBar
 import cPickle
 import atexit
 import traceback
 from matplotlib.path import Path
-import numpy.random
-from DDFacet.ToolsDir import ModCoord
-from DDFacet.Array import NpShared
-from DDFacet.Array import shared_dict
-from DDFacet.ToolsDir import ModFFTW
-from DDFacet.Other import ClassTimeIt
-from DDFacet.Other import Multiprocessing
-from DDFacet.Other import ModColor
+from DDFacet.ToolsDir import ModCoord, ModFFTW
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.Imager.ClassImToGrid import ClassImToGrid
-from DDFacet.cbuild.Gridder import _pyGridderSmearPols
 from DDFacet.Data.ClassStokes import ClassStokes
-#from DDFacet.Array import NpParallel
-from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassFacetMachine")
 from DDFacet.Other.AsyncProcessPool import APP
 import numexpr
 MyLogger.setSilent("MyLogger")
 from DDFacet.cbuild.Gridder import _pyGridderSmearPols
 from DDFacet.cbuild.Gridder import _pyGridderSmearPolsClassic
-from DDFacet.Other import ModColor
 MyLogger.setSilent("MyLogger")
 import cpuinfo
-from DDFacet.ToolsDir import ModFFTW
 import scipy.ndimage
+from scipy.spatial import Voronoi
+from SkyModel.Sky import ModVoronoi
+import Polygon
+from DDFacet.ToolsDir import rad2hmsdms
 
 class ClassFacetMachine():
     """
@@ -70,7 +61,6 @@ class ClassFacetMachine():
     def __init__(self,
                  VS,
                  GD,
-                 # ParsetFile="ParsetNew.txt",
                  Precision="S",
                  PolMode=["I"],
                  Sols=None,
@@ -254,8 +244,9 @@ class ClassFacetMachine():
         rac, decc = self.VS.ListMS[0].radec
         self.MainRaDec = (rac, decc)
         self.nch = self.VS.NFreqBands
-        self.NChanGrid = self.nch
-        self.SumWeights = np.zeros((self.NChanGrid, self.npol), float)
+        # LB - this is unnecessary and only used in FacetMachine, replacing occurrences
+        # self.NChanGrid = self.nch
+        self.SumWeights = np.zeros((self.nch, self.npol), float)
 
         self.CoordMachine = ModCoord.ClassCoordConv(rac, decc)
         # get the closest fast fft size:
@@ -284,7 +275,6 @@ class ClassFacetMachine():
             diam:
         """
         diam *= self.Oversize
-
         DicoConfigGM = None
         lmShift = (l0, m0)
         self.DicoImager[iFacet]["lmShift"] = lmShift
@@ -343,14 +333,15 @@ class ClassFacetMachine():
         self.DicoImager[iFacet]["RaDec"] = raFacet[0], decFacet[0]
         self.LraFacet.append(raFacet[0])
         self.LdecFacet.append(decFacet[0])
-        xc, yc = int(round(l0 / self.CellSizeRad + NpixOutIm / 2)), \
-            int(round(m0 / self.CellSizeRad + NpixOutIm / 2))
+        xc, yc = int(round(l0 / self.CellSizeRad + NpixOutIm // 2)), \
+            int(round(m0 / self.CellSizeRad + NpixOutIm // 2))
 
         self.DicoImager[iFacet]["pixCentral"] = xc, yc
-        self.DicoImager[iFacet]["pixExtent"] = round(xc - NpixFacet / 2), \
-            round(xc + NpixFacet / 2 + 1), \
-            round(yc - NpixFacet / 2), \
-            round(yc + NpixFacet / 2 + 1)
+        self.DicoImager[iFacet]["pixExtent"] = xc - NpixFacet // 2, xc + NpixFacet // 2 + 1, \
+                                               yc - NpixFacet // 2, yc + NpixFacet // 2 + 1
+
+
+        # print "                      center and extent", iFacet, self.DicoImager[iFacet]["pixCentral"], self.DicoImager[iFacet]["pixExtent"]
 
         self.DicoImager[iFacet]["NpixFacet"] = NpixFacet
         self.DicoImager[iFacet]["NpixFacetPadded"] = NpixPaddedGrid
@@ -371,66 +362,97 @@ class ClassFacetMachine():
         This can be overridden to perform more complex tesselations
         """
         Npix = self.GD["Image"]["NPix"]
-        NFacets = self.GD["Facets"]["NFacets"]
-        Padding = self.GD["Facets"]["Padding"]
-        self.Padding = Padding
-        NpixFacet, _ = EstimateNpix(float(Npix) / NFacets, Padding=1)
-        Npix = NpixFacet * NFacets
-        self.Npix = Npix
+        self.NFacets = self.GD["Facets"]["NFacets"]**2
+        self.Padding = self.GD["Facets"]["Padding"]
+        self.NpixFacet, _ = EstimateNpix(float(Npix) / self.GD["Facets"]["NFacets"], Padding=1)
+        self.Npix = self.NpixFacet * self.GD["Facets"]["NFacets"]
+        Npix = self.Npix  # Just in case we use Npix instead of self.Npix
         self.OutImShape = (self.nch, self.npol, self.Npix, self.Npix)
-        _, NpixPaddedGrid = EstimateNpix(NpixFacet, Padding=Padding)
+        _, self.NpixPaddedGrid = EstimateNpix(self.NpixFacet, Padding=self.Padding)
 
-        self.NpixPaddedFacet = NpixPaddedGrid
-        self.NpixFacet = NpixFacet
-        self.FacetShape = (self.nch, self.npol, NpixFacet, NpixFacet)
-        self.PaddedGridShape = (self.NChanGrid, self.npol,
-                                NpixPaddedGrid, NpixPaddedGrid)
+        self.NpixFacet = self.NpixFacet
+        self.FacetShape = (self.nch, self.npol, self.NpixFacet, self.NpixFacet)
+        self.PaddedGridShape = (self.nch, self.npol, self.NpixPaddedGrid, self.NpixPaddedGrid)
 
-        RadiusTot = self.CellSizeRad * self.Npix / 2
-        self.RadiusTot = RadiusTot
+        self.RadiusTot = self.CellSizeRad * self.Npix * 0.5
 
         lMainCenter, mMainCenter = 0., 0.
         self.lmMainCenter = lMainCenter, mMainCenter
         self.CornersImageTot = np.array(
-                                [[lMainCenter - RadiusTot, mMainCenter - RadiusTot],
-                                 [lMainCenter + RadiusTot, mMainCenter - RadiusTot],
-                                 [lMainCenter + RadiusTot, mMainCenter + RadiusTot],
-                                 [lMainCenter - RadiusTot, mMainCenter + RadiusTot]])
+                                [[lMainCenter - self.RadiusTot, mMainCenter - self.RadiusTot],
+                                 [lMainCenter + self.RadiusTot, mMainCenter - self.RadiusTot],
+                                 [lMainCenter + self.RadiusTot, mMainCenter + self.RadiusTot],
+                                 [lMainCenter - self.RadiusTot, mMainCenter + self.RadiusTot]])
 
-        print>> log, "Sizes (%i x %i facets):" % (NFacets, NFacets)
+        print>> log, "Sizes (%i x %i facets):" % (self.GD["Facets"]["NFacets"], self.GD["Facets"]["NFacets"])
         print>> log, "   - Main field :   [%i x %i] pix" % \
             (self.Npix, self.Npix)
         print>> log, "   - Each facet :   [%i x %i] pix" % \
-            (NpixFacet, NpixFacet)
+            (self.NpixFacet, self.NpixFacet)
         print>> log, "   - Padded-facet : [%i x %i] pix" % \
-            (NpixPaddedGrid, NpixPaddedGrid)
+            (self.NpixPaddedGrid, self.NpixPaddedGrid)
 
         ############################
 
-        self.NFacets = NFacets
-        lrad = Npix * self.CellSizeRad * 0.5
-        self.ImageExtent = [-lrad, lrad, -lrad, lrad]
+        # Set total extent of image
+        self.ImageExtent = [-self.RadiusTot, self.RadiusTot, -self.RadiusTot, self.RadiusTot]
 
-        lfacet = NpixFacet * self.CellSizeRad * 0.5
-        lcenter_max = lrad - lfacet
-        lFacet, mFacet, = np.mgrid[-lcenter_max:lcenter_max:(NFacets) * 1j,
-                                   -lcenter_max:lcenter_max:(NFacets) * 1j]
+        # Set facet centers (coords)
+        self.RadiusFacet = self.NpixFacet * self.CellSizeRad * 0.5
+        lcenter_max = self.RadiusTot - self.RadiusFacet
+        lFacet, mFacet, = np.mgrid[-lcenter_max:lcenter_max:self.GD["Facets"]["NFacets"] * 1j,
+                                   -lcenter_max:lcenter_max:self.GD["Facets"]["NFacets"] * 1j]
         lFacet = lFacet.flatten()
         mFacet = mFacet.flatten()
-        x0facet, y0facet = np.mgrid[0:Npix:NpixFacet, 0:Npix:NpixFacet]
-        x0facet = x0facet.flatten()
-        y0facet = y0facet.flatten()
 
-        # print "Append1"; self.IM.CI.E.clear()
+        self.lmSols = lFacet, mFacet
 
+        raSols, decSols = self.CoordMachine.lm2radec(lFacet.copy(), mFacet.copy())
+        self.radecSols = raSols, decSols
+
+        # set coordinates of facet vertices
         self.DicoImager = {}
-        for iFacet in xrange(lFacet.size):
-            self.DicoImager[iFacet] = {}
+        if self.NFacets == 1:
+            self.DicoImager[0] = {}
+            self.DicoImager[0]["Polygon"] = self.CornersImageTot
+        else:
+            tmparray = np.zeros([4, 2])  # temp array to hold coordinates
+            for iFacet in xrange(self.NFacets):
+                self.DicoImager[iFacet] = {}
 
-        # print "Append2"; self.IM.CI.E.clear()
+                # since we are using regular tesselation
+                tmparray[0, 0] = lFacet[iFacet] + self.RadiusFacet
+                tmparray[0, 1] = mFacet[iFacet] - self.RadiusFacet
+                tmparray[1, 0] = lFacet[iFacet] - self.RadiusFacet
+                tmparray[1, 1] = mFacet[iFacet] - self.RadiusFacet
+                tmparray[2, 0] = lFacet[iFacet] - self.RadiusFacet
+                tmparray[2, 1] = mFacet[iFacet] + self.RadiusFacet
+                tmparray[3, 0] = lFacet[iFacet] + self.RadiusFacet
+                tmparray[3, 1] = mFacet[iFacet] + self.RadiusFacet
 
+                self.DicoImager[iFacet]["Polygon"] = tmparray.copy()
+
+        # get index of central facet (not necessarily NFacets//2)
+        distances = lFacet ** 2 + mFacet **2
+        self.iCentralFacet = np.argwhere(distances==distances.min()).squeeze()
+
+        NodesCat = np.zeros(
+            (raSols.size,),
+            dtype=[('ra', np.float),
+                   ('dec', np.float),
+                   ('l', np.float),
+                   ('m', np.float)])
+        NodesCat = NodesCat.view(np.recarray)
+        NodesCat.ra = raSols
+        NodesCat.dec = decSols
+        # print>>log,"Facet RA %s"%raSols
+        # print>>log,"Facet Dec %s"%decSols
+        NodesCat.l = lFacet
+        NodesCat.m = mFacet
+
+        NJonesDir = NodesCat.shape[0]
         self.JonesDirCat = np.zeros(
-            (lFacet.size,),
+            (NodesCat.shape[0],),
             dtype=[('Name', '|S200'),
                    ('ra', np.float),
                    ('dec', np.float),
@@ -439,23 +461,37 @@ class ClassFacetMachine():
                    ("l", np.float),
                    ("m", np.float),
                    ("I", np.float)])
-
         self.JonesDirCat = self.JonesDirCat.view(np.recarray)
         self.JonesDirCat.I = 1
         self.JonesDirCat.SumI = 1
 
+        self.JonesDirCat.ra=NodesCat.ra
+        self.JonesDirCat.dec=NodesCat.dec
+        self.JonesDirCat.l=NodesCat.l
+        self.JonesDirCat.m=NodesCat.m
+        self.JonesDirCat.Cluster = range(NJonesDir)
+
+        print>> log, "Sizes (%i facets):" % (self.JonesDirCat.shape[0])
+        print >>log, "   - Main field :   [%i x %i] pix" % (
+            self.Npix, self.Npix)
+
         for iFacet in xrange(lFacet.size):
-            l0 = x0facet[iFacet] * self.CellSizeRad
-            m0 = y0facet[iFacet] * self.CellSizeRad
             l0 = lFacet[iFacet]
             m0 = mFacet[iFacet]
+            self.AppendFacet(iFacet, l0, m0, self.NpixFacet * self.CellSizeRad)
 
-            # print x0facet[iFacet],y0facet[iFacet],l0,m0
-            self.AppendFacet(iFacet, l0, m0, NpixFacet * self.CellSizeRad)
-
-
-        
-        #self.iCentralFacet = self.DicoImager[lFacet.size / 2]
+        # Write facet coords to file
+        FacetCoordFile = "%s.facetCoord.%stxt" % (self.GD["Output"]["Name"], "psf." if self.DoPSF else "")
+        print>> log, "Writing facet coordinates in %s" % FacetCoordFile
+        f = open(FacetCoordFile, 'w')
+        ss = "# (Name, Type, Ra, Dec, I, Q, U, V, ReferenceFrequency='7.38000e+07', SpectralIndex='[]', MajorAxis, MinorAxis, Orientation) = format"
+        for iFacet in xrange(len(self.DicoImager)):
+            ra, dec = self.DicoImager[iFacet]["RaDec"]
+            sra = rad2hmsdms.rad2hmsdms(ra, Type="ra").replace(" ", ":")
+            sdec = rad2hmsdms.rad2hmsdms(dec).replace(" ", ".")
+            ss = "%s, %s, %f, %f" % (sra, sdec, ra, dec)
+            f.write(ss + '\n')
+        f.close()
 
         self.SetLogModeSubModules("Silent")
         self.MakeREG()
@@ -703,7 +739,7 @@ class ClassFacetMachine():
         #NB: this spatial weighting is a bit arbitrary.... 
         #it may be better to do something like Montage's background
         #normalization (http://montage.ipac.caltech.edu/docs/algorithms.html#background)
-        GaussPars = (10, 10, 0)
+        GaussPars = (self.GD["Facets"]["MixingWidth"], self.GD["Facets"]["MixingWidth"], 0)
 
         # compute spatial weight term
         sw = np.float32(mask.reshape((1, 1, Npix, Npix)))
@@ -1247,7 +1283,6 @@ class ClassFacetMachine():
             xc, yc = self.DicoImager[iFacet]["pixCentral"]
             NpixFacet = self.DicoGridMachine[iFacet]["Dirty"][0].shape[2]
 
-
             Aedge, Bedge = GiveEdges((xc, yc), NPixOut,
                                      (NpixFacet/2, NpixFacet/2), NpixFacet)
             x0main, x1main, y0main, y1main = Aedge
@@ -1366,10 +1401,10 @@ class ClassFacetMachine():
         else:
             # randomly select blocks with 1/sparsification probability
             num_blocks = DATA["BDA.Grid"][0]
-            DATA["Sparsification.Grid"] = numpy.random.sample(num_blocks) < 1.0 / factor
+            DATA["Sparsification.Grid"] = np.random.sample(num_blocks) < 1.0 / factor
             print>> log, "applying sparsification factor of %f to %d BDA grid blocks, left with %d" % (factor, num_blocks, DATA["Sparsification.Grid"].sum())
             #num_blocks = DATA["BDADegrid"][0]
-            #DATA["Sparsification.Degrid"] = numpy.random.sample(num_blocks) < 1.0 / factor
+            #DATA["Sparsification.Degrid"] = np.random.sample(num_blocks) < 1.0 / factor
             #print>> log, "applying sparsification factor of %f to %d BDA degrid blocks, left with %d" % (factor, num_blocks, DATA["Sparsification.Degrid"].sum())
 
     def _grid_worker(self, iFacet, DATA, cf_dict, griddict):

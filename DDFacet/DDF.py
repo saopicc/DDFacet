@@ -184,6 +184,7 @@ def main(OP=None, messages=[]):
 
     # initialize random seed from config if set, or else from system time
     if DicoConfig["Misc"]["RandomSeed"] is not None:
+        DicoConfig["Misc"]["RandomSeed"]=int(DicoConfig["Misc"]["RandomSeed"])
         print>>log, "random seed=%d (explicit)" % DicoConfig["Misc"]["RandomSeed"]
     else:
         DicoConfig["Misc"]["RandomSeed"] = int(time.time())
