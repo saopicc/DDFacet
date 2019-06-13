@@ -214,7 +214,7 @@ class ClassFITSBeam (object):
         # compute PA 
         parad = dm.posangle(self.field_centre,self.zenith).get_value("rad")
         import math
-        print>>log,"time %f, position angle %f"%(t0, parad*180/math.pi)
+        # print>>log,"time %f, position angle %f"%(t0, parad*180/math.pi)
 
         # compute l,m per direction
         ndir = len(ra)

@@ -18,37 +18,25 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
-from DDFacet.Imager import ClassFacetMachine
-from DDFacet.Other.progressbar import ProgressBar
-import multiprocessing
 import numpy as np
-from DDFacet.Array import NpShared
 from DDFacet.Imager import ClassFacetMachine
 from DDFacet.Other import MyPickle
-from DDFacet.ToolsDir import ModFFTW
 from scipy.spatial import Voronoi, ConvexHull
-from SkyModel.Sky import ModVoronoi
-from DDFacet.Other import reformat
-from DDFacet.Array import NpShared
-from DDFacet.ToolsDir import ModFFTW
 from scipy.spatial import Voronoi
 from SkyModel.Sky import ModVoronoi
 from DDFacet.Other import reformat
 import os
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
-from DDFacet.Other import ModColor
 import tables
 
-from DDFacet.Imager.ClassImToGrid import ClassImToGrid
 from matplotlib.path import Path
 from SkyModel.Sky import ModVoronoiToReg
 import Polygon
 from DDFacet.ToolsDir import rad2hmsdms
-from DDFacet.Other.ClassTimeIt import ClassTimeIt
 from DDFacet.Other import MyLogger
 log = MyLogger.getLogger("ClassFacetMachineTessel")
 MyLogger.setSilent("MyLogger")
-#from DDFacet.cbuild.Gridder import _pyGridderSmearPols as _pyGridderSmear
+
 
 class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
     """
