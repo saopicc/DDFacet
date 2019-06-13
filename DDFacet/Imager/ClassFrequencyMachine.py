@@ -86,8 +86,11 @@ class ClassFrequencyMachine(object):
                 self.Eval_Degrid = lambda coeffs, Freqs: self.EvalPoly(coeffs, Freqsp=Freqs)
                 if self.GD['Output']["Mode"] != 'Predict':  # None of this is needed in Predict mode
                     # set order
-                    self.order = self.GD["WSCMS"]["NumFreqBasisFuncs"]
-
+                    if self.GD["Deconv"]["Mode"] == 'Hogbom':
+                        self.order = self.GD["Hogbom"]["PolyFitOrder"]
+                    elif self.GD["Deconv"]["Mode"] == 'WSCMS':
+                        self.order = self.GD["WSCMS"]["NumFreqBasisFuncs"]
+                    print>> log, "Using %i order polynomial for frequency fit" % self.order
                     # construct design matrix at gridding channel resolution
                     self.Xdes = self.setDesMat(self.Freqs, order=self.order, mode="Mono")
                     self.Xdesp = self.setDesMat(self.Freqsp, order=self.order, mode="Mono")
@@ -220,12 +223,8 @@ class ClassFrequencyMachine(object):
         return ListBeamFactor, ListBeamFactorWeightSq, self.PSFServer.DicoMappingDesc['MeanJonesBand'][iFacet]
 
     def solve_ML(self, Iapp, A, W):
-        if self.nchan >= self.order:
-            Dinv = A.T.dot(W[:, None] * A)
-            res = np.linalg.solve(Dinv, A.T.dot(W * Iapp))
-        else:
-            tmp = np.linalg.solve(A.dot(A.T), W * Iapp)
-            res = A.T.dot(W * tmp)
+        Dinv = A.T.dot(W[:, None] * A)
+        res = np.linalg.solve(Dinv, A.T.dot(W * Iapp))
         return res
 
     def FitPoly(self, Vals, JonesNorm, WeightsChansImages):
@@ -269,8 +268,9 @@ class ClassFrequencyMachine(object):
         try:
             theta = self.solve_ML(Vals, self.SAX, WeightsChansImages)
         except:
-            theta = np.polyfit(self.Freqs/self.ref_freq, Vals/np.sqrt(JonesNorm), w=np.sqrt(WeightsChansImages))[::-1]
-            print>>log, "ML fit failed. Using numpy to fit Iapp/sqrt(JonesNorm)."
+            theta = np.polyfit(self.Freqs/self.ref_freq, Vals/np.sqrt(JonesNorm), self.order-1,
+                               w=np.sqrt(WeightsChansImages))[::-1]
+            # print>>log, "ML fit failed. Using numpy to fit Iapp/sqrt(JonesNorm)."
         return theta
 
     def EvalPoly(self, coeffs, Freqsp=None):
