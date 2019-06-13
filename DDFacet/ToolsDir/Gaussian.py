@@ -28,7 +28,38 @@ def Gaussian1D(extend,n,sig):
     return x,z
 
 
+def GaussianSymmetric(sig, npix, x0=None, y0=None, amp=np.array([1.0]), cube=False):
+    """
+    Evaluates symmetric normalised 2D Gaussian centered at (x0, y0)
+    :param sig: std deviation of Gaussian in signal space
+    :param npix: number of pixels along axis
+    :param x0: x coordinate relative to centre
+    :param y0: y coordinate relative to centre
+    :param amp: amplitude (at delta scale) of Gaussian component (if amp.size > 1 cube must be True)
+    :param cube: whether to evaluate a cube (i.e. return result of shape [nchan, npol, nx, ny]) or not
+    :return: 
+    """
+    if cube:
+        amp = amp[:, None, None, None]
 
+    if cube:
+        I = [None, None, slice(0, npix), slice(0, npix)]
+        # if np.size(amp)>1:
+        #     I = [slice(0, amp.size), None, slice(0, npix), slice(0, npix)]
+        # else:
+        #     I = [None, None, slice(0, npix), slice(0, npix)]
+    else:
+        I = slice(None)
+    n = npix // 2
+    x, y = np.mgrid[-n:n:1.0j * npix, -n:n:1.0j * npix]
+    if x0 is None and y0 is None:
+        return amp * np.exp(-(x ** 2 + y ** 2) / (2 * sig ** 2))[I] / (2 * np.pi * sig ** 2)
+    else:
+        # in case one is None and the other not convert the None to a zero
+        x0 = x0 or 0
+        y0 = y0 or 0
+        rsq = (x - x0) ** 2 + (y - y0) ** 2
+        return amp * np.exp(-rsq / (2 * sig ** 2))[I] / (2 * np.pi * sig ** 2)
 
 def Gaussian(extend,n,sig):
     xx=extend

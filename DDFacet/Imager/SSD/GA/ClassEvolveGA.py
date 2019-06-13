@@ -22,6 +22,10 @@ class ClassEvolveGA():
                  WeightFreqBands=None,PixVariance=1e-2,iFacet=0,iIsland=None,island_dict=None,
                  ParallelFitness=False,
                  ListInitIslands=None):
+        if GD["Misc"]["RandomSeed"] is not None:
+            random.seed(GD["Misc"]["RandomSeed"])
+            np.random.seed(GD["Misc"]["RandomSeed"])
+            
         self.ListInitIslands=ListInitIslands
         _,_,NPixPSF,_ = PSF.shape
         if ListPixData is None:
@@ -67,7 +71,9 @@ class ClassEvolveGA():
 
         Obj=self.ArrayMethodsMachine.PM.GiveInitList(toolbox)
 
-        toolbox.register("individual", tools.initCycle, creator.Individual,
+        toolbox.register("individual",
+                         tools.initCycle,
+                         creator.Individual,
                          Obj, n=1)
 
         toolbox.register("population", tools.initRepeat, list, toolbox.individual)
@@ -97,6 +103,7 @@ class ClassEvolveGA():
         #random.seed(64)
         #np.random.seed(64)
         toolbox=self.toolbox
+        
         # pool = multiprocessing.Pool(processes=6)
         # toolbox.register("map", pool.map)
         self.pop = toolbox.population(n=NIndiv)

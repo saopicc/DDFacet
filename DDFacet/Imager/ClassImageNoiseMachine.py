@@ -93,6 +93,7 @@ class ClassImageNoiseMachine():
             self.MinorCycleConfig = MinorCycleConfig
             from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
 
+
             self.DeconvMachine = ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.MainCache,
                                                                                      ParallelMode=True,
                                                                                      CacheFileName="HMP_Masking",
@@ -100,6 +101,12 @@ class ClassImageNoiseMachine():
         elif self.GD["Deconv"]["Mode"] == "Hogbom":
             from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
             self.DeconvMachine = ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(MainCache=self.MainCache,
+                                                                                       ParallelMode=True,
+                                                                                       CacheFileName="HMP_Masking",
+                                                                                       **self.MinorCycleConfig)
+        elif self.GD["Deconv"]["Mode"] == "WSCMS":
+            from DDFacet.Imager.WSCMS import ClassImageDeconvMachineWSCMS
+            self.DeconvMachine = ClassImageDeconvMachineWSCMS.ClassImageDeconvMachine(MainCache=self.MainCache,
                                                                                        ParallelMode=True,
                                                                                        CacheFileName="HMP_Masking",
                                                                                        **self.MinorCycleConfig)

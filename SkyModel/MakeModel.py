@@ -5,7 +5,7 @@ import pickle
 import numpy as np
 from SkyModel.Other import MyLogger
 log=MyLogger.getLogger("MakeModel")
-from Sky import ClassSM
+from SkyModel.Sky import ClassSM
 try:
     from DDFacet.Imager.ModModelMachine import GiveModelMachine
 except:

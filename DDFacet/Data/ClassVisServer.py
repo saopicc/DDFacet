@@ -670,17 +670,20 @@ class ClassVisServer():
         self._weight_dict = shared_dict.create("VisWeights")
         # check for wmax in cache
         cache_keys = dict([(section, self.GD[section]) for section
-              in ("Data", "Selection", "Freq", "Image", "Weight")])
+              in ("Data", "Selection", "Freq", "Image", "Weight", "DDESolutions")])
         wmax_path, wmax_valid = self.maincache.checkCache("wmax", cache_keys)
+        uvmax_path, uvmax_valid = self.maincache.checkCache("uvmax", cache_keys)
         if wmax_valid:
             self._weight_dict["wmax"] = cPickle.load(open(wmax_path))
+        if uvmax_valid:
+            self._weight_dict["uvmax"] = cPickle.load(open(uvmax_path))
         # check cache first
         have_all_weights = wmax_valid
         for iMS, MS in enumerate(self.ListMS):
             msweights = self._weight_dict.addSubdict(iMS)
             for ichunk, (row0, row1) in enumerate(MS.getChunkRow0Row1()):
                 msw = msweights.addSubdict(ichunk)
-                path, valid = MS.getChunkCache(row0, row1).checkCache("ImagingWeights.npy", cache_keys)
+                path, valid = MS.getChunkCache(row0, row1).checkCache("ImagingWeights.npy", cache_keys, reset=(self.GD["Cache"]["Weight"]=="reset"))
                 have_all_weights = have_all_weights and valid
                 msw["cachepath"] = path
                 if valid:
@@ -717,6 +720,10 @@ class ClassVisServer():
         cPickle.dump(wmax,open(wmax_path, "w"))
         self.maincache.saveCache("wmax")
         self._weight_dict["wmax"] = wmax
+        # LB - Need to cache this to set scales in ScaleMachine
+        cPickle.dump(self._uvmax, open(uvmax_path, "w"))
+        self.maincache.saveCache("uvmax")
+        self._weight_dict["uvmax"] = self._uvmax
         if self._ignore_vis_weights:
             return
         if not self._uvmax:

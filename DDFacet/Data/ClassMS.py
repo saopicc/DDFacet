@@ -1263,15 +1263,17 @@ class ClassMS():
 
     def __str__(self):
         ll=[]
+        rarad,decrad=self.OriginalRadec
         ll.append(ModColor.Str(" MS PROPERTIES: "))
         ll.append("   - File Name: %s" % ModColor.Str(self.MSName, col="green"))
         ll.append("   - Column Name: %s" % ModColor.Str(str(self.ColName), col="green"))
         ll.append("   - Selection: %s, channels: %s" % (ModColor.Str(str(self.TaQL), col="green"), self.ChanSlice))
-        ll.append("   - Phase centre (field %d): (ra, dec)=(%s, %s) "%(self.Field, rad2hmsdms(self.rarad,Type="ra").replace(" ",":")\
-                                                                       ,rad2hmsdms(self.decrad,Type="dec").replace(" ",".")))
+        ll.append("   - Phase centre (field %d): (ra, dec)=(%s, %s) "%(self.Field, rad2hmsdms(rarad,Type="ra").replace(" ",":")\
+                                                                       ,rad2hmsdms(decrad,Type="dec").replace(" ",".")))
         ll.append("   - Frequency = %s MHz"%str(np.mean(self.ChanFreq)/1e6))
         ll.append("   - Wavelength = %5.2f meters"%(np.mean(self.wavelength_chan)))
         Freqs=3.e8/self.wavelength_chan.ravel()/1e6
+        ll.append("   - Channel frequencies = %s MHz"%(str((self.ChanFreq/1e6).tolist())))
         ll.append("   - Bandwidth = %5.2f MHz"%(np.max(Freqs)-np.min(Freqs)))
         ll.append("   - Time bin = %4.1f seconds"%(self.dt))
         ll.append("   - Total Integration time = %6.2f hours"%self.DTh)
@@ -1663,6 +1665,10 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
     elif MSName.endswith(".txt"):
         MSName0 = MSName
         MSName = [ l.strip() for l in open(MSName).readlines() ]
+        print>> log, "list file %s contains %d MSs" % (MSName0, len(MSName))
+    elif MSName.endswith(".pickle"):
+        MSName0 = MSName
+        MSName = MyPickle.Load(MSName)
         print>> log, "list file %s contains %d MSs" % (MSName0, len(MSName))
     else:
         MSName = [MSName]

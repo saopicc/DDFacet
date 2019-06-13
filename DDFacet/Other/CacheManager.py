@@ -242,6 +242,9 @@ class CacheManager (object):
                     os.mkdir(cachepath)
                 else:
                     os.unlink(cachepath)
+            else:
+                if directory:
+                    os.mkdir(cachepath)
 
         # store hash
         self.hashes[name] = hashpath, hash, reset

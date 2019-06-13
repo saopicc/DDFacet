@@ -23,17 +23,18 @@ import DeapAlgo as algorithms
 from deap import base
 from deap import creator
 from deap import tools
-import pylab
 from scipy.spatial import Voronoi
 import ModVoronoi
 from DDFacet.Other import MyLogger
+from DDFacet.Other import MyPickle
 log=MyLogger.getLogger("ClusterDEAP")
 from DDFacet.Other import ClassTimeIt
 #from scoop import futures
 import multiprocessing
 import scipy.stats
-import Polygon
+#import Polygon
 import ClassMetricDEAP
+import DDFacet.ToolsDir.GeneDist
 
 def test():
     Np=1000
@@ -97,7 +98,6 @@ def giveFitness(Indiv,x=None,y=None,S=None,Polygons=None,PolyCut=None,BigPolygon
     CMD=ClassMetricDEAP.ClassMetricDEAP(Indiv,x=x,y=y,S=S,Polygons=Polygons,PolyCut=PolyCut,BigPolygon=BigPolygon)
     fluxPerFacet=CMD.fluxPerFacet()
     NPerFacet=CMD.NPerFacet()
-    aspectRatioPerFacet=CMD.aspectRatioPerFacet()
     meanDistancePerFacet=CMD.meanDistancePerFacet()
     overlapPerFacet=CMD.overlapPerFacet()
 
@@ -105,8 +105,11 @@ def giveFitness(Indiv,x=None,y=None,S=None,Polygons=None,PolyCut=None,BigPolygon
     Fitness+= -np.std(fluxPerFacet)
     Fitness+= -np.std(NPerFacet)
     Fitness+= -1e5*np.count_nonzero(NPerFacet==0)
-    A=aspectRatioPerFacet
-    Fitness+= -np.mean(A[A>0])
+
+    # aspectRatioPerFacet=CMD.aspectRatioPerFacet()
+    # A=aspectRatioPerFacet
+    # Fitness+= -np.mean(A[A>0])
+
     Fitness+= -np.mean(meanDistancePerFacet)*10
     Fitness+= -np.sum(overlapPerFacet)*1e5
     
@@ -171,6 +174,38 @@ class ClassCluster():
             y[:]=np.random.uniform(y0,y1,self.nNode)
             #x.fill(0)
             #y.fill(0)
+
+        # I0=pop[0]
+        # for Indiv in pop[1::]:
+        #     x,y=Indiv.reshape((2,self.nNode))
+        #     x0,y0=I0.reshape((2,self.nNode))
+        #     x[:]=x0
+        #     y[:]=y0
+            
+    def reinitPop2(self,pop):
+        print>>log,"Initialise population"
+        x0,x1=self.x.min(),self.x.max()
+        y0,y1=self.y.min(),self.y.max()
+        N=len(pop)
+        # p=np.load("pop.npy")
+        # for i,ii in enumerate(p): pop[i][:]=ii[:]
+        # return 
+
+        pop0=pop[0:N/2]
+        pop1=pop[N/2:]
+        for iIndiv,Indiv in enumerate(pop0):
+            #print iIndiv,len(pop0)
+            x,y=Indiv.reshape((2,self.nNode))
+            indSel=DDFacet.ToolsDir.GeneDist.GiveNonRedundantSample(self.S,self.nNode)
+            x[:]=self.x[indSel]
+            y[:]=self.y[indSel]
+        for iIndiv,Indiv in enumerate(pop1):
+            #print iIndiv,len(pop1)
+            x,y=Indiv.reshape((2,self.nNode))
+            x[:]=np.random.uniform(x0,x1,self.nNode)
+            y[:]=np.random.uniform(y0,y1,self.nNode)
+
+        MyPickle.Save(pop,"pop.myPickle")
             
     def Cluster(self):
         random.seed(64)
@@ -180,7 +215,9 @@ class ClassCluster():
                          PolyCut=self.PolyCut, BigPolygon=self.BigPolygon)
 
         pop = toolbox.population(n=self.NPop)
-        self.reinitPop(pop)
+
+
+        self.reinitPop2(pop)
 
         # Numpy equality function (operators.eq) between two arrays returns the
         # equality element wise, which raises an exception in the if similar()
@@ -213,6 +250,7 @@ class ClassCluster():
                                             Polygons=self.Polygons,
                                             PolyCut=self.PolyCut)
         LPolygon=CMD.ListPolygons
+        #print LPolygon
         return hof[-1],LPolygon
 
 class ClassPlotMachine():
@@ -224,6 +262,7 @@ class ClassPlotMachine():
         self.PolyCut=PolyCut
 
     def Plot(self,hof):
+        import pylab
         indiv=hof[-1]
         N=indiv.size/2
         xc,yc=indiv.reshape((2,N))
@@ -274,18 +313,18 @@ class ClassPlotMachine():
         pylab.clf()
         pylab.subplot(2,2,1)
         pylab.hist(fluxPerFacet,bins=100)
-
+        pylab.xlabel("Flux /facet")
         pylab.subplot(2,2,2)
         pylab.hist(aspectRatioPerFacet,bins=100)
+        pylab.xlabel("Facet aspect ratio")
 
         pylab.subplot(2,2,3)
         pylab.hist(NPerFacet,bins=100)
+        pylab.xlabel("Number src/facet")
 
         pylab.subplot(2,2,4)
         pylab.hist(meanDistancePerFacet,bins=100)
-
-
-
+        pylab.xlabel("Mean distance /facet")
             
         pylab.pause(0.1)
         pylab.draw()

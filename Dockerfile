@@ -227,6 +227,11 @@ WORKDIR /
 ENV PYTHONPATH /usr/lib/python2.7/site-packages:$PYTHONPATH
 RUN python -c "import lofar.stationresponse as lsr"
 
+RUN apt-get update
+RUN apt-get install -y gfortran
+RUN pip install bdsf
+RUN python -c "import bdsf"
+
 #####################################################################
 ## BUILD DDF FROM SOURCE
 #####################################################################
@@ -247,7 +252,7 @@ RUN pip install -r /src/DDFacet/requirements.txt --user
 RUN cd /src/DDFacet/ && git submodule update --init --recursive && cd /
 # Finally install DDFacet
 RUN rm -rf /src/DDFacet/DDFacet/cbuild
-RUN pip install -I --user --no-binary :all: /src/DDFacet/
+RUN pip install -I --user /src/DDFacet/
 # Set MeqTrees Cattery path to installation directory
 ENV MEQTREES_CATTERY_PATH /usr/local/lib/python2.7/dist-packages/Cattery/
 ENV PYTHONPATH $MEQTREES_CATTERY_PATH:$PYTHONPATH
@@ -258,6 +263,11 @@ ENV PATH /root/.local/bin:$PATH
 ENV LD_LIBRARY_PATH /root/.local/lib:$LD_LIBRARY_PATH
 ENV PYTHONPATH /root/.local/lib/python2.7/site-packages:$PYTHONPATH
 RUN DDF.py --help
+RUN MakeMask.py --help
+RUN MakeCatalog.py --help
+RUN MakeModel.py --help
+RUN MaskDicoModel.py --help
+RUN ClusterCat.py --help
 
 # set as entrypoint - user should be able to run docker run ddftag and get help printed
 ENTRYPOINT ["DDF.py"]

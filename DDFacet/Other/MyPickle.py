@@ -20,15 +20,18 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import os
 import cPickle
+import pickle
 
 def Save(Obj,fileout):
     #print "  Saving in %s ... "%fileout,
     cPickle.dump(Obj, file(fileout,'w'), 2)
+    #pickle.dump(Obj, file(fileout,'w'))
     #print "  done"
 
 def Load(filein):
     #print "  Loading from %s"%filein
     G= cPickle.load( open( filein, "rb" ) )
+    #G=pickle.load( open( filein, "rb" ) )
     return G
 
 

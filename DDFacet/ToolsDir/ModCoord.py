@@ -29,14 +29,14 @@ class ClassCoordConv():
         self.decrad=decrad
         cos=np.cos
         sin=np.sin
-        mrot=np.matrix([[cos(rarad)*cos(decrad), sin(rarad)*cos(decrad),sin(decrad)],[-sin(rarad),cos(rarad),0.],[-cos(rarad)*sin(decrad),-sin(rarad)*sin(decrad),cos(decrad)]]).T
-        vm=np.matrix([[0.,0.,1.]]).T
-        vl=np.matrix([[0.,1., 0.]]).T
-        vn=np.matrix([[1., 0, 0.]]).T
-        self.vl2=mrot*vl
-        self.vm2=mrot*vm
-        self.vn2=mrot*vn
-        self.R=np.matrix([[cos(decrad)*cos(rarad),cos(decrad)*sin(rarad),sin(decrad)]]).T
+        mrot=np.array([[cos(rarad)*cos(decrad), sin(rarad)*cos(decrad),sin(decrad)],[-sin(rarad),cos(rarad),0.],[-cos(rarad)*sin(decrad),-sin(rarad)*sin(decrad),cos(decrad)]]).T
+        vm=np.array([[0.,0.,1.]]).T
+        vl=np.array([[0.,1., 0.]]).T
+        vn=np.array([[1., 0, 0.]]).T
+        self.vl2=np.dot(mrot,vl)
+        self.vm2=np.dot(mrot,vm)
+        self.vn2=np.dot(mrot,vn)
+        self.R=np.array([[cos(decrad)*cos(rarad),cos(decrad)*sin(rarad),sin(decrad)]]).T
         
 
     def lm2radec(self,l_list,m_list):

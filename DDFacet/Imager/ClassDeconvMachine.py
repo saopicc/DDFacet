@@ -95,6 +95,7 @@ class ClassImagerDeconv():
 
         if GD is not None:
             self.GD=GD
+
         # INIT: gain machine singleton once and for always
         self.GainMachine = ClassGainMachine.ClassGainMachine(GainMin=self.GD["Deconv"]["Gain"])
 
@@ -215,7 +216,7 @@ class ClassImagerDeconv():
 
 
         self.ImageNoiseMachine=ClassImageNoiseMachine.ClassImageNoiseMachine(self.GD,self.ModelMachine,
-                                                                        DegridFreqs=self.VS.FreqBandChannelsDegrid[0],
+                                                                        DegridFreqs=self.VS.FreqBandChannelsDegrid,
                                                                         GridFreqs=self.VS.FreqBandCenters,
                                                                         MainCache=self.VS.maincache)
         self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
@@ -257,6 +258,13 @@ class ClassImagerDeconv():
                 from DDFacet.Imager.MUFFIN import ClassImageDeconvMachineMUFFIN
                 self.DeconvMachine=ClassImageDeconvMachineMUFFIN.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
                 print>>log,"Using MUFFIN algorithm"
+            elif self.GD["Deconv"]["Mode"]=="WSCMS":
+                if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
+                    raise NotImplementedError("Multi-polarization is not supported in WSCMS")
+                from DDFacet.Imager.WSCMS import ClassImageDeconvMachineWSCMS
+                self.DeconvMachine = ClassImageDeconvMachineWSCMS.ClassImageDeconvMachine(MainCache=self.VS.maincache,
+                                                                                          **MinorCycleConfig)
+                print>> log, "Using WSCMS algorithm"
             else:
                 raise NotImplementedError("Unknown --Deconvolution-Mode setting '%s'" % self.GD["Deconv"]["Mode"])
             self.DeconvMachine.setMaskMachine(self.MaskMachine)
@@ -267,7 +275,8 @@ class ClassImagerDeconv():
         if self.DoSmoothBeam:
             AverageBeamMachine=ClassBeamMean.ClassBeamMean(self.VS)
             self.FacetMachine.setAverageBeamMachine(AverageBeamMachine)
-            self.StokesFacetMachine and self.StokesFacetMachine.setAverageBeamMachine(AverageBeamMachine)
+            if self.StokesFacetMachine:
+                self.StokesFacetMachine.setAverageBeamMachine(AverageBeamMachine)
         # tell VisServer to not load weights
         if self.do_predict_only:
             self.VS.IgnoreWeights()
@@ -285,6 +294,12 @@ class ClassImagerDeconv():
         """Creates FacetMachines for data and/or PSF"""
         self.StokesFacetMachine = self.FacetMachine = self.FacetMachinePSF = None
         MainFacetOptions = self.GiveMainFacetOptions()
+        # LB - This was to test pixCentral. Center facet is off by one.
+        # if self.GD["DDESolutions"]["DDSols"] is None or self.GD["DDESolutions"]["DDSols"] == "":
+        #     from DDFacet.Imager.ClassFacetMachine import ClassFacetMachine
+        # else:
+        #     from DDFacet.Imager.ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
+        # from DDFacet.Imager.ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
         if self.do_stokes_residue:
             self.StokesFacetMachine = ClassFacetMachine(self.VS,
                                                         self.GD,
@@ -748,7 +763,13 @@ class ClassImagerDeconv():
                                           Fits=True)
 
         if self.DicoDirty["JonesNorm"] is not None:
-            DirtyCorr = self.DicoDirty["ImageCube"]/np.sqrt(self.DicoDirty["JonesNorm"])
+            NormImage=self.DicoDirty["JonesNorm"]
+
+            if self.DoSmoothBeam and self.FacetMachine.SmoothJonesNorm is not None:
+                NormImage=self.FacetMachine.SmoothJonesNorm
+
+            DirtyCorr = self.DicoDirty["ImageCube"]/np.sqrt(NormImage)
+
             nch,npol,nx,ny = DirtyCorr.shape
             if "D" in self._saveims:
                 MeanCorr = np.mean(DirtyCorr, axis=0).reshape((1, npol, nx, ny))
@@ -961,7 +982,13 @@ class ClassImagerDeconv():
                     ModelImage[InSquare]=0
                 elif SquareMaskMode=="Outside":
                     ModelImage[np.logical_not(InSquare)]=0
-                #ModelImage = self.FacetMachine.setModelImage(ModelImage)
+                ModelImage = self.FacetMachine.setModelImage(ModelImage)
+                self.FacetMachine.ToCasaImage(ModelImage,
+                                              ImageName="%s.cutsq.model"%(self.BaseName),
+                                              Fits=True,
+                                              Freqs=model_freqs,
+                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+
 
             ## OMS 16/04/17: @cyriltasse this code looks all wrong and was giving me errors. ChanMappingDegrid has size equal to the
             ## number of channels. I guess this is meant for the case where we predict from a FixedModelImage
@@ -1053,10 +1080,27 @@ class ClassImagerDeconv():
             raise RuntimeError("Unsupported: Polarization cleaning is not"\
                                " supported. Maybe you meant Output-StokesResidues"\
                                " instead?")
+
+        # This just keeps track of padded grid size for use in Hogbom-MultiScale (Can just use DicoImager instead? Is it passed in anywhere?)
+        if self.GD["Deconv"]["Mode"] == "WSCMS" or self.GD["Deconv"]["Mode"] == "Hogbom":
+            self.DicoImagesPSF["PaddedPSFInfo"] = {}
+            self.DicoImagesPSF["FacetExtentImage"] = {}
+            self.DicoImagesPSF["FacetCenter"] = {}
+            self.DicoImagesPSF["FacetExtentPSF"] = {}
+            # self.DicoImagesPSF["CFs"]["SW"] = {}
+            # self.DicoImagesPSF["CFs"]["InvSphe"] = {}
+            for iFacet in self.FacetMachinePSF.DicoImager.keys():
+                self.DicoImagesPSF["PaddedPSFInfo"][iFacet] = self.FacetMachinePSF.DicoImager[iFacet]["NpixFacetPadded"]
+                self.DicoImagesPSF["FacetExtentImage"][iFacet] = self.FacetMachine.DicoImager[iFacet]["pixExtent"]
+                self.DicoImagesPSF["FacetCenter"][iFacet] = self.FacetMachine.DicoImager[iFacet]["pixCentral"]
+                self.DicoImagesPSF["FacetExtentPSF"][iFacet] = self.FacetMachinePSF.DicoImager[iFacet]["pixExtent"]
+                # self.DicoImagesPSF["CFs"]["SW"][iFacet] = self.FacetMachinePSF._CF[iFacet]["SW"].copy()
+                # self.DicoImagesPSF["CFs"]["InvSphe"][iFacet] = self.FacetMachinePSF._CF[iFacet]["InvSphe"].copy()
+
         
         #Initialize pointing solutions (per MS)
         self._init_pointing_sols()
-        
+
         # if we reached a sparsification of 1, we shan't be re-making the PSF
         if not sparsify:
             self.FacetMachinePSF.releaseGrids()
@@ -1109,8 +1153,8 @@ class ClassImagerDeconv():
                 # Pass minor cycle specific options into Init as kwargs
                 self.DeconvMachine.Init(PSFVar=self.DicoImagesPSF, PSFAve=self.PSFSidelobesAvg,
                                         approx=(sparsify > approximate_psf_above), cache=False if sparsify else None,
-                                        GridFreqs=self.VS.FreqBandCenters, DegridFreqs=self.VS.FreqBandChannelsDegrid[0],
-                                        RefFreq=self.VS.RefFreq)
+                                        GridFreqs=self.VS.FreqBandCenters, DegridFreqs=self.VS.FreqBandChannelsDegrid,
+                                        RefFreq=self.VS.RefFreq, MaxBaseline=self.VS.VisWeights['uvmax'])
                 deconvmachine_init = True
 
             # To make the package more robust against memory leaks, we restart the worker processes every now and then.
@@ -1983,83 +2027,26 @@ class ClassImagerDeconv():
                                                  CellSizeRad=self.CellSizeRad, GaussPars=self.PSFGaussPars)
                 T.timeit(label)
             return _images[label]
-        def posintmod():
-            label = 'posintmod'
-            if label not in _images:
-                _images.addSharedArray(label, intmodel().shape, np.float32)
-                _images[label] = ModelMachine.FreqMachine.Iref.reshape(intmodel().shape)
-            return _images[label]
         def give_final_RMS():
             try:
                 return _final_RMS["RMS"]
             except:
                 _final_RMS["RMS"] = np.std(intres().ravel())
                 return _final_RMS["RMS"]
-        def weighted_alphamap():
-            label = 'weighted_alphamap'
-            if label not in _images:
-                _images.addSharedArray(label, intmodel().shape, np.float32)
-                # compute the RMS of the final residual
-                RMS = give_final_RMS()
-                # get the RMS threshold
-                RMSthreshold = self.GD["Output"]["alphathreshold"]
-                _images[label] = ModelMachine.GiveSpectralIndexMap(threshold=RMS*RMSthreshold)
-                _images['posintmod'] = ModelMachine.FreqMachine.Iref.reshape(intmodel().shape)
-            return _images[label]
         def alphamap():
-            label = 'alphamap'
-            if label not in _images:
-                _images.addSharedArray(label, intmodel().shape, np.float32)
-                
-                # ##############################
-                # # Reverting for issue458
-                #_images[label] = ModelMachine.FreqMachine.alpha_map.reshape(intmodel().shape)
-                _images[label] = ModelMachine.GiveSpectralIndexMap()
-                # ##############################
+            if 'alphamap' not in _images:
+                _images.addSharedArray('alphamap', intmodel().shape, np.float32)
 
-            return _images[label]
-        def alphaconvmap():
-            label = 'alphaconvmap'
-            if label not in _images:
-                # Get weighted alpha map
-                a = _images.addSharedArray('alphaconvmap', weighted_alphamap().shape, np.float32)
-                # Convolve with Gaussian
-                ModFFTW.ConvolveGaussian(shareddict={"in": weighted_alphamap(),
-                                                     "out": a},
-                                         field_in = "in",
-                                         field_out = "out",
-                                         ch = 0,
-                                         CellSizeRad=self.CellSizeRad,
-                                         GaussPars_ch=self.PSFGaussParsAvg)
+            if self.GD["Deconv"]["Mode"] == "WSCMS" or self.GD["Deconv"]["Mode"] == "Hogbom":
+                if "alphastdmap" not in _images:
+                    _images.addSharedArray("alphastdmap", intmodel().shape, np.float32)
+                # LB - using apprescube since intrescube is nonsense
+                _images['alphamap'], _images["alphastdmap"] = ModelMachine.GiveSpectralIndexMap(GaussPars=self.FWHMBeamAvg, ResidCube=apprescube())
+                return _images['alphamap'], _images["alphastdmap"]
+            else:
+                _images['alphamap'] = ModelMachine.GiveSpectralIndexMap()
 
-                # Get positive part of restored image
-                b = _images.addSharedArray('posconvmod', alphamap().shape, np.float32)
-                ModFFTW.ConvolveGaussian(shareddict={"in": alphamap(),
-                                                     "out": b},
-                                         field_in = "in",
-                                         field_out = "out",
-                                         ch = 0,
-                                         CellSizeRad=self.CellSizeRad,
-                                         GaussPars_ch=self.PSFGaussParsAvg)
-
-                c = intconvmodel()
-                # Get mask based on restored image and positive restored image
-                RMS = give_final_RMS()
-                RMSmaskfact = self.GD["Output"]["alphamaskthreshold"]
-                I1 = c[0, 0, :, :] > RMSmaskfact*RMS
-                I2 = b[0, 0, :, :] > RMSmaskfact*RMS
-                IC = I1 & I2
-                I = np.argwhere(IC)
-                #print I.size
-                ix = I[:,0]
-                iy = I[:,1]
-                d = np.zeros_like(a)
-                d[0, 0, ix, iy] = a[0, 0, ix, iy]/b[0, 0, ix, iy]
-                #print a.min(), a.max()
-                _images.addSharedArray(label, alphamap().shape, np.float32)
-                _images[label] = d
-                T.timeit(label)
-            return _images[label]
+                return _images['alphamap'], None
 
         # norm
         if havenorm and ("S" in self._saveims or "s" in self._saveims):
@@ -2155,17 +2142,14 @@ class ClassImagerDeconv():
 
         # Alpha image
         if "A" in self._saveims and self.VS.MultiFreqMode:
-            # ##############################
-            # # Reverting for issue458
-            # _images['alphaconvmap'] = alphaconvmap()
-            # APP.runJob("save:alphaconv", self._saveImage_worker, io=0, args=(_images.readwrite(), 'alphaconvmap',), kwargs=dict(
-            #     ImageName="%s.alphaconv" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
-            #     Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
-            # ##############################
-            _images['alphamap'] = alphamap()
+            a, b = alphamap()
             APP.runJob("save:alpha", self._saveImage_worker, io=0, args=(_images.readwrite(), 'alphamap',), kwargs=dict(
                 ImageName="%s.alpha" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
                 Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+            if self.GD["Deconv"]["Mode"] == "WSCMS" or self.GD["Deconv"]["Mode"] == "Hogbom":
+                APP.runJob("save:alphastd", self._saveImage_worker, io=0, args=(_images.readwrite(), 'alphastdmap',), kwargs=dict(
+                    ImageName="%s.alphastd" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
+                    Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
         #  done saving images -- schedule a job to delete them all from the dict to save RAM
         APP.runJob("del:images", self._delSharedImage_worker, io=0, args=[_images.readwrite()] + list(_images.keys()))
@@ -2239,9 +2223,9 @@ class ClassImagerDeconv():
                     ImageName="%s.cube.app.restored" % self.BaseName, Fits=True, delete=True,
                     beam=self.FWHMBeamAvg, beamcube=self.FWHMBeam, Freqs=self.VS.FreqBandCenters,
                     Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
-            
-        #  can delete this one now
-        APP.runJob("del:appcubes", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "appconvmodelcube", "apprescube"])
+
+        #  can delete this one now (LB - no we can't, we need apprescube to form up the intrescube)
+        # APP.runJob("del:appcubes", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "appconvmodelcube", "apprescube"])
         # intrinsic-flux residual cube
         if havenorm and "R" in self._savecubes:
             intrescube()
@@ -2250,6 +2234,8 @@ class ClassImagerDeconv():
                                    Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         #  can delete this one now
         APP.runJob("del:sqrtnormcube", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "sqrtnormcube"])
+        APP.runJob("del:appcubes", self._delSharedImage_worker, io=0,
+                   args=[_images.readwrite(), "appconvmodelcube", "apprescube"])
 
         APP.awaitJobResults(["save:*", "del:*"])
 

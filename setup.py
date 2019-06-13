@@ -31,7 +31,7 @@ import sys
 
 pkg='DDFacet'
 skymodel_pkg='SkyModel'
-__version__ = "0.4.0.0"
+__version__ = "0.4.1.0"
 build_root=os.path.dirname(__file__)
 
 preinstall_dependencies = ["'pybind11 >= 2.2.2'", "'six >= 1.12.0'"]
@@ -87,7 +87,8 @@ class custom_sdist(sdist):
 def define_scripts():
     #these must be relative to setup.py according to setuputils
     DDF_scripts = [os.path.join(pkg, script_name) for script_name in ['DDF.py', 'CleanSHM.py', 'MemMonitor.py', 'Restore.py', 'SelfCal.py']]
-    SkyModel_scripts = [os.path.join(skymodel_pkg, script_name) for script_name in ['ClusterCat.py', 'dsm.py', 'dsreg.py', 'ExtractPSources.py', 'Gaussify.py', 'MakeCatalog.py', 'MakeMask.py', 'MakeModel.py', 'MaskDicoModel.py', 'MyCasapy2bbs.py']]
+    SkyModel_scripts = [os.path.join(skymodel_pkg, script_name) for script_name in ['ClusterCat.py', 'dsm.py', 'dsreg.py', 'ExtractPSources.py', 
+        'Gaussify.py', 'MakeCatalog.py', 'MakeMask.py', 'MakeModel.py', 'MaskDicoModel.py', 'MyCasapy2bbs.py', 'MaskDicoModel.py']]
     return DDF_scripts + SkyModel_scripts
 
 def readme():
@@ -99,7 +100,7 @@ def requirements():
 
     requirements = [("nose >= 1.3.7", "nose >= 1.3.7"),
                     ("Cython >= 0.25.2", "Cython >= 0.25.2"),
-                    ("numpy > 1.16.2", "numpy <= 1.16.1"),
+                    ("numpy > 1.16.2", "numpy <= 1.17.0"),
                     ("SharedArray >= 2.0.2", "SharedArray >= 2.0.2"),
                     ("Polygon2 >= 2.0.8", "Polygon2 >= 2.0.8"),
                     ("pyFFTW >= 0.10.4", "pyFFTW >= 0.10.4"),
@@ -125,12 +126,8 @@ def requirements():
     try:
         import six
     except ImportError, e:
-        subprocess.check_call(["cd .. && pip install %s" %
-                           (" ".join(preinstall_dependencies)), ""], shell=True)
-        try:
-            import six
-        except ImportError, e:
-            raise ImportError("Six autoinstall failed. Please install Python 2.x compatibility package six before running DDFacet install")
+        raise ImportError("Six not installed. Please install Python 2.x compatibility package six before running DDFacet install. "
+                          "You should not see this message unless you are not running pip install -- run pip install!")
 
     py3_requirements, py2_requirements = zip(*requirements)
     install_requirements = py2_requirements if six.PY2 else py3_requirements

@@ -51,7 +51,11 @@ def voronoi_finite_polygons_2d(vor, radius=None):
             new_regions.append(vertices)
             continue
 
+
         # reconstruct a non-finite region
+        if p1 not in all_ridges.keys():
+            new_regions.append(vertices)
+            continue
         ridges = all_ridges[p1]
         new_region = [v for v in vertices if v >= 0]
         
