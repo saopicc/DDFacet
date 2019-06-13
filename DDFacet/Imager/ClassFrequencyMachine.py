@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 import warnings
 warnings.simplefilter('ignore', np.RankWarning)
@@ -66,7 +72,7 @@ class ClassFrequencyMachine(object):
         if PSFServer is not None:
             self.PSFServer = PSFServer
         else:
-            print>>log, "No PSFServer provided, unable to use new freq fit mode"
+            print("No PSFServer provided, unable to use new freq fit mode", file=log)
 
     def set_Method(self, mode="Poly"):
         """
@@ -90,7 +96,7 @@ class ClassFrequencyMachine(object):
                         self.order = self.GD["Hogbom"]["PolyFitOrder"]
                     elif self.GD["Deconv"]["Mode"] == 'WSCMS':
                         self.order = self.GD["WSCMS"]["NumFreqBasisFuncs"]
-                    print>> log, "Using %i order polynomial for frequency fit" % self.order
+                    print("Using %i order polynomial for frequency fit" % self.order, file=log)
                     # construct design matrix at gridding channel resolution
                     self.Xdes = self.setDesMat(self.Freqs, order=self.order, mode="Mono")
                     self.Xdesp = self.setDesMat(self.Freqsp, order=self.order, mode="Mono")
@@ -102,7 +108,7 @@ class ClassFrequencyMachine(object):
                         self.SAX = self.setDesMat(self.Freqs, order=self.order, mode='Mono')
                     else:
                         self.freqs_full = []
-                        for iCh in xrange(self.nchan):
+                        for iCh in range(self.nchan):
                             self.freqs_full.append(self.PSFServer.DicoVariablePSF["freqs"][iCh])
                         self.freqs_full = np.concatenate(self.freqs_full)
                         self.nchan_full = np.size(self.freqs_full)
@@ -148,7 +154,7 @@ class ClassFrequencyMachine(object):
         varalpha = np.zeros([ncomps])
         I0 = 1.0
         alpha0 = -0.7
-        for i in xrange(ncomps):
+        for i in range(ncomps):
             popt, pcov = curve_fit(spi_func, nu/nu0, FitCube[:, i], p0=np.array([I0, alpha0]))
             Iref[i] = popt[0]
             varIref[i] = pcov[0,0]
@@ -189,7 +195,7 @@ class ClassFrequencyMachine(object):
         #     whigh = (Freqs + delta_freq/2.0)/self.ref_freq
         #     wdiff = whigh - wlow
         #     Xdesign = np.zeros([Freqs.size, self.order])
-        #     for i in xrange(1, self.order+1):
+        #     for i in range(1, self.order+1):
         #         Xdesign[:, i-1] = (whigh**i - wlow**i)/(i*wdiff)
         else:
             raise NotImplementedError("Frequency basis %s not supported" % mode)
@@ -270,7 +276,7 @@ class ClassFrequencyMachine(object):
         except:
             theta = np.polyfit(self.Freqs/self.ref_freq, Vals/np.sqrt(JonesNorm), self.order-1,
                                w=np.sqrt(WeightsChansImages))[::-1]
-            # print>>log, "ML fit failed. Using numpy to fit Iapp/sqrt(JonesNorm)."
+            # print("ML fit failed. Using numpy to fit Iapp/sqrt(JonesNorm).", file=log)
         return theta
 
     def EvalPoly(self, coeffs, Freqsp=None):

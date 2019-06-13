@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 import numexpr
 from DDFacet.Other import MyLogger
@@ -151,18 +157,18 @@ class ClassScaleMachine(object):
         # initialise Scale dependent masks (everything masked initially)
         if self.GD["WSCMS"]["AutoMask"]:
             self.AppendMaskComponents = True  # set to false once masking kicks in
-            for iScale in xrange(self.Nscales):
+            for iScale in range(self.Nscales):
                 self.ScaleMaskArray[str(iScale)] = np.ones((1, 1, self.Npix, self.Npix), dtype=np.bool)
         else:
             self.AppendMaskComponents = False
 
         # Initialise gains for central facet (logs scale info)
-        for i in xrange(self.Nscales):
+        for i in range(self.Nscales):
             self.set_gains(self.CentralFacetID, i)
             key = 'S' + str(i) + 'F' + str(self.CentralFacetID)
-            print>> log, " - Scale %i, bias factor=%f, psfpeak=%f, gain=%f, kernel peak=%f" % \
+            print(" - Scale %i, bias factor=%f, psfpeak=%f, gain=%f, kernel peak=%f" % \
                                (self.alphas[i], self.bias[i], self.ConvPSFmeanMax,
-                                self.gains[key], self.kernels[i].max())
+                                self.gains[key], self.kernels[i].max()), file=log)
 
     def set_coordinates(self):
         # get pixel coordinates for unpadded image
@@ -239,7 +245,7 @@ class ClassScaleMachine(object):
     # TODO - Set max scale with minimum baseline or facet size?
     def set_scales(self):
         if self.GD["WSCMS"]["Scales"] is None:
-            print>>log, "Setting scales automatically from theoretical minimum beam size"
+            print("Setting scales automatically from theoretical minimum beam size", file=log)
             min_beam = 1.0/self.MaxBaseline  # computed at max frequency
             cell_size_rad = self.GD["Image"]["Cell"] * np.pi / (180 * 3600)
             FWHM0_pix = np.sqrt(2) * min_beam/cell_size_rad  # sqrt(2) is fiddle factor which gives approx same scales as wsclean
@@ -252,11 +258,11 @@ class ClassScaleMachine(object):
             self.alphas = np.asarray(alphas[0:-1])
             self.Nscales = self.alphas.size
         else:
-            print>>log, "Using user defined scales"
+            print("Using user defined scales", file=log)
             self.alphas = np.asarray(self.GD["WSCMS"]["Scales"], dtype=float)
             self.Nscales = self.alphas.size
 
-        for i in xrange(self.Nscales):
+        for i in range(self.Nscales):
             if self.alphas[i] % 2 == 0:
                 self.alphas[i] += 1
 
@@ -268,7 +274,7 @@ class ClassScaleMachine(object):
 
         # set scale bias according to Offringa definition implemented i.t.o. inverse bias
         self.bias = np.ones(self.Nscales, dtype=np.float64)
-        for scale in xrange(1, self.Nscales):
+        for scale in range(1, self.Nscales):
             self.bias[scale] = self.beta**(-1.0 - np.log2(self.alphas[scale]/self.alphas[1]))
 
 
@@ -281,7 +287,7 @@ class ClassScaleMachine(object):
         self.extents = np.zeros(self.Nscales, dtype=np.int32)
         self.volumes = np.zeros(self.Nscales, dtype=np.float64)
         self.kernels = np.empty(self.Nscales, dtype=object)
-        for i in xrange(self.Nscales):
+        for i in range(self.Nscales):
             self.sigmas[i] = 3.0 * self.alphas[i] / 16.0
 
             # support of Gaussian components in pixels
@@ -388,7 +394,7 @@ class ClassScaleMachine(object):
 
         # find most relevant scale
         maxvals = np.zeros(self.Nscales)
-        for iScale in xrange(self.Nscales):
+        for iScale in range(self.Nscales):
             # get mask for scale (once auto-masking kicks in we use that instead of external mask)
             if self.AppendMaskComponents or not self.GD["WSCMS"]["AutoMask"]:
                 CurrentMask = self.MaskArray

@@ -18,16 +18,20 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 import numba
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
 log=MyLogger.getLogger("ClassModelMachine")
-from DDFacet.Array import NpParallel
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Other import MyPickle
 from DDFacet.Other import reformat
-from DDFacet.ToolsDir.Gaussian import GaussianSymmetric
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.Imager import ClassModelMachine as ClassModelMachinebase
 from DDFacet.Imager import ClassFrequencyMachine, ClassScaleMachine
@@ -66,7 +70,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def setRefFreq(self, RefFreq, Force=False):
         if self.RefFreq is not None and not Force:
-            print>>log, ModColor.Str("Reference frequency already set to %f MHz" % (self.RefFreq/1e6))
+            print(ModColor.Str("Reference frequency already set to %f MHz" % (self.RefFreq/1e6)), file=log)
             return
 
         self.RefFreq = RefFreq
@@ -141,12 +145,14 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         #                         (2.0 * self.GD['Image']['Cell'] * np.pi / 648000)]
 
     def ToFile(self, FileName, DicoIn=None):
-        print>> log, "Saving dico model to %s" % FileName
+        print("Saving dico model to %s" % FileName, file=log)
         if DicoIn is None:
             D = self.DicoSMStacked
         else:
             D = DicoIn
 
+        if self.GD is None:
+            print("Warning - you are haven't initialised GD before writing to the DicoModel")
         D["GD"] = self.GD
         D["Type"] = "WSCMS"
         # try:
@@ -157,7 +163,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         MyPickle.Save(D, FileName)
 
     def FromFile(self, FileName):
-        print>> log, "Reading dico model from %s" % FileName
+        print("Reading dico model from %s" % FileName, file=log)
         self.DicoSMStacked = MyPickle.Load(FileName)
         self.FromDico(self.DicoSMStacked)
 
@@ -256,7 +262,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                         ScaleModel[:, 0, x, y] += interp
 
             ModelImage += ScaleModel
-        # print "Model - ", ModelImage.max(), ModelImage.min()
         return ModelImage
 
     def GiveSpectralIndexMap(self, GaussPars=[(1, 1, 0)], ResidCube=None,
@@ -338,7 +343,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         # import matplotlib.pyplot as plt
         #
-        # for i in xrange(self.Nchan):
+        # for i in range(self.Nchan):
         #     plt.imshow(np.where(ConvModelImage[i] > Threshold, ConvModelImage[i], 0.0))
         #     plt.show()
 
@@ -382,9 +387,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             #                                                     dtype=np.float64, I0i=I0i, alphai=alphai)
         except Exception as e:
             traceback_str = traceback.format_exc(e)
-            print>>log, "Warning - Failed at importing africanus spi fitter. This could be an issue with the dask " \
-                        "version. Falling back to (slow) scipy version"
-            print>>log, "Original traceback - ", traceback_str
+            print("Warning - Failed at importing africanus spi fitter. This could be an issue with the dask " \
+                        "version. Falling back to (slow) scipy version", file=log)
+            print("Original traceback - ", traceback_str, file=log)
             alpha, varalpha, Iref, varIref = self.FreqMachine.FitSPIComponents(FitCube, self.GridFreqs, self.RefFreq)
 
         _, _, nx, ny = ModelImage.shape
@@ -495,7 +500,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             if MaxDirty <= MaskThreshold:
                 # This should only happen once
                 if self.ScaleMachine.AppendMaskComponents:
-                    print>>log, "Starting auto-masking at a threshold of %f" % MaskThreshold
+                    print("Starting auto-masking at a threshold of %f" % MaskThreshold, file=log)
                     # we need to add this last component to the mask otherwise
                     # we might end up with Threshold > CurrentDirty.max()
                     ScaleMask[0, 0, xscale, yscale] = 0
@@ -506,7 +511,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                     # bit flip first if no external mask
                     if not self.ScaleMachine.MaskArray.any():
                         self.ScaleMachine.MaskArray |= 1
-                    for i in xrange(self.ScaleMachine.Nscales):
+                    for i in range(self.ScaleMachine.Nscales):
                         tmpScaleMask = self.ScaleMachine.ScaleMaskArray[str(iScale)]
                         self.ScaleMachine.MaskArray &= tmpScaleMask
                 CurrentMask = ScaleMask
@@ -590,7 +595,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             try:
                 pq = int(np.argwhere(absA == AbsConvMaxDirty))
             except:
-                print "                              Got here 2"  # LB - debugging
                 pq = int(np.argwhere(absA == AbsConvMaxDirty)[0])
             ConvMaxDirty = A[pq]
 
@@ -603,7 +607,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         # report if max sub-iterations exceeded
         if k >= self.ScaleMachine.NSubMinorIter:
-            print>>log, "Maximum subiterations reached. "
+            print("Maximum subiterations reached. ", file=log)
 
         return k, iScale
 
@@ -622,7 +626,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # RestoreDico=self.GD["Data"]["RestoreDico"]
         RestoreDico = DicoSolsFile["ModelName"][()][0:-4] + ".DicoModel"
 
-        print>> log, "Adding previously subtracted components"
+        print("Adding previously subtracted components", file=log)
         ModelMachine0 = ClassModelMachine(self.GD)
 
         ModelMachine0.FromFile(RestoreDico)
