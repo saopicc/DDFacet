@@ -21,9 +21,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 import optparse
 
 from DDFacet.Array import NpShared
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 
-log= MyLogger.getLogger("ClearSHM")
+log= logger.getLogger("ClearSHM")
 from DDFacet.cbuild.Gridder import _pyGridderSmearPols as _pyGridderSmear
 import glob
 import os

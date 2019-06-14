@@ -54,7 +54,7 @@ from DDFacet.Imager import ClassFacetMachine
 from DDFacet.Parset import ReadCFG
 from DDFacet.Other import MyPickle
 from DDFacet.Parset import MyOptParse
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from DDFacet.Other import ModColor
 from DDFacet.Other import Exceptions
 from DDFacet.ToolsDir import ModFFTW
@@ -148,9 +148,9 @@ def main(OP=None, messages=[]):
         os.mkdir(dirname)
 
     # setup logging
-    MyLogger.logToFile(ImageName + ".log", append=DicoConfig["Log"]["Append"])
+    logger.logToFile(ImageName + ".log", append=DicoConfig["Log"]["Append"])
     global log
-    log = MyLogger.getLogger("DDFacet")
+    log = logger.getLogger("DDFacet")
 
     # disable colors and progressbars if requested
     ModColor.silent = SkyModel.Other.ModColor.silent = \
@@ -225,7 +225,7 @@ def main(OP=None, messages=[]):
     OP.Print(dest=log)
 
     # enable memory logging
-    MyLogger.enableMemoryLogging(DicoConfig["Log"]["Memory"])
+    logger.enableMemoryLogging(DicoConfig["Log"]["Memory"])
 
     # get rid of old shm arrays from previous runs
     Multiprocessing.cleanupStaleShm()
@@ -451,7 +451,7 @@ if __name__ == "__main__":
         report_error = True
 
     if report_error:
-        logfileName = MyLogger.getLogFilename()
+        logfileName = logger.getLogFilename()
         logfileName = logfileName if logfileName is not None else "[file logging is not enabled]"
         print>> log, ""
         print>> log, ModColor.Str(

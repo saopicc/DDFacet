@@ -21,9 +21,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 import re
 
 import numpy as np
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 
-log= MyLogger.getLogger("ClassStokes")
+log= logger.getLogger("ClassStokes")
 
 '''
 Enumeration of stokes and correlations used in MS2.0 - as per Stokes.h in casacore, the rest are left unimplemented:

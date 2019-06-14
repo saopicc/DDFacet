@@ -20,8 +20,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import numpy as np
 import numexpr
-from DDFacet.Other import MyLogger
-log = MyLogger.getLogger("ClassScaleMachine")
+from DDFacet.Other import logger
+log = logger.getLogger("ClassScaleMachine")
 from DDFacet.Array import NpParallel
 from DDFacet.ToolsDir.ModFFTW import FFTW_Manager
 

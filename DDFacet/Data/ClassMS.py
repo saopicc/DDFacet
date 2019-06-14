@@ -26,11 +26,11 @@ from pyrap.tables import table
 import ephem
 import numpy as np
 from DDFacet.Other import ModColor
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from DDFacet.Other import reformat
 from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 
-log = MyLogger.getLogger("ClassMS")
+log = logger.getLogger("ClassMS")
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other.CacheManager import CacheManager
 from DDFacet.Array import NpShared

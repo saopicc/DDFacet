@@ -20,8 +20,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import numpy as np
 import numexpr
-from DDFacet.Other import MyLogger
-log= MyLogger.getLogger("ClassBeamMean")
+from DDFacet.Other import logger
+log= logger.getLogger("ClassBeamMean")
 from DDFacet.ToolsDir import ModCoord
 import ClassJones
 from DDFacet.Imager import ModCF
@@ -35,7 +35,7 @@ import os
 
 class ClassBeamMean():
     def __init__(self,VS):
-        MyLogger.setSilent(["ClassJones","ClassLOFARBeam"])
+        logger.setSilent(["ClassJones", "ClassLOFARBeam"])
         self.VS=VS
         
         self.GD=copy.deepcopy(self.VS.GD)
@@ -43,7 +43,7 @@ class ClassBeamMean():
         self.SmoothBeam=None
         self.CheckCache()
         if self.CacheValid:
-            MyLogger.setLoud(["ClassJones","ClassLOFARBeam"])
+            logger.setLoud(["ClassJones", "ClassLOFARBeam"])
             return
 
         #self.GD["Beam"]["CenterNorm"]=0
@@ -69,7 +69,7 @@ class ClassBeamMean():
             JonesMachine=ClassJones.ClassJones(self.GD,MS,self.VS.FacetMachine)
             JonesMachine.InitBeamMachine()
             self.DicoJonesMachine[iMS]=JonesMachine
-        MyLogger.setLoud(["ClassJones","ClassLOFARBeam"])
+        logger.setLoud(["ClassJones", "ClassLOFARBeam"])
 
     def CalcGrid(self):
         _,_,nx,_=self.VS.FullImShape
@@ -100,7 +100,7 @@ class ClassBeamMean():
 
     def StackBeam(self,ThisMSData,iDir):
         self.StackedBeamDict.reload()
-        MyLogger.setSilent("ClassJones")
+        logger.setSilent("ClassJones")
         Dt=self.GD["Beam"]["DtBeamMin"]*60.
         JonesMachine=self.DicoJonesMachine[ThisMSData["iMS"]]
         RAs,DECs = self.radec
@@ -202,7 +202,7 @@ class ClassBeamMean():
             #pBAR.render(intPercent, '%4i/%i' % (NDone, NTRange))
 
         T2.timeit("Stack")
-        MyLogger.setLoud("ClassJones")
+        logger.setLoud("ClassJones")
   
         
     def Smooth(self):

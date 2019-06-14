@@ -25,9 +25,9 @@ This is an implementation of the multi-scale algorithm implemented in wsclean
 import numpy as np
 from scipy.integrate import cumtrapz
 import numexpr
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from DDFacet.Other import ModColor
-log=MyLogger.getLogger("ClassImageDeconvMachine")
+log=logger.getLogger("ClassImageDeconvMachine")
 from DDFacet.Array import NpParallel
 from DDFacet.Other import ClassTimeIt
 from pyrap.images import image

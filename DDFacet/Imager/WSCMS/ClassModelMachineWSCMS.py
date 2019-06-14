@@ -20,9 +20,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import numpy as np
 import numba
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from DDFacet.Other import ModColor
-log=MyLogger.getLogger("ClassModelMachine")
+log=logger.getLogger("ClassModelMachine")
 from DDFacet.Array import NpParallel
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Other import MyPickle

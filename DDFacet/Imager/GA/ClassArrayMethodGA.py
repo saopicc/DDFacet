@@ -23,11 +23,11 @@ import random
 
 import numpy as np
 from DDFacet.Other import ClassTimeIt
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from deap import tools
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-log= MyLogger.getLogger("ClassArrayMethodGA")
+log= logger.getLogger("ClassArrayMethodGA")
 
 
 from ClassParamMachine import ClassParamMachine

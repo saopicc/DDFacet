@@ -3,9 +3,9 @@ import random
 
 import numpy as np
 from DDFacet.Other import ClassTimeIt
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 
-log=MyLogger.getLogger("ClassArrayMethodSSD")
+log=logger.getLogger("ClassArrayMethodSSD")
 import multiprocessing
 
 import ClassConvMachine
@@ -14,7 +14,7 @@ from scipy.stats import chi2
 
 from deap import tools
 
-log= MyLogger.getLogger("ClassArrayMethodSSD")
+log= logger.getLogger("ClassArrayMethodSSD")
 
 
 from ClassParamMachine import ClassParamMachine

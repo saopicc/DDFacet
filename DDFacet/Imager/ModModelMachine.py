@@ -21,9 +21,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 import ClassModelMachine
 import ClassGainMachine
 from DDFacet.Other import MyPickle
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from DDFacet.Other import ModColor
-log=MyLogger.getLogger("GiveModelMachine")
+log=logger.getLogger("GiveModelMachine")
 
 class ClassModModelMachine():
     """

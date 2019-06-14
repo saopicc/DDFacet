@@ -33,7 +33,7 @@ from ModModelMachine import ClassModModelMachine
 import time
 import glob
 from DDFacet.Other import ModColor
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 import traceback
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 from DDFacet.ToolsDir.ClassAdaptShape import ClassAdaptShape
@@ -41,7 +41,7 @@ import copy
 from DDFacet.Other import AsyncProcessPool
 from DDFacet.Other.AsyncProcessPool import APP
 import cPickle
-log=MyLogger.getLogger("ClassImagerDeconv")
+log=logger.getLogger("ClassImagerDeconv")
 import DDFacet.Data.ClassBeamMean as ClassBeamMean
 from DDFacet.Imager import ClassMaskMachine
 from DDFacet.Array import shared_dict

@@ -21,9 +21,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 import numpy as np
 import math
 import itertools
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from DDFacet.Array import NpShared
-log = MyLogger.getLogger("ClassSmearMapping")
+log = logger.getLogger("ClassSmearMapping")
 
 from DDFacet.Other import Multiprocessing, ClassTimeIt
 from DDFacet.Array import shared_dict

@@ -24,8 +24,8 @@ import pandas as pd
 from pyrap import quanta as qa
 import datetime
 from DDFacet.Data.ClassStokes import ClassStokes
-from DDFacet.Other import MyLogger
-log= MyLogger.getLogger("PointingProvider")
+from DDFacet.Other import logger
+log= logger.getLogger("PointingProvider")
 
 class InvalidPointingSolutions(Exception):
     pass

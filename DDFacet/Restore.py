@@ -29,17 +29,17 @@ import numpy as np
 from DDFacet.Imager import ClassCasaImage
 #from DDFacet.Imager.ModModelMachine import GiveModelMachine
 from DDFacet.Imager.ModModelMachine import ClassModModelMachine
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from DDFacet.ToolsDir import ModFFTW
 
 from DDFacet.Other import AsyncProcessPool
 from DDFacet.Other.AsyncProcessPool import APP, WorkerProcessError
 from DDFacet.Other import Multiprocessing
 
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from DDFacet.Other import MyPickle
 from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
-log=MyLogger.getLogger("ClassRestoreMachine")
+log=logger.getLogger("ClassRestoreMachine")
 import scipy.signal
 import scipy.stats
 import multiprocessing
