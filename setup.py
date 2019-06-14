@@ -122,7 +122,9 @@ def requirements():
                     ("pyfits >= 3.5", "pyfits >= 3.5"), #kittens dependency, do not remove
                     ("configparser >= 3.7.1", "configparser <= 3.5.0"),
                     ("pandas >=0.23.3", "pandas >=0.23.3"),
-                    ("ruamel.yaml >= 0.15.92", "ruamel.yaml >= 0.15.92")] 
+                    ("ruamel.yaml >= 0.15.92", "ruamel.yaml >= 0.15.92"),
+                    ("codex-africanus[dask] >= 0.1.2","codex-africanus[dask] >= 0.1.2"),
+                    ("pylru >= 1.1.0", "pylru >= 1.1.0")]
     try:
         import six
     except ImportError, e:

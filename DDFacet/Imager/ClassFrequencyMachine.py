@@ -253,21 +253,21 @@ class ClassFrequencyMachine(object):
         """
         self.CurrentFacet = self.PSFServer.iFacet
         if self.BeamEnable:
-            # # get BeamFactor
-            # SumJonesChanList, SumJonesChanWeightSqList, MeanJonesBand = self.GiveBeamFactorsFacet(self.CurrentFacet)
-            # SumJonesChan = np.concatenate(SumJonesChanList)
-            # SumJonesChanWeightSq = np.concatenate(SumJonesChanWeightSqList)
-            # BeamFactor = np.sqrt(SumJonesChan/SumJonesChanWeightSq)  # unstitched sqrt(JonesNorm) at full resolution
-            # # incorporate stitched JonesNorm
-            # JonesFactor = np.sqrt(MeanJonesBand/JonesNorm)
-            # # scale I0 by beam at ref_freq
-            # # I0 = MaxDirty / BeamFactor[self.ref_freq_index]  # TODO - learn optimal I0 for prior from evidence
-            # # next compute the product of the averaging matrix and beam matrix
-            # # ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
-            # # ChanMappingGridChan = self.PSFServer.DicoMappingDesc["ChanMappingGridChan"]
-            # SAmat = self.S * BeamFactor[None, :] / JonesFactor[:, None]  # The division by JonesFactor corrects for the fact that the PSF is normalised
-            # self.SAX = SAmat.dot(self.Xdes_full)
-            self.SAX = np.sqrt(JonesNorm)[:, None] * self.Xdes
+            # get BeamFactor
+            SumJonesChanList, SumJonesChanWeightSqList, MeanJonesBand = self.GiveBeamFactorsFacet(self.CurrentFacet)
+            SumJonesChan = np.concatenate(SumJonesChanList)
+            SumJonesChanWeightSq = np.concatenate(SumJonesChanWeightSqList)
+            BeamFactor = np.sqrt(SumJonesChan/SumJonesChanWeightSq)  # unstitched sqrt(JonesNorm) at full resolution
+            # incorporate stitched JonesNorm
+            JonesFactor = np.sqrt(MeanJonesBand/JonesNorm)
+            # scale I0 by beam at ref_freq
+            # I0 = MaxDirty / BeamFactor[self.ref_freq_index]  # TODO - learn optimal I0 for prior from evidence
+            # next compute the product of the averaging matrix and beam matrix
+            # ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
+            # ChanMappingGridChan = self.PSFServer.DicoMappingDesc["ChanMappingGridChan"]
+            SAmat = self.S * BeamFactor[None, :] / JonesFactor[:, None]  # The division by JonesFactor corrects for the fact that the PSF is normalised
+            self.SAX = SAmat.dot(self.Xdes_full)
+            # self.SAX = np.sqrt(JonesNorm)[:, None] * self.Xdes
         # get MFS weights
         # W = self.PSFServer.DicoVariablePSF['SumWeights'].squeeze().astype(np.float64)
         # Ig = Vals.astype(np.float64)
