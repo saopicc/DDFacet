@@ -164,6 +164,54 @@ def main(OP=None, messages=[]):
         for msg in messages:
             print>> log, msg
 
+    print>>log,"Checking system configuration:"
+    # check for SHM size
+    ram_size = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
+    shm_stats = os.statvfs('/dev/shm')
+    shm_size = shm_stats.f_bsize * shm_stats.f_favail
+    shm_avail = shm_size / float(ram_size)
+
+    if shm_avail < 0.6:
+        print>>log, ModColor.Str("""WARNING: max shared memory size is only {:.0%} of total RAM size.
+            This can cause problems for large imaging jobs. A setting of 90% is recommended for 
+            DDFacet and killMS. If your processes keep failing with SIGBUS or "bus error" messages,
+            it is most likely for this reason. You can change the memory size by running
+                $ sudo mount -o remount,size=90% /dev/shm
+            To make the change permanent, edit /etc/defaults/tmps, and add a line saying "SHM_SIZE=90%".
+            """.format(shm_avail))
+    else:
+        print>>log, "  Max shared memory size is {:.0%} of total RAM size".format(shm_avail)
+
+    try:
+        output = subprocess.check_output(["/sbin/sysctl", "vm.max_map_count"])
+        max_map_count = int(output.strip().rsplit(" ", 1)[-1])
+    except Exception:
+        print>>log, ModColor.Str("""WARNING: /sbin/sysctl vm.max_map_count failed. Unable to check this setting.""")
+        max_map_count = None
+
+    if max_map_count is not None:
+        if max_map_count < 500000:
+            print>>log, ModColor.Str("""WARNING: sysctl vm.max_map_count = {}. 
+            This may be too little for large DDFacet and killMS jobs. If you get strange "file exists" 
+            errors on /dev/shm, them try to bribe, beg or threaten your friendly local sysadmin into 
+            setting vm.max_map_count=1000000 in /etc/sysctl.conf.
+                """.format(max_map_count))
+        else:
+            print>>log, "  sysctl vm.max_map_count = {}".format(max_map_count)
+
+    # check for memory lock limits
+    import resource
+    msoft, mhard = resource.getrlimit(resource.RLIMIT_MEMLOCK)
+    if msoft >=0 or mhard >=0:
+        print>>log,ModColor.Str("""WARNING: your system has a limit on memory locks configured.
+            This may possibly slow down DDFacet performance. You can try removing the limit by running
+                $ ulimit -l unlimited
+            If this gives an "operation not permitted" error, you can try to bribe, beg or threaten 
+            your friendly local sysadmin into doing
+                # echo "*        -   memlock     unlimited" >> /etc/security/limits.conf
+        """)
+
+
     if DicoConfig["Debug"]["Pdb"] == "always":
         print>>log, "--Debug-Pdb=always: unexpected errors will be dropped into pdb"
         Exceptions.enable_pdb_on_error(ModColor.Str("DDFacet has encountered an unexpected error. Dropping you into pdb for a post-mortem.\n" +
