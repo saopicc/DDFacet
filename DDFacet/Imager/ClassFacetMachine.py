@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+from __future__ import division
 
 import ClassDDEGridMachine
 import numpy as np
@@ -287,7 +288,7 @@ class ClassFacetMachine():
         NpixFacet, _ = EstimateNpix(diam / self.CellSizeRad, Padding=1)
         _, NpixPaddedGrid = EstimateNpix(NpixFacet, Padding=self.Padding)
 
-        if NpixPaddedGrid / NpixFacet > self.Padding and not getattr(self, '_warned_small_ffts', False):
+        if NpixPaddedGrid // NpixFacet > self.Padding and not getattr(self, '_warned_small_ffts', False):
             print>> log, ModColor.Str("WARNING: Your FFTs are too small. We will pad them by x%.2f "\
                                       "rather than x%.2f. Increase facet size and/or padding to get rid of this message." % (float(NpixPaddedGrid)/NpixFacet, self.Padding))
             self._warned_small_ffts = True
@@ -922,8 +923,8 @@ class ClassFacetMachine():
         psf = DicoImages["Facets"][iFacet]["PSF"]
         _, npol, n, n = psf.shape
         for ch in xrange(nch):
-            i = n / 2 - NPixMin / 2
-            j = n / 2 + NPixMin / 2 + 1
+            i = n // 2 - NPixMin // 2
+            j = n // 2 + NPixMin // 2 + 1
             DicoImages["CubeVariablePSF"][iFacet, ch, :, :, :] = psf[ch][:, i:j, i:j]
         DicoImages["CubeMeanVariablePSF"][iFacet, 0, :, :, :] = DicoImages["Facets"][iFacet]["MeanPSF"][0, :, i:j, i:j]
 
@@ -1225,7 +1226,7 @@ class ClassFacetMachine():
                 NpixFacet = self.DicoImager[iFacet]["NpixFacetPadded"]
                 
                 Aedge, Bedge = GiveEdges((xc, yc), NPixOut,
-                                         (NpixFacet/2, NpixFacet/2), NpixFacet)
+                                         (NpixFacet//2, NpixFacet//2), NpixFacet)
                 x0d, x1d, y0d, y1d = Aedge
                 x0p, x1p, y0p, y1p = Bedge
                 
@@ -1284,7 +1285,7 @@ class ClassFacetMachine():
             NpixFacet = self.DicoGridMachine[iFacet]["Dirty"][0].shape[2]
 
             Aedge, Bedge = GiveEdges((xc, yc), NPixOut,
-                                     (NpixFacet/2, NpixFacet/2), NpixFacet)
+                                     (NpixFacet//2, NpixFacet//2), NpixFacet)
             x0main, x1main, y0main, y1main = Aedge
             x0facet, x1facet, y0facet, y1facet = Bedge
 

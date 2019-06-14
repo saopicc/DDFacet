@@ -18,6 +18,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import division
+
 import numpy as np
 from DDFacet.Imager import ClassFacetMachine
 from DDFacet.Other import MyPickle
@@ -57,7 +59,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.Npix = Npix
         self.OutImShape = (self.nch, self.npol, self.Npix, self.Npix)
 
-        RadiusTot = self.CellSizeRad * self.Npix / 2
+        RadiusTot = self.CellSizeRad * self.Npix // 2
         self.RadiusTot = RadiusTot
 
         lMainCenter, mMainCenter = 0., 0.
@@ -134,7 +136,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                            "Cell"] / 3600.) * np.pi / 180
             lrad = Npix * CellSizeRad * 0.5
 
-            NpixFacet = Npix / NFacets
+            NpixFacet = Npix // NFacets
             lfacet = NpixFacet * CellSizeRad * 0.5
             lcenter_max = lrad - lfacet
 
@@ -571,7 +573,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             #Create smoothned facet tessel mask:
             Npix = self.DicoImager[iFacet]["NpixFacetPadded"]
             l0, l1, m0, m1 = self.DicoImager[iFacet]["lmExtentPadded"]
-            X, Y = np.mgrid[l0:l1:Npix/10 * 1j, m0:m1:Npix/10 * 1j]
+            X, Y = np.mgrid[l0:l1:Npix//10 * 1j, m0:m1:Npix//10 * 1j]
             XY = np.dstack((X, Y))
             XY_flat = XY.reshape((-1, 2))
             vertices = self.DicoImager[iFacet]["Polygon"]
