@@ -6,6 +6,7 @@ Usage:
     p = ProgressBar("blue")
     p.render(percentage, message)
 """
+from __future__ import division
 
 import sys
 import time as timemod

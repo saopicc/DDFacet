@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+from __future__ import division
 
 import psutil
 import os
@@ -178,7 +179,7 @@ class AsyncProcessPool (object):
 
         if isinstance(self.affinity, int):
             self.cpustep = abs(self.affinity) or 1
-            maxcpu = psutil.cpu_count() / self.cpustep
+            maxcpu = psutil.cpu_count() // self.cpustep
             self.ncpu = ncpu or maxcpu
             self.parent_affinity = parent_affinity
         elif isinstance(self.affinity, list):
@@ -197,7 +198,7 @@ class AsyncProcessPool (object):
         elif isinstance(self.affinity, str) and str(self.affinity) == "enable_ht":
             self.affinity = 1
             self.cpustep = 1
-            maxcpu = psutil.cpu_count() / self.cpustep
+            maxcpu = psutil.cpu_count() // self.cpustep
             self.ncpu = ncpu or maxcpu
             self.parent_affinity = parent_affinity
         elif isinstance(self.affinity, str) and str(self.affinity) == "disable_ht":

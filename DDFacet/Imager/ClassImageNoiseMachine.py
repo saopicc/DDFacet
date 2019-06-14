@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+from __future__ import division
 import numpy as np
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
@@ -120,7 +121,7 @@ class ClassImageNoiseMachine():
         print>>log, "  Computing noise map..."
         Boost=Step
         Acopy=Image[0,0,0::Boost,0::Boost].copy()
-        SBox=(box[0]/Boost,box[1]/Boost)
+        SBox=(box[0]//Boost,box[1]//Boost)
 
         x=np.linspace(-10,10,1000)
         f=0.5*(1.+scipy.special.erf(x/np.sqrt(2.)))
@@ -255,7 +256,7 @@ class ClassImageNoiseMachine():
         # ModelConv=np.zeros_like(ModelImage)
         # for iComp in range(indx.size):
         #     xc,yc=indx[iComp],indy[iComp]
-        #     Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1/2,N1/2),(N1,N1))
+        #     Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1//2,N1//2),(N1,N1))
         #     x0d,x1d,y0d,y1d=Aedge
         #     x0p,x1p,y0p,y1p=Bedge
         #     ModelConv[x0d:x1d,y0d:y1d]+=G[x0p:x1p,y0p:y1p]*ModelImage[xc,yc]

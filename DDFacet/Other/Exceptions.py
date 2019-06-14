@@ -1,3 +1,4 @@
+from __future__ import division
 import sys
 
 pdb_advise = "Unexpected error. Dropping you into pdb for a post-mortem."

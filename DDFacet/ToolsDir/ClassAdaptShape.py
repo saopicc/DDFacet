@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy as np
 from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassAdaptShape")
@@ -20,8 +21,8 @@ class ClassAdaptShape():
             print>>log,ModColor.Str("     adapting %s --> %s"%(str(A.shape),str(B.shape)))
             # Input image larger than requested
             N0=A.shape[-1]
-            xc0=yc0=N0/2
-            x0d,x1d=xc0-Nout/2,xc0-Nout/2+Nout
+            xc0=yc0=N0//2
+            x0d,x1d=xc0-Nout//2,xc0-Nout//2+Nout
             s=slice(x0d,x1d)
             B[:,:,:,:]=A[:,:,s,s]
             return B
@@ -32,8 +33,8 @@ class ClassAdaptShape():
             print>>log,ModColor.Str("     adapting %s --> %s"%(str(A.shape),str(B.shape)))
             Na=A.shape[-1]
             Nb=B.shape[-1]
-            xa=Na/2
-            xb=Nb/2
+            xa=Na//2
+            xb=Nb//2
             x0d,x1d=xb-xa,xb-xa+Na
             s=slice(x0d,x1d)
             B[:,:,s,s]=A[:,:,:,:]

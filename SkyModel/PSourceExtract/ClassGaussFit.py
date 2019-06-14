@@ -73,7 +73,7 @@ class ClassGaussFit():
 
     def ListToDicoPars(self,pars):
         ns=len(self.FreePars)
-        nComp=len(pars)/ns
+        nComp=len(pars)//ns
         parCompList=[pars[ns*i:(ns*i+ns)] for i in range(nComp)]
         
         DicoPars={}

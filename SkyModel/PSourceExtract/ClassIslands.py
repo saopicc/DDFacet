@@ -1,3 +1,5 @@
+from __future__ import division
+
 import numpy as np
 import time
 from SkyModel.Other import ModColor
@@ -137,7 +139,7 @@ class ClassIslands():
         print ModColor.Str("Compute noise map...")
         Boost=self.Boost
         Acopy=self.A[0::Boost,0::Boost].copy()
-        SBox=(self.box[0]/Boost,self.box[1]/Boost)
+        SBox=(self.box[0]//Boost,self.box[1]//Boost)
         Noise=np.sqrt(scipy.ndimage.filters.median_filter(np.abs(Acopy)**2,SBox))
         self.Noise=np.zeros_like(self.A)
         for i in range(Boost):

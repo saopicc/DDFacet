@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy as np
 import Polygon
 from scipy.spatial import Voronoi
@@ -39,7 +40,7 @@ def giveSizeRatio(P):
     return a.max()/a.min()
 
 def IndivToPolygon(indiv,PolyCut):
-    N=indiv.size/2
+    N=indiv.size//2
     xc,yc=indiv.reshape((2,N))
     
     xc,yc=indiv.reshape((2,N))
@@ -93,7 +94,7 @@ class ClassMetricDEAP():
                  Indiv,x=None,y=None,S=None,
                  Polygons=None,PolyCut=None,BigPolygon=None):
         
-        nNode=Indiv.size/2
+        nNode=Indiv.size//2
         xc,yc=Indiv.reshape((2,nNode))
         self.xc=xc
         self.yc=yc

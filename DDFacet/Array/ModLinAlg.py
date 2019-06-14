@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+from __future__ import division
 
 import scipy.linalg
 import numpy as np
@@ -44,7 +45,7 @@ def sqrtSVD(A):
 
 def BatchInverse(A,H=False):
     shapeOut=A.shape
-    A=A.reshape((A.size/4,2,2))
+    A=A.reshape((A.size//4,2,2))
     #A.shape=N,2,2
     N,dum,dum=A.shape
     Ainv=np.zeros_like(A)
@@ -69,7 +70,7 @@ def BatchInverse(A,H=False):
     
 def BatchH(A):
     shapeOut=A.shape
-    A=A.reshape((A.size/4,2,2))
+    A=A.reshape((A.size//4,2,2))
 
     N,dum,dum=A.shape
     AH=np.zeros_like(A)
@@ -88,8 +89,8 @@ def BatchH(A):
     
 def BatchDot(A,B):
     shapeOut=A.shape
-    A=A.reshape((A.size/4,2,2))
-    B=B.reshape((B.size/4,2,2))
+    A=A.reshape((A.size//4,2,2))
+    B=B.reshape((B.size//4,2,2))
 
     C=np.zeros_like(A)
     # if A.size>=B.size:
@@ -129,8 +130,8 @@ def BatchDot(A,B):
     return C
     
 def BatchDot2(A,B):
-    #A=A.reshape((A.size/4,2,2))
-    #B=B.reshape((B.size/4,2,2))
+    #A=A.reshape((A.size//4,2,2))
+    #B=B.reshape((B.size//4,2,2))
 
     shapeOut=A.shape
 

@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+from __future__ import division
 
 import numpy as np
 import gaussfitter2
@@ -138,21 +139,21 @@ def residuals(x0,y0,SigMaj,SigMin,ang,x,y,PSF):
 
 def FitGauss(PSF):
     npix,_=PSF.shape
-    x0,y0=npix/2,npix/2
+    x0,y0=npix//2,npix//2
     #SigMaj,SigMin,ang
     
     PSFSlice=np.max(PSF,axis=0)
     SigMaj,SigMin,ang=1.,1.,0
     StartSol=np.array([x0,y0,SigMaj,SigMin,ang])
     N=npix
-    X,Y=np.mgrid[-npix/2:npix/2:N*1j,-npix/2:npix/2:N*1j]
+    X,Y=np.mgrid[-npix//2:npix//2:N*1j,-npix//2:npix//2:N*1j]
     print scipy.optimize.leastsq(residuals, StartSol, args=(X,Y,PSF))
 
 def test():
     npix=20
     N=npix
 
-    x,y=np.mgrid[-npix/2:npix/2:N*1j,-npix/2:npix/2:N*1j]
+    x,y=np.mgrid[-npix//2:npix//2:N*1j,-npix//2:npix//2:N*1j]
     ang=30.*np.pi/180
     PSF=gauss(10,10,1,2,ang,x,y)
     FitGauss2(PSF)
@@ -162,7 +163,7 @@ def findIntersection(fun1,fun2,x0):
 
 def FitGauss2(PSF):
     npix=int(np.sqrt(PSF.shape[0]))-1
-    x0,y0=npix/2,npix/2
+    x0,y0=npix//2,npix//2
     #SigMaj,SigMin,ang
 
     PSFSlice=np.max(PSF.reshape(npix+1, npix+1),axis=0)
@@ -179,7 +180,7 @@ def FitGauss2(PSF):
     SigMaj,SigMin,ang=3.,3.,0
     StartSol=x0, y0, SigMaj,SigMin,ang
     #N=npix
-    #X,Y=np.mgrid[-npix/2:npix/2:N*1j,-npix/2:npix/2:N*1j]
+    #X,Y=np.mgrid[-npix//2:npix//2:N*1j,-npix//2:npix//2:N*1j]
 
     x = np.linspace(0, npix, npix+1)
     y = np.linspace(0, npix, npix+1)

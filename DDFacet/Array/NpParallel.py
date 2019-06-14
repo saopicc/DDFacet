@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+from __future__ import division
 
 import DDFacet.cbuild.Gridder._pyArrays as _pyArrays
 from DDFacet.Other import ClassTimeIt
@@ -54,7 +55,7 @@ def A_add_B_prod_factor(
     Blocks = np.int32(np.linspace(Aedge[0], Aedge[1], NCPU+1))
 
     NX, NY = A.shape[-2], A.shape[-1]
-    nz = A.size/(NX*NY)
+    nz = A.size//(NX*NY)
     A = A.reshape((nz, NX, NY))
 
     for iz in xrange(nz):
@@ -68,7 +69,7 @@ def A_whereMax(A,NCPU=0,DoAbs=1,Mask=None):
     NCPU = NCPU or NCPU_global
     if NCPU==1:
         NX,NY=A.shape[-2],A.shape[-1]
-        nz=A.size/(NX*NY)
+        nz=A.size//(NX*NY)
         A=A.reshape((nz,NX,NY))
         if Mask is not None:
             Mask=Mask.reshape((nz,NX,NY))
@@ -112,7 +113,7 @@ def A_whereMaxParallel(A,NCPU=0,DoAbs=1,Mask=None):
     if A.dtype!=np.float32:
         raise TypeError("Expected input array dtype: float32")
     
-    nz=A.size/(NX*NY)
+    nz=A.size//(NX*NY)
     A=A.reshape((nz,NX,NY))
 
     Ans=np.zeros((nz,3),np.float32)
@@ -159,7 +160,7 @@ def A_whereMaxParallel(A,NCPU=0,DoAbs=1,Mask=None):
 #     if A.dtype != np.float32:
 #         raise TypeError("Expected input array dtype: float32")
 
-#     nz = A.size/(NX*NY)
+#     nz = A.size//(NX*NY)
 #     A = A.reshape((nz, NX, NY))
 
 #     Ans = np.zeros((nz, 3), np.float32)

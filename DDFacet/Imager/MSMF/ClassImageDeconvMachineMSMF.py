@@ -18,6 +18,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import division
+
 import numpy as np
 import math
 from DDFacet.Other import MyLogger
@@ -396,7 +398,7 @@ class ClassImageDeconvMachine():
         #_,_,NPSF,_=self._PSF.shape
         _, _, NDirty, _ = self._CubeDirty.shape
 
-        off = (NPSF-NDirty)/2
+        off = (NPSF-NDirty)//2
         self.DirtyExtent = (off, off+NDirty, off, off+NDirty)
 
 #        if self._ModelImage is None:
@@ -435,23 +437,23 @@ class ClassImageDeconvMachine():
         NpixFacet=N1
                 
         ## X
-        M_x0=M_xc-NpixFacet/2
+        M_x0=M_xc-NpixFacet//2
         x0main=np.max([0,M_x0])
         dx0=x0main-M_x0
         x0facet=dx0
                 
-        M_x1=M_xc+NpixFacet/2
+        M_x1=M_xc+NpixFacet//2
         x1main=np.min([NpixMain-1,M_x1])
         dx1=M_x1-x1main
         x1facet=NpixFacet-dx1
         x1main+=1
         ## Y
-        M_y0=M_yc-NpixFacet/2
+        M_y0=M_yc-NpixFacet//2
         y0main=np.max([0,M_y0])
         dy0=y0main-M_y0
         y0facet=dy0
         
-        M_y1=M_yc+NpixFacet/2
+        M_y1=M_yc+NpixFacet//2
         y1main=np.min([NpixMain-1,M_y1])
         dy1=M_y1-y1main
         y1facet=NpixFacet-dy1
@@ -477,7 +479,7 @@ class ClassImageDeconvMachine():
 
         #Aedge,Bedge=self.GiveEdges((xc,yc),N0,(N1/2,N1/2),N1)
         N0x,N0y=self._MeanDirty.shape[-2::]
-        Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1/2,N1/2),(N1,N1))
+        Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1//2,N1//2),(N1,N1))
 
         #_,n,n=self.PSF.shape
         # PSF=self.PSF.reshape((n,n))
@@ -637,7 +639,7 @@ class ClassImageDeconvMachine():
             return "MaxIter", False, False
 
         _, npol, npix, _ = self._MeanDirty.shape
-        xc = (npix)/2
+        xc = (npix)//2
 
         # m0,m1=self._CubeDirty.min(),self._CubeDirty.max()
         # pylab.clf()

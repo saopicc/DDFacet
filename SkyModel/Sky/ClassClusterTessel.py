@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy as np
 from SkyModel.Other import ModColor
 

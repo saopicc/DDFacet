@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+from __future__ import division
 
 from ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
 import numpy as np
@@ -974,10 +975,10 @@ class ClassImagerDeconv():
                     SquareMaskMode="Outside"
                 NpixInside, _ = EstimateNpix(float(NpixInside), Padding=1)
                 print>>log,"  Zeroing model %s square [%i pixels]"%(SquareMaskMode,NpixInside)
-                dn=NpixInside/2
+                dn=NpixInside//2
                 n=self.FacetMachine.Npix
                 InSquare=np.zeros(ModelImage.shape,bool)
-                InSquare[:,:,n/2-dn:n/2+dn+1,n/2-dn:n/2+dn+1]=1
+                InSquare[:,:,n//2-dn:n//2+dn+1,n//2-dn:n//2+dn+1]=1
                 if SquareMaskMode=="Inside":
                     ModelImage[InSquare]=0
                 elif SquareMaskMode=="Outside":
@@ -2256,7 +2257,7 @@ class ClassImagerDeconv():
         # testImage.fill(0)
         # _,_,nx,_=testImage.shape
         # print "shape image:",testImage.shape
-        # xc=nx/2
+        # xc=nx//2
         # n=2
         # dn=200
         # #for i in range(-n,n+1):

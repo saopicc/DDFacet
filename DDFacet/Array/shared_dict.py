@@ -1,3 +1,4 @@
+from __future__ import division
 import sys, os, os.path, cPickle, re
 import NpShared
 import numpy as np

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import division
 import sys,os
 if "PYTHONPATH_FIRST" in os.environ.keys() and int(os.environ["PYTHONPATH_FIRST"]):
     sys.path = os.environ["PYTHONPATH"].split(":") + sys.path

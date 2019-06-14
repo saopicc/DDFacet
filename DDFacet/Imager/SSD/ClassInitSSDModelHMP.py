@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy as np
 import copy
 import time
@@ -254,7 +255,7 @@ class ClassInitSSDModel():
         self.DeconvMachine.PSFServer.setLocation(*self.xy0)
 
         N1=Size
-        xc1=yc1=N1/2
+        xc1=yc1=N1//2
         Aedge,Bedge=GiveEdges((xc0,yc0),N0,(xc1,yc1),N1)
         x0d,x1d,y0d,y1d=Aedge
         x0p,x1p,y0p,y1p=Bedge
@@ -277,9 +278,9 @@ class ClassInitSSDModel():
 
         T.timeit("1")
         # ModelImage=np.zeros_like(self.Dirty)
-        # ModelImage[:,:,N0/2,N0/2]=10
-        # ModelImage[:,:,N0/2+3,N0/2]=10
-        # ModelImage[:,:,N0/2-2,N0/2-1]=10
+        # ModelImage[:,:,N0//2,N0//2]=10
+        # ModelImage[:,:,N0//2+3,N0//2]=10
+        # ModelImage[:,:,N0//2-2,N0//2-1]=10
         # self.setSSDModelImage(ModelImage)
 
         # Mask=np.zeros((nx,ny),np.bool8)
@@ -299,11 +300,11 @@ class ClassInitSSDModel():
         # ax=pylab.subplot(1,3,1)
         # N=self.DicoSubDirty["MeanImage"].shape[-1]
         # pylab.imshow(self.DicoSubDirty["MeanImage"][0,0],
-        #              interpolation="nearest",extent=(-N/2.,N/2.,-N/2.,N/2.),vmin=-0.1,vmax=1.)
+        #              interpolation="nearest",extent=(-N//2.,N//2.,-N//2.,N//2.),vmin=-0.1,vmax=1.)
         # pylab.colorbar()
         # pylab.subplot(1,3,2,sharex=ax,sharey=ax)
         # N=MeanPSF.shape[-1]
-        # pylab.imshow(MeanPSF[0,0],interpolation="nearest",extent=(-N/2.,N/2.,-N/2.,N/2.),vmin=-0.1,vmax=1.)
+        # pylab.imshow(MeanPSF[0,0],interpolation="nearest",extent=(-N//2.,N//2.,-N//2.,N//2.),vmin=-0.1,vmax=1.)
         # pylab.colorbar()
         # pylab.draw()
         # pylab.show()
@@ -327,12 +328,12 @@ class ClassInitSSDModel():
         # ConvModel=np.zeros_like(SubModelImage)
         # nch,_,N0x,N0y=ConvModel.shape
         # indx,indy=np.where(SubModelImage[0,0]!=0)
-        # xc,yc=N0x/2,N0y/2
+        # xc,yc=N0x//2,N0y//2
         # N1=PSF.shape[-1]
         # #T.timeit("0")
         # for i,j in zip(indx.tolist(),indy.tolist()):
         #     ThisPSF=np.roll(np.roll(PSF,i-xc,axis=-2),j-yc,axis=-1)
-        #     Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1/2,N1/2),(N1,N1))
+        #     Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1//2,N1//2),(N1,N1))
         #     x0d,x1d,y0d,y1d=Aedge
         #     x0p,x1p,y0p,y1p=Bedge
         #     ConvModel[...,x0d:x1d,y0d:y1d]+=ThisPSF[...,x0p:x1p,y0p:y1p]*SubModelImage[...,i,j].reshape((-1,1,1,1))

@@ -18,6 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+from __future__ import division
 
 from pyrap.images import image
 import glob
@@ -69,7 +70,7 @@ def MakeEmpty():
     Npix=img.getdata().shape[2]
     ############################"
     # That's if you want to change the astrometry of the OutPut image
-    #cMain.set_referencepixel([0.0, np.array([ 0.]), np.array([ Npix/2,Npix/2])])
+    #cMain.set_referencepixel([0.0, np.array([ 0.]), np.array([ Npix//2,Npix//2])])
     #cMain.set_referencevalue([0.0, np.array([ 0.]), np.array([ ramean,decmean])])
     #incr=cMain.get_increment()
     #incr[2]=[incrx,incry]
@@ -96,7 +97,7 @@ def MakeEmpty():
         img.saveas(FileTemp)
         img=image(FileTemp)
         DataImg=img.getdata()
-        dx=DataImg.shape[2]/2
+        dx=DataImg.shape[2]//2
 
         ImPB=image(llPB[i])
         ImPB.saveas(FileTempPB)
@@ -105,7 +106,7 @@ def MakeEmpty():
         #ImPB=ImPB.regrid( [2,3], img.coordinates(), outshape=DataImg.shape)
 
         PB[PB<0.7]=0.
-        Center2=PB.shape[2]/2
+        Center2=PB.shape[2]//2
         PB=PB[:,:,Center2-dx:Center2+dx,Center2-dx:Center2+dx]
         # pylab.figure(0)
         # pylab.clf()
