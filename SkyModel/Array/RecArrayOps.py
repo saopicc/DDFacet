@@ -1,6 +1,6 @@
+from __future__ import division
 import numpy.lib.recfunctions
 import numpy as np
-from __future__ import division
 
 def AppendField(dataAll,(FName,dataType)):
     dataCol=np.zeros((dataAll.shape[0],),dtype=dataType)

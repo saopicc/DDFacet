@@ -59,7 +59,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.Npix = Npix
         self.OutImShape = (self.nch, self.npol, self.Npix, self.Npix)
 
-        RadiusTot = self.CellSizeRad * self.Npix // 2
+        RadiusTot = self.CellSizeRad * self.Npix / 2
         self.RadiusTot = RadiusTot
 
         lMainCenter, mMainCenter = 0., 0.
@@ -195,11 +195,26 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             LPolygon=[]
             ListNode=[]
             for region,iNode in zip(regions,range(NodesCat.shape[0])):
-                ThisP = np.array(PP & Polygon.Polygon(np.array(vertices[region])))
+                PP1=Polygon.Polygon(np.array(vertices[region]))
+                ThisP = np.array(PP & PP1)
+                # x,y=np.array(PP1).T
+                # xp,yp=np.array(PP).T
+                # stop
+                # import pylab
+                # pylab.clf()
+                # #pylab.plot(x,y)
+                # pylab.plot(xp,yp)
+                # pylab.draw()
+                # pylab.show()
+                # #pylab.pause(0.1)
+                
                 if ThisP.size>0:
                     LPolygon.append(ThisP[0])
                     ListNode.append(iNode)
             NodesCat=NodesCat[np.array(ListNode)].copy()
+
+
+            
 # =======
 #             LPolygon = [
 #                 np.array(PP & Polygon.Polygon(np.array(vertices[region])))[0]

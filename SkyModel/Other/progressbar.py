@@ -139,7 +139,7 @@ class ProgressBar(object):
         # Check if render is called for the first time
         if self.progress != None:
             self.clear()
-        self.progress = (bar_width * percent) / 100
+        self.progress = (bar_width * percent) // 100
 
 
         DicoData={
