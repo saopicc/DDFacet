@@ -30,6 +30,8 @@ from DDFacet.Imager import ClassModelMachine as ClassModelMachinebase
 from DDFacet.Imager import ClassFrequencyMachine
 import scipy.ndimage
 import os
+from pyrap.images import image # don't remove - part of KMS requirements
+from SkyModel.Sky import ClassSM # don't remove - part of KMS requirements
 
 class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def __init__(self,*args,**kwargs):
@@ -198,7 +200,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         if FreqIn is None:
             FreqIn=np.array([RefFreq], dtype=np.float32)
 
-        FreqIn = np.array([FreqIn.ravel()], dtype=np.float32).flatten()
+        FreqIn = np.array([np.array(FreqIn).ravel()], dtype=np.float32).flatten()
 
         DicoComp = self.DicoSMStacked.setdefault("Comp", {})
         _, npol, nx, ny = self.ModelShape
@@ -278,9 +280,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         if ResidCube is not None:
             ConvModelImage += ResidCube.squeeze()
-
-        RMS = np.std(ResidCube.flatten())
-        Threshold = self.GD["SPIMaps"]["AlphaThreshold"] * RMS
+            RMS = np.std(ResidCube.flatten())
+            Threshold = self.GD["SPIMaps"]["AlphaThreshold"] * RMS
+        else:
+            RMS = np.abs(np.min(ModelImage.flatten())) # base cutoff on smallest value in model
+            Threshold = self.GD["SPIMaps"]["AlphaThreshold"] * RMS
 
         # get minimum along any freq axis
         MinImage = np.amin(ConvModelImage, axis=0)
@@ -314,7 +318,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             _, ncomps = FitCube.shape
             FitCubeDask = da.from_array(FitCube.T.astype(np.float64), chunks=(ncomps//NCPU, self.Nchan))
             weightsDask = da.from_array(weights.astype(np.float64), chunks=(self.Nchan))
-            freqsDask = da.from_array(self.GridFreqs.astype(np.float64), chunks=(self.Nchan))
+            freqsDask = da.from_array(np.array(self.GridFreqs).astype(np.float64), chunks=(self.Nchan))
 
             alpha, varalpha, Iref, varIref = fit_spi_components(FitCubeDask, weightsDask,
                                                                 freqsDask, self.RefFreq,
@@ -380,8 +384,19 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def ToNPYModel(self,FitsFile,SkyModel,BeamImage=None):
         """ Makes a numpy model for use for killms calibration using SkyModel/MakeModel.py """
+        nchan, npol, nx, ny = self.ModelShape
+        assert nx == ny, "Only works with square images for now"
+        self.Npix = nx 
+        self.Nchan = len(self.GridFreqs)
+        self.NpixPadded = int(np.ceil(self.GD["Facets"]["Padding"] * self.Npix))
+        # make sure it is odd numbered
+        if self.NpixPadded % 2 == 0:
+            self.NpixPadded += 1
+        self.Npad = (self.NpixPadded - self.Npix) // 2
 
-        AlphaMap=self.GiveSpectralIndexMap()
+        AlphaMap=self.GiveSpectralIndexMap(GaussPars=(self.GD["Image"]["Cell"]/3600*5,
+                                                      self.GD["Image"]["Cell"]/3600*5,
+                                                      0))[0] #kludgy 5 beams worth of pixels
         ModelMap=self.GiveModelImage()
         nch,npol,_,_=ModelMap.shape
 
