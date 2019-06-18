@@ -34,13 +34,18 @@ skymodel_pkg='SkyModel'
 __version__ = "0.4.1.0"
 build_root=os.path.dirname(__file__)
 
-preinstall_dependencies = ["'pybind11 >= 2.2.2'", "'six >= 1.12.0'"]
+try:
+    import six
+except ImportError, e:
+    raise ImportError("Six not installed. Please install Python 2.x compatibility package six before running DDFacet install. "
+                        "You should not see this message unless you are not running pip install -- run pip install!")
+try:
+    import pybind11
+except ImportError, e:
+    raise ImportError("Pybind11 not installed. Please install C++ binding package pybind11 before running DDFacet install. "
+                        "You should not see this message unless you are not running pip install -- run pip install!")
 
 def backend(compile_options):
-
-    subprocess.check_call(["cd .. && pip install %s" %
-                           (" ".join(preinstall_dependencies)), ""], shell=True)
-
     if compile_options is not None:
         print >> sys.stderr, "Compiling extension libraries with user defined options: '%s'"%compile_options
     path = pjoin(build_root, pkg, 'cbuild')
@@ -100,7 +105,7 @@ def requirements():
 
     requirements = [("nose >= 1.3.7", "nose >= 1.3.7"),
                     ("Cython >= 0.25.2", "Cython >= 0.25.2"),
-                    ("numpy > 1.16.2", "numpy <= 1.17.0"),
+                    ("numpy >= 1.15.1", "numpy >= 1.15.1"), #Ubuntu 18.04
                     ("SharedArray >= 2.0.2", "SharedArray >= 2.0.2"),
                     ("Polygon2 >= 2.0.8", "Polygon2 >= 2.0.8"),
                     ("pyFFTW >= 0.10.4", "pyFFTW >= 0.10.4"),
@@ -122,12 +127,10 @@ def requirements():
                     ("pyfits >= 3.5", "pyfits >= 3.5"), #kittens dependency, do not remove
                     ("configparser >= 3.7.1", "configparser <= 3.5.0"),
                     ("pandas >=0.23.3", "pandas >=0.23.3"),
-                    ("ruamel.yaml >= 0.15.92", "ruamel.yaml >= 0.15.92")] 
-    try:
-        import six
-    except ImportError, e:
-        raise ImportError("Six not installed. Please install Python 2.x compatibility package six before running DDFacet install. "
-                          "You should not see this message unless you are not running pip install -- run pip install!")
+                    ("ruamel.yaml >= 0.15.92", "ruamel.yaml >= 0.15.92"),
+                    ("pylru >= 1.1.0", "pylru >= 1.1.0"),
+                    ("six >= 1.12.0", "six >= 1.12.0"),
+                    ("pybind11 >= 2.2.2", "pybind11 >= 2.2.2")] 
 
     py3_requirements, py2_requirements = zip(*requirements)
     install_requirements = py2_requirements if six.PY2 else py3_requirements
@@ -151,8 +154,8 @@ setup(name=pkg,
       author_email='cyril.tasse@obspm.fr',
       license='GNU GPL v2',
       cmdclass={'install': custom_install,
-                'build': custom_build,
                 'sdist': custom_sdist,
+                'build': custom_build
                },
       python_requires='<3.0',
       packages=[pkg, skymodel_pkg],
@@ -160,5 +163,12 @@ setup(name=pkg,
       include_package_data=True,
       zip_safe=False,
       long_description_content_type='text/markdown',
-      scripts=define_scripts()
+      scripts=define_scripts(),
+      extras_require={
+          'dft-support': ['montblanc @ git+https://github.com/ska-sa/montblanc.git@0.6.1'],
+          'moresane-support': ['pymoresane >= 0.3.0'],
+          'testing-requirements': ['nose >= 1.3.7'],
+          'codex-africanus':['codex-africanus[dask]'],
+          'fits-beam-support':['meqtrees-cattery'],
+      }
 )

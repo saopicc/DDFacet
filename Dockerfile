@@ -239,29 +239,26 @@ RUN python -c "import bdsf"
 ADD DDFacet /src/DDFacet/DDFacet
 ADD SkyModel /src/DDFacet/SkyModel
 ADD MANIFEST.in /src/DDFacet/MANIFEST.in
-ADD requirements.txt /src/DDFacet/requirements.txt
 ADD setup.py /src/DDFacet/setup.py
 ADD setup.cfg /src/DDFacet/setup.cfg
 ADD README.rst /src/DDFacet/README.rst
+ADD pyproject.toml /src/DDFacet/pyproject.toml
 ADD .git /src/DDFacet/.git
 ADD .gitignore /src/DDFacet/.gitignore
 ADD .gitmodules /src/DDFacet/.gitmodules
 
-# Install Montblanc and all other optional dependencies
-RUN pip install -r /src/DDFacet/requirements.txt --user
 RUN cd /src/DDFacet/ && git submodule update --init --recursive && cd /
 # Finally install DDFacet
 RUN rm -rf /src/DDFacet/DDFacet/cbuild
-RUN pip install -I --user /src/DDFacet/
+RUN pip install -U pip setuptools wheel
+RUN python2.7 -m pip install pybind11
+RUN python2.7 -m pip install "/src/DDFacet/[dft-support,moresane-support,testing-requirements,codex-africanus,meqtrees-cattery]"
 # Set MeqTrees Cattery path to installation directory
 ENV MEQTREES_CATTERY_PATH /usr/local/lib/python2.7/dist-packages/Cattery/
 ENV PYTHONPATH $MEQTREES_CATTERY_PATH:$PYTHONPATH
 RUN python2.7 -c "import Siamese"
 
 # perform some basic tests
-ENV PATH /root/.local/bin:$PATH
-ENV LD_LIBRARY_PATH /root/.local/lib:$LD_LIBRARY_PATH
-ENV PYTHONPATH /root/.local/lib/python2.7/site-packages:$PYTHONPATH
 RUN DDF.py --help
 RUN MakeMask.py --help
 RUN MakeCatalog.py --help
