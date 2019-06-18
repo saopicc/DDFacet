@@ -25,9 +25,9 @@ import math, os, cPickle, traceback
 import ClassMS
 from DDFacet.Data.ClassStokes import ClassStokes
 from DDFacet.Other import ModColor
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from functools import reduce
-MyLogger.setSilent(["NpShared"])
+logger.setSilent(["NpShared"])
 import ClassSmearMapping
 import ClassJones
 from DDFacet.Array import shared_dict
@@ -35,7 +35,7 @@ from DDFacet.Other.AsyncProcessPool import APP
 import DDFacet.cbuild.Gridder._pyGridderSmearPols as _pyGridderSmearPols
 import copy
 
-log = MyLogger.getLogger("ClassVisServer")
+log = logger.getLogger("ClassVisServer")
 
 _cc = 299792458
 

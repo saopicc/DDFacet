@@ -30,7 +30,7 @@ from montblanc.impl.rime.tensorflow.sinks import SinkProvider
 from DDFacet.Data.ClassStokes import StokesTypes
 import logging
 
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
 from DDFacet.Other.progressbar import ProgressBar
@@ -42,7 +42,7 @@ from astropy import wcs as pywcs
 from pyrap.measures import measures
 from pyrap.quanta import quantity
         
-log=MyLogger.getLogger("ClassMontblancMachine")
+log=logger.getLogger("ClassMontblancMachine")
 
 DEBUG = False
 

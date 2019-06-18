@@ -21,9 +21,9 @@ import os
 import numpy as np
 import multiprocessing
 import time
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from DDFacet.Other import ModColor
-log=MyLogger.getLogger("ClassImageDeconvMachine")
+log=logger.getLogger("ClassImageDeconvMachine")
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Imager.ClassPSFServer import ClassPSFServer
 from DDFacet.Other.progressbar import ProgressBar
@@ -35,8 +35,8 @@ from DDFacet.Array import NpParallel
 import ClassIslandDistanceMachine
 from DDFacet.Array import shared_dict
 
-MyLogger.setSilent("ClassArrayMethodSSD")
-MyLogger.setSilent("ClassIsland")
+logger.setSilent("ClassArrayMethodSSD")
+logger.setSilent("ClassIsland")
 
 
 class ClassImageDeconvMachine():

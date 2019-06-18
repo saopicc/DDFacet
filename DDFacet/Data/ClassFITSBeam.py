@@ -23,8 +23,8 @@ import os
 import os.path
 import sys
 
-from DDFacet.Other import MyLogger
-log = MyLogger.getLogger("ClassFITSBeam")
+from DDFacet.Other import logger
+log = logger.getLogger("ClassFITSBeam")
 
 import pyrap.tables
 
@@ -214,7 +214,7 @@ class ClassFITSBeam (object):
         # compute PA 
         parad = dm.posangle(self.field_centre,self.zenith).get_value("rad")
         import math
-        print>>log,"time %f, position angle %f"%(t0, parad*180/math.pi)
+        # print>>log,"time %f, position angle %f"%(t0, parad*180/math.pi)
 
         # compute l,m per direction
         ndir = len(ra)

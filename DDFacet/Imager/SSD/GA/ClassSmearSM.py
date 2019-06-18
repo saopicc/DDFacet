@@ -2,8 +2,8 @@
 import numpy as np
 import scipy.signal
 import ClassConvMachine
-from DDFacet.Other import MyLogger
-log=MyLogger.getLogger("ClassSmearSM")
+from DDFacet.Other import logger
+log=logger.getLogger("ClassSmearSM")
 import multiprocessing
 from DDFacet.Array import NpShared
 from DDFacet.Array import ModLinAlg

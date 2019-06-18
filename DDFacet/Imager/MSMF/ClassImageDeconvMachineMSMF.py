@@ -20,9 +20,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import numpy as np
 import math
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from DDFacet.Other import ModColor
-log=MyLogger.getLogger("ClassImageDeconvMachineMSMF")
+log=logger.getLogger("ClassImageDeconvMachineMSMF")
 #import pylab
 import traceback
 import psutil
@@ -505,7 +505,7 @@ class ClassImageDeconvMachine():
         # y1p=y0+y1p
         # Bedge=x0p,x1p,y0p,y1p
 
-        # import pylab
+        # # import pylab
         # pylab.clf()
         # ax=pylab.subplot(1,3,1)
         # vmin,vmax=self._CubeDirty.min(),self._CubeDirty.max()
@@ -515,8 +515,9 @@ class ClassImageDeconvMachine():
         # pylab.imshow(np.mean(LocalSM,axis=0)[0,x0p:x1p,y0p:y1p],interpolation="nearest",vmin=vmin,vmax=vmax)
         # pylab.colorbar()
         # pylab.draw()
-        # # #print "Fpol02",Fpol
-        # # # NpParallel.A_add_B_prod_factor((self.Dirty),LocalSM,Aedge,Bedge,factor=float(factor),NCPU=self.NCPU)
+        
+        # #print "Fpol02",Fpol
+        # # NpParallel.A_add_B_prod_factor((self.Dirty),LocalSM,Aedge,Bedge,factor=float(factor),NCPU=self.NCPU)
 
 # <<<<<<< HEAD
 

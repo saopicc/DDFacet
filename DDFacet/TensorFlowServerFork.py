@@ -28,7 +28,7 @@ def fork_tensorflow_server():
     import time
     import DDFacet
 
-    import DDFacet.Other.MyLogger as MyLogger
+    import DDFacet.Other.logger as MyLogger
     log=MyLogger.getLogger(" TensorflowServerFork").logger
 
     script = '{d}/tf_server_fork.py'.format(d=os.path.dirname(DDFacet.__file__))

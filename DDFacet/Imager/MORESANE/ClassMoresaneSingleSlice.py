@@ -22,7 +22,7 @@ import numpy as np
 import logging
 import time
 
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from pymoresane.main import FitsImage as FI
 
 class ClassMoresaneSingleSlice(FI):

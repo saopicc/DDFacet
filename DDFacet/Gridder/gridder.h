@@ -222,7 +222,7 @@ namespace DDF {
 	    if (JS.DoApplyJones==1)
 	      {
 	      // update Jones term in all cases. If updated, or no psf yet precomputed, do it now
-	      if( (JS.updateJones(irow, visChan, uvwPtr, true, true) || !have_psf) && dopsf )
+	      if( (JS.updateJones(irow, visChan, uvwPtr, false, true) || !have_psf) && dopsf )
 	        {
 	        VisMeas = (JS.J0).times(JS.J1H); // precompute for the PSF case
     	        VisMeas = (JS.J0H.times(VisMeas)).times(JS.J1);
@@ -235,6 +235,7 @@ namespace DDF {
 	    if (!dopsf)
 	      readcorr(visdata+doff, VisMeas);
 
+	    //cout<<JS.WeightVaryJJ<<endl;
 	    const double FWeight = imgWtPtr[0]*JS.WeightVaryJJ;
 	    const dcmplx Weight   = FWeight*corr;
 	    const double FWeightDecorr = FWeight*DeCorrFactor*DeCorrFactor;
@@ -279,7 +280,7 @@ namespace DDF {
         if (JS.DoApplyJones==2)
             {
             double uvw_mean[] = { Umean, Vmean, Wmean };
-            JS.updateJones(Row[NRowThisBlock/2], (chStart+chEnd)/2, uvw_mean, 1, 1);
+            JS.updateJones(Row[NRowThisBlock/2], (chStart+chEnd)/2, uvw_mean, 0, 1);
             if (dopsf)
               Vis = ((JS.J0).times(Vis)).times(JS.J1H);
             Vis = (JS.J0H.times(Vis)).times(JS.J1);

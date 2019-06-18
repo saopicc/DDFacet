@@ -19,10 +19,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
 import numpy as np
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from DDFacet.ToolsDir import ClassSpectralFunctions
 
-log= MyLogger.getLogger("ClassPSFServer")
+log= logger.getLogger("ClassPSFServer")
 
 class ClassPSFServer():
     def __init__(self,GD=None):
@@ -116,7 +116,8 @@ class ClassPSFServer():
         for iFacet in range(self.NFacets):
             l=CellSizeRad*(xp-nx/2)
             m=CellSizeRad*(yp-nx/2)
-            lSol,mSol=self.DicoVariablePSF["Facets"][iFacet]["lmSol"]
+            #lSol,mSol=self.DicoVariablePSF["Facets"][iFacet]["lmSol"]
+            lSol,mSol=self.DicoVariablePSF["Facets"][iFacet]["l0m0"]
             #print "lsol, msol = ",lSol,mSol #,self.DicoVariablePSF[iFacet]["pixCentral"][0],self.DicoVariablePSF[iFacet]["pixCentral"][1]
 
             d=np.sqrt((l-lSol)**2+(m-mSol)**2)
@@ -124,6 +125,7 @@ class ClassPSFServer():
             if d<dmin:
                 dmin=d
                 ClosestFacet=iFacet
+                
         # print "[%i, %i] ->  %i"%(xp,yp,ClosestFacet)
         return ClosestFacet
 

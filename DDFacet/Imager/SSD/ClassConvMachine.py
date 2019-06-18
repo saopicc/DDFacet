@@ -1,7 +1,7 @@
 import numpy as np
 from DDFacet.Other import ClassTimeIt
-from DDFacet.Other import MyLogger
-log=MyLogger.getLogger("ClassConvMatrix")
+from DDFacet.Other import logger
+log=logger.getLogger("ClassConvMatrix")
 import scipy.signal
 from DDFacet.Array import ModLinAlg
 from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric

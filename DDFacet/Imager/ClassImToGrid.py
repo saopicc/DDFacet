@@ -169,7 +169,9 @@ class ClassImToGrid():
                 
                 ModelIm[ch,pol][x0p:x1p,y0p:y1p]=Image[ch,pol][x0d:x1d,y0d:y1d].real
                 
-                if (ModelIm[ch,pol]==0).all(): continue
+                if (ModelIm[ch,pol] == 0).all(): 
+                    continue
+                    
                 T.timeit("0")
 
                 M=ModelIm[ch,pol][dx:dx+N1NonPadded+1,dx:dx+N1NonPadded+1].copy()
