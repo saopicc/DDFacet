@@ -72,7 +72,8 @@ class ClassFrequencyMachine(object):
         if PSFServer is not None:
             self.PSFServer = PSFServer
         else:
-            print("No PSFServer provided, unable to use new freq fit mode", file=log)
+            pass
+            # print("No PSFServer provided, unable to use new freq fit mode", file=log)
 
     def set_Method(self, mode="Poly"):
         """
