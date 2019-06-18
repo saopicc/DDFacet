@@ -1,7 +1,7 @@
 from __future__ import division
 import numpy as np
-from DDFacet.Other import MyLogger
-log=MyLogger.getLogger("ClassAdaptShape")
+from DDFacet.Other import logger
+log=logger.getLogger("ClassAdaptShape")
 from DDFacet.Other import ModColor
 
 class ClassAdaptShape():

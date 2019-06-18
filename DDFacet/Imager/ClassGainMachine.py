@@ -20,13 +20,13 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 from __future__ import division
 
 import numpy as np
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
 from DDFacet.Other.progressbar import ProgressBar
 import threading
 
-log=MyLogger.getLogger("ClassGainMachine")
+log=logger.getLogger("ClassGainMachine")
 
 def get_instance():
     return ClassGainMachine.get_instance()

@@ -24,9 +24,9 @@ from pyrap.images import image
 
 import DDFacet.Data.ClassStokes as ClassStokes
 import numpy as np
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 
-log= MyLogger.getLogger("ClassCasaImage")
+log= logger.getLogger("ClassCasaImage")
 from astropy.io import fits
 from astropy.wcs import WCS
 from DDFacet.report_version import report_version

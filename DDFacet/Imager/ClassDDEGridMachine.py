@@ -35,8 +35,8 @@ from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Parset import ReadCFG
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Data import ClassVisServer
-from DDFacet.Other import MyLogger
-log = MyLogger.getLogger("ClassDDEGridMachine")
+from DDFacet.Other import logger
+log = logger.getLogger("ClassDDEGridMachine")
 
 
 def testGrid():

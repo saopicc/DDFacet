@@ -20,9 +20,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 from __future__ import division
 
 import numpy as np
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 
-log= MyLogger.getLogger("ClassMultiScaleMachine")
+log= logger.getLogger("ClassMultiScaleMachine")
 from DDFacet.Array import ModLinAlg
 from DDFacet.Array import lsqnonneg
 from DDFacet.ToolsDir import ModFFTW

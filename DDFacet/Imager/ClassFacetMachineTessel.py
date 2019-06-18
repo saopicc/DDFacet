@@ -35,9 +35,8 @@ from matplotlib.path import Path
 from SkyModel.Sky import ModVoronoiToReg
 import Polygon
 from DDFacet.ToolsDir import rad2hmsdms
-from DDFacet.Other import MyLogger
-log = MyLogger.getLogger("ClassFacetMachineTessel")
-MyLogger.setSilent("MyLogger")
+from DDFacet.Other import logger
+log = logger.getLogger("ClassFacetMachineTessel")
 
 
 class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):

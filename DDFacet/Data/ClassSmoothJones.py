@@ -20,8 +20,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 from __future__ import division
 
 import numpy as np
-from DDFacet.Other import MyLogger
-log= MyLogger.getLogger("ClassSoothJones")
+from DDFacet.Other import logger
+log= logger.getLogger("ClassSoothJones")
 from DDFacet.Array import NpShared
 
 class ClassSmoothJones():

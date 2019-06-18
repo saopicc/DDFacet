@@ -23,8 +23,8 @@ import os, os.path, subprocess
 import cPickle
 import collections
 
-from DDFacet.Other import MyLogger, ModColor
-log = MyLogger.getLogger("CacheManager")
+from DDFacet.Other import logger, ModColor
+log = logger.getLogger("CacheManager")
 
 
 class CacheManager (object):

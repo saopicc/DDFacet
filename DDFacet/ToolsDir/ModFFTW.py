@@ -29,12 +29,12 @@ import psutil
 import numexpr
 from DDFacet.Other.AsyncProcessPool import APP
 from DDFacet.Array import shared_dict
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 import ModToolBox
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 from DDFacet.ToolsDir import Gaussian
 
-log=MyLogger.getLogger("ModFFTW")
+log=logger.getLogger("ModFFTW")
 
 #Fs=pyfftw.interfaces.numpy_fft.fftshift
 #iFs=pyfftw.interfaces.numpy_fft.ifftshift

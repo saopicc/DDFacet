@@ -20,8 +20,8 @@ from Other import reformat
 from Sky import ClassSM
 from Other import rad2hmsdms
 
-from DDFacet.Other import MyLogger
-log=MyLogger.getLogger("Gaussify")
+from DDFacet.Other import logger
+log=logger.getLogger("Gaussify")
 
 def read_options():
     desc="""Questions and suggestions: cyril.tasse@obspm.fr"""

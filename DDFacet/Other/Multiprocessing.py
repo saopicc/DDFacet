@@ -28,14 +28,14 @@ import numpy as np
 import glob
 import re
 
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Array import NpShared
 from DDFacet.Array import shared_dict
 
-log = MyLogger.getLogger("Multiprocessing")
+log = logger.getLogger("Multiprocessing")
 #MyLogger.setSilent("Multiprocessing")
 
 # store PID here, so that it corresponds to the PID of the parent thread (when we fork off child processes)

@@ -19,8 +19,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 from __future__ import division
 
-from DDFacet.Other import MyLogger
-log= MyLogger.getLogger("ClassLOFARBeam")
+from DDFacet.Other import logger
+log= logger.getLogger("ClassLOFARBeam")
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
 

@@ -22,8 +22,8 @@ from __future__ import division
 import numpy as np
 from killMS.Array import ModLinAlg
 
-from DDFacet.Other import MyLogger
-log = MyLogger.getLogger("ClassJonesDomains")
+from DDFacet.Other import logger
+log = logger.getLogger("ClassJonesDomains")
 
 
 class ClassJonesDomains():

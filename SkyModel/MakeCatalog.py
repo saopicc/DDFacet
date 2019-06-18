@@ -4,8 +4,8 @@ import sys,os
 if "PYTHONPATH_FIRST" in os.environ.keys() and int(os.environ["PYTHONPATH_FIRST"]):
     sys.path = os.environ["PYTHONPATH"].split(":") + sys.path
 import numpy as np
-from DDFacet.Other import MyLogger
-log=MyLogger.getLogger("MakeCatalog")
+from DDFacet.Other import logger
+log=logger.getLogger("MakeCatalog")
 #import pyfits
 import optparse
 import bdsf

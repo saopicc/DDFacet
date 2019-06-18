@@ -26,9 +26,9 @@ from deap import creator
 from deap import tools
 from scipy.spatial import Voronoi
 import ModVoronoi
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from DDFacet.Other import MyPickle
-log=MyLogger.getLogger("ClusterDEAP")
+log=logger.getLogger("ClusterDEAP")
 from DDFacet.Other import ClassTimeIt
 #from scoop import futures
 import multiprocessing

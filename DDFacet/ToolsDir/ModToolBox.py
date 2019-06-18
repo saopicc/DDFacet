@@ -36,8 +36,8 @@ import numpy
 #import pyfftw
 import scipy.signal
 
-from DDFacet.Other import MyLogger
-log= MyLogger.getLogger("ModToolBox", disable=True)
+from DDFacet.Other import logger
+log= logger.getLogger("ModToolBox", disable=True)
 
 
 # def EstimateNpix(Npix,Padding=1):

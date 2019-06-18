@@ -26,9 +26,9 @@ from DDFacet.compatibility import range
 
 import itertools
 import numpy as np
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from DDFacet.Other import ModColor
-log=MyLogger.getLogger("ClassModelMachineHogbom")
+log=logger.getLogger("ClassModelMachineHogbom")
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Other import MyPickle
 from DDFacet.Other import reformat

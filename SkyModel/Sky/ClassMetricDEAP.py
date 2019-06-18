@@ -10,8 +10,8 @@ from deap import tools
 #import pylab
 from scipy.spatial import Voronoi
 import ModVoronoi
-from DDFacet.Other import MyLogger
-log=MyLogger.getLogger("ClusterDEAP")
+from DDFacet.Other import logger
+log=logger.getLogger("ClusterDEAP")
 from DDFacet.Other import ClassTimeIt
 #from scoop import futures
 import multiprocessing

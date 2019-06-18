@@ -26,8 +26,8 @@ from DDFacet.compatibility import range
 
 import numpy as np
 import numexpr
-from DDFacet.Other import MyLogger
-log = MyLogger.getLogger("ClassScaleMachine")
+from DDFacet.Other import logger
+log = logger.getLogger("ClassScaleMachine")
 from DDFacet.Array import NpParallel
 from DDFacet.ToolsDir.ModFFTW import FFTW_Manager
 

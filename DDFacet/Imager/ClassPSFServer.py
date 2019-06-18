@@ -20,10 +20,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 from __future__ import division
 
 import numpy as np
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from DDFacet.ToolsDir import ClassSpectralFunctions
 
-log= MyLogger.getLogger("ClassPSFServer")
+log= logger.getLogger("ClassPSFServer")
 
 class ClassPSFServer():
     def __init__(self,GD=None):

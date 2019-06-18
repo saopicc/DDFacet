@@ -24,8 +24,8 @@ import os
 import os.path
 import sys
 
-from DDFacet.Other import MyLogger
-log = MyLogger.getLogger("ClassFITSBeam")
+from DDFacet.Other import logger
+log = logger.getLogger("ClassFITSBeam")
 
 import pyrap.tables
 

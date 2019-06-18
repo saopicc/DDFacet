@@ -23,9 +23,9 @@ from __future__ import division
 import SharedArray
 from DDFacet.Other import ModColor
 import numpy as np
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 import traceback
-log = MyLogger.getLogger("NpShared")
+log = logger.getLogger("NpShared")
 import os.path
 
 

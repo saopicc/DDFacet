@@ -6,8 +6,8 @@ from SkyModel.Other import ModColor
 import scipy.ndimage
 from SkyModel.Other.progressbar import ProgressBar
 import findrms
-from DDFacet.Other import MyLogger
-log=MyLogger.getLogger("ClassIsland")
+from DDFacet.Other import logger
+log=logger.getLogger("ClassIsland")
 
 
 class ClassIslands():

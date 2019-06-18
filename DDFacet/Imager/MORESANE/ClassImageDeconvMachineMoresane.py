@@ -21,9 +21,9 @@ from __future__ import division
 
 import os
 import numpy as np
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from DDFacet.Other import ModColor
-log=MyLogger.getLogger("ClassImageDeconvMachine")
+log=logger.getLogger("ClassImageDeconvMachine")
 from DDFacet.Array import NpParallel
 from DDFacet.Array import NpShared
 from DDFacet.ToolsDir import ModFFTW

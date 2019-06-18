@@ -28,8 +28,8 @@ import numpy as np
 import warnings
 warnings.simplefilter('ignore', np.RankWarning)
 from scipy.optimize import curve_fit, fmin_l_bfgs_b
-from DDFacet.Other import MyLogger
-log = MyLogger.getLogger("ClassScaleMachine")
+from DDFacet.Other import logger
+log = logger.getLogger("ClassScaleMachine")
 
 class ClassFrequencyMachine(object):
     """

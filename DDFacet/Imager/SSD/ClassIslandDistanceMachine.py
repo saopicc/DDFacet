@@ -1,10 +1,10 @@
 from __future__ import division
 import time
 import numpy as np
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from DDFacet.Other import MyPickle
 from DDFacet.Other import ModColor
-log=MyLogger.getLogger("ClassIslandDistanceMachine")
+log=logger.getLogger("ClassIslandDistanceMachine")
 from DDFacet.Other.progressbar import ProgressBar
 from SkyModel.PSourceExtract import ClassIslands
 from SkyModel.PSourceExtract import ClassIncreaseIsland

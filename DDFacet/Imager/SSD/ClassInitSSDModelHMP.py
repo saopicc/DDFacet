@@ -7,8 +7,8 @@ from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 from DDFacet.Other import ClassTimeIt
-from DDFacet.Other import MyLogger
-log=MyLogger.getLogger("ClassInitSSDModel")
+from DDFacet.Other import logger
+log=logger.getLogger("ClassInitSSDModel")
 from DDFacet.Other import ModColor
 from ClassConvMachine import ClassConvMachineImages
 from DDFacet.Imager import ClassMaskMachine
@@ -38,7 +38,7 @@ class ClassInitSSDModelParallel():
 
     def _initIsland_worker(self, DicoOut, iIsland, Island,
                            DicoVariablePSF, DicoDirty, DicoParm, FacetCache,NCPU):
-        MyLogger.setSilent(["ClassImageDeconvMachineMSMF","ClassPSFServer","ClassMultiScaleMachine","GiveModelMachine","ClassModelMachineMSMF"])
+        logger.setSilent(["ClassImageDeconvMachineMSMF", "ClassPSFServer", "ClassMultiScaleMachine", "GiveModelMachine", "ClassModelMachineMSMF"])
         self.InitMachine.Init(DicoVariablePSF, DicoParm["GridFreqs"], DicoParm["DegridFreqs"], facetcache=FacetCache)
         self.InitMachine.setDirty(DicoDirty)
         #self.InitMachine.DeconvMachine.setNCPU(NCPU)
