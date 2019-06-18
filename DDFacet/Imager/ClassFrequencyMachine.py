@@ -103,14 +103,15 @@ class ClassFrequencyMachine(object):
                     else:
                         self.freqs_full = []
                         for iCh in xrange(self.nchan):
-                            self.freqs_full.append(self.PSFServer.DicoVariablePSF["freqs"][iCh])
+                            self.freqs_full.append(self.PSFServer.DicoVariablePSF["freqs"][iCh] 
+                            if hasattr(self, "PSFServer") and self.PSFServer is not None else [self.Freqs[iCh]])
                         self.freqs_full = np.concatenate(self.freqs_full)
                         self.nchan_full = np.size(self.freqs_full)
 
                         self.Xdes_full = self.setDesMat(self.freqs_full, order=self.order,
                                                         mode="Mono")
                         # build the S matrix
-                        ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
+                        ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"] 
                         ChanMappingFull = []
                         for iMS in ChanMappingGrid.keys():
                             ChanMappingFull.append(ChanMappingGrid[iMS])
