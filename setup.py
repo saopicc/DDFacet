@@ -106,7 +106,7 @@ def requirements():
     requirements = [("nose >= 1.3.7", "nose >= 1.3.7"),
                     ("Cython >= 0.25.2", "Cython >= 0.25.2"),
                     ("numpy >= 1.15.1", "numpy >= 1.15.1"), #Ubuntu 18.04
-                    ("SharedArray >= 2.0.2", "SharedArray >= 2.0.2"),
+                    ("sharedarray @ git+https://gitlab.com/bennahugo/shared-array.git@master", "sharedarray @ git+https://gitlab.com/bennahugo/shared-array.git@master"),
                     ("Polygon2 >= 2.0.8", "Polygon2 >= 2.0.8"),
                     ("pyFFTW >= 0.10.4", "pyFFTW >= 0.10.4"),
                     ("astropy >= 3.0", "astropy <= 2.0.11"),
@@ -130,7 +130,10 @@ def requirements():
                     ("ruamel.yaml >= 0.15.92", "ruamel.yaml >= 0.15.92"),
                     ("pylru >= 1.1.0", "pylru >= 1.1.0"),
                     ("six >= 1.12.0", "six >= 1.12.0"),
-                    ("pybind11 >= 2.2.2", "pybind11 >= 2.2.2")] 
+                    ("pybind11 >= 2.2.2", "pybind11 >= 2.2.2"),
+                    ("codex-africanus[dask]", "codex-africanus[dask]"),
+                    ("bdsf", "bdsf") # SkyModel / kms dependency
+                    ] 
 
     py3_requirements, py2_requirements = zip(*requirements)
     install_requirements = py2_requirements if six.PY2 else py3_requirements
@@ -168,7 +171,6 @@ setup(name=pkg,
           'dft-support': ['montblanc @ git+https://github.com/ska-sa/montblanc.git@0.6.1'],
           'moresane-support': ['pymoresane >= 0.3.0'],
           'testing-requirements': ['nose >= 1.3.7'],
-          'codex-africanus':['codex-africanus[dask]'],
-          'fits-beam-support':['meqtrees-cattery'],
+          'fits-beam-support': ['meqtrees-cattery'],
       }
 )
