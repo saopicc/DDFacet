@@ -139,7 +139,7 @@ on your own -- be warned!!
 (Users/Optional) FitsBeam, Montblanc, Moresane support
 ==========================================================
 Optional requirements like the FITS beam can be installed by specifying them in brackets.
-E.g. RUN python2.7 -m pip install "/src/DDFacet/[dft-support,moresane-support,testing-requirements,fits-beam-support]"
+E.g. pip install "/src/DDFacet/[dft-support,moresane-support,testing-requirements,fits-beam-support]"
 
 (Users/Troubleshooting) Configure max shared memory
 ==========================================================
