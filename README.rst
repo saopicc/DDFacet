@@ -175,7 +175,6 @@ To setup your local development environment navigate clone DDFacet and run::
         (ddfvenv) $ cd DDFacet
         (ddfvenv) $ git submodule update --init --recursive
         (ddfvenv) $ cd ..
-        (ddfvenv) $ pip install -r DDFacet/requirements.txt
         (ddfvenv) $ pip install -e DDFacet/
         #To (re-)build the backend in your checked out folder:
         (ddfvenv) $ cd DDFacet
