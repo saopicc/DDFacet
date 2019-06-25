@@ -125,7 +125,7 @@ def requirements():
                     ("prettytable >= 0.7.2", "prettytable >= 0.7.2"),
                     ("pybind11 >= 2.2.2", "pybind11 >= 2.2.2"),
                     ("pyfits >= 3.5", "pyfits >= 3.5"), #kittens dependency, do not remove
-                    ("configparser >= 3.7.1", "configparser <= 3.5.0"),
+                    ("configparser >= 3.7.1", "configparser >= 3.7.1"),
                     ("pandas >=0.23.3", "pandas >=0.23.3"),
                     ("ruamel.yaml >= 0.15.92", "ruamel.yaml >= 0.15.92"),
                     ("pylru >= 1.1.0", "pylru >= 1.1.0"),

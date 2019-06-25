@@ -374,10 +374,10 @@ class ClassDDEGridMachine():
         #    self.PolModeID = 1
         #DEPRICATION:
         #These are only to be used in the degridder, they are depricated for the gridder
-	self.npol = len(ExpectedOutputStokes)
-	self.SkyType=1
-	self.PolMap=np.array([0, 5, 5, 0], np.int32)
-	self.PolModeID=0
+        self.npol = len(ExpectedOutputStokes)
+        self.SkyType=1
+        self.PolMap=np.array([0, 5, 5, 0], np.int32)
+        self.PolModeID=0
         self.Npix = Npix
 
         self.NFreqBands = NFreqBands

@@ -135,8 +135,10 @@ def GiveArray(Name):
         # print "   %s"%(str(e))
         # print
         print "Error loading",Name
-        traceback.print_exc()
-        return None
+        # why are we not raising this serious error
+        #traceback.print_exc()
+        #return None
+        raise e
 
 
 def Exists(Name):

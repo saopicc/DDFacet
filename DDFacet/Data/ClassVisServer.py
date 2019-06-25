@@ -1001,7 +1001,6 @@ class ClassVisServer():
             return
 
         wmax = self._uvmax = 0
-
         # scan through MSs to determine uv-max
         for ims, ms in enumerate(self.ListMS):
             ms = self.ListMS[ims]
@@ -1019,7 +1018,8 @@ class ClassVisServer():
                 if not rowflags.all():
                     uvmax_wavelengths = abs(uvw[~rowflags, :2]).max() * max_freq / _cc
                     self._uvmax = max(self._uvmax, uvmax_wavelengths)
-
+                    wmax = max(wmax, abs(uvw[~rowflags, 2]).max())
+        
         # setup uv-grid for non-natural weights
         if self.Weighting != "natural":
             self._weight_grid = shared_dict.create("VisWeights.Grid")
@@ -1057,9 +1057,6 @@ class ClassVisServer():
                     file(msw["cachepath"], 'w').truncate(0)
                     continue
 
-                wmax = max(wmax, msw["wmax"])
-                self._uvmax = max(self._uvmax, msw["uvmax_wavelengths"])
-
                 # in Natural mode, we're done: dump weights out
                 if self.Weighting == "natural":
                     self._finalizeWeights_handler(None, msw, ims, ichunk, 0)
@@ -1071,7 +1068,7 @@ class ClassVisServer():
                     for field in "weight", "uv", "flags", "index":
                         if field in msw:
                             msw.delete_item(field)
-
+                            
         # save wmax to cache
         cPickle.dump(wmax, open(wmax_path, "w"))
         self.maincache.saveCache("wmax")
