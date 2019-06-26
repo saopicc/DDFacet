@@ -374,10 +374,10 @@ class ClassDDEGridMachine():
         #    self.PolModeID = 1
         #DEPRICATION:
         #These are only to be used in the degridder, they are depricated for the gridder
-	self.npol = len(ExpectedOutputStokes)
-	self.SkyType=1
-	self.PolMap=np.array([0, 5, 5, 0], np.int32)
-	self.PolModeID=0
+        self.npol = len(ExpectedOutputStokes)
+        self.SkyType=1
+        self.PolMap=np.array([0, 5, 5, 0], np.int32)
+        self.PolModeID=0
         self.Npix = Npix
 
         self.NFreqBands = NFreqBands
@@ -1001,10 +1001,30 @@ class ClassDDEGridMachine():
         #print vis
         #print "DEGRID:",Grid.shape,ChanMapping
         if self.GD["RIME"]["ForwardMode"]=="Classic":
+            # this bastard only does 4 pol data.... put in an ugly kludge to support dual and single corr data
+            assert vis.ndim == 3
+            if vis.shape[2] == 4:
+                vis_padded = vis.view()
+                flag_padded = flag.view()
+            elif vis.shape[2] == 2:
+                vis_padded = np.zeros((vis.shape[0], vis.shape[1], 4), dtype=vis.dtype)
+                flag_padded = np.zeros((vis.shape[0], vis.shape[1], 4), dtype=flag.dtype)
+                vis_padded[:, :, 0] = vis[:, :, 0]
+                vis_padded[:, :, 3] = vis[:, :, 1]
+                flag_padded[:, :, :] = np.max(flag, axis=2)[:, :, None] # equalize flags since this is what the degridder expects
+            elif vis.shape[2] == 1:
+                vis_padded = np.zeros((vis.shape[0], vis.shape[1], 4), dtype=vis.dtype)
+                flag_padded = np.zeros((vis.shape[0], vis.shape[1], 4), dtype=flag.dtype)
+                vis_padded[:, :, 0] = vis[:, :, 0]
+                vis_padded[:, :, 3] = vis[:, :, 0]
+                flag_padded[:, :, :] = np.max(flag, axis=2)[:, :, None] # equalize flags since this is what the degridder expects
+            else:
+                raise ValueError("Expected visibility shape either 4, 2 or 1. Nothing else is supported")
+
             _ = _pyGridder.pyDeGridderWPol(Grid,
-                                           vis,
+                                           vis_padded,
                                            uvw,
-                                           flag,
+                                           flag_padded,
                                            SumWeigths,
                                            0,
                                            self.WTerm.WplanesConj,
@@ -1015,6 +1035,16 @@ class ClassDDEGridMachine():
                                            [self.PolMap,FacetInfos,RowInfos,ChanMapping],
                                            ParamJonesList,
                                            self.LSmear)
+            if vis.shape[2] == 4:
+                vis = vis_padded.view()
+            elif vis.shape[2] == 2:
+                vis[:, :, 0] = vis_padded[:, :, 0]
+                vis[:, :, 1] = vis_padded[:, :, 3]
+            elif vis.shape[2] == 1:
+                vis[:, :, 0] = vis_padded[:, :, 0]
+            else:
+                raise ValueError("Expected visibility shape either 4, 2 or 1. Nothing else is supported")
+
         elif self.GD["RIME"]["ForwardMode"]=="BDA-degrid":
             # OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
             OptimisationInfos = [

@@ -851,7 +851,7 @@ class ClassImagerDeconv():
         # tell the I/O thread to go load the first chunk
         self.VS.ReInitChunkCount()
         self.VS.startChunkLoadInBackground(last_cycle=True)
-
+        
         self.FacetMachine.ReinitDirty()
 
         # BaseName=self.GD["Output"]["Name"]
@@ -914,6 +914,7 @@ class ClassImagerDeconv():
         
         #Initialize pointing solutions if montblanc is being used to predict
         self._init_pointing_sols()
+        
         
         self.FacetMachine.awaitInitCompletion()
         self.FacetMachine.BuildFacetNormImage()
@@ -1022,7 +1023,6 @@ class ClassImagerDeconv():
             if not subtract:
                 predict *= -1   # model was subtracted from (zero) data, so need to invert sign
             # run job in I/O thread
-
 
             self.VS.startVisPutColumnInBackground(DATA, "data", self.GD["Predict"]["ColName"], likecol=self.GD["Data"]["ColName"])
             # and wait for it to finish (we don't want DATA destroyed, which collectLoadedChunk() above will)
@@ -1306,7 +1306,7 @@ class ClassImagerDeconv():
                 if predict_colname:
                     print>>log,"last major cycle: model visibilities will be stored to %s"%predict_colname
 
-                if self.PredictMode == "BDA-degrid" or self.PredictMode == "DeGridder" or self.PredictMode == "BDA-degrid-classic":
+                if self.PredictMode == "BDA-degrid" or self.PredictMode == "Classic" or self.PredictMode == "DeGridder" or self.PredictMode == "BDA-degrid-classic":
                     self.FacetMachine.getChunkInBackground(DATA)
                 elif self.PredictMode == "Montblanc":
                     model = self.GiveMontblancPredict(DATA, DATA["data"])
@@ -1479,7 +1479,7 @@ class ClassImagerDeconv():
                 print>>log,"model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max())
             else:
                 print>>log,"reusing model image from previous chunk"
-            if self.PredictMode == "BDA-degrid" or self.PredictMode == "DeGridder":
+            if self.PredictMode == "BDA-degrid" or self.PredictMode == "DeGridder" or self.PredictMode == "Classic" or self.PredictMode == "BDA-degrid-classic":
                 self.FacetMachine.getChunkInBackground(DATA)
             elif self.PredictMode == "Montblanc":
                 model = self.GiveMontblancPredict(DATA, DATA["data"])
