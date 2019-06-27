@@ -326,6 +326,7 @@ class ClassDDEGridMachine():
             cf_dict: SharedDict from/to which WTerms and Sphes are saved
             compute_cf: if True, wterm/sphe is recomputed and saved to store_dict
         """
+        #import pdb; pdb.set_trace()
         T = ClassTimeIt.ClassTimeIt("Init_ClassDDEGridMachine")
         T.disable()
         self.GD = GD

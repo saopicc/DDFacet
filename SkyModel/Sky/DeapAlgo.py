@@ -26,7 +26,7 @@ you really want them to do.
 """
 
 import random
-from DDFacet.Other.progressbar import ProgressBar
+from SkyModel.Other.progressbar import ProgressBar
 
 from deap import tools
 from DDFacet.Other import ClassTimeIt
@@ -168,7 +168,7 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
     #     print logbook.stream
     T.timeit(iT); iT+=1
 
-    pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Solving ", HeaderSize=10,TitleSize=13)
+    pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Solving ", HeaderSize=10, TitleSize=13)
     NDone=0
     NJob=ngen
     intPercent=int(100*  NDone / float(NJob))
