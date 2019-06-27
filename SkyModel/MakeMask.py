@@ -535,7 +535,7 @@ class ClassMakeMask():
         NIslandNonZero=np.zeros((NIslands,),np.int32)
 
         print>>log,"  Extracting pixels in islands"
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Extracting ", HeaderSize=10,TitleSize=13)
+        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Extracting ", HeaderSize=10, TitleSize=13)
         comment=''
 
 
