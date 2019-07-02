@@ -26,7 +26,13 @@ class ClassSM():
         self.infile_cluster=infile_cluster
         self.TargetList=infile
         self.Type="Catalog"
-        if ".npy" in infile:
+
+        self.DoPrint=True
+        if type(infile).__name__=="instance":
+            Cat=infile.SourceCat
+            Cat=Cat.view(np.recarray)
+            self.DoPrint=0
+        elif ".npy" in infile:
             Cat=np.load(infile)
             Cat=Cat.view(np.recarray)
         elif Tigger:
@@ -59,7 +65,7 @@ class ClassSM():
         self.NDir=np.max(self.SourceCat.Cluster)+1
         self.NSources=Cat.shape[0]
         self.SetSelection()
-        self.PrintBasics()
+        if self.DoPrint: self.PrintBasics()
 
 
         #self.print_sm2()
