@@ -23,7 +23,7 @@ import warnings
 warnings.simplefilter('ignore', np.RankWarning)
 from scipy.optimize import curve_fit, fmin_l_bfgs_b
 from DDFacet.Other import logger
-log = logger.getLogger("ClassScaleMachine")
+log = logger.getLogger("ClassFreqMachine")
 
 class ClassFrequencyMachine(object):
     """
@@ -66,7 +66,9 @@ class ClassFrequencyMachine(object):
         if PSFServer is not None:
             self.PSFServer = PSFServer
         else:
-            print>>log, "No PSFServer provided, unable to use new freq fit mode"
+            mode = self.GD['Deconv']['Mode']
+            if mode == 'Hogbom' or mode == 'WSCMS':
+                print>>log, "No PSFServer provided, unable to use new freq fit mode"
 
     def set_Method(self, mode="Poly"):
         """

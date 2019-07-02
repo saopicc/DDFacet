@@ -344,7 +344,7 @@ class ClassInitSSDModel():
         self.ModelMachine=ModelMachine
         #self.ModelMachine.DicoSMStacked=self.DicoBasicModelMachine
         self.ModelMachine.setRefFreq(self.RefFreq,Force=True)
-        self.ModelMachine.setFreqMachine(self.GridFreqs,self.DegridFreqs)
+        
         self.MinorCycleConfig["ModelMachine"] = ModelMachine
         self.ModelMachine.setModelShape(self.SubDirty.shape)
         #self.ModelMachine.setListComponants(self.DeconvMachine.ModelMachine.ListScales)
