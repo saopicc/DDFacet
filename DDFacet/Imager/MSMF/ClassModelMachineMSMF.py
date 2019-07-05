@@ -21,10 +21,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 import itertools
 
 import numpy as np
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
-log=MyLogger.getLogger("ClassModelMachineMSMF")
+log=logger.getLogger("ClassModelMachineMSMF")
 from DDFacet.Array import NpParallel
 from DDFacet.Array import ModLinAlg
 from DDFacet.ToolsDir import ModFFTW
@@ -65,11 +65,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         self.RefFreq=RefFreq
         self.DicoSMStacked["RefFreq"]=RefFreq
-        #self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
-
-    def setFreqMachine(self,GridFreqs, DegridFreqs):
-        # Initiaise the Frequency Machine
-        self.FreqMachine = ClassFrequencyMachine.ClassFrequencyMachine(GridFreqs, DegridFreqs, self.DicoSMStacked["RefFreq"], self.GD)
 
     def ToFile(self,FileName,DicoIn=None):
         print>>log, "Saving dico model to %s"%FileName

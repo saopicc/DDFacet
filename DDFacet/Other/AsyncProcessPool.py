@@ -33,7 +33,7 @@ import re
 import numexpr
 import time
 
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
 from DDFacet.Other import Exceptions
@@ -41,7 +41,7 @@ from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Array import shared_dict
 import DDFacet.cbuild.Gridder._pyArrays as _pyArrays
 
-log = MyLogger.getLogger("AsyncProcessPool")
+log = logger.getLogger("AsyncProcessPool")
 
 SIGNALS_TO_NAMES_DICT = dict((getattr(signal, n), n) \
     for n in dir(signal) if n.startswith('SIG') and '_' not in n )
@@ -412,7 +412,7 @@ class AsyncProcessPool (object):
         a Bulba every so often makes sure their RAM usage is reset."""
         try:
             Exceptions.disable_pdb_on_error()
-            MyLogger.subprocess_id = "TB"
+            logger.subprocess_id = "TB"
 
             # loop until the completion event is raised
             # at this stage the workers are dead (or not started)
@@ -803,7 +803,7 @@ class AsyncProcessPool (object):
         _pyArrays.pySetOMPNumThreads(1)
         _pyArrays.pySetOMPDynamicNumThreads(1)
         AsyncProcessPool.proc_id = proc_id
-        MyLogger.subprocess_id = proc_id
+        logger.subprocess_id = proc_id
         if affinity:
             psutil.Process().cpu_affinity(affinity)
         object._run_worker(worker_queue)

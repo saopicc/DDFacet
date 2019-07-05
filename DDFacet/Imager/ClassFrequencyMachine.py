@@ -28,8 +28,8 @@ import numpy as np
 import warnings
 warnings.simplefilter('ignore', np.RankWarning)
 from scipy.optimize import curve_fit, fmin_l_bfgs_b
-from DDFacet.Other import MyLogger
-log = MyLogger.getLogger("ClassScaleMachine")
+from DDFacet.Other import logger
+log = logger.getLogger("ClassFreqMachine")
 
 class ClassFrequencyMachine(object):
     """
@@ -72,7 +72,9 @@ class ClassFrequencyMachine(object):
         if PSFServer is not None:
             self.PSFServer = PSFServer
         else:
-            print("No PSFServer provided, unable to use new freq fit mode", file=log)
+            mode = self.GD['Deconv']['Mode']
+            if mode == 'Hogbom' or mode == 'WSCMS':
+                print>>log, "No PSFServer provided, unable to use new freq fit mode"
 
     def set_Method(self, mode="Poly"):
         """
@@ -108,15 +110,16 @@ class ClassFrequencyMachine(object):
                         self.SAX = self.setDesMat(self.Freqs, order=self.order, mode='Mono')
                     else:
                         self.freqs_full = []
-                        for iCh in range(self.nchan):
-                            self.freqs_full.append(self.PSFServer.DicoVariablePSF["freqs"][iCh])
+                        for iCh in xrange(self.nchan):
+                            self.freqs_full.append(self.PSFServer.DicoVariablePSF["freqs"][iCh] 
+                            if hasattr(self, "PSFServer") and self.PSFServer is not None else [self.Freqs[iCh]])
                         self.freqs_full = np.concatenate(self.freqs_full)
                         self.nchan_full = np.size(self.freqs_full)
 
                         self.Xdes_full = self.setDesMat(self.freqs_full, order=self.order,
                                                         mode="Mono")
                         # build the S matrix
-                        ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
+                        ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"] 
                         ChanMappingFull = []
                         for iMS in ChanMappingGrid.keys():
                             ChanMappingFull.append(ChanMappingGrid[iMS])

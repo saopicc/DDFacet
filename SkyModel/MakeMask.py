@@ -20,8 +20,8 @@ from SkyModel.Tools import ModFFTW
 from SkyModel.PSourceExtract import ClassIslands
 from SkyModel.Other.ClassCasaImage import PutDataInNewImage
 import scipy.special
-from DDFacet.Other import MyLogger
-log=MyLogger.getLogger("MakeMask")
+from DDFacet.Other import logger
+log=logger.getLogger("MakeMask")
 from SkyModel.Other.progressbar import ProgressBar
 import collections
 from SkyModel.Other.MyHist import MyCumulHist
@@ -535,7 +535,7 @@ class ClassMakeMask():
         NIslandNonZero=np.zeros((NIslands,),np.int32)
 
         print>>log,"  Extracting pixels in islands"
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Extracting ", HeaderSize=10,TitleSize=13)
+        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Extracting ", HeaderSize=10, TitleSize=13)
         comment=''
 
 

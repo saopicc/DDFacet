@@ -136,11 +136,10 @@ on your own -- be warned!!
 
         deactivate
         
-(Users/Optional) Montblanc and pyMORESANE installation
+(Users/Optional) FitsBeam, Montblanc, Moresane support
 ==========================================================
-Montblanc <https://github.com/ska-sa/montblanc> requires DDFacet to be installed in a virtual environment. **This section requires the DDFacet virtual environment to be activated and that you are in the DDFacet directory.**::
-    
-        (ddfvenv) $ pip install -r requirements.txt
+Optional requirements like the FITS beam can be installed by specifying them in brackets.
+E.g. pip install "/src/DDFacet/[dft-support,moresane-support,testing-requirements,fits-beam-support]"
 
 (Users/Troubleshooting) Configure max shared memory
 ==========================================================
@@ -176,7 +175,6 @@ To setup your local development environment navigate clone DDFacet and run::
         (ddfvenv) $ cd DDFacet
         (ddfvenv) $ git submodule update --init --recursive
         (ddfvenv) $ cd ..
-        (ddfvenv) $ pip install -r DDFacet/requirements.txt
         (ddfvenv) $ pip install -e DDFacet/
         #To (re-)build the backend in your checked out folder:
         (ddfvenv) $ cd DDFacet

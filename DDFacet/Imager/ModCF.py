@@ -26,8 +26,8 @@ from DDFacet.Other import ModColor
 from scipy.interpolate import interp1d as interp
 from DDFacet.ToolsDir import ModToolBox
 from DDFacet.Array import NpShared
-from DDFacet.Other import MyLogger
-log = MyLogger.getLogger("WTerm")  # ,disable=True)
+from DDFacet.Other import logger
+log = logger.getLogger("WTerm")  # ,disable=True)
 from DDFacet.ToolsDir import ModTaper
 from DDFacet.ToolsDir import ModFitPoly2D
 from DDFacet.ToolsDir import ModFFTW

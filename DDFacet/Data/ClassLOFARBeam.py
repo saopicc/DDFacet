@@ -18,8 +18,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
-from DDFacet.Other import MyLogger
-log= MyLogger.getLogger("ClassLOFARBeam")
+from DDFacet.Other import logger
+log= logger.getLogger("ClassLOFARBeam")
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
 

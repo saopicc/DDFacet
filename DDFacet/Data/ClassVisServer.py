@@ -25,9 +25,9 @@ import math, os, cPickle, traceback
 import ClassMS
 from DDFacet.Data.ClassStokes import ClassStokes
 from DDFacet.Other import ModColor
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from functools import reduce
-MyLogger.setSilent(["NpShared"])
+logger.setSilent(["NpShared"])
 import ClassSmearMapping
 import ClassJones
 from DDFacet.Array import shared_dict
@@ -35,7 +35,7 @@ from DDFacet.Other.AsyncProcessPool import APP
 import DDFacet.cbuild.Gridder._pyGridderSmearPols as _pyGridderSmearPols
 import copy
 
-log = MyLogger.getLogger("ClassVisServer")
+log = logger.getLogger("ClassVisServer")
 
 _cc = 299792458
 
@@ -678,7 +678,7 @@ class ClassVisServer():
         if uvmax_valid:
             self._weight_dict["uvmax"] = cPickle.load(open(uvmax_path))
         # check cache first
-        have_all_weights = wmax_valid
+        have_all_weights = wmax_valid and uvmax_valid
         for iMS, MS in enumerate(self.ListMS):
             msweights = self._weight_dict.addSubdict(iMS)
             for ichunk, (row0, row1) in enumerate(MS.getChunkRow0Row1()):
@@ -688,9 +688,10 @@ class ClassVisServer():
                 msw["cachepath"] = path
                 if valid:
                     msw["null"] = not os.path.getsize(path)
+
         # if every weight is in cache, then we're done here
         if have_all_weights:
-            print>> log, "all imaging weights, and wmax, are available in cache"
+            print>> log, "all imaging weights, wmax, and uvmax are available in cache"
             return
         # spawn parallel jobs to load weights
         for ims,ms in enumerate(self.ListMS):
@@ -977,10 +978,13 @@ class ClassVisServer():
         cache_keys = dict([(section, self.GD[section]) for section
                            in ("Data", "Selection", "Freq", "Image", "Weight")])
         wmax_path, wmax_valid = self.maincache.checkCache("wmax", cache_keys)
+        uvmax_path, uvmax_valid = self.maincache.checkCache("uvmax", cache_keys)
         if wmax_valid:
             self._weight_dict["wmax"] = cPickle.load(open(wmax_path))
+        if uvmax_valid:
+            self._weight_dict["uvmax"] = cPickle.load(open(uvmax_path))
         # check cache first
-        have_all_weights = wmax_valid
+        have_all_weights = wmax_valid and uvmax_valid
         for iMS, MS in enumerate(self.ListMS):
             msweights = self._weight_dict.addSubdict(iMS)
             for ichunk, (row0, row1) in enumerate(MS.getChunkRow0Row1()):
@@ -990,13 +994,13 @@ class ClassVisServer():
                 msw["cachepath"] = path
                 if valid:
                     msw["null"] = not os.path.getsize(path)
+
         # if every weight is in cache, then we're done here
         if have_all_weights:
-            print>> log, "all imaging weights, and wmax, are available in cache"
+            print>> log, "all imaging weights, wmax, and uvmax are available in cache"
             return
 
         wmax = self._uvmax = 0
-
         # scan through MSs to determine uv-max
         for ims, ms in enumerate(self.ListMS):
             ms = self.ListMS[ims]
@@ -1014,7 +1018,8 @@ class ClassVisServer():
                 if not rowflags.all():
                     uvmax_wavelengths = abs(uvw[~rowflags, :2]).max() * max_freq / _cc
                     self._uvmax = max(self._uvmax, uvmax_wavelengths)
-
+                    wmax = max(wmax, abs(uvw[~rowflags, 2]).max())
+        
         # setup uv-grid for non-natural weights
         if self.Weighting != "natural":
             self._weight_grid = shared_dict.create("VisWeights.Grid")
@@ -1052,9 +1057,6 @@ class ClassVisServer():
                     file(msw["cachepath"], 'w').truncate(0)
                     continue
 
-                wmax = max(wmax, msw["wmax"])
-                self._uvmax = max(self._uvmax, msw["uvmax_wavelengths"])
-
                 # in Natural mode, we're done: dump weights out
                 if self.Weighting == "natural":
                     self._finalizeWeights_handler(None, msw, ims, ichunk, 0)
@@ -1066,11 +1068,15 @@ class ClassVisServer():
                     for field in "weight", "uv", "flags", "index":
                         if field in msw:
                             msw.delete_item(field)
-
+                            
         # save wmax to cache
         cPickle.dump(wmax, open(wmax_path, "w"))
         self.maincache.saveCache("wmax")
         self._weight_dict["wmax"] = wmax
+        # LB - Need to cache this to set scales in ScaleMachine
+        cPickle.dump(self._uvmax, open(uvmax_path, "w"))
+        self.maincache.saveCache("uvmax")
+        self._weight_dict["uvmax"] = self._uvmax
         print>>log,"overall max W is %.2f meters"%wmax
         if self._ignore_vis_weights:
             return

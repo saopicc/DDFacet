@@ -18,9 +18,9 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 import numpy as np
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from DDFacet.Other import ModColor
-log=MyLogger.getLogger("MaskMachine")
+log=logger.getLogger("MaskMachine")
 from pyrap.images import image
 import scipy.special
 import copy

@@ -10,8 +10,8 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other.progressbar import ProgressBar
 import time
 from DDFacet.Array import NpShared
-from DDFacet.Other import MyLogger
-log=MyLogger.getLogger("ClassInitSSDModel")
+from DDFacet.Other import logger
+log=logger.getLogger("ClassInitSSDModel")
 import traceback
 from DDFacet.Other import ModColor
 from ClassConvMachine import ClassConvMachineImages
@@ -59,7 +59,7 @@ class ClassInitSSDModelParallel():
         NJobs=work_queue.qsize()
         workerlist=[]
 
-        MyLogger.setSilent(SilentModules)
+        logger.setSilent(SilentModules)
         #MyLogger.setLoud(SilentModules)
 
         #MyLogger.setLoud("ClassImageDeconvMachineMSMF")
@@ -154,7 +154,7 @@ class ClassInitSSDModel():
         self.GD["Deconv"]["AllowNegative"]=self.GD["GAClean"]["AllowNegativeInitHMP"]
         self.GD["Deconv"]["MaxMinorIter"]=self.GD["GAClean"]["MaxMinorIterInitHMP"]
         
-        MyLogger.setSilent(SilentModules)
+        logger.setSilent(SilentModules)
 
         self.GD["HMP"]["Scales"]=self.GD["GAClean"]["ScalesInitHMP"]
 
@@ -344,7 +344,7 @@ class ClassInitSSDModel():
         self.ModelMachine=ModelMachine
         #self.ModelMachine.DicoSMStacked=self.DicoBasicModelMachine
         self.ModelMachine.setRefFreq(self.RefFreq,Force=True)
-        self.ModelMachine.setFreqMachine(self.GridFreqs,self.DegridFreqs)
+        
         self.MinorCycleConfig["ModelMachine"] = ModelMachine
         self.ModelMachine.setModelShape(self.SubDirty.shape)
         #self.ModelMachine.setListComponants(self.DeconvMachine.ModelMachine.ListScales)

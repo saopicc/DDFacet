@@ -26,9 +26,10 @@ from DDFacet.compatibility import range
 
 import numpy as np
 import numba
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from DDFacet.Other import ModColor
-log=MyLogger.getLogger("ClassModelMachine")
+log=logger.getLogger("ClassModelMachine")
+from DDFacet.Array import NpParallel
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Other import MyPickle
 from DDFacet.Other import reformat

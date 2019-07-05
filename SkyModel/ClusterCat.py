@@ -8,9 +8,9 @@ import numpy as np
 np.random.seed(1)
 import random
 random.seed(1)
-from DDFacet.Other import MyLogger
+from DDFacet.Other import logger
 from DDFacet.Other import MyPickle
-log=MyLogger.getLogger("ClusterImage")
+log=logger.getLogger("ClusterImage")
 from astropy.io import fits
 import SkyModel.Sky.ClassClusterDEAP
 from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms

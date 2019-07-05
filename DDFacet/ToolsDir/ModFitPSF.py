@@ -22,8 +22,8 @@ import numpy as np
 import gaussfitter2
 import scipy.ndimage.measurements
 
-from DDFacet.Other import MyLogger
-log= MyLogger.getLogger("FitPSF")
+from DDFacet.Other import logger
+log= logger.getLogger("FitPSF")
 
 
 def FitCleanBeam(PSF):

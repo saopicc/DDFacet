@@ -19,6 +19,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "complex.h"
 #include <math.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 /* ==== Prototypes =================================== */
 

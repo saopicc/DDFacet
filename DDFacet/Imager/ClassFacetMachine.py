@@ -24,7 +24,7 @@ import ClassCasaImage
 import pyfftw
 from DDFacet.Array import NpShared, NpParallel, shared_dict
 from DDFacet.Imager.ClassImToGrid import ClassImToGrid
-from DDFacet.Other import ClassTimeIt, MyLogger, ModColor, Multiprocessing
+from DDFacet.Other import ClassTimeIt, logger, ModColor, Multiprocessing
 from DDFacet.Other.progressbar import ProgressBar
 import cPickle
 import atexit
@@ -35,13 +35,11 @@ from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.Imager.ClassImToGrid import ClassImToGrid
 from DDFacet.Data.ClassStokes import ClassStokes
-log=MyLogger.getLogger("ClassFacetMachine")
+log=logger.getLogger("ClassFacetMachine")
 from DDFacet.Other.AsyncProcessPool import APP
 import numexpr
-MyLogger.setSilent("MyLogger")
 from DDFacet.cbuild.Gridder import _pyGridderSmearPols
 from DDFacet.cbuild.Gridder import _pyGridderSmearPolsClassic
-MyLogger.setSilent("MyLogger")
 import cpuinfo
 import scipy.ndimage
 from scipy.spatial import Voronoi
@@ -188,9 +186,9 @@ class ClassFacetMachine():
         SubMods=["ModelBeamSVD","ClassParam","ModToolBox","ModelIonSVD2","ClassPierce"]
 
         if Mode == "Silent":
-            MyLogger.setSilent(SubMods)
+            logger.setSilent(SubMods)
         if Mode == "Loud":
-            MyLogger.setLoud(SubMods)
+            logger.setLoud(SubMods)
 
     def make_history(self):
         history=[]
