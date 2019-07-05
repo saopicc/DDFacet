@@ -66,10 +66,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.DicoSMStacked["RefFreq"]=RefFreq
         #self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
         # print "ModelMachine:",self.RefFreq, self.DicoSMStacked["RefFreq"], self.DicoSMStacked["AllFreqs"]
-        
-    def setFreqMachine(self,GridFreqs, DegridFreqs):
-        # Initialise the Frequency Machine
-        self.FreqMachine = ClassFrequencyMachine.ClassFrequencyMachine(GridFreqs, DegridFreqs, self.DicoSMStacked["RefFreq"], self.GD)
+
 
     def ToFile(self,FileName,DicoIn=None):
         print>>log, "Saving dico model to %s"%FileName
