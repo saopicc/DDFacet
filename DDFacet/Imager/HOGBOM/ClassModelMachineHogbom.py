@@ -245,23 +245,15 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         ex, ey, pa = GaussPars
         ex *= np.pi/180/np.sqrt(2)/2
         ey *= np.pi/180/np.sqrt(2)/2
-        # pa -= 180.0
-        pa *= np.pi/180/np.sqrt(2)/2
+        epar = (ex + ey)/2.0
+        pa = 0.0
 
         # get in terms of number of cells
         CellSizeRad = self.GD['Image']['Cell'] * np.pi / 648000
-        # ex /= self.GD['Image']['Cell'] * np.pi / 648000
-        # ey /= self.GD['Image']['Cell'] * np.pi / 648000
 
         # get Gaussian kernel
-        GaussKern = ModFFTW.GiveGauss(self.Npix, CellSizeRad=CellSizeRad, GaussPars=(ex, ey, pa), parallel=False)
+        GaussKern = ModFFTW.GiveGauss(self.Npix, CellSizeRad=CellSizeRad, GaussPars=(epar, epar, pa), parallel=False)
 
-        # import matplotlib.pyplot as plt
-        # plt.imshow(GaussKern)
-        # plt.show()
-
-        # normalise
-        # GaussKern /= np.sum(GaussKern.flatten())
         # take FT
         Fs = np.fft.fftshift
         iFs = np.fft.ifftshift
@@ -289,7 +281,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             RMS = np.std(ResidCube.flatten())
             Threshold = self.GD["SPIMaps"]["AlphaThreshold"] * RMS
         else:
-            RMS = np.abs(np.min(ModelImage.flatten())) # base cutoff on smallest value in model
+            AbsModel = np.abs(ModelImage).squeeze()
+            MinAbsImage = np.amin(AbsModel, axis=0)
+            RMS = np.min(np.abs(MinAbsImage.flatten())) # base cutoff on smallest value in model
             Threshold = self.GD["SPIMaps"]["AlphaThreshold"] * RMS
 
         # get minimum along any freq axis

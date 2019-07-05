@@ -2040,8 +2040,8 @@ class ClassImagerDeconv():
             if self.GD["Deconv"]["Mode"] == "WSCMS" or self.GD["Deconv"]["Mode"] == "Hogbom":
                 if "alphastdmap" not in _images:
                     _images.addSharedArray("alphastdmap", intmodel().shape, np.float32)
-                # LB - using apprescube since intrescube is nonsense
-                _images['alphamap'], _images["alphastdmap"] = ModelMachine.GiveSpectralIndexMap(GaussPars=self.FWHMBeamAvg, ResidCube=apprescube())
+                # LB - using apprescube since intrescube can have large unpgysical values
+                _images['alphamap'], _images["alphastdmap"] = ModelMachine.GiveSpectralIndexMap(GaussPars=self.FWHMBeam[-1], ResidCube=apprescube())
                 return _images['alphamap'], _images["alphastdmap"]
             else:
                 _images['alphamap'] = ModelMachine.GiveSpectralIndexMap()
