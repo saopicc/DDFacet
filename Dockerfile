@@ -51,7 +51,8 @@ ENV DEB_DEPENCENDIES \
     bison \
     libbison-dev \
     # Reference image generation dependencies
-    make
+    make \
+    makems
 
 RUN apt-get update
 RUN apt-get install -y $DEB_SETUP_DEPENDENCIES
