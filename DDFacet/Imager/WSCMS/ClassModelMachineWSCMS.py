@@ -511,9 +511,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                     # CheckConvergenceCriteria in ImageDeconvMachine
                     # bit flip first if no external mask
                     if not self.ScaleMachine.MaskArray.any():
-                        self.ScaleMachine.MaskArray |= 1
+                        self.ScaleMachine.MaskArray |= True
                     for i in range(self.ScaleMachine.Nscales):
-                        tmpScaleMask = self.ScaleMachine.ScaleMaskArray[str(iScale)]
+                        tmpScaleMask = self.ScaleMachine.ScaleMaskArray[str(i)]
                         self.ScaleMachine.MaskArray &= tmpScaleMask
                 CurrentMask = ScaleMask
 

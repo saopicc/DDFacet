@@ -170,8 +170,9 @@ class ClassImageDeconvMachine():
         minlambda = lightspeed/self.Freqs.min()
         # LB - note MaskArray might be modified by ScaleMachine if GD{"WSCMS"]["AutoMask"] is True
         # so we should avoid keeping it as None
-        # if self.MaskArray is None:
-        #     self.MaskArray = np.zeros([1, 1, self.Npix, self.Npix], dtype=np.bool8)
+        self.Nchan, self.Npol, self.Npix, _ = self.DicoVariablePSF["OutImShape"]
+        if self.MaskArray is None:
+            self.MaskArray = np.zeros([1, 1, self.Npix, self.Npix], dtype=np.bool8)
         self.ModelMachine.setScaleMachine(self.PSFServer, NCPU=self.NCPU, MaskArray=self.MaskArray,
                                           cachepath=cachepath, MaxBaseline=kwargs["MaxBaseline"] / minlambda)
 
@@ -194,6 +195,7 @@ class ClassImageDeconvMachine():
         """
         Sets the shape params of model, call in every update step
         """
+        assert self._Dirty.shape == (self.Nchan, self.Npol, self.Npix, self.Npix)
         self.ModelMachine.setModelShape(self._Dirty.shape)
         self.Nchan, self.Npol, self.Npix, _ = self._Dirty.shape
         self.NpixFacet = self.Npix//self.GD["Facets"]["NFacets"]
