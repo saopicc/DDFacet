@@ -385,6 +385,7 @@ class ClassImageDeconvMachine():
         diverged = False
         stalled = False
         stall_count = 0
+        scale_stall_count = {}
         diverged_count = 0
         try:
             while self._niter <= self.MaxMinorIter:
@@ -427,7 +428,11 @@ class ClassImageDeconvMachine():
 
                 if (TrackRMS - ThisRMS)/TrackRMS < self.GD['WSCMS']['MinorStallThreshold']:
                     stall_count += 1
-                    print(" TrackRMS = %f,    ThisRMS = %f" % (TrackRMS, ThisRMS))
+                    scale_stall_count.setdefault(iScale, 0)
+                    scale_stall_count[iScale] += 1
+                    # retire scale if it causes stall
+                    if scale_stall_count[iScale] > 10:
+                        self.ModelMachine.ScaleMachine.forbidden_scales.append(iScale)
                     if stall_count > 10:
                         stalled = True
                 TrackRMS = ThisRMS.copy()

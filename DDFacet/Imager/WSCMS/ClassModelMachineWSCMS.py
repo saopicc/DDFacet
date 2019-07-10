@@ -515,6 +515,15 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                     for i in range(self.ScaleMachine.Nscales):
                         tmpScaleMask = self.ScaleMachine.ScaleMaskArray[str(i)]
                         self.ScaleMachine.MaskArray &= tmpScaleMask
+                        # retire scale if there are no components in the mask
+                        if tmpScaleMask.all():
+                            self.ScaleMachine.forbidden_scales.append(i)
+                        # import matplotlib.pyplot as plt
+                        # plt.figure('scale')
+                        # plt.imshow(tmpScaleMask.squeeze())
+                        # plt.figure('full')
+                        # plt.imshow(self.ScaleMachine.MaskArray.squeeze())
+                        # plt.show()
                 CurrentMask = ScaleMask
 
             else:
@@ -535,6 +544,16 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             absdirty = np.where(CurrentMask.squeeze(), 0.0, np.abs(CurrentDirty.squeeze()))
         else:
             absdirty = np.abs(CurrentDirty.squeeze())
+        if not self.ScaleMachine.AppendMaskComponents:
+            print("Threshold = ", Threshold)
+            print("iScale = ", iScale)
+            import matplotlib.pyplot as plt
+            plt.figure('dirty')
+            plt.imshow(absdirty.squeeze())
+            plt.colorbar()
+            plt.figure('mask')
+            plt.imshow(CurrentMask.squeeze())
+            plt.show()
         I = np.argwhere(absdirty > Threshold)
         Ip = I[:, 0]
         Iq = I[:, 1]

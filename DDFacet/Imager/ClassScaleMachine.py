@@ -170,6 +170,8 @@ class ClassScaleMachine(object):
                                (self.alphas[i], self.bias[i], self.ConvPSFmeanMax,
                                 self.gains[key], self.kernels[i].max()), file=log)
 
+        self.forbidden_scales = []
+
     def set_coordinates(self):
         # get pixel coordinates for unpadded image
         n = self.Npix//2
@@ -395,20 +397,25 @@ class ClassScaleMachine(object):
         # find most relevant scale
         maxvals = np.zeros(self.Nscales)
         for iScale in range(self.Nscales):
-            # get mask for scale (once auto-masking kicks in we use that instead of external mask)
-            if self.AppendMaskComponents or not self.GD["WSCMS"]["AutoMask"]:
-                CurrentMask = self.MaskArray
-            else:
-                CurrentMask = self.ScaleMaskArray[str(iScale)]
+            if iScale not in self.forbidden_scales:
+                # get mask for scale (once auto-masking kicks in we use that instead of external mask)
+                if self.AppendMaskComponents or not self.GD["WSCMS"]["AutoMask"]:
+                    CurrentMask = self.MaskArray
+                else:
+                    CurrentMask = self.ScaleMaskArray[str(iScale)]
 
-            if iScale:
-                xtmp, ytmp, ConvMaxDirty = NpParallel.A_whereMax(ConvMeanDirtys[iScale:iScale+1],
-                                                                 NCPU=self.NCPU, DoAbs=self.DoAbs,
-                                                                 Mask=CurrentMask)
+                if iScale:
+                    xtmp, ytmp, ConvMaxDirty = NpParallel.A_whereMax(ConvMeanDirtys[iScale:iScale+1],
+                                                                     NCPU=self.NCPU, DoAbs=self.DoAbs,
+                                                                     Mask=CurrentMask)
+                else:
+                    xtmp, ytmp, ConvMaxDirty = NpParallel.A_whereMax(MeanDirty,
+                                                                     NCPU=self.NCPU, DoAbs=self.DoAbs,
+                                                                     Mask=CurrentMask)
             else:
-                xtmp, ytmp, ConvMaxDirty = NpParallel.A_whereMax(MeanDirty,
-                                                                 NCPU=self.NCPU, DoAbs=self.DoAbs,
-                                                                 Mask=CurrentMask)
+                ConvMaxDirty = 0.0
+                xtmp = 0
+                ytmp = 0
             maxvals[iScale] = ConvMaxDirty * self.bias[iScale]
             if iScale:
                 # only update if new scale is more significant
