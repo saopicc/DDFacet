@@ -312,11 +312,7 @@ class ClassImageDeconvMachine():
     def check_stopping_criteria(self, PeakMap, npix, DoAbs):
         # Get RMS stopping criterion
         NPixStats = self.GD["Deconv"]["NumRMSSamples"]
-        if NPixStats:
-            RandomInd = np.int64(np.random.rand(NPixStats)*npix**2)
-            RMS = np.std(np.real(PeakMap.ravel()[RandomInd]))
-        else:
-            RMS = np.std(PeakMap)
+        RMS = np.std(PeakMap)
 
         self.RMS = RMS
 
@@ -372,9 +368,7 @@ class ClassImageDeconvMachine():
         # Determine which stopping criterion to use for flux limit
         StopFlux, MaxDirty = self.check_stopping_criteria(PeakMap, self.Npix, DoAbs)
 
-
-        T=ClassTimeIt.ClassTimeIt()
-        T.disable()
+        TrackRMS = self.RMS.copy()
 
         ThisFlux=MaxDirty.copy()
 
@@ -390,26 +384,17 @@ class ClassImageDeconvMachine():
         TrackFlux = MaxDirty.copy()
         diverged = False
         stalled = False
-        stall_count = -1  # start here since the first check will always increase the stall count
+        stall_count = 0
         diverged_count = 0
         try:
             while self._niter <= self.MaxMinorIter:
-                # Check if stalling or diverging
+                # Check diverging
                 if np.abs(ThisFlux) > self.GD["WSCMS"]["MinorDivergenceFactor"] * np.abs(TrackFlux):
                     diverged_count += 1
                     if diverged_count > 5:
                         diverged = True
-                # elif np.abs((ThisFlux - TrackFlux)/TrackFlux) < self.GD['WSCMS']['MinorStallThreshold']:
-                #     stall_count += 1
-                #     if stall_count > 50000000000000000000:
-                #         stalled = True
 
                 TrackFlux = ThisFlux.copy()
-
-                # LB - deprecated?
-                # self.GainMachine.SetFluxMax(ThisFlux)
-
-                T.timeit("max0")
 
                 if ThisFlux <= StopFlux or diverged or stalled:
                     if diverged:
@@ -438,6 +423,15 @@ class ClassImageDeconvMachine():
                 # compute the new mean image from the weighted sum of over frequency
                 self._MeanDirty = np.sum(self._Dirty * self.WeightsChansImages, axis=0, keepdims=True)
 
+                ThisRMS = np.std(self._MeanDirty)
+
+                if (TrackRMS - ThisRMS)/TrackRMS < self.GD['WSCMS']['MinorStallThreshold']:
+                    stall_count += 1
+                    print(" TrackRMS = %f,    ThisRMS = %f" % (TrackRMS, ThisRMS))
+                    if stall_count > 10:
+                        stalled = True
+                TrackRMS = ThisRMS.copy()
+
                 # find peak
                 x, y, ThisFlux = NpParallel.A_whereMax(self._MeanDirty, NCPU=self.NCPU, DoAbs=DoAbs,
                                                        Mask=self.MaskArray)
@@ -448,9 +442,6 @@ class ClassImageDeconvMachine():
                 if iScale != self.LastScale:
                     print("    [iter=%i] peak residual %.8g, scale = %i" % (self._niter, ThisFlux, iScale), file=log)
                     self.LastScale = iScale
-
-
-                T.timeit("End")
 
         except KeyboardInterrupt:
             print(ModColor.Str("    CLEANing [iter=%i] minor cycle interrupted with Ctrl+C, peak flux %.3g" % (self._niter, ThisFlux)), file=log)

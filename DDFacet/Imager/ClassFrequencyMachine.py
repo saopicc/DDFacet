@@ -232,9 +232,17 @@ class ClassFrequencyMachine(object):
         return ListBeamFactor, ListBeamFactorWeightSq, self.PSFServer.DicoMappingDesc['MeanJonesBand'][iFacet]
 
     def solve_ML(self, Iapp, A, W):
-        Dinv = A.T.dot(W[:, None] * A)
-        res = np.linalg.solve(Dinv, A.T.dot(W * Iapp))
-        return res
+        # whiten data
+        sqrtW = np.sqrt(W)
+        Wy = sqrtW * Iapp
+        WX = sqrtW[:, None] * A
+        if self.nchan >= self.order:
+            # get left pinv
+            thetahat = np.linalg.solve(WX.T.dot(WX), WX.T.dot(Wy))
+        else:
+            # get right pinv
+            thetahat = WX.T.dot(np.linalg.solve(WX.dot(WX.T), Wy))
+        return thetahat
 
     def FitPoly(self, Vals, JonesNorm, WeightsChansImages):
         """
@@ -263,23 +271,11 @@ class ClassFrequencyMachine(object):
             BeamFactor = np.sqrt(SumJonesChan/SumJonesChanWeightSq)  # unstitched sqrt(JonesNorm) at full resolution
             # incorporate stitched JonesNorm
             JonesFactor = np.sqrt(MeanJonesBand/JonesNorm)
-            # scale I0 by beam at ref_freq
-            # I0 = MaxDirty / BeamFactor[self.ref_freq_index]  # TODO - learn optimal I0 for prior from evidence
-            # next compute the product of the averaging matrix and beam matrix
-            # ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
-            # ChanMappingGridChan = self.PSFServer.DicoMappingDesc["ChanMappingGridChan"]
             SAmat = self.S * BeamFactor[None, :] / JonesFactor[:, None]  # The division by JonesFactor corrects for the fact that the PSF is normalised
             self.SAX = SAmat.dot(self.Xdes_full)
-            # self.SAX = np.sqrt(JonesNorm)[:, None] * self.Xdes
-        # get MFS weights
-        # W = self.PSFServer.DicoVariablePSF['SumWeights'].squeeze().astype(np.float64)
-        # Ig = Vals.astype(np.float64)
-        try:
-            theta = self.solve_ML(Vals, self.SAX, WeightsChansImages)
-        except:
-            theta = np.polyfit(self.Freqs/self.ref_freq, Vals/np.sqrt(JonesNorm), self.order-1,
-                               w=np.sqrt(WeightsChansImages))[::-1]
-            # print("ML fit failed. Using numpy to fit Iapp/sqrt(JonesNorm).", file=log)
+
+        # fit
+        theta = self.solve_ML(Vals, self.SAX, WeightsChansImages)
         return theta
 
     def EvalPoly(self, coeffs, Freqsp=None):
