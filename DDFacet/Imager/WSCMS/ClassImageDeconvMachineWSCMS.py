@@ -108,24 +108,14 @@ class ClassImageDeconvMachine():
         self.LastScale = 99999
 
         #  TODO - use MaskMachine for this
-        CleanMaskImage = self.GD["Mask"]["External"]
-        if CleanMaskImage is not None:
-            print("Reading mask image: %s"%CleanMaskImage, file=log)
-            MaskArray=image(CleanMaskImage).getdata()
-            nch,npol,nxmask,nymask=MaskArray.shape
-            self._MaskArray=np.zeros(MaskArray.shape,np.bool8)
+        if self.GD["Mask"]["External"] is not None:
+            print("Reading mask image: %s" % self.GD["Mask"]["External"], file=log)
+            MaskArray = image(CleanMaskImage).getdata()
+            nch, npol, nxmask, nymask = MaskArray.shape
+            self.MaskArray = np.zeros(MaskArray.shape, np.bool8)
             for ch in range(nch):
                 for pol in range(npol):
-                    self._MaskArray[ch,pol,:,:]=np.bool8(1-MaskArray[ch,pol].T[::-1].copy())[:,:]
-            self.MaskArray=np.ascontiguousarray(self._MaskArray)
-
-        # import matplotlib.pyplot as plt
-        # plt.imshow(self.MaskArray[0,0])
-        # plt.colorbar()
-        # plt.show()
-        #
-        # import sys
-        # sys.exit(0)
+                    self.MaskArray[ch, pol, :, :] = np.bool8(1-MaskArray[ch,pol].T[::-1].copy())[:,:]
 
         self._peakMode = "normal"
 
@@ -314,8 +304,6 @@ class ClassImageDeconvMachine():
         NPixStats = self.GD["Deconv"]["NumRMSSamples"]
         RMS = np.std(PeakMap)
 
-        self.RMS = RMS
-
         self.GainMachine.SetRMS(RMS)
 
         Fluxlimit_RMS = self.RMSFactor*RMS
@@ -341,7 +329,7 @@ class ClassImageDeconvMachine():
         print("      Absolute threshold       = %10.6f Jy"%(self.FluxThreshold), file=log)
         print("    Stopping flux              = %10.6f Jy [%.3f of peak ]"%(StopFlux,StopFlux/MaxDirty), file=log)
 
-        return StopFlux, MaxDirty
+        return StopFlux, MaxDirty, RMS
 
     def Deconvolve(self):
         """
@@ -366,11 +354,11 @@ class ClassImageDeconvMachine():
         print("  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter, self.MaxMinorIter, DoAbs), file=log)
 
         # Determine which stopping criterion to use for flux limit
-        StopFlux, MaxDirty = self.check_stopping_criteria(PeakMap, self.Npix, DoAbs)
+        StopFlux, MaxDirty, RMS = self.check_stopping_criteria(PeakMap, self.Npix, DoAbs)
 
-        TrackRMS = self.RMS.copy()
+        TrackRMS = RMS.copy()
 
-        ThisFlux=MaxDirty.copy()
+        ThisFlux = MaxDirty.copy()
 
         if ThisFlux < self.FluxThreshold:
             print(ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done CLEANing" % (ThisFlux),col="green" ), file=log)
@@ -383,13 +371,18 @@ class ClassImageDeconvMachine():
         # Do minor cycle deconvolution loop
         TrackFlux = MaxDirty.copy()
         diverged = False
-        stalled = False
-        stall_count = 0
-        scale_stall_count = {}
         diverged_count = 0
+        stalled = False
+        scale_stall_count = {}
+        scales_stalled = np.zeros(self.ModelMachine.ScaleMachine.Nscales, dtype=np.bool)
+        # reset retired scales at the start of each major cycle
+        self.ModelMachine.ScaleMachine.retired_scales = []
+        for scale in self.ModelMachine.ScaleMachine.forbidden_scales:
+            self.ModelMachine.ScaleMachine.retired_scales.append(scale)
+            scales_stalled[scale] = 1
         try:
             while self._niter <= self.MaxMinorIter:
-                # Check diverging
+                # Check if diverging
                 if np.abs(ThisFlux) > self.GD["WSCMS"]["MinorDivergenceFactor"] * np.abs(TrackFlux):
                     diverged_count += 1
                     if diverged_count > 5:
@@ -411,29 +404,30 @@ class ClassImageDeconvMachine():
                     continue_deconvolution = cont or continue_deconvolution
                     update_model = True or update_model
 
-                    break # stop cleaning if threshold reached
-
-                # self.track_progress(self._niter, ThisFlux)
+                    break  # stop cleaning if threshold reached
 
                 # Find the relevant scale and do sub-minor loop. Note that the dirty cube is updated during the
                 # sub-minor loop by subtracting the once convolved PSF's as components are added to the model.
                 # The model is updated by adding components to the ModelMachine dictionary.
                 niter, iScale = self.ModelMachine.do_minor_loop(self._Dirty, self._MeanDirty, self._JonesNorm,
-                                                                self.WeightsChansImages, ThisFlux, StopFlux, self.RMS)
+                                                                self.WeightsChansImages, ThisFlux, StopFlux, RMS)
 
                 # compute the new mean image from the weighted sum of over frequency
                 self._MeanDirty = np.sum(self._Dirty * self.WeightsChansImages, axis=0, keepdims=True)
 
                 ThisRMS = np.std(self._MeanDirty)
 
+                # check for and retire scales that cause stalls
                 if (TrackRMS - ThisRMS)/TrackRMS < self.GD['WSCMS']['MinorStallThreshold']:
-                    stall_count += 1
                     scale_stall_count.setdefault(iScale, 0)
                     scale_stall_count[iScale] += 1
-                    # retire scale if it causes stall
+                    # retire scale if it causes a stall more than x number of times
                     if scale_stall_count[iScale] > 10:
-                        self.ModelMachine.ScaleMachine.forbidden_scales.append(iScale)
-                    if stall_count > 10:
+                        self.ModelMachine.ScaleMachine.retired_scales.append(iScale)
+                        scales_stalled[iScale] = 1
+                        print("Retired scale %i because it was stalling." % iScale, file=log)
+                    # if all scales have stalled then we trigger a new major cycle
+                    if np.all(scales_stalled):
                         stalled = True
                 TrackRMS = ThisRMS.copy()
 

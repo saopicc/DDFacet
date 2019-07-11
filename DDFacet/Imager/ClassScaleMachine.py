@@ -108,8 +108,7 @@ class ClassScaleMachine(object):
         ft_meanpsf_store = Store(cachepath+'/ft_meanpsf')
         self.FT_meanPSF = pylru.WriteThroughCacheManager(ft_meanpsf_store, self.GD['WSCMS']['CacheSize'])
 
-        scale_mask_store = Store(cachepath + '/scale_mask')
-        self.ScaleMaskArray = pylru.WriteThroughCacheManager(scale_mask_store, self.GD['WSCMS']['CacheSize'])
+        self.ScaleMaskArray = {}
 
         # set PSF server
         self.PSFServer = PSFServer
@@ -169,8 +168,10 @@ class ClassScaleMachine(object):
             print(" - Scale %i, bias factor=%f, psfpeak=%f, gain=%f, kernel peak=%f" % \
                                (self.alphas[i], self.bias[i], self.ConvPSFmeanMax,
                                 self.gains[key], self.kernels[i].max()), file=log)
-
+        # these are permanent
         self.forbidden_scales = []
+        # these get reset at the start of every major cycle
+        self.retired_scales = []
 
     def set_coordinates(self):
         # get pixel coordinates for unpadded image
@@ -246,6 +247,10 @@ class ClassScaleMachine(object):
     # doesn't seem correct hence the sqrt(2) factor. Is this baseline length or baseline?
     # TODO - Set max scale with minimum baseline or facet size?
     def set_scales(self):
+        if self.GD['WSCMS']["MaxScale"] is None:
+            MaxScale = self.NpixFacet//3
+        else:
+            MaxScale = self.GD['WSCMS']["MaxScale"]
         if self.GD["WSCMS"]["Scales"] is None:
             print("Setting scales automatically from theoretical minimum beam size", file=log)
             min_beam = 1.0/self.MaxBaseline  # computed at max frequency
@@ -254,8 +259,8 @@ class ClassScaleMachine(object):
             alpha0 = np.ceil(FWHM0_pix / 0.45)
             alphas = [alpha0, 4*alpha0]
             i = 1
-            while alphas[i] < self.GD["WSCMS"]["MaxScale"]:  # hardcoded for now
-                alphas.append(2.0*alphas[i])
+            while alphas[i] < MaxScale:  # hardcoded for now
+                alphas.append(1.5*alphas[i])
                 i += 1
             self.alphas = np.asarray(alphas[0:-1])
             self.Nscales = self.alphas.size
@@ -394,44 +399,37 @@ class ClassScaleMachine(object):
         self.FTMachine.iSFFT()
         ConvMeanDirtys = np.ascontiguousarray(Fs(self.FTMachine.Shat.real, axes=(2, 3))[:, :, I, I])
 
+        # reset the zero scale
+        # LB - for scale 0 we might want to do scale selection based
+        # on the convolved image instead of MeanDirty
+        ConvMeanDirtys[0:1] = MeanDirty.copy()
+
+        # initialise to zero so we always trigger the
+        # if statement below at least once
+        BiasedMaxVal = 0.0
         # find most relevant scale
-        maxvals = np.zeros(self.Nscales)
         for iScale in range(self.Nscales):
-            if iScale not in self.forbidden_scales:
+            if iScale not in self.retired_scales:
                 # get mask for scale (once auto-masking kicks in we use that instead of external mask)
                 if self.AppendMaskComponents or not self.GD["WSCMS"]["AutoMask"]:
-                    CurrentMask = self.MaskArray
+                    ScaleMask = self.MaskArray
                 else:
-                    CurrentMask = self.ScaleMaskArray[str(iScale)]
+                    ScaleMask = self.ScaleMaskArray[str(iScale)]
 
-                if iScale:
-                    xtmp, ytmp, ConvMaxDirty = NpParallel.A_whereMax(ConvMeanDirtys[iScale:iScale+1],
-                                                                     NCPU=self.NCPU, DoAbs=self.DoAbs,
-                                                                     Mask=CurrentMask)
-                else:
-                    xtmp, ytmp, ConvMaxDirty = NpParallel.A_whereMax(MeanDirty,
-                                                                     NCPU=self.NCPU, DoAbs=self.DoAbs,
-                                                                     Mask=CurrentMask)
-            else:
-                ConvMaxDirty = 0.0
-                xtmp = 0
-                ytmp = 0
-            maxvals[iScale] = ConvMaxDirty * self.bias[iScale]
-            if iScale:
-                # only update if new scale is more significant
+                xtmp, ytmp, ConvMaxDirty = NpParallel.A_whereMax(ConvMeanDirtys[iScale:iScale+1],
+                                                                 NCPU=self.NCPU, DoAbs=self.DoAbs,
+                                                                 Mask=ScaleMask)
+
                 if ConvMaxDirty * self.bias[iScale] >= BiasedMaxVal:
                     x = xtmp
                     y = ytmp
                     BiasedMaxVal = ConvMaxDirty * self.bias[iScale]
                     MaxDirty = ConvMaxDirty
-                    CurrentDirty = ConvMeanDirtys[iScale:iScale+1]  # [None, None, :, :]
+                    CurrentDirty = ConvMeanDirtys[iScale:iScale+1]
                     CurrentScale = iScale
-            else:
-                x = xtmp
-                y = ytmp
-                BiasedMaxVal = ConvMaxDirty * self.bias[iScale]
-                MaxDirty = ConvMaxDirty
-                CurrentDirty = MeanDirty
-                CurrentScale = iScale
+                    CurrentMask = ScaleMask
+        if BiasedMaxVal == 0:
+            print("No scale has been selected. This should never happen. Bug!")
+            print("Forbidden scales = ", self.forbidden_scales)
 
-        return x, y, MaxDirty, CurrentDirty, CurrentScale
+        return x, y, MaxDirty, CurrentDirty, CurrentScale, CurrentMask

@@ -25,11 +25,11 @@ from __future__ import print_function
 from DDFacet.compatibility import range
 
 import numpy as np
+from scipy.ndimage import binary_dilation
 import numba
 from DDFacet.Other import logger
 from DDFacet.Other import ModColor
 log=logger.getLogger("ClassModelMachine")
-from DDFacet.Array import NpParallel
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Other import MyPickle
 from DDFacet.Other import reformat
@@ -479,9 +479,39 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         dirty cube using the PSF once convolved with the scale kernel. The actual MeanDirty image is only updated
         once we drop back into the minor loop by computing the weighted sum over channels.
         """
+        # Select scale mask and check if auto-masking has kicked in
+        if self.GD["WSCMS"]["AutoMask"]:
+            if self.GD["WSCMS"]["AutoMaskThreshold"] is not None:
+                MaskThreshold = self.GD["WSCMS"]["AutoMaskThreshold"]
+            else:
+                MaskThreshold = self.GD["WSCMS"]["AutoMaskRMSFactor"] * RMS
+            if MaxDirty <= MaskThreshold:
+                # This should only happen once
+                if self.ScaleMachine.AppendMaskComponents:
+                    print("Starting auto-masking at a threshold of %f" % MaskThreshold, file=log)
+                    # we shan't be updating the mask any longer
+                    self.ScaleMachine.AppendMaskComponents = False
+                    # MaskArray needs to be the union of all the Scale masks so that we can use it in
+                    # CheckConvergenceCriteria in ImageDeconvMachine
+                    # bit flip first if no external mask (since initialised to all zeros)
+                    if not self.ScaleMachine.MaskArray.any():
+                        self.ScaleMachine.MaskArray |= True
+                    for i in range(self.ScaleMachine.Nscales):
+                        # dilate all masks
+                        self.ScaleMachine.ScaleMaskArray[str(i)] = ~binary_dilation(~self.ScaleMachine.ScaleMaskArray[str(i)], iterations=i+1)
+                        ScaleMask = self.ScaleMachine.ScaleMaskArray[str(i)]
+                        self.ScaleMachine.MaskArray &= ScaleMask
+                        # retire scale if there are no components in the mask
+                        if ScaleMask.all():
+                            self.ScaleMachine.forbidden_scales.append(i)
+                            self.ScaleMachine.retired_scales.append(i)
+                            print("Retired scale %i permanently because auto-masking "
+                                  "kicked in and mask is empty thus far"%i, file=log)
+
         # determine most relevant scale (note AbsConvMaxDirty given as absolute value)
-        xscale, yscale, AbsConvMaxDirty, CurrentDirty, iScale,  = \
-            self.ScaleMachine.do_scale_convolve(meanDirty)
+        xscale, yscale, AbsConvMaxDirty, CurrentDirty, iScale, CurrentMask = self.ScaleMachine.do_scale_convolve(meanDirty)
+        # get mask for this scale (could be different from CurrentMask if auto-masking hasn't kicked in yet
+        ScaleMask = self.ScaleMachine.ScaleMaskArray[str(iScale)].view()
 
         # set PSF at current location
         self.PSFServer.setLocation(xscale, yscale)
@@ -491,69 +521,14 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # the twice convolved PSF used to subtract from the mean convolved dirty is held in self.Conv2PSFmean
         self.set_ConvPSF(self.PSFServer.iFacet, iScale)
 
-        # update scale dependent mask
-        if self.GD["WSCMS"]["AutoMask"]:
-            ScaleMask = self.ScaleMachine.ScaleMaskArray[str(iScale)].view()
-            if self.GD["WSCMS"]["AutoMaskThreshold"] is not None:
-                MaskThreshold = self.GD["WSCMS"]["AutoMaskThreshold"]
-            else:
-                MaskThreshold = self.GD["WSCMS"]["AutoMaskRMSFactor"] * RMS
-            if MaxDirty <= MaskThreshold:
-                # This should only happen once
-                if self.ScaleMachine.AppendMaskComponents:
-                    print("Starting auto-masking at a threshold of %f" % MaskThreshold, file=log)
-                    # we need to add this last component to the mask otherwise
-                    # we might end up with Threshold > CurrentDirty.max()
-                    ScaleMask[0, 0, xscale, yscale] = 0
-                    # we shan't be updating the mask any longer
-                    self.ScaleMachine.AppendMaskComponents = False
-                    # MaskArray needs to be the union of all the Scale masks so that we can use it in
-                    # CheckConvergenceCriteria in ImageDeconvMachine
-                    # bit flip first if no external mask
-                    if not self.ScaleMachine.MaskArray.any():
-                        self.ScaleMachine.MaskArray |= True
-                    for i in range(self.ScaleMachine.Nscales):
-                        tmpScaleMask = self.ScaleMachine.ScaleMaskArray[str(i)]
-                        self.ScaleMachine.MaskArray &= tmpScaleMask
-                        # retire scale if there are no components in the mask
-                        if tmpScaleMask.all():
-                            self.ScaleMachine.forbidden_scales.append(i)
-                        # import matplotlib.pyplot as plt
-                        # plt.figure('scale')
-                        # plt.imshow(tmpScaleMask.squeeze())
-                        # plt.figure('full')
-                        # plt.imshow(self.ScaleMachine.MaskArray.squeeze())
-                        # plt.show()
-                CurrentMask = ScaleMask
-
-            else:
-                CurrentMask = self.ScaleMachine.MaskArray
-        else:
-            CurrentMask = self.ScaleMachine.MaskArray
-
         # set stopping threshold.
-        # we cannot use StoppingFlux from minor cycle directly since the maxima of the scale convolved residual
-        # is different from the maximum of the residual
         Threshold = self.ScaleMachine.PeakFactor * AbsConvMaxDirty
         # DirtyRatio = AbsConvMaxDirty / MaxDirty  # should be 1 for zero scale
         # Threshold = np.maximum(Threshold, Stopping_flux * DirtyRatio)
 
         # get the set A (in which we do peak finding)
         # assumes mask is 0 where we should do peak finding (same as Cyril's convention)
-        if CurrentMask is not None:
-            absdirty = np.where(CurrentMask.squeeze(), 0.0, np.abs(CurrentDirty.squeeze()))
-        else:
-            absdirty = np.abs(CurrentDirty.squeeze())
-        if not self.ScaleMachine.AppendMaskComponents:
-            print("Threshold = ", Threshold)
-            print("iScale = ", iScale)
-            import matplotlib.pyplot as plt
-            plt.figure('dirty')
-            plt.imshow(absdirty.squeeze())
-            plt.colorbar()
-            plt.figure('mask')
-            plt.imshow(CurrentMask.squeeze())
-            plt.show()
+        absdirty = np.where(CurrentMask.squeeze(), 0.0, np.abs(CurrentDirty.squeeze()))
         I = np.argwhere(absdirty > Threshold)
         Ip = I[:, 0]
         Iq = I[:, 1]
@@ -579,30 +554,29 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             self.set_ConvPSF(self.PSFServer.iFacet, iScale)
 
             # JonesNorm is corrected for in FreqMachine so we just need to pass in the apparent
-            Fpol = np.zeros([self.Nchan, 1, 1, 1], dtype=np.float32)
-            Fpol[:, 0, 0, 0] = Dirty[:, 0, xscale, yscale].copy()
+            Fpol = Dirty[:, 0, xscale, yscale].copy()
 
             # Fit frequency axis to get coeffs (coeffs correspond to intrinsic flux)
-            self.Coeffs = self.FreqMachine.Fit(Fpol[:, 0, 0, 0], JN, WeightsChansImages.squeeze())
+            self.Coeffs = self.FreqMachine.Fit(Fpol, JN, WeightsChansImages.squeeze())
 
             # Overwrite with polynoimial fit (Fpol is apparent flux)
-            Fpol[:, 0, 0, 0] = self.FreqMachine.Eval(self.Coeffs)
+            Fpol = self.FreqMachine.Eval(self.Coeffs)
 
             # This is an attempt to minimise the amount of negative flux in the model by reducing the gain if
             # a negative component has been found
-            if (Fpol<0).any():
-                self.AppendComponentToDictStacked((xscale, yscale), self.Coeffs, self.CurrentScale, 0.25 * self.CurrentGain)
-                # Subtract fitted component from residual cube
-                self.SubStep((xscale, yscale), self.ConvPSF * Fpol * self.CurrentGain * 0.25, Dirty.view())
-                # subtract component from convolved dirty image
-                A = substep(A, self.Conv2PSFmean[0, 0], float(ConvMaxDirty * self.CurrentGain * 0.25), Ip, Iq, pq,
-                            self.NpixPSF)
-            else:
-                self.AppendComponentToDictStacked((xscale, yscale), self.Coeffs, self.CurrentScale, self.CurrentGain)
-                # Subtract fitted component from residual cube
-                self.SubStep((xscale, yscale), self.ConvPSF * Fpol * self.CurrentGain, Dirty.view())
-                # subtract component from convolved dirty image
-                A = substep(A, self.Conv2PSFmean[0, 0], float(ConvMaxDirty * self.CurrentGain), Ip, Iq, pq, self.NpixPSF)
+            # if (Fpol<0).any():
+            #     self.AppendComponentToDictStacked((xscale, yscale), self.Coeffs, self.CurrentScale, 0.25 * self.CurrentGain)
+            #     # Subtract fitted component from residual cube
+            #     self.SubStep((xscale, yscale), self.ConvPSF * Fpol[:, None, None, None] * self.CurrentGain * 0.25, Dirty.view())
+            #     # subtract component from convolved dirty image
+            #     A = substep(A, self.Conv2PSFmean[0, 0], float(ConvMaxDirty * self.CurrentGain * 0.25), Ip, Iq, pq,
+            #                 self.NpixPSF)
+            # else:
+            self.AppendComponentToDictStacked((xscale, yscale), self.Coeffs, self.CurrentScale, self.CurrentGain)
+            # Subtract fitted component from residual cube
+            self.SubStep((xscale, yscale), self.ConvPSF * Fpol[:, None, None, None] * self.CurrentGain, Dirty.view())
+            # subtract component from convolved dirty image
+            A = substep(A, self.Conv2PSFmean[0, 0], float(ConvMaxDirty * self.CurrentGain), Ip, Iq, pq, self.NpixPSF)
 
             # update scale dependent mask
             if self.ScaleMachine.AppendMaskComponents:
