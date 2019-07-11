@@ -510,8 +510,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         # determine most relevant scale (note AbsConvMaxDirty given as absolute value)
         xscale, yscale, AbsConvMaxDirty, CurrentDirty, iScale, CurrentMask = self.ScaleMachine.do_scale_convolve(meanDirty)
-        # get mask for this scale (could be different from CurrentMask if auto-masking hasn't kicked in yet
-        ScaleMask = self.ScaleMachine.ScaleMaskArray[str(iScale)].view()
 
         # set PSF at current location
         self.PSFServer.setLocation(xscale, yscale)
@@ -580,6 +578,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
             # update scale dependent mask
             if self.ScaleMachine.AppendMaskComponents:
+                ScaleMask = self.ScaleMachine.ScaleMaskArray[str(iScale)].view()
                 ScaleMask[0, 0, xscale, yscale] = 0
 
             # find new peak
