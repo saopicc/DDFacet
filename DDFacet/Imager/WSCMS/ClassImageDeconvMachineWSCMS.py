@@ -439,7 +439,7 @@ class ClassImageDeconvMachine():
                 self._niter += niter
 
                 if iScale != self.LastScale:
-                    print("    [iter=%i] peak residual %.8g, scale = %i" % (self._niter, ThisFlux, iScale), file=log)
+                    print("    [iter=%i] peak residual %.8g, rms = %.8g, scale = %i" % (self._niter, TrackRMS, ThisFlux, iScale), file=log)
                     self.LastScale = iScale
 
         except KeyboardInterrupt:
