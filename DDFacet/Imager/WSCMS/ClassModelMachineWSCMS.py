@@ -25,7 +25,6 @@ from __future__ import print_function
 from DDFacet.compatibility import range
 
 import numpy as np
-from scipy.ndimage import binary_dilation
 import numba
 from DDFacet.Other import logger
 from DDFacet.Other import ModColor
@@ -138,13 +137,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             self.DicoSMStacked["Scale_Info"][iScale]["kernel"] = self.ScaleMachine.kernels[iScale]
             self.DicoSMStacked["Scale_Info"][iScale]["extent"] = self.ScaleMachine.extents[iScale]
 
-        # else:
-        #     # we need to keep track of what the sigma value of the delta scale corresponds to
-        #     # even if we don't do multiscale (because we need it in GiveModelImage)
-        #     (self.FWHMBeamAvg, _, _) = PSFServer.DicoVariablePSF["EstimatesAvgPSF"]
-        #     self.ListScales = [1.0/np.sqrt(2)*((self.FWHMBeamAvg[0] + self.FWHMBeamAvg[1])*np.pi / 180) / \
-        #                         (2.0 * self.GD['Image']['Cell'] * np.pi / 648000)]
-
     def ToFile(self, FileName, DicoIn=None):
         print("Saving dico model to %s" % FileName, file=log)
         if DicoIn is None:
@@ -156,10 +148,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             print("Warning - you are haven't initialised GD before writing to the DicoModel")
         D["GD"] = self.GD
         D["Type"] = "WSCMS"
-        # try:
-        #     D["ListScales"] = list(self.ScaleMachine.sigmas)  # list containing std of Gaussian components
-        # except:
-        #     D["ListScales"] = self.ListScales
         D["ModelShape"] = self.ModelShape
         MyPickle.Save(D, FileName)
 
@@ -491,14 +479,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                     print("Starting auto-masking at a threshold of %f" % MaskThreshold, file=log)
                     # we shan't be updating the mask any longer
                     self.ScaleMachine.AppendMaskComponents = False
-                    # MaskArray needs to be the union of all the Scale masks so that we can use it in
-                    # CheckConvergenceCriteria in ImageDeconvMachine
+                    # check that all components in the dictionary are in trhe scale masks
+                    self.ScaleMachine.CheckScaleMasks(self.DicoSMStacked)
                     # bit flip first if no external mask (since initialised to all zeros)
                     if not self.ScaleMachine.MaskArray.any():
                         self.ScaleMachine.MaskArray |= True
+                    # get global mask in which we check convergence criteria
                     for i in range(self.ScaleMachine.Nscales):
-                        # dilate all masks
-                        self.ScaleMachine.ScaleMaskArray[str(i)] = ~binary_dilation(~self.ScaleMachine.ScaleMaskArray[str(i)], iterations=i+1)
                         ScaleMask = self.ScaleMachine.ScaleMaskArray[str(i)]
                         self.ScaleMachine.MaskArray &= ScaleMask
                         # retire scale if there are no components in the mask
@@ -507,6 +494,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                             self.ScaleMachine.retired_scales.append(i)
                             print("Retired scale %i permanently because auto-masking "
                                   "kicked in and mask is empty thus far"%i, file=log)
+                    # dilate all masks
+                    self.ScaleMachine.dilate_scale_masks()
 
         # determine most relevant scale (note AbsConvMaxDirty given as absolute value)
         xscale, yscale, AbsConvMaxDirty, CurrentDirty, iScale, CurrentMask = self.ScaleMachine.do_scale_convolve(meanDirty)
@@ -560,16 +549,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             # Overwrite with polynoimial fit (Fpol is apparent flux)
             Fpol = self.FreqMachine.Eval(self.Coeffs)
 
-            # This is an attempt to minimise the amount of negative flux in the model by reducing the gain if
-            # a negative component has been found
-            # if (Fpol<0).any():
-            #     self.AppendComponentToDictStacked((xscale, yscale), self.Coeffs, self.CurrentScale, 0.25 * self.CurrentGain)
-            #     # Subtract fitted component from residual cube
-            #     self.SubStep((xscale, yscale), self.ConvPSF * Fpol[:, None, None, None] * self.CurrentGain * 0.25, Dirty.view())
-            #     # subtract component from convolved dirty image
-            #     A = substep(A, self.Conv2PSFmean[0, 0], float(ConvMaxDirty * self.CurrentGain * 0.25), Ip, Iq, pq,
-            #                 self.NpixPSF)
-            # else:
+            # append component to dico
             self.AppendComponentToDictStacked((xscale, yscale), self.Coeffs, self.CurrentScale, self.CurrentGain)
             # Subtract fitted component from residual cube
             self.SubStep((xscale, yscale), self.ConvPSF * Fpol[:, None, None, None] * self.CurrentGain, Dirty.view())
@@ -580,6 +560,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             if self.ScaleMachine.AppendMaskComponents:
                 ScaleMask = self.ScaleMachine.ScaleMaskArray[str(iScale)].view()
                 ScaleMask[0, 0, xscale, yscale] = 0
+            else:
+                # If auto-masking has kicked in we keep track of where new components are being added
+                # so we can check convergence in the minor cycle
+                self.ScaleMachine.MaskArray[0, 0, xscale, yscale] = 0
 
             # find new peak
             absA = np.abs(A)

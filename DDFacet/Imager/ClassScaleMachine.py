@@ -275,6 +275,41 @@ class ClassScaleMachine(object):
 
         self.FWHMs = self.alphas/0.45
 
+    def dilate_scale_masks(self):
+        """
+        For each scale we compute minor and major axes of Gaussian fit to PSF convolved 
+        with the scale kernel and then dilate the scale masks by the average of this value
+        :return: 
+        """
+        from DDFacet.ToolsDir import ModFitPSF
+        from scipy.ndimage import binary_dilation
+        import matplotlib.pyplot as plt
+        for iScale in range(self.Nscales):
+            tmpMask = ~self.ScaleMaskArray[str(iScale)].squeeze()
+            if tmpMask.any():
+                # get PSF and make FWHM mask
+                key = 'S' + str(iScale) + 'F' + str(self.CentralFacetID)
+                ScalePSF = self.Conv2PSFmean[key].squeeze()
+                PSFmax = ScalePSF.max()
+                FWHMmask = np.where(ScalePSF.squeeze() > PSFmax/2.0, True, False)
+                # get bounding box
+                rows = np.any(FWHMmask, axis=1).squeeze()
+                cols = np.any(FWHMmask, axis=0).squeeze()
+                tmpr = np.where(rows)[0]
+                tmpc = np.where(cols)[0]
+                rmin, rmax = tmpr[0],  tmpr[-1]
+                cmin, cmax = tmpc[0],  tmpc[-1]
+                structure = np.asarray(FWHMmask[rmin:rmax+1, cmin:cmax+1])
+                self.ScaleMaskArray[str(iScale)] = ~binary_dilation(tmpMask, structure=structure)[None, None]
+
+    def CheckScaleMasks(self, DicoSMStacked):
+        DicoComp = DicoSMStacked.setdefault("Comp", {})
+        for iScale in DicoComp.keys():
+            for key in DicoComp[iScale].keys():
+                if key != "NumComps":  # LB - dirty dirty hack needs to die!!!
+                    x, y = key
+                    self.ScaleMaskArray[str(iScale)][0, 0, x, y] = 0
+
     def set_bias(self):
         # get scale bias factor
         self.beta = self.GD["WSCMS"]["MultiScaleBias"]

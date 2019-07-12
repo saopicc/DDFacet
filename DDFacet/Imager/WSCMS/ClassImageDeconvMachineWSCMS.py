@@ -418,7 +418,7 @@ class ClassImageDeconvMachine():
                 ThisRMS = np.std(self._MeanDirty)
 
                 # check for and retire scales that cause stalls
-                if (TrackRMS - ThisRMS)/TrackRMS < self.GD['WSCMS']['MinorStallThreshold']:
+                if np.abs((TrackRMS - ThisRMS)/TrackRMS) < self.GD['WSCMS']['MinorStallThreshold']:
                     scale_stall_count.setdefault(iScale, 0)
                     scale_stall_count[iScale] += 1
                     # retire scale if it causes a stall more than x number of times
@@ -439,7 +439,7 @@ class ClassImageDeconvMachine():
                 self._niter += niter
 
                 if iScale != self.LastScale:
-                    print("    [iter=%i] peak residual %.8g, rms = %.8g, scale = %i" % (self._niter, TrackRMS, ThisFlux, iScale), file=log)
+                    print("    [iter=%i] peak residual %.8g, rms = %.8g, scale = %i" % (self._niter, ThisFlux, TrackRMS, iScale), file=log)
                     self.LastScale = iScale
 
         except KeyboardInterrupt:
