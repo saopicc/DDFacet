@@ -108,8 +108,6 @@ class ClassScaleMachine(object):
         ft_meanpsf_store = Store(cachepath+'/ft_meanpsf')
         self.FT_meanPSF = pylru.WriteThroughCacheManager(ft_meanpsf_store, self.GD['WSCMS']['CacheSize'])
 
-        self.ScaleMaskArray = {}
-
         # set PSF server
         self.PSFServer = PSFServer
         (self.FWHMBeamAvg, _, _) = self.PSFServer.DicoVariablePSF["EstimatesAvgPSF"]
@@ -154,6 +152,8 @@ class ClassScaleMachine(object):
         self.set_kernels()
 
         # initialise Scale dependent masks (everything masked initially)
+        print(self.Npix, self.NpixPadded, self.NpixFacet, self.NpixPSF, self.NpixPaddedPSF)
+        self.ScaleMaskArray = {}
         if self.GD["WSCMS"]["AutoMask"]:
             self.AppendMaskComponents = True  # set to false once masking kicks in
             for iScale in range(self.Nscales):
@@ -257,6 +257,8 @@ class ClassScaleMachine(object):
             cell_size_rad = self.GD["Image"]["Cell"] * np.pi / (180 * 3600)
             FWHM0_pix = np.sqrt(2) * min_beam/cell_size_rad  # sqrt(2) is fiddle factor which gives approx same scales as wsclean
             alpha0 = np.ceil(FWHM0_pix / 0.45)
+            if alpha0 % 2:
+                alpha0 += 1
             alphas = [alpha0, 4*alpha0]
             i = 1
             while alphas[i] < MaxScale:  # hardcoded for now

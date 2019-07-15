@@ -131,7 +131,7 @@ class ClassImageDeconvMachine():
         # APP.registerJobHandlers(self)
 
 
-    def Init(self, cache=None, facetcache=None, **kwargs):
+    def Init(self, cache=None, facetcache=None, FacetMachine=None, BaseName=None, **kwargs):
         # check for valid cache
         cachehash = dict(
             [(section, self.GD[section]) for section in (
@@ -143,6 +143,11 @@ class ClassImageDeconvMachine():
                                                      reset=cache or self.PSFHasChanged)
         # export the hash
         self.maincache.saveCache(name='WSCMS')
+
+        # required to save intermediate images
+        self.FacetMachine = FacetMachine
+        self.BaseName = BaseName
+        self.ModelMachine.setFacetMachine(FacetMachine=self.FacetMachine, BaseName=self.BaseName)
 
         self.Freqs = kwargs["GridFreqs"]
         AllDegridFreqs = []
@@ -187,7 +192,6 @@ class ClassImageDeconvMachine():
         """
         assert self._Dirty.shape == (self.Nchan, self.Npol, self.Npix, self.Npix)
         self.ModelMachine.setModelShape(self._Dirty.shape)
-        self.Nchan, self.Npol, self.Npix, _ = self._Dirty.shape
         self.NpixFacet = self.Npix//self.GD["Facets"]["NFacets"]
 
     def GiveModelImage(self, *args): return self.ModelMachine.GiveModelImage(*args)
@@ -299,17 +303,14 @@ class ClassImageDeconvMachine():
             # rms = np.std(np.real(self._CubeDirty.ravel()[self.IndStats]))
             print("    [iter=%i] peak residual %.3g" % (i, ThisFlux), file=log)
 
-    def check_stopping_criteria(self, PeakMap, npix, DoAbs):
+    def check_stopping_criteria(self):
         # Get RMS stopping criterion
-        NPixStats = self.GD["Deconv"]["NumRMSSamples"]
-        RMS = np.std(PeakMap)
-
-        self.GainMachine.SetRMS(RMS)
-
+        RMS = np.std(self._MeanDirty)
         Fluxlimit_RMS = self.RMSFactor*RMS
 
         # Find position and intensity of first peak
-        x, y, MaxDirty = NpParallel.A_whereMax(PeakMap, NCPU=self.NCPU, DoAbs=DoAbs, Mask=self.MaskArray)
+        x, y, MaxDirty = NpParallel.A_whereMax(self._MeanDirty, NCPU=self.NCPU,
+                                               DoAbs=self.GD["Deconv"]["AllowNegative"], Mask=self.MaskArray)
 
         # Get peak factor stopping criterion
         Fluxlimit_Peak = MaxDirty*self.PeakFactor
@@ -317,7 +318,7 @@ class ClassImageDeconvMachine():
         # Get side lobe stopping criterion
         Fluxlimit_Sidelobe = ((self.CycleFactor-1.)/4.*(1.-self.SideLobeLevel)+self.SideLobeLevel)*MaxDirty if self.CycleFactor else 0
 
-        mm0, mm1 = PeakMap.min(), PeakMap.max()
+        mm0, mm1 = self._MeanDirty.min(), self._MeanDirty.max()
 
         # Choose whichever threshold is highest
         StopFlux = max(Fluxlimit_Peak, Fluxlimit_RMS, Fluxlimit_Sidelobe, self.FluxThreshold)
@@ -346,15 +347,13 @@ class ClassImageDeconvMachine():
         continue_deconvolution = False
         update_model = False
 
-        # Get the PeakMap (first index will always be 0 because we only support I cleaning)
-        PeakMap = self._MeanDirty[0, 0, :, :]
-
         # These options should probably be moved into MinorCycleConfig in parset
-        DoAbs = int(self.GD["Deconv"]["AllowNegative"])
-        print("  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter, self.MaxMinorIter, DoAbs), file=log)
+        print("  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter, self.MaxMinorIter,
+                                                                              int(self.GD["Deconv"]["AllowNegative"])),
+                                                                              file=log)
 
         # Determine which stopping criterion to use for flux limit
-        StopFlux, MaxDirty, RMS = self.check_stopping_criteria(PeakMap, self.Npix, DoAbs)
+        StopFlux, MaxDirty, RMS = self.check_stopping_criteria()
 
         TrackRMS = RMS.copy()
 
@@ -432,7 +431,8 @@ class ClassImageDeconvMachine():
                 TrackRMS = ThisRMS.copy()
 
                 # find peak
-                x, y, ThisFlux = NpParallel.A_whereMax(self._MeanDirty, NCPU=self.NCPU, DoAbs=DoAbs,
+                x, y, ThisFlux = NpParallel.A_whereMax(self._MeanDirty, NCPU=self.NCPU,
+                                                       DoAbs=self.GD["Deconv"]["AllowNegative"],
                                                        Mask=self.MaskArray)
 
                 # update counter

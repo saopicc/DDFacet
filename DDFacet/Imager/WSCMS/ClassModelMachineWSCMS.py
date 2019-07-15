@@ -106,6 +106,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         # self.DicoSMStacked["Eval_Degrid"] = self.FreqMachine.Eval_Degrid
 
+    def setFacetMachine(self, FacetMachine, BaseName):
+        self.FacetMachine = FacetMachine
+        self.BaseName = BaseName
 
     def setScaleMachine(self, PSFServer, NCPU=None, MaskArray=None, cachepath=None, MaxBaseline=None):
         # if self.GD["WSCMS"]["MultiScale"]:
@@ -418,7 +421,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # note will always be set initially since comparison to 999999 will fail
         if iFacet != self.CurrentFacet or self.CurrentScale != iScale:
             key = 'S' + str(iScale) + 'F' + str(iFacet)
-            # update facet (NB - ensure PSFserver has been updated before we get here)
+            # update facet (NB - ensure PSFServer has been updated before we get here)
             self.CurrentFacet = iFacet
 
             # update scale
@@ -496,6 +499,18 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                                   "kicked in and mask is empty thus far"%i, file=log)
                     # dilate all masks
                     self.ScaleMachine.dilate_scale_masks()
+
+                    # save all masks
+                    savestr = self.GD["Output"]["Images"]
+                    if savestr.lower() == 'all' or 'k' in list(savestr):
+                        self.FacetMachine.ToCasaImage(np.float32(self.ScaleMachine.MaskArray),
+                                                      ImageName="%s.GlobalMask" % (self.BaseName),
+                                                      Fits=True)
+                        for i in range(self.ScaleMachine.Nscales):
+                            ScaleMask = self.ScaleMachine.ScaleMaskArray[str(i)]
+                            self.FacetMachine.ToCasaImage(np.float32(ScaleMask),
+                                                          ImageName="%s.ScaleMask%i" % (self.BaseName, i),
+                                                          Fits=True)
 
         # determine most relevant scale (note AbsConvMaxDirty given as absolute value)
         xscale, yscale, AbsConvMaxDirty, CurrentDirty, iScale, CurrentMask = self.ScaleMachine.do_scale_convolve(meanDirty)
