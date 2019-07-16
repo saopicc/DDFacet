@@ -294,12 +294,6 @@ class ClassImagerDeconv():
         """Creates FacetMachines for data and/or PSF"""
         self.StokesFacetMachine = self.FacetMachine = self.FacetMachinePSF = None
         MainFacetOptions = self.GiveMainFacetOptions()
-        # LB - This was to test pixCentral. Center facet is off by one.
-        # if self.GD["DDESolutions"]["DDSols"] is None or self.GD["DDESolutions"]["DDSols"] == "":
-        #     from DDFacet.Imager.ClassFacetMachine import ClassFacetMachine
-        # else:
-        #     from DDFacet.Imager.ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
-        # from DDFacet.Imager.ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
         if self.do_stokes_residue:
             self.StokesFacetMachine = ClassFacetMachine(self.VS,
                                                         self.GD,

@@ -597,10 +597,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             # Update counters
             k += 1
 
-        # report if max sub-iterations exceeded
-        if k >= self.ScaleMachine.NSubMinorIter:
-            print("Maximum subiterations reached. ", file=log)
-
         return k, iScale
 
 ###################### Dark magic below this line ###################################

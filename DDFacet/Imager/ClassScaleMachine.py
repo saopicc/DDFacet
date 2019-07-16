@@ -152,7 +152,6 @@ class ClassScaleMachine(object):
         self.set_kernels()
 
         # initialise Scale dependent masks (everything masked initially)
-        print(self.Npix, self.NpixPadded, self.NpixFacet, self.NpixPSF, self.NpixPaddedPSF)
         self.ScaleMaskArray = {}
         if self.GD["WSCMS"]["AutoMask"]:
             self.AppendMaskComponents = True  # set to false once masking kicks in
