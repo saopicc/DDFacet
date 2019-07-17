@@ -142,6 +142,8 @@ class ClassImToGrid():
         #xc,yc=(x0+x1)/2,(y0+y1)/2
 
         Aedge,Bedge=GiveEdges((xc,yc),NPixOut,(N1/2,N1/2),N1)
+        print "Shapes = ", (xc,yc), NPixOut, (N1/2,N1/2), N1
+        print "Edges = ", Aedge, Bedge
         #Bedge,Aedge=GiveEdges((N1/2,N1/2),N1,(yc,xc),NPixOut)
         x0d,x1d,y0d,y1d=Aedge
         x0p,x1p,y0p,y1p=Bedge
