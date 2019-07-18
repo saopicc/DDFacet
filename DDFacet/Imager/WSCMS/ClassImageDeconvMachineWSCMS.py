@@ -39,6 +39,7 @@ from DDFacet.Other import ClassTimeIt
 from pyrap.images import image
 from DDFacet.Imager.ClassPSFServer import ClassPSFServer
 from DDFacet.Imager import ClassGainMachine  # Currently required by model machine but fixed to static mode
+from DDFacet.Imager.ClassMaskMachine import ClassMaskMachine
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 # from DDFacet.Other.AsyncProcessPool import APP
 # from DDFacet.ToolsDir.ModFFTW import FFTW_Scale_Manager  # usage just to register job handlers but has no effect atm
@@ -107,16 +108,6 @@ class ClassImageDeconvMachine():
         self.PSFHasChanged = False
         self.LastScale = 99999
 
-        #  TODO - use MaskMachine for this
-        if self.GD["Mask"]["External"] is not None:
-            print("Reading mask image: %s" % self.GD["Mask"]["External"], file=log)
-            MaskArray = image(CleanMaskImage).getdata()
-            nch, npol, nxmask, nymask = MaskArray.shape
-            self.MaskArray = np.zeros(MaskArray.shape, np.bool8)
-            for ch in range(nch):
-                for pol in range(npol):
-                    self.MaskArray[ch, pol, :, :] = np.bool8(1-MaskArray[ch,pol].T[::-1].copy())[:,:]
-
         self._peakMode = "normal"
 
         self.CacheFileName = CacheFileName
@@ -168,6 +159,9 @@ class ClassImageDeconvMachine():
         self.Nchan, self.Npol, self.Npix, _ = self.DicoVariablePSF["OutImShape"]
         if self.MaskArray is None:
             self.MaskArray = np.zeros([1, 1, self.Npix, self.Npix], dtype=np.bool8)
+        else:  # Make sure mask is correct shape
+            if self.MaskArray.shape != (1, 1, self.Npix, self.Npix):
+                raise ValueError("Mask is incorrect shape. Expected %s but got %s" % ((1,1,self.Npix, self.Npix), self.MaskArray.shape))
         self.ModelMachine.setScaleMachine(self.PSFServer, NCPU=self.NCPU, MaskArray=self.MaskArray,
                                           cachepath=cachepath, MaxBaseline=kwargs["MaxBaseline"] / minlambda)
 
@@ -177,6 +171,11 @@ class ClassImageDeconvMachine():
 
     def setMaskMachine(self,MaskMachine):
         self.MaskMachine = MaskMachine
+        self.MaskMachine.readExternalMaskFromFits()
+        if hasattr(self.MaskMachine, 'ExternalMask'):
+            self.MaskArray = self.MaskMachine.ExternalMask
+        else:
+            self.MaskArray = None  # need to set this to None here since we don't yet know the image size etc.
 
 
     def SetModelRefFreq(self, RefFreq):
