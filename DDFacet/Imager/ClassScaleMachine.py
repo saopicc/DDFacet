@@ -302,6 +302,10 @@ class ClassScaleMachine(object):
                 cmin, cmax = tmpc[0],  tmpc[-1]
                 structure = np.asarray(FWHMmask[rmin:rmax+1, cmin:cmax+1])
                 self.ScaleMaskArray[str(iScale)] = ~binary_dilation(tmpMask, structure=structure)[None, None]
+                # make sure they conform to the external mask
+                if self.GD["Mask"]["External"] is not None:
+                    self.ScaleMaskArray[str(iScale)] = np.where(self.MaskArray, self.MaskArray,
+                                                                self.ScaleMaskArray[str(iScale)])
 
     def CheckScaleMasks(self, DicoSMStacked):
         DicoComp = DicoSMStacked.setdefault("Comp", {})

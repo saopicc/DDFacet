@@ -557,7 +557,7 @@ class ClassImagerDeconv():
         else:
             psf_valid = psf_writecache = False
 
-        if self.GD["Predict"]["InitDicoModel"] is not None:
+        if self.GD["Output"]["Mode"] == 'Dirty' and self.GD["Predict"]["InitDicoModel"] is not None:
             if self.ModelMachine.DicoSMStacked['ModelShape'][-1] != self.FacetMachine.Npix:
                 raise ValueError("Your DicoModel has incorrect shape. Expected %i pixels but "
                                  "got %i"%(self.FacetMachine.Npix, self.ModelMachine.DicoSMStacked['ModelShape'][-1]))

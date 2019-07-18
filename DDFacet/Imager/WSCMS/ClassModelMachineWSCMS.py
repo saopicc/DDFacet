@@ -487,16 +487,17 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                     # bit flip first if no external mask (since initialised to all zeros)
                     if not self.ScaleMachine.MaskArray.any():
                         self.ScaleMachine.MaskArray |= True
-                    # get global mask in which we check convergence criteria
-                    for i in range(self.ScaleMachine.Nscales):
-                        ScaleMask = self.ScaleMachine.ScaleMaskArray[str(i)]
-                        self.ScaleMachine.MaskArray &= ScaleMask
-                        # retire scale if there are no components in the mask
-                        if ScaleMask.all():
-                            self.ScaleMachine.forbidden_scales.append(i)
-                            self.ScaleMachine.retired_scales.append(i)
-                            print("Retired scale %i permanently because auto-masking "
-                                  "kicked in and mask is empty thus far"%i, file=log)
+
+                        # get global mask in which we check convergence criteria
+                        for i in range(self.ScaleMachine.Nscales):
+                            ScaleMask = self.ScaleMachine.ScaleMaskArray[str(i)]
+                            self.ScaleMachine.MaskArray &= ScaleMask
+                            # retire scale if there are no components in the mask
+                            if ScaleMask.all():
+                                self.ScaleMachine.forbidden_scales.append(i)
+                                self.ScaleMachine.retired_scales.append(i)
+                                print("Retired scale %i permanently because auto-masking "
+                                      "kicked in and mask is empty thus far"%i, file=log)
                     # dilate all masks
                     self.ScaleMachine.dilate_scale_masks()
 
