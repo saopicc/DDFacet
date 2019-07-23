@@ -101,12 +101,13 @@ class ClassScaleMachine(object):
         self.ConvPSFs = pylru.WriteThroughCacheManager(conv_psf_store, self.GD['WSCMS']['CacheSize'])
         conv_psf_mean_store = Store(cachepath+'/convpsfmean')
         self.Conv2PSFmean = pylru.WriteThroughCacheManager(conv_psf_mean_store, self.GD['WSCMS']['CacheSize'])
-        gains_store = Store(cachepath+'/gains')
-        self.gains = pylru.WriteThroughCacheManager(gains_store, self.GD['WSCMS']['CacheSize'])
         ft_psf_store = Store(cachepath+'/ft_psf')
         self.FT_PSF = pylru.WriteThroughCacheManager(ft_psf_store, self.GD['WSCMS']['CacheSize'])
         ft_meanpsf_store = Store(cachepath+'/ft_meanpsf')
         self.FT_meanPSF = pylru.WriteThroughCacheManager(ft_meanpsf_store, self.GD['WSCMS']['CacheSize'])
+
+        # dictionary to store per facet per scale gains
+        self.gains = {}
 
         # set PSF server
         self.PSFServer = PSFServer
