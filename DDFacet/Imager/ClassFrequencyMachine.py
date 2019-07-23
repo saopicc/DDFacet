@@ -124,6 +124,7 @@ class ClassFrequencyMachine(object):
                         for iMS in ChanMappingGrid.keys():
                             ChanMappingFull.append(ChanMappingGrid[iMS])
                         ChanMappingFull = np.concatenate(ChanMappingFull)
+                        print("                    ChanMappingSize = ", ChanMappingFull.size)
                         self.S = np.zeros([self.nchan, self.nchan_full], dtype=np.float32)
                         for iChannel in range(self.nchan):
                             ind = np.argwhere(ChanMappingFull == iChannel).squeeze()
