@@ -253,6 +253,7 @@ RUN rm -rf /src/DDFacet/DDFacet/cbuild
 RUN pip install -U pip setuptools wheel
 RUN python2.7 -m pip install pybind11
 RUN python2.7 -m pip install -U "/src/DDFacet/[dft-support,moresane-support,testing-requirements,fits-beam-support]"
+RUN cd /src/DDFacet/ && python2.7 setup.py build && cd /
 # Set MeqTrees Cattery path to installation directory
 ENV MEQTREES_CATTERY_PATH /usr/local/lib/python2.7/dist-packages/Cattery/
 ENV PYTHONPATH $MEQTREES_CATTERY_PATH:$PYTHONPATH

@@ -26,7 +26,12 @@ from DDFacet.Array import NpShared
 from DDFacet.Other import ClassTimeIt
 import psutil
 import numexpr
-from DDFacet.Other.AsyncProcessPool import APP
+
+try:
+    from DDFacet.Other.AsyncProcessPool import APP
+except ImportError:
+    APP = None
+    pass # not strictly necessary because it imports the backend
 from DDFacet.Array import shared_dict
 from DDFacet.Other import logger
 import ModToolBox
@@ -920,8 +925,8 @@ def _convolveSingleGaussianFFTW_noret(*args,**kw):
 def _convolveSingleGaussianNP_noret(*args,**kw):
     _convolveSingleGaussianNP(*args,**kw)
     return None
-
-APP.registerJobHandlers(_convolveSingleGaussianFFTW_noret, _convolveSingleGaussianNP_noret)
+if APP:
+    APP.registerJobHandlers(_convolveSingleGaussianFFTW_noret, _convolveSingleGaussianNP_noret)
 
 ## FFTW version
 #def ConvolveGaussianFFTW(Ain0,

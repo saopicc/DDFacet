@@ -17,7 +17,8 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
-
+global DISABLE_APP_IMPORT
+DISABLE_APP_IMPORT = True
 import DDFacet.ToolsDir.ModFitPSF as fitter
 import numpy as np
 from matplotlib import pyplot as plt
@@ -80,14 +81,19 @@ def testRestore():
         #restore fitted clean beam with an FFT convolution:
         delta = np.zeros([1, 1, imgSize, imgSize])
         delta[0, 0, imgSize / 2, imgSize / 2] = 1
+        rest, _ = fftconvolve.ConvolveGaussianScipy(delta,
+                                                 Sig=5,
+                                                 GaussPar=fittedParams)
+        
         rest = fftconvolve.ConvolveGaussian(shareddict={"in":delta,
                                                         "out":delta},
-                                            field_in="in",
-                                            field_out="out",
-                                            ch=0,
-                                            CellSizeRad=cellSize,
-                                            GaussPars_ch=fittedParams,
-                                            Normalise=False)
+                                                        field_in="in",
+                                                        field_out="out",
+                                             ch=0,
+                                             CellSizeRad=cellSize,
+                                             GaussPars_ch=fittedParams,
+                                             Normalise=False)
+                                             
         assert np.allclose(inp, rest, rtol=1e-2, atol=1e-2)
     for r in np.linspace(0,360,100):
         restoreFittedBeam(r)
