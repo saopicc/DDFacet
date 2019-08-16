@@ -1,3 +1,4 @@
+set -e
 echo "----------------------------------------------"
 echo "$JOB_NAME build $BUILD_NUMBER"
 WORKSPACE_ROOT="$WORKSPACE/$BUILD_NUMBER"
@@ -28,6 +29,7 @@ docker run -m 100g --cap-add sys_ptrace \
                    -v $TEST_OUTPUT_DIR:/test_output \
                    -v $PROJECTS_DIR:/src \
                    -v $WORKSPACE_ROOT:/workspace \
+		   --workdir /test_output \
                    --entrypoint sh \
                    $IMAGENAME:$BUILD_NUMBER \
-                   -c "nosetests -s --with-xunit --xunit-file /workspace/nosetests.xml /root/.local/lib/python2.7/site-packages/DDFacet/Tests"
+                   -c "ln -s /test_data/beams /test_output/beams && nosetests -s --with-xunit --xunit-file /workspace/nosetests.xml /src/DDFacet/DDFacet/Tests"

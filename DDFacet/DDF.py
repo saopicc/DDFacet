@@ -168,19 +168,20 @@ def main(OP=None, messages=[]):
     # check for SHM size
     ram_size = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
     shm_stats = os.statvfs('/dev/shm')
-    shm_size = shm_stats.f_bsize * shm_stats.f_favail
-    shm_avail = shm_size / float(ram_size)
+    shm_size = shm_stats.f_bsize * shm_stats.f_blocks
+    shm_relsize = shm_size / float(ram_size)
+    shm_avail = shm_stats.f_bsize * shm_stats.f_bavail / float(ram_size)
 
-    if shm_avail < 0.6:
+    if shm_relsize < 0.6:
         print>>log, ModColor.Str("""WARNING: max shared memory size is only {:.0%} of total RAM size.
             This can cause problems for large imaging jobs. A setting of 90% is recommended for 
             DDFacet and killMS. If your processes keep failing with SIGBUS or "bus error" messages,
             it is most likely for this reason. You can change the memory size by running
                 $ sudo mount -o remount,size=90% /dev/shm
             To make the change permanent, edit /etc/defaults/tmps, and add a line saying "SHM_SIZE=90%".
-            """.format(shm_avail))
+            """.format(shm_relsize))
     else:
-        print>>log, "  Max shared memory size is {:.0%} of total RAM size".format(shm_avail)
+        print>>log, "  Max shared memory size is {:.0%} of total RAM size; {:.0%} currently available".format(shm_relsize, shm_avail)
 
     try:
         output = subprocess.check_output(["/sbin/sysctl", "vm.max_map_count"])
