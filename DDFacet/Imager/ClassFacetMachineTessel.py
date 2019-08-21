@@ -25,6 +25,7 @@ from scipy.spatial import Voronoi, ConvexHull
 from scipy.spatial import Voronoi
 from SkyModel.Sky import ModVoronoi
 from DDFacet.Other import reformat
+from DDFacet.Data.ClassJones import _parse_solsfile
 import os
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 import tables
@@ -120,12 +121,21 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             decNode = ClusterNodes.dec
             lFacet, mFacet = self.CoordMachine.radec2lm(raNode, decNode)
         elif SolsFile is not None and ".h5" in  SolsFile:
-            print>> log, "Taking facet directions from HDF5 solutions file: %s" % SolsFile
-            H=tables.open_file(SolsFile)
-            raNode,decNode=H.root.sol000.source[:]["dir"].T
-            lFacet, mFacet = self.CoordMachine.radec2lm(raNode, decNode)
-            H.close()
-            del(H)
+            h5file, apply_solsets, apply_map = _parse_solsfile(SolsFile)
+            print >> log, "Taking facet directions from H5parm: {}, solsets: {}".format(h5file, apply_solsets)
+            with tables.open_file(h5file) as H:
+                lm, radec = [], []
+                for solset in apply_solsets:
+                    _solset = getattr(H.root, solset)
+                    raNode, decNode = _solset.source[:]["dir"].T
+                    lFacet, mFacet = self.CoordMachine.radec2lm(raNode, decNode)
+                    radec.append(np.stack([raNode, decNode], axis=1))
+                    lm.append(np.stack([lFacet, mFacet], axis=1))
+            # Nd+Nd+...,2
+            lm = np.concatenate(lm, axis=0)
+            radec = np.concatenate(radec, axis=0)
+            lFacet, mFacet = lm[:, 0], lm[:, 1]
+            raNode, decNode = radec[:, 0], radec[:, 1]
         else:
             print>> log, "Taking facet directions from regular grid"
             regular_grid = True
