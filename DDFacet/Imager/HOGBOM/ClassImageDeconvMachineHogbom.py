@@ -222,9 +222,9 @@ class ClassImageDeconvMachine():
         # If multiple frequencies are present construct the weighted mean
         if self.MultiFreqMode:
             W = self.WeightsChansImages.reshape((self.Nchan,1,1,1))
-            self._MeanDirty[0] = (self._Dirty*W).sum(axis=0) #Sum over frequency
+            self._MeanDirty[...] = (self._Dirty*W).sum(axis=0) #Sum over frequency
         else:
-            self._MeanDirty = self._Dirty
+            self._MeanDirty[0, ...] = self._Dirty[0, ...]
 
     def Deconvolve(self, **kwargs):
         """
