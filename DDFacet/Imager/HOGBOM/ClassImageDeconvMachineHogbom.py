@@ -102,6 +102,8 @@ class ClassImageDeconvMachine():
         self._NoiseMap = None
         self._PNRStop = None  # in _peakMode "sigma", provides addiitonal stopping criterion
 
+        numexpr.set_num_threads(self.NCPU)
+
 
     def Init(self, **kwargs):
         self.SetPSF(kwargs["PSFVar"])
@@ -212,14 +214,18 @@ class ClassImageDeconvMachine():
         x0d,x1d,y0d,y1d=Aedge
         x0p,x1p,y0p,y1p=Bedge
 
+        cube, sm = self._Dirty[:,:,x0d:x1d,y0d:y1d], LocalSM[:,:,x0p:x1p,y0p:y1p]
+        numexpr.evaluate('cube-sm',out=cube,casting="unsafe")
+
         #Subtract from each channel/band
-        self._Dirty[:,:,x0d:x1d,y0d:y1d]-=LocalSM[:,:,x0p:x1p,y0p:y1p]
+        # self._Dirty[:,:,x0d:x1d,y0d:y1d]-=LocalSM[:,:,x0p:x1p,y0p:y1p]
         # If multiple frequencies are present construct the weighted mean
+        meanimage = self._MeanDirty[:, :, x0d:x1d, y0d:y1d]
         if self.MultiFreqMode:
-            W = self.WeightsChansImages
-            self._MeanDirty[0] = np.sum(self._Dirty*W.reshape((W.size,1,1,1)),axis=0) #Sum over frequency
+            W = self.WeightsChansImages.reshape((self.Nchan,1,1,1))
+            meanimage[...] = (cube*W).sum(axis=0) #Sum over frequency
         else:
-            self._MeanDirty = self._Dirty
+            meanimage[0,...] = cube[0,...]
 
     def Deconvolve(self, **kwargs):
         """
