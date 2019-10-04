@@ -127,7 +127,8 @@ class ClassFrequencyMachine(object):
                             ind = np.argwhere(ChanMappingGrid[iMS] == iChannel).squeeze()
                             counts[ind] += 1.0
                         nchunk = np.sum(counts)
-                        self.S[iChannel, :] = counts/nchunk
+                        if nchunk > 0:
+                            self.S[iChannel, :] = counts/nchunk
 
                     # dictionaries to hold pseudo inverses and design matrices
                     self.pinv_dict = {}
