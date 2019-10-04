@@ -220,11 +220,12 @@ class ClassImageDeconvMachine():
         #Subtract from each channel/band
         # self._Dirty[:,:,x0d:x1d,y0d:y1d]-=LocalSM[:,:,x0p:x1p,y0p:y1p]
         # If multiple frequencies are present construct the weighted mean
+        meanimage = self._MeanDirty[:, :, x0d:x1d, y0d:y1d]
         if self.MultiFreqMode:
             W = self.WeightsChansImages.reshape((self.Nchan,1,1,1))
-            self._MeanDirty[...] = (self._Dirty*W).sum(axis=0) #Sum over frequency
+            meanimage[...] = (cube*W).sum(axis=0) #Sum over frequency
         else:
-            self._MeanDirty[0, ...] = self._Dirty[0, ...]
+            meanimage[0,...] = cube[0,...]
 
     def Deconvolve(self, **kwargs):
         """
