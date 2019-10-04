@@ -910,7 +910,8 @@ class ClassFacetMachine():
                 ThisSumWeights = sumweights[ch][pol]
                 # normalize the response per facet
                 # channel if jones corrections are enabled
-                psf[ch][pol] /= ThisSumWeights
+                if ThisSumWeights > 0:
+                    psf[ch][pol] /= ThisSumWeights
             PSFChannel[ch, :, :, :] = psf[ch][:, :, :]
 
         # weight each of the cube slices and average
@@ -932,7 +933,10 @@ class ClassFacetMachine():
         SumJonesNorm = np.sqrt(SumJonesNorm)
         if np.max(SumJonesNorm) > 0.:
             ThisW = ThisW * SumJonesNorm.reshape((self.VS.NFreqBands, 1, 1, 1))
-        ThisDirty = dirty.real / ThisW
+        if ThisW > 0:
+            ThisDirty = dirty.real / ThisW
+        else:
+            ThisDirty = dirty.real
         fmr = fmr_dict.addSharedArray(iFacet, (1, npol, npix_x, npix_y), ThisDirty.dtype)
         fmr[:] = np.sum(ThisDirty * WBAND, axis=0).reshape((1, npol, npix_x, npix_y))
         fmr /= cf_dict[iFacet]["Sphe"]
