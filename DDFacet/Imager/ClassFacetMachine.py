@@ -906,6 +906,7 @@ class ClassFacetMachine():
             # normalize to bring back transfer
             # functions to approximate convolution
             psf[ch] /= np.sqrt(SumJonesNorm)
+            print 'JN =', SumJonesNorm.max()
             for pol in xrange(npol):
                 ThisSumWeights = sumweights[ch][pol]
                 # normalize the response per facet
@@ -913,6 +914,7 @@ class ClassFacetMachine():
                 if ThisSumWeights > 0:
                     psf[ch][pol] /= ThisSumWeights
             PSFChannel[ch, :, :, :] = psf[ch][:, :, :]
+            print 'psf ch = ', PSFChannel[ch, :, :, :].max()
 
         # weight each of the cube slices and average
         fd["MeanPSF"]  = np.sum(PSFChannel * W, axis=0).reshape((1, npol, n, n))
@@ -933,7 +935,8 @@ class ClassFacetMachine():
         SumJonesNorm = np.sqrt(SumJonesNorm)
         if np.max(SumJonesNorm) > 0.:
             ThisW = ThisW * SumJonesNorm.reshape((self.VS.NFreqBands, 1, 1, 1))
-        ThisDirty = np.where(ThisW > 0, dirty.real / ThisW, dirty.real)
+        ThisDirty = np.where(ThisW > 0, dirty.real / ThisW, dirty.real, )
+        print 'dirty nan = ', np.isnan(ThisDirty).any()
         fmr = fmr_dict.addSharedArray(iFacet, (1, npol, npix_x, npix_y), ThisDirty.dtype)
         fmr[:] = np.sum(ThisDirty * WBAND, axis=0).reshape((1, npol, npix_x, npix_y))
         fmr /= cf_dict[iFacet]["Sphe"]
