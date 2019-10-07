@@ -927,7 +927,7 @@ class ClassFacetMachine():
         SumJonesNorm = np.sqrt(SumJonesNorm)
         if np.max(SumJonesNorm) > 0.:
             ThisW = ThisW * SumJonesNorm.reshape((self.VS.NFreqBands, 1, 1, 1))
-        ThisDirty = np.where(ThisW > 0, dirty.real / ThisW, dirty.real, )
+        ThisDirty = np.where(ThisW > 0, dirty.real / ThisW, dirty.real)
         fmr = fmr_dict.addSharedArray(iFacet, (1, npol, npix_x, npix_y), ThisDirty.dtype)
         fmr[:] = np.sum(ThisDirty * WBAND, axis=0).reshape((1, npol, npix_x, npix_y))
         fmr /= cf_dict[iFacet]["Sphe"]
