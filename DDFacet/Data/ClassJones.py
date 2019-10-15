@@ -30,6 +30,86 @@ import ClassLOFARBeam
 import ClassFITSBeam
 # import ClassSmoothJones is not used anywhere, should be able to remove it
 import tables
+from scipy.interpolate import interp1d
+
+def _parse_solsfile(SolsFile):
+    """Parses the input SolsFile in order to use an input h5parm file to apply solutions on-the-fly.
+        The solution directions dictate the on-the-fly facet layout.
+        Args:
+        :param SolsFile: str the h5parm solution file to apply, with encoded
+            solution spec. `SolsFile` should follow the format:
+                <pathto>/<solution_file>.h5:<solset_1>+<solset_2>+.../<soltab_a>+<soltab_b>+...
+
+            Everything before the `:` is the h5parm path.
+            The h5parm file must follow the format defined by losoto>=2.0
+            The axis ordering for all soltabs is:
+                [pol, dir, ant, freq, time] for soltabs with frequency dependence
+                [pol, dir, ant, time] for soltabs without frequency dependence
+
+            Everything after the `:` is called `instructions` and specifies how to use the h5parm.
+            `instructions` follow the format:
+                ['+' separated list of solsets to use]/['+' separated list of soltabs to apply]
+
+            Example:
+                ../solutions/reference_solutions.h5:screen_posterior_sol+posterior_sol/tec000+amplitude000
+
+            would create gains from dTEC and amplitudes in the solsets `posterior_sol` and
+            `screen_posterior_sol` and concatenate them into one solution (by concatenating the directions).
+            The different solsets must have the same layout except for the directions.
+
+            Valid soltabs must come from the list.
+            ['tec000','phase000','amplitude000']
+            Only valid combinations are allowed, i.e. don't try to use `tec000` and `phase000`.
+
+            If nothing comes after the `:` or there is no `:` then we assume the
+            solution spec of `sol000/tec000`.
+        Returns:
+        h5file: str
+        apply_solsets: list of solsets as str
+        apply_map: dict of soltabs to apply
+    """
+    print >> log, "  Parsing solutions %s" % (SolsFile)
+    # parse SolsFile
+    _valid_soltabs = ['tec000', 'phase000', 'amplitude000']
+    apply_map = {s: False for s in _valid_soltabs}
+    apply_solsets = []
+    split = SolsFile.split(":")
+    if len(split) > 2:
+        raise ValueError(
+            "SolsFile {} should be of format `<pathto>/<solution_file>.h5:<solset_1>+<solset_2>+.../<soltab_a>+<soltab_b>+...`".format(
+                SolsFile))
+    elif len(split) == 2:
+        h5file, instructions = split
+    elif len(split) == 1:
+        h5file = split[0]
+        instructions = None
+    if len(h5file) == 0:
+        raise ValueError("Invalid H5parm name in SolsFile {}".format(SolsFile))
+    if instructions is None:
+        apply_map['tec000'] = True
+        apply_solsets.append('sol000')
+    else:
+        instructions_split = instructions.split("/")
+        if len(instructions_split) != 2:
+            raise ValueError(
+                "Invalid instructions {}, should be `<solset_1>+<solset_2>+.../<soltab_a>+<soltab_b>+...`".format(
+                    instructions))
+        solsets, soltabs = instructions_split
+        for solset in solsets.split('+'):
+            if len(solset) > 0:
+                apply_solsets.append(solset)
+        for soltab in soltabs.split('+'):
+            if len(soltab) > 0:
+                if soltab not in _valid_soltabs:
+                    raise ValueError('Invalid soltab {} must be one of {}'.format(soltab, _valid_soltabs))
+                apply_map[soltab] = True
+    if len(apply_solsets) == 0:
+        raise ValueError('No solsets provided')
+    if apply_map['tec000'] and apply_map['phase000']:
+        raise ValueError("Cannot apply both phase and tec")
+    if ~np.any(np.array(apply_map.values())):
+        raise ValueError("No valid soltabs specified")
+    return h5file, apply_solsets, apply_map
 
 
 class ClassJones():
@@ -410,86 +490,171 @@ class ClassJones():
 
         return VisToJonesChanMapping,DicoClusterDirs,DicoSols,G
 
+    def ReadH5(self, SolsFile):
+        """Use an input h5parm file to apply solutions on-the-fly.
+        The solution direcions dictate the on-the-fly facet layout.
+        Args:
+        :param SolsFile: str the h5parm solution file to apply, with encoded
+            solution spec. `SolsFile` should follow the format:
+                <pathto>/<solution_file>.h5:<solset_1>+<solset_2>+.../<soltab_a>+<soltab_b>+...
 
-    def ReadH5(self,SolsFile):
-        print>>log, "  Loading H5 solution file %s" % (SolsFile)
+            Everything before the `:` is the h5parm path.
+            The h5parm file must follow the format defined by losoto>=2.0
+            The axis ordering for all soltabs is:
+                [pol, dir, ant, freq, time] for soltabs with frequency dependence
+                [pol, dir, ant, time] for soltabs without frequency dependence
+
+            Everything after the `:` is called `instructions` and specifies how to use the h5parm.
+            `instructions` follow the format:
+                ['+' separated list of solsets to use]/['+' separated list of soltabs to apply]
+
+            Example:
+                ../solutions/reference_solutions.h5:screen_posterior_sol+posterior_sol/tec000+amplitude000
+
+            would create gains from dTEC and amplitudes in the solsets `posterior_sol` and
+            `screen_posterior_sol` and concatenate them into one solution (by concatenating the directions).
+            The different solsets must have the same layout except for the directions.
+
+            Valid soltabs must come from the list.
+            ['tec000','phase000','amplitude000']
+            Only valid combinations are allowed, i.e. don't try to use `tec000` and `phase000`.
+
+            If nothing comes after the `:` or there is no `:` then we assume the
+            solution spec of `sol000/tec000`.
+        """
 
         self.ApplyCal = True
-        H=tables.open_file(SolsFile)
-        raNode,decNode=H.root.sol000.source[:]["dir"].T
-        times=H.root.sol000.tec000.time[:]
-        lFacet, mFacet = self.FacetMachine.CoordMachine.radec2lm(raNode, decNode)
-        # nt, na, nd, 1
-        tec=H.root.sol000.tec000.val[:]
-        try:
-            scphase=H.root.sol000.scalarphase000.val[:]
-            use_scalarphase = True
-        except:
-            use_scalarphase = False
-        H.close()
-        del(H)
+
+        h5file, apply_solsets, apply_map = _parse_solsfile(SolsFile)
+        print >> log, "  Applying {} solset {} soltabs {}".format(h5file, apply_solsets, apply_map)
+
+        times = None
+        with tables.open_file(h5file) as H:
+            gains = []
+            lm, radec = [], []
+            for solset in apply_solsets:
+                _solset = getattr(H.root, solset)
+                raNode, decNode = _solset.source[:]["dir"].T
+                lFacet, mFacet = self.FacetMachine.CoordMachine.radec2lm(raNode, decNode)
+                radec.append(np.stack([raNode, decNode], axis=1))
+                lm.append(np.stack([lFacet, mFacet], axis=1))
+                # freqs=self.FacetMachine.VS.GlobalFreqs.reshape((1,1,1,-1))
+                freqs = self.MS.ChanFreq.ravel()
+                Nf = freqs.size
+                tec_conv = -8.4479745e6 / freqs
+
+                solset_gains = []
+                for soltab, v in apply_map.items():
+                    if not v:
+                        continue
+                    _soltab = getattr(_solset, soltab)
+                    if times is not None:
+                        if ~np.all(np.isclose(_soltab.time[:], times)):
+                            raise ValueError("Times not the same between solsets")
+                    times = _soltab.time[:]
+                    # Npols, Nd, Na, (Nf), Nt
+                    val = _soltab.val[:]
+                    if soltab == 'tec000':
+                        _, Nd, Na, Nt = val.shape
+                        # Nd, Na, Nt, Nf
+                        phase = tec_conv * val[0, ..., None]
+                        # Nt,Nd,Na,Nf
+                        phase = phase.transpose((2, 0, 1, 3))
+                        solset_gains.append(np.exp(1j * phase))
+                    if soltab == 'phase000':
+                        _, Nd, Na, _, Nt = val.shape
+                        _freqs = _soltab.freq[:]
+                        # Nd, Na, Nf, Nt
+                        phase = interp1d(_freqs, val[0, ...], axis=-2, kind='nearest', bounds_error=False,
+                                         fill_value='extrapolate')(freqs)
+                        # Nt,Nd,Na,Nf
+                        phase = phase.transpose((3, 0, 1, 2))
+                        solset_gains.append(np.exp(1j * phase))
+                    if soltab == 'amplitude000':
+                        _, Nd, Na, _, Nt = val.shape
+                        _freqs = _soltab.freq[:]
+                        # Nd, Na, Nf, Nt
+                        amplitude = np.abs(
+                            interp1d(_freqs, val[0, ...], axis=-2, kind='nearest', bounds_error=False,
+                                     fill_value='extrapolate')(freqs))
+                        amplitude = np.maximum(amplitude, 0.01)
+                        # Nt,Nd,Na,Nf
+                        amplitude = amplitude.transpose((3, 0, 1, 2))
+                        solset_gains.append(amplitude)
+                # Nt,Nd,Na,Nf
+                gains.append(np.prod(solset_gains, axis=0))
+            # Nt, (Nd+Nd+...), Na, Nf
+            gains = np.concatenate(gains, axis=1)
+            # Nd+Nd+...
+            lm = np.concatenate(lm, axis=0)
+            radec = np.concatenate(radec, axis=0)
 
         DicoClusterDirs = {}
-        DicoClusterDirs["l"] = lFacet
-        DicoClusterDirs["m"] = mFacet
-        DicoClusterDirs["ra"] = raNode
-        DicoClusterDirs["dec"] = decNode
-        DicoClusterDirs["I"] = np.ones((lFacet.size,),np.float32)
-        DicoClusterDirs["Cluster"] = np.arange(lFacet.size)
+        DicoClusterDirs["l"] = lm[:, 0]
+        DicoClusterDirs["m"] = lm[:, 1]
+        DicoClusterDirs["ra"] = radec[:, 0]
+        DicoClusterDirs["dec"] = radec[:, 1]
+        DicoClusterDirs["I"] = np.ones((lm.shape[0],), np.float32)
+        DicoClusterDirs["Cluster"] = np.arange(lm.shape[0])
 
-        ClusterCat=np.zeros((lFacet.size,),dtype=[('Name','|S200'),
-                                                     ('ra',np.float),('dec',np.float),
-                                                     ('l',np.float),('m',np.float),
-                                                     ('SumI',np.float),("Cluster",int)])
-        ClusterCat=ClusterCat.view(np.recarray)
-        ClusterCat.l=lFacet
-        ClusterCat.m=mFacet
-        ClusterCat.ra=raNode
-        ClusterCat.dec=decNode
-        ClusterCat.I=DicoClusterDirs["I"]
-        ClusterCat.Cluster=DicoClusterDirs["Cluster"]
+        ClusterCat = np.zeros((lm.shape[0],), dtype=[('Name', '|S200'),
+                                                     ('ra', np.float), ('dec', np.float),
+                                                     ('l', np.float), ('m', np.float),
+                                                     ('SumI', np.float), ("Cluster", int)])
+        ClusterCat = ClusterCat.view(np.recarray)
+        ClusterCat.l = lm[:, 0]
+        ClusterCat.m = lm[:, 1]
+        ClusterCat.ra = radec[:, 0]
+        ClusterCat.dec = radec[:, 1]
+        ClusterCat.I = DicoClusterDirs["I"]
+        ClusterCat.Cluster = DicoClusterDirs["Cluster"]
         self.ClusterCat = ClusterCat
 
-
-
-        dts=times[1::]-times[0:-1]
-        if not np.max(np.abs(dts-dts[0]))<0.1:
-            raise ValueError("The solutions dt should be the same")
-        dt=dts[0]
-        t0=times-dt/2.
-        t1=times+dt/2.
+        dts = np.diff(times)
+        dt = np.median(dts)
+        # undo killms2h5parm times = (t0+t1)/2.
+        t0 = times - dt / 2.
+        t1 = times + dt / 2.
         DicoSols = {}
         DicoSols["t0"] = t0
         DicoSols["t1"] = t1
-        DicoSols["tm"] = (t1+t0)/2.
+        DicoSols["tm"] = times
 
+        Nt, Nd, Na, Nf = gains.shape
 
-        nt, na, nd, _=tec.shape
-        tecvals=tec.reshape((nt,na,nd,1))
-        #freqs=self.FacetMachine.VS.GlobalFreqs.reshape((1,1,1,-1))
-        freqs=self.MS.ChanFreq.ravel()
+        G = np.zeros((Nt, Nd, Na, Nf, 2, 2), np.complex64)
 
-        
-        freqs=freqs.reshape((1,1,1,-1))
-        phase = (-8.4479745e9 * tecvals/freqs)
+        G[:, :, :, :, 0, 0] = gains
+        G[:, :, :, :, 1, 1] = gains
 
-        if use_scalarphase:
-            scphase = scphase.reshape((nt,na,nd,1))
-            phase += scphase
+        #        import pylab as plt
+        #        import os
+        #        output = os.path.abspath('./debug_figs')
+        #        if not os.path.exists(output):
+        #            os.makedirs(output)
+        #        eff_phase = np.angle(G)
+        #        eff_amp = np.abs(G)
+        #        print(freqs, _freqs)
+        #        for d in range(Nd):
+        #            for a in range(Na):
+        #                fig, axs = plt.subplots(4,1,figsize=(20,20))
+        #                img = axs[0].imshow(eff_amp[:,d,a,:,0,0].T, cmap='hsv', vmin = 0.8, vmax = 1.2,aspect='auto')
+        ##                plt.colorbar(img)
+        #                img=axs[1].imshow(eff_phase[:,d,a,:,0,0].T, cmap='hsv', vmin = - np.pi, vmax = np.pi,aspect='auto')
+        #                img = axs[2].plot(np.std(eff_amp[:,d,a,:,0,0],axis=1))
+        ##                plt.colorbar(img)
+        #                img=axs[3].plot(np.std(eff_phase[:,d,a,:,0,0],axis=1))
+        #
+        # #               plt.colorbar(img)
+        #                plt.savefig(os.path.join(output,'gains_{}_{}.png'.format(d,a)))
+        #                plt.close('all')
+        #        exit()
 
-        # nt,na,nd,nf,1
-        phase=np.swapaxes(phase,1,2)
-        nf=freqs.size
-        G=np.zeros((nt, nd, na, nf, 2, 2),np.complex64)
-        z=np.exp(1j*phase)
-        G[:,:,:,:,0,0]=z
-        G[:,:,:,:,1,1]=z
+        VisToJonesChanMapping = np.int32(np.arange(self.MS.NSPWChan, ))
 
-        VisToJonesChanMapping = np.int32(np.arange(self.MS.NSPWChan,))
+        # self.BeamTimes_kMS = DicoSolsFile["BeamTimes"]
 
-        #self.BeamTimes_kMS = DicoSolsFile["BeamTimes"]
-
-        return VisToJonesChanMapping,DicoClusterDirs,DicoSols,G
+        return VisToJonesChanMapping, DicoClusterDirs, DicoSols, G
 
 
 
