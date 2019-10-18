@@ -1606,7 +1606,7 @@ class ClassImagerDeconv():
             beam = (0,0,0)
             gausspars = (0,0,0)
             sidelobes=(0,0)
-            fit_err = e
+            fit_err = e  # we need to bail if we can't fit the average psf
 
         if forced_beam is not None:
             print>>log, 'Will use user-specified beam: bmaj=%f, bmin=%f, bpa=%f degrees' % f_beam
@@ -1626,7 +1626,8 @@ class ClassImagerDeconv():
                     beam = (0,0,0)
                     gausspars = (0,0,0)
                     sidelobes=(0,0)
-                    fit_err = e # last error stored
+                    # LB - we don;t want to bail if we fall over in one of the bands
+                    # fit_err = e # last error stored
 
                 if forced_beam is not None:
                     beam = f_beam

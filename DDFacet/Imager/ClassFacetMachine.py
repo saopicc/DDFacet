@@ -313,7 +313,6 @@ class ClassFacetMachine():
         self.DicoImager[iFacet]["radecSol"] = raSol[iSol], decSol[iSol]
         self.DicoImager[iFacet]["iSol"] = iSol
 
-        # print>>log,"#[%3.3i] %f, %f"%(iFacet,l0,m0)
         DicoConfigGM = {"NPix": NpixFacet,
                         "Cell": self.GD["Image"]["Cell"],
                         "ChanFreq": self.ChanFreq,
@@ -338,14 +337,10 @@ class ClassFacetMachine():
         self.DicoImager[iFacet]["pixExtent"] = xc - NpixFacet // 2, xc + NpixFacet // 2 + 1, \
                                                yc - NpixFacet // 2, yc + NpixFacet // 2 + 1
 
-
-        # print "                      center and extent", iFacet, self.DicoImager[iFacet]["pixCentral"], self.DicoImager[iFacet]["pixExtent"]
-
         self.DicoImager[iFacet]["NpixFacet"] = NpixFacet
         self.DicoImager[iFacet]["NpixFacetPadded"] = NpixPaddedGrid
         self.DicoImager[iFacet]["DicoConfigGM"] = DicoConfigGM
         self.DicoImager[iFacet]["IDFacet"] = iFacet
-        # print self.DicoImager[iFacet]
 
         # self.JonesDirCat.ra[iFacet] = raFacet[0]
         # self.JonesDirCat.dec[iFacet] = decFacet[0]
@@ -470,7 +465,7 @@ class ClassFacetMachine():
         self.JonesDirCat.Cluster = range(NJonesDir)
 
         print>> log, "Sizes (%i facets):" % (self.JonesDirCat.shape[0])
-        print >>log, "   - Main field :   [%i x %i] pix" % (
+        print>>log, "   - Main field :   [%i x %i] pix" % (
             self.Npix, self.Npix)
 
         for iFacet in xrange(lFacet.size):
@@ -781,7 +776,6 @@ class ClassFacetMachine():
             for res in workers_res:
                 Type,path,iFacet=res
                 if Type=="compute" and self.GD["Cache"]["CF"]:
-                    #print iFacet
                     facet_dict=self._CF[iFacet]
                     d={}
                     for key in facet_dict.keys():
@@ -910,7 +904,8 @@ class ClassFacetMachine():
                 ThisSumWeights = sumweights[ch][pol]
                 # normalize the response per facet
                 # channel if jones corrections are enabled
-                psf[ch][pol] /= ThisSumWeights
+                if ThisSumWeights > 0:
+                    psf[ch][pol] /= ThisSumWeights
             PSFChannel[ch, :, :, :] = psf[ch][:, :, :]
 
         # weight each of the cube slices and average
@@ -932,7 +927,7 @@ class ClassFacetMachine():
         SumJonesNorm = np.sqrt(SumJonesNorm)
         if np.max(SumJonesNorm) > 0.:
             ThisW = ThisW * SumJonesNorm.reshape((self.VS.NFreqBands, 1, 1, 1))
-        ThisDirty = dirty.real / ThisW
+        ThisDirty = np.where(ThisW > 0, dirty.real / ThisW, dirty.real)
         fmr = fmr_dict.addSharedArray(iFacet, (1, npol, npix_x, npix_y), ThisDirty.dtype)
         fmr[:] = np.sum(ThisDirty * WBAND, axis=0).reshape((1, npol, npix_x, npix_y))
         fmr /= cf_dict[iFacet]["Sphe"]
@@ -1021,6 +1016,7 @@ class ClassFacetMachine():
             WBAND = np.float32(WBAND.reshape((self.VS.NFreqBands, npol, 1, 1)))
         else:
             WBAND = 1
+        
         #  ok, make sure the FTs have been computed
         # self.collectFourierTransformResults()
         # PSF mode: construct PSFs
@@ -1075,10 +1071,17 @@ class ClassFacetMachine():
             DicoImages.addSharedArray("PeakNormed_CubeMeanVariablePSF",(NFacets, 1, npol, NPixMin, NPixMin), np.float32)
 
             for iFacet in facets:
-                DicoImages["PeakNormed_CubeMeanVariablePSF"][iFacet]=CubeMeanVariablePSF[iFacet]/np.max(CubeMeanVariablePSF[iFacet])
+                psfmax = np.max(CubeMeanVariablePSF[iFacet])
+                if psfmax > 0.0:
+                    DicoImages["PeakNormed_CubeMeanVariablePSF"][iFacet]=CubeMeanVariablePSF[iFacet]/psfmax
+                else:
+                    DicoImages["PeakNormed_CubeMeanVariablePSF"][iFacet]=CubeMeanVariablePSF[iFacet]
                 for iChan in range(nch):
-                    DicoImages["PeakNormed_CubeVariablePSF"][iFacet,iChan]=CubeVariablePSF[iFacet,iChan]/np.max(CubeVariablePSF[iFacet,iChan])
-                    #DicoImages["PeakNormed_CubeVariablePSF"][iFacet,iChan]=CubeVariablePSF[iFacet,iChan]/np.max(CubeMeanVariablePSF[iFacet])
+                    psfmax = np.max(CubeVariablePSF[iFacet,iChan])
+                    if psfmax > 0.0:
+                        DicoImages["PeakNormed_CubeVariablePSF"][iFacet,iChan]=CubeVariablePSF[iFacet,iChan]/psfmax
+                    else:
+                        DicoImages["PeakNormed_CubeVariablePSF"][iFacet,iChan]=CubeVariablePSF[iFacet,iChan]
 
             PeakNormed_CubeMeanVariablePSF=DicoImages["PeakNormed_CubeMeanVariablePSF"]
 
@@ -1302,6 +1305,7 @@ class ClassFacetMachine():
                             raise RuntimeError,"unknown kind=%s argument -- this is a silly bug"%kind
                         # normalize by sum of weights, and Jones weight
                         weights = ThisSumWeights[pol]*np.sqrt(ThisSumJones)
+                        weights = np.where(weights, weights, 1.0)
                         # ...and the spatial weights
                         numexpr.evaluate('Im*InvSPhe*SpacialWeigth/weights',out=Im,casting="unsafe")
                         Im[SPhe < 1e-3] = 0
@@ -1320,7 +1324,8 @@ class ClassFacetMachine():
 
         for Channel in ChanSel:
             for pol in xrange(npol):
-                Image[Channel, pol] /= self._norm_dict["FacetNorm"]
+                if (self._norm_dict["FacetNorm"] != 0.0).any():
+                    Image[Channel, pol] /= self._norm_dict["FacetNorm"]
 
         return Image
 
