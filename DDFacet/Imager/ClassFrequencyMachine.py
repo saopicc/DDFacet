@@ -118,17 +118,20 @@ class ClassFrequencyMachine(object):
                     self.Xdes_full = self.setDesMat(self.freqs_full, order=self.order,
                                                     mode="Mono")
 
-                    # build the averaging matrix
-                    ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
+                    # build the S matrix
+                    ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"] 
+                    ChanMappingFull = []
+                    for iMS in ChanMappingGrid.keys():
+                        ChanMappingFull.append(ChanMappingGrid[iMS])
+                    ChanMappingFull = np.concatenate(ChanMappingFull)
                     self.S = np.zeros([self.nchan, self.nchan_full], dtype=np.float32)
                     for iChannel in range(self.nchan):
-                        counts = np.zeros(self.nchan_full, dtype=np.float32)
-                        for iMS in ChanMappingGrid.keys():
-                            ind = np.argwhere(ChanMappingGrid[iMS] == iChannel).squeeze()
-                            counts[ind] += 1.0
-                        nchunk = np.sum(counts)
-                        if nchunk > 0:
-                            self.S[iChannel, :] = counts/nchunk
+                        ind = np.argwhere(ChanMappingFull == iChannel).squeeze()
+                        nchunk = np.size(ind)
+                        if nchunk:
+                            self.S[iChannel, ind] = 1.0/nchunk
+                        else:
+                            self.S[iChannel, ind] = 0.0
 
                     # dictionaries to hold pseudo inverses and design matrices
                     self.pinv_dict = {}
