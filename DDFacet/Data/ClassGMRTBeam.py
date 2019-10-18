@@ -48,7 +48,7 @@ class ClassGMRTBeam():
 
 
     def getBeamSampleTimes(self,times, **kwargs):
-        DtBeamMin = self.GD["Beam"]["DtBeamMin"]
+        DtBeamMin = self.GD["DtBeamMin"]
         DtBeamSec = DtBeamMin*60
         tmin=times[0]
         tmax=times[-1]+1
@@ -63,7 +63,7 @@ class ClassGMRTBeam():
         ChanWidth=self.MS.ChanWidth.ravel()[0]
         ChanFreqs=self.MS.ChanFreq.flatten()
 
-        NChanJones=self.GD["Beam"]["NBand"]
+        NChanJones=self.GD["NBand"]
         if NChanJones==0:
             NChanJones=self.MS.NSPWChan
         ChanEdges=np.linspace(ChanFreqs.min()-ChanWidth/2.,ChanFreqs.max()+ChanWidth/2.,NChanJones+1)

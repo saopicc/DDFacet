@@ -850,7 +850,7 @@ class ClassJones():
             self.BeamMachine = ClassFITSBeam.ClassFITSBeam(self.MS, GD["Beam"])
             self.GiveInstrumentBeam = self.BeamMachine.evaluateBeam
         elif GD["Beam"]["Model"] == "GMRT":
-            self.BeamMachine = ClassGMRTBeam.ClassGMRTBeam(self.MS, GD)
+            self.BeamMachine = ClassGMRTBeam.ClassGMRTBeam(self.MS, GD["Beam"])
             self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam
 
             # self.DtBeamDeg = GD["Beam"]["FITSParAngleIncrement"]
