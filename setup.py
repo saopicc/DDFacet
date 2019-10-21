@@ -121,7 +121,7 @@ def requirements():
                     ("astLib >= 0.8.0", "astLib >= 0.8.0"),
                     ("psutil >= 5.2.2", "psutil >= 5.2.2"),
                     ("py-cpuinfo >= 3.2.0", "py-cpuinfo >= 3.2.0"),
-                    ("tables <= 3.6.0", "tables <= 3.6.0"),
+                    ("tables < 3.6.0", "tables < 3.6.0"),
                     ("prettytable >= 0.7.2", "prettytable >= 0.7.2"),
                     ("pybind11 >= 2.2.2", "pybind11 >= 2.2.2"),
                     ("pyfits >= 3.5", "pyfits >= 3.5"), #kittens dependency, do not remove
