@@ -253,15 +253,16 @@ class ClassFrequencyMachine(object):
         if self.BeamEnable:
             key = self.PSFServer.iFacet
             if key not in self.sax_dict:
-                SumJonesChanList, SumJonesChanWeightSqList, MeanJonesBand = self.GiveBeamFactorsFacet(key)
-                SumJonesChan = np.concatenate(SumJonesChanList)
-                SumJonesChanWeightSq = np.concatenate(SumJonesChanWeightSqList)
-                BeamFactor = np.sqrt(SumJonesChan / SumJonesChanWeightSq)  # unstitched sqrt(JonesNorm) at full resolution
-                # incorporate stitched JonesNorm
-                JonesFactor = np.sqrt(MeanJonesBand / JonesNorm)
-                # The division by JonesFactor corrects for the fact that the PSF is normalised
-                SAmat = self.S * BeamFactor[None, :] / JonesFactor[:, None]
-                SAX = SAmat.dot(self.Xdes_full)
+                # SumJonesChanList, SumJonesChanWeightSqList, MeanJonesBand = self.GiveBeamFactorsFacet(key)
+                # SumJonesChan = np.concatenate(SumJonesChanList)
+                # SumJonesChanWeightSq = np.concatenate(SumJonesChanWeightSqList)
+                # BeamFactor = np.sqrt(SumJonesChan / SumJonesChanWeightSq)  # unstitched sqrt(JonesNorm) at full resolution
+                # # incorporate stitched JonesNorm
+                # JonesFactor = np.sqrt(MeanJonesBand / JonesNorm)
+                # # The division by JonesFactor corrects for the fact that the PSF is normalised
+                # SAmat = self.S * BeamFactor[None, :] / JonesFactor[:, None]
+                # SAX = SAmat.dot(self.Xdes_full)
+                SAX = np.sqrt(JonesNorm)[:, None] * self.Xdes
                 self.sax_dict[key] = SAX
             if key not in self.pinv_dict:
                 SAX = self.sax_dict[key]
@@ -270,7 +271,8 @@ class ClassFrequencyMachine(object):
         else:
             key = 0
             if key not in self.sax_dict:
-                SAX = self.S.dot(self.Xdes_full)
+                # SAX = self.S.dot(self.Xdes_full)
+                SAX = self.Xdes
                 self.sax_dict[key] = SAX
             if key not in self.pinv_dict:
                 SAX = self.sax_dict[key]
