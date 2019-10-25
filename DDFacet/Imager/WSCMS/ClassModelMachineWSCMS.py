@@ -18,16 +18,20 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 import numba
 from DDFacet.Other import logger
 from DDFacet.Other import ModColor
 log=logger.getLogger("ClassModelMachine")
-from DDFacet.Array import NpParallel
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Other import MyPickle
 from DDFacet.Other import reformat
-from DDFacet.ToolsDir.Gaussian import GaussianSymmetric
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.Imager import ClassModelMachine as ClassModelMachinebase
 from DDFacet.Imager import ClassFrequencyMachine, ClassScaleMachine
@@ -66,7 +70,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def setRefFreq(self, RefFreq, Force=False):
         if self.RefFreq is not None and not Force:
-            print>>log, ModColor.Str("Reference frequency already set to %f MHz" % (self.RefFreq/1e6))
+            print(ModColor.Str("Reference frequency already set to %f MHz" % (self.RefFreq/1e6)), file=log)
             return
 
         self.RefFreq = RefFreq
@@ -102,6 +106,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         # self.DicoSMStacked["Eval_Degrid"] = self.FreqMachine.Eval_Degrid
 
+    def setFacetMachine(self, FacetMachine, BaseName):
+        self.FacetMachine = FacetMachine
+        self.BaseName = BaseName
 
     def setScaleMachine(self, PSFServer, NCPU=None, MaskArray=None, cachepath=None, MaxBaseline=None):
         # if self.GD["WSCMS"]["MultiScale"]:
@@ -133,31 +140,22 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             self.DicoSMStacked["Scale_Info"][iScale]["kernel"] = self.ScaleMachine.kernels[iScale]
             self.DicoSMStacked["Scale_Info"][iScale]["extent"] = self.ScaleMachine.extents[iScale]
 
-        # else:
-        #     # we need to keep track of what the sigma value of the delta scale corresponds to
-        #     # even if we don't do multiscale (because we need it in GiveModelImage)
-        #     (self.FWHMBeamAvg, _, _) = PSFServer.DicoVariablePSF["EstimatesAvgPSF"]
-        #     self.ListScales = [1.0/np.sqrt(2)*((self.FWHMBeamAvg[0] + self.FWHMBeamAvg[1])*np.pi / 180) / \
-        #                         (2.0 * self.GD['Image']['Cell'] * np.pi / 648000)]
-
     def ToFile(self, FileName, DicoIn=None):
-        print>> log, "Saving dico model to %s" % FileName
+        print("Saving dico model to %s" % FileName, file=log)
         if DicoIn is None:
             D = self.DicoSMStacked
         else:
             D = DicoIn
 
+        if self.GD is None:
+            print("Warning - you are haven't initialised GD before writing to the DicoModel")
         D["GD"] = self.GD
         D["Type"] = "WSCMS"
-        # try:
-        #     D["ListScales"] = list(self.ScaleMachine.sigmas)  # list containing std of Gaussian components
-        # except:
-        #     D["ListScales"] = self.ListScales
         D["ModelShape"] = self.ModelShape
         MyPickle.Save(D, FileName)
 
     def FromFile(self, FileName):
-        print>> log, "Reading dico model from %s" % FileName
+        print("Reading dico model from %s" % FileName, file=log)
         self.DicoSMStacked = MyPickle.Load(FileName)
         self.FromDico(self.DicoSMStacked)
 
@@ -256,7 +254,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                         ScaleModel[:, 0, x, y] += interp
 
             ModelImage += ScaleModel
-        # print "Model - ", ModelImage.max(), ModelImage.min()
         return ModelImage
 
     def GiveSpectralIndexMap(self, GaussPars=[(1, 1, 0)], ResidCube=None,
@@ -338,7 +335,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         # import matplotlib.pyplot as plt
         #
-        # for i in xrange(self.Nchan):
+        # for i in range(self.Nchan):
         #     plt.imshow(np.where(ConvModelImage[i] > Threshold, ConvModelImage[i], 0.0))
         #     plt.show()
 
@@ -382,9 +379,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             #                                                     dtype=np.float64, I0i=I0i, alphai=alphai)
         except Exception as e:
             traceback_str = traceback.format_exc(e)
-            print>>log, "Warning - Failed at importing africanus spi fitter. This could be an issue with the dask " \
-                        "version. Falling back to (slow) scipy version"
-            print>>log, "Original traceback - ", traceback_str
+            print("Warning - Failed at importing africanus spi fitter. This could be an issue with the dask " \
+                        "version. Falling back to (slow) scipy version", file=log)
+            print("Original traceback - ", traceback_str, file=log)
             alpha, varalpha, Iref, varIref = self.FreqMachine.FitSPIComponents(FitCube, self.GridFreqs, self.RefFreq)
 
         _, _, nx, ny = ModelImage.shape
@@ -424,7 +421,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # note will always be set initially since comparison to 999999 will fail
         if iFacet != self.CurrentFacet or self.CurrentScale != iScale:
             key = 'S' + str(iScale) + 'F' + str(iFacet)
-            # update facet (NB - ensure PSFserver has been updated before we get here)
+            # update facet (NB - ensure PSFServer has been updated before we get here)
             self.CurrentFacet = iFacet
 
             # update scale
@@ -473,9 +470,51 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         dirty cube using the PSF once convolved with the scale kernel. The actual MeanDirty image is only updated
         once we drop back into the minor loop by computing the weighted sum over channels.
         """
+        # Select scale mask and check if auto-masking has kicked in
+        if self.GD["WSCMS"]["AutoMask"]:
+            if self.GD["WSCMS"]["AutoMaskThreshold"] is not None:
+                MaskThreshold = self.GD["WSCMS"]["AutoMaskThreshold"]
+            else:
+                MaskThreshold = self.GD["WSCMS"]["AutoMaskRMSFactor"] * RMS
+            if MaxDirty <= MaskThreshold:
+                # This should only happen once
+                if self.ScaleMachine.AppendMaskComponents:
+                    print("Starting auto-masking at a threshold of %f" % MaskThreshold, file=log)
+                    # we shan't be updating the mask any longer
+                    self.ScaleMachine.AppendMaskComponents = False
+                    # check that all components in the dictionary are in trhe scale masks
+                    self.ScaleMachine.CheckScaleMasks(self.DicoSMStacked)
+                    # bit flip first if no external mask (since initialised to all zeros)
+                    if not self.ScaleMachine.MaskArray.any():
+                        self.ScaleMachine.MaskArray |= True
+
+                        # get global mask in which we check convergence criteria
+                        for i in range(self.ScaleMachine.Nscales):
+                            ScaleMask = self.ScaleMachine.ScaleMaskArray[str(i)]
+                            self.ScaleMachine.MaskArray &= ScaleMask
+                            # retire scale if there are no components in the mask
+                            if ScaleMask.all():
+                                self.ScaleMachine.forbidden_scales.append(i)
+                                self.ScaleMachine.retired_scales.append(i)
+                                print("Retired scale %i permanently because auto-masking "
+                                      "kicked in and mask is empty thus far"%i, file=log)
+                    # dilate all masks
+                    self.ScaleMachine.dilate_scale_masks()
+
+                    # save all masks
+                    savestr = self.GD["Output"]["Images"]
+                    if savestr.lower() == 'all' or 'k' in list(savestr):
+                        self.FacetMachine.ToCasaImage(np.float32(self.ScaleMachine.MaskArray),
+                                                      ImageName="%s.GlobalMask" % (self.BaseName),
+                                                      Fits=True)
+                        for i in range(self.ScaleMachine.Nscales):
+                            ScaleMask = self.ScaleMachine.ScaleMaskArray[str(i)]
+                            self.FacetMachine.ToCasaImage(np.float32(ScaleMask),
+                                                          ImageName="%s.ScaleMask%i" % (self.BaseName, i),
+                                                          Fits=True)
+
         # determine most relevant scale (note AbsConvMaxDirty given as absolute value)
-        xscale, yscale, AbsConvMaxDirty, CurrentDirty, iScale,  = \
-            self.ScaleMachine.do_scale_convolve(meanDirty)
+        xscale, yscale, AbsConvMaxDirty, CurrentDirty, iScale, CurrentMask = self.ScaleMachine.do_scale_convolve(meanDirty)
 
         # set PSF at current location
         self.PSFServer.setLocation(xscale, yscale)
@@ -485,50 +524,14 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # the twice convolved PSF used to subtract from the mean convolved dirty is held in self.Conv2PSFmean
         self.set_ConvPSF(self.PSFServer.iFacet, iScale)
 
-        # update scale dependent mask
-        if self.GD["WSCMS"]["AutoMask"]:
-            ScaleMask = self.ScaleMachine.ScaleMaskArray[str(iScale)].view()
-            if self.GD["WSCMS"]["AutoMaskThreshold"] is not None:
-                MaskThreshold = self.GD["WSCMS"]["AutoMaskThreshold"]
-            else:
-                MaskThreshold = self.GD["WSCMS"]["AutoMaskRMSFactor"] * RMS
-            if MaxDirty <= MaskThreshold:
-                # This should only happen once
-                if self.ScaleMachine.AppendMaskComponents:
-                    print>>log, "Starting auto-masking at a threshold of %f" % MaskThreshold
-                    # we need to add this last component to the mask otherwise
-                    # we might end up with Threshold > CurrentDirty.max()
-                    ScaleMask[0, 0, xscale, yscale] = 0
-                    # we shan't be updating the mask any longer
-                    self.ScaleMachine.AppendMaskComponents = False
-                    # MaskArray needs to be the union of all the Scale masks so that we can use it in
-                    # CheckConvergenceCriteria in ImageDeconvMachine
-                    # bit flip first if no external mask
-                    if not self.ScaleMachine.MaskArray.any():
-                        self.ScaleMachine.MaskArray |= 1
-                    for i in xrange(self.ScaleMachine.Nscales):
-                        tmpScaleMask = self.ScaleMachine.ScaleMaskArray[str(iScale)]
-                        self.ScaleMachine.MaskArray &= tmpScaleMask
-                CurrentMask = ScaleMask
-
-            else:
-                CurrentMask = self.ScaleMachine.MaskArray
-        else:
-            CurrentMask = self.ScaleMachine.MaskArray
-
         # set stopping threshold.
-        # we cannot use StoppingFlux from minor cycle directly since the maxima of the scale convolved residual
-        # is different from the maximum of the residual
         Threshold = self.ScaleMachine.PeakFactor * AbsConvMaxDirty
         # DirtyRatio = AbsConvMaxDirty / MaxDirty  # should be 1 for zero scale
         # Threshold = np.maximum(Threshold, Stopping_flux * DirtyRatio)
 
         # get the set A (in which we do peak finding)
         # assumes mask is 0 where we should do peak finding (same as Cyril's convention)
-        if CurrentMask is not None:
-            absdirty = np.where(CurrentMask.squeeze(), 0.0, np.abs(CurrentDirty.squeeze()))
-        else:
-            absdirty = np.abs(CurrentDirty.squeeze())
+        absdirty = np.where(CurrentMask.squeeze(), 0.0, np.abs(CurrentDirty.squeeze()))
         I = np.argwhere(absdirty > Threshold)
         Ip = I[:, 0]
         Iq = I[:, 1]
@@ -554,34 +557,29 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             self.set_ConvPSF(self.PSFServer.iFacet, iScale)
 
             # JonesNorm is corrected for in FreqMachine so we just need to pass in the apparent
-            Fpol = np.zeros([self.Nchan, 1, 1, 1], dtype=np.float32)
-            Fpol[:, 0, 0, 0] = Dirty[:, 0, xscale, yscale].copy()
+            Fpol = Dirty[:, 0, xscale, yscale].copy()
 
             # Fit frequency axis to get coeffs (coeffs correspond to intrinsic flux)
-            self.Coeffs = self.FreqMachine.Fit(Fpol[:, 0, 0, 0], JN, WeightsChansImages.squeeze())
+            self.Coeffs = self.FreqMachine.Fit(Fpol, JN, WeightsChansImages.squeeze())
 
             # Overwrite with polynoimial fit (Fpol is apparent flux)
-            Fpol[:, 0, 0, 0] = self.FreqMachine.Eval(self.Coeffs)
+            Fpol = self.FreqMachine.Eval(self.Coeffs)
 
-            # This is an attempt to minimise the amount of negative flux in the model by reducing the gain if
-            # a negative component has been found
-            if (Fpol<0).any():
-                self.AppendComponentToDictStacked((xscale, yscale), self.Coeffs, self.CurrentScale, 0.25 * self.CurrentGain)
-                # Subtract fitted component from residual cube
-                self.SubStep((xscale, yscale), self.ConvPSF * Fpol * self.CurrentGain * 0.25, Dirty.view())
-                # subtract component from convolved dirty image
-                A = substep(A, self.Conv2PSFmean[0, 0], float(ConvMaxDirty * self.CurrentGain * 0.25), Ip, Iq, pq,
-                            self.NpixPSF)
-            else:
-                self.AppendComponentToDictStacked((xscale, yscale), self.Coeffs, self.CurrentScale, self.CurrentGain)
-                # Subtract fitted component from residual cube
-                self.SubStep((xscale, yscale), self.ConvPSF * Fpol * self.CurrentGain, Dirty.view())
-                # subtract component from convolved dirty image
-                A = substep(A, self.Conv2PSFmean[0, 0], float(ConvMaxDirty * self.CurrentGain), Ip, Iq, pq, self.NpixPSF)
+            # append component to dico
+            self.AppendComponentToDictStacked((xscale, yscale), self.Coeffs, self.CurrentScale, self.CurrentGain)
+            # Subtract fitted component from residual cube
+            self.SubStep((xscale, yscale), self.ConvPSF * Fpol[:, None, None, None] * self.CurrentGain, Dirty.view())
+            # subtract component from convolved dirty image
+            A = substep(A, self.Conv2PSFmean[0, 0], float(ConvMaxDirty * self.CurrentGain), Ip, Iq, pq, self.NpixPSF)
 
             # update scale dependent mask
             if self.ScaleMachine.AppendMaskComponents:
+                ScaleMask = self.ScaleMachine.ScaleMaskArray[str(iScale)].view()
                 ScaleMask[0, 0, xscale, yscale] = 0
+            else:
+                # If auto-masking has kicked in we keep track of where new components are being added
+                # so we can check convergence in the minor cycle
+                self.ScaleMachine.MaskArray[0, 0, xscale, yscale] = 0
 
             # find new peak
             absA = np.abs(A)
@@ -590,7 +588,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             try:
                 pq = int(np.argwhere(absA == AbsConvMaxDirty))
             except:
-                print "                              Got here 2"  # LB - debugging
                 pq = int(np.argwhere(absA == AbsConvMaxDirty)[0])
             ConvMaxDirty = A[pq]
 
@@ -600,10 +597,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
             # Update counters
             k += 1
-
-        # report if max sub-iterations exceeded
-        if k >= self.ScaleMachine.NSubMinorIter:
-            print>>log, "Maximum subiterations reached. "
 
         return k, iScale
 
@@ -622,7 +615,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # RestoreDico=self.GD["Data"]["RestoreDico"]
         RestoreDico = DicoSolsFile["ModelName"][()][0:-4] + ".DicoModel"
 
-        print>> log, "Adding previously subtracted components"
+        print("Adding previously subtracted components", file=log)
         ModelMachine0 = ClassModelMachine(self.GD)
 
         ModelMachine0.FromFile(RestoreDico)

@@ -294,12 +294,6 @@ class ClassImagerDeconv():
         """Creates FacetMachines for data and/or PSF"""
         self.StokesFacetMachine = self.FacetMachine = self.FacetMachinePSF = None
         MainFacetOptions = self.GiveMainFacetOptions()
-        # LB - This was to test pixCentral. Center facet is off by one.
-        # if self.GD["DDESolutions"]["DDSols"] is None or self.GD["DDESolutions"]["DDSols"] == "":
-        #     from DDFacet.Imager.ClassFacetMachine import ClassFacetMachine
-        # else:
-        #     from DDFacet.Imager.ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
-        # from DDFacet.Imager.ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
         if self.do_stokes_residue:
             self.StokesFacetMachine = ClassFacetMachine(self.VS,
                                                         self.GD,
@@ -562,6 +556,11 @@ class ClassImagerDeconv():
             psf_cachepath, psf_valid, psf_writecache = self._checkForCachedPSF(sparsify, key=cache_key)
         else:
             psf_valid = psf_writecache = False
+
+        if self.GD["Output"]["Mode"] == 'Dirty' and self.GD["Predict"]["InitDicoModel"] is not None:
+            if self.ModelMachine.DicoSMStacked['ModelShape'][-1] != self.FacetMachine.Npix:
+                raise ValueError("Your DicoModel has incorrect shape. Expected %i pixels but "
+                                 "got %i"%(self.FacetMachine.Npix, self.ModelMachine.DicoSMStacked['ModelShape'][-1]))
 
         current_model_freqs = np.array([])
         ModelImage = None
@@ -1154,7 +1153,8 @@ class ClassImagerDeconv():
                 self.DeconvMachine.Init(PSFVar=self.DicoImagesPSF, PSFAve=self.PSFSidelobesAvg,
                                         approx=(sparsify > approximate_psf_above), cache=False if sparsify else None,
                                         GridFreqs=self.VS.FreqBandCenters, DegridFreqs=self.VS.FreqBandChannelsDegrid,
-                                        RefFreq=self.VS.RefFreq, MaxBaseline=self.VS.VisWeights['uvmax'])
+                                        RefFreq=self.VS.RefFreq, MaxBaseline=self.VS.VisWeights['uvmax'],
+                                        FacetMachine=self.FacetMachine, BaseName=self.BaseName)
                 deconvmachine_init = True
 
             # To make the package more robust against memory leaks, we restart the worker processes every now and then.
@@ -2041,8 +2041,8 @@ class ClassImagerDeconv():
             if self.GD["Deconv"]["Mode"] == "WSCMS" or self.GD["Deconv"]["Mode"] == "Hogbom":
                 if "alphastdmap" not in _images:
                     _images.addSharedArray("alphastdmap", intmodel().shape, np.float32)
-                # LB - using apprescube since intrescube is nonsense
-                _images['alphamap'], _images["alphastdmap"] = ModelMachine.GiveSpectralIndexMap(GaussPars=self.FWHMBeamAvg, ResidCube=apprescube())
+                # LB - using apprescube since intrescube can have large unpgysical values
+                _images['alphamap'], _images["alphastdmap"] = ModelMachine.GiveSpectralIndexMap(GaussPars=self.FWHMBeam[-1], ResidCube=apprescube())
                 return _images['alphamap'], _images["alphastdmap"]
             else:
                 _images['alphamap'] = ModelMachine.GiveSpectralIndexMap()

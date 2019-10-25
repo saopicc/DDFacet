@@ -18,11 +18,18 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 import warnings
 warnings.simplefilter('ignore', np.RankWarning)
 from scipy.optimize import curve_fit, fmin_l_bfgs_b
 from DDFacet.Other import logger
+from DDFacet.Imager.ClassScaleMachine import Store
 log = logger.getLogger("ClassFreqMachine")
 
 class ClassFrequencyMachine(object):
@@ -92,40 +99,43 @@ class ClassFrequencyMachine(object):
                         self.order = self.GD["Hogbom"]["PolyFitOrder"]
                     elif self.GD["Deconv"]["Mode"] == 'WSCMS':
                         self.order = self.GD["WSCMS"]["NumFreqBasisFuncs"]
-                    print>> log, "Using %i order polynomial for frequency fit" % self.order
+                    print("Using %i order polynomial for frequency fit" % self.order, file=log)
                     # construct design matrix at gridding channel resolution
                     self.Xdes = self.setDesMat(self.Freqs, order=self.order, mode="Mono")
                     self.Xdesp = self.setDesMat(self.Freqsp, order=self.order, mode="Mono")
                     self.Xdes_ref = self.setDesMat(self.ref_freq, order=self.order, mode="Mono")
 
-                    # there is no need to recompute this every time if the beam is not enabled because same everywhere
-                    if not self.BeamEnable:
-                        # Fits the integrated polynomial when Mode='Andre'
-                        self.SAX = self.setDesMat(self.Freqs, order=self.order, mode='Mono')
-                    else:
-                        self.freqs_full = []
-                        for iCh in xrange(self.nchan):
-                            self.freqs_full.append(self.PSFServer.DicoVariablePSF["freqs"][iCh] 
-                            if hasattr(self, "PSFServer") and self.PSFServer is not None else [self.Freqs[iCh]])
-                        self.freqs_full = np.concatenate(self.freqs_full)
-                        self.nchan_full = np.size(self.freqs_full)
 
-                        self.Xdes_full = self.setDesMat(self.freqs_full, order=self.order,
-                                                        mode="Mono")
-                        # build the S matrix
-                        ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"] 
-                        ChanMappingFull = []
-                        for iMS in ChanMappingGrid.keys():
-                            ChanMappingFull.append(ChanMappingGrid[iMS])
-                        ChanMappingFull = np.concatenate(ChanMappingFull)
-                        self.S = np.zeros([self.nchan, self.nchan_full], dtype=np.float32)
-                        for iChannel in range(self.nchan):
-                            ind = np.argwhere(ChanMappingFull == iChannel).squeeze()
-                            nchunk = np.size(ind)
-                            if nchunk:
-                                self.S[iChannel, ind] = 1.0/nchunk
-                            else:
-                                self.S[iChannel, ind] = 0.0
+                    # get frequencies at full channel resolution
+                    self.freqs_full = []
+                    for iCh in xrange(self.nchan):
+                        self.freqs_full.append(self.PSFServer.DicoVariablePSF["freqs"][iCh]
+                        if hasattr(self, "PSFServer") and self.PSFServer is not None else [self.Freqs[iCh]])
+                    self.freqs_full = np.concatenate(self.freqs_full)
+                    self.nchan_full = np.size(self.freqs_full)
+
+                    # set design matrix at full channel resolution
+                    self.Xdes_full = self.setDesMat(self.freqs_full, order=self.order,
+                                                    mode="Mono")
+
+                    # build the S matrix
+                    ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"] 
+                    ChanMappingFull = []
+                    for iMS in ChanMappingGrid.keys():
+                        ChanMappingFull.append(ChanMappingGrid[iMS])
+                    ChanMappingFull = np.concatenate(ChanMappingFull)
+                    self.S = np.zeros([self.nchan, self.nchan_full], dtype=np.float32)
+                    for iChannel in range(self.nchan):
+                        ind = np.argwhere(ChanMappingFull == iChannel).squeeze()
+                        nchunk = np.size(ind)
+                        if nchunk:
+                            self.S[iChannel, ind] = 1.0/nchunk
+                        else:
+                            self.S[iChannel, ind] = 0.0
+
+                    # dictionaries to hold pseudo inverses and design matrices
+                    self.pinv_dict = {}
+                    self.sax_dict = {}
 
                     self.Fit = self.FitPoly
                     self.Eval = self.EvalPolyApparent
@@ -151,7 +161,7 @@ class ClassFrequencyMachine(object):
         varalpha = np.zeros([ncomps])
         I0 = 1.0
         alpha0 = -0.7
-        for i in xrange(ncomps):
+        for i in range(ncomps):
             popt, pcov = curve_fit(spi_func, nu/nu0, FitCube[:, i], p0=np.array([I0, alpha0]))
             Iref[i] = popt[0]
             varIref[i] = pcov[0,0]
@@ -185,15 +195,6 @@ class ClassFrequencyMachine(object):
             w = np.log(Freqs / self.ref_freq).reshape(Freqs.size, 1)
             # create tiled array and raise each column to the correct power
             Xdesign = np.tile(w, order) ** np.arange(0, order)
-        # elif mode == "Andre":
-        #     # we are given frequencies at bin centers convert to bin edges
-        #     delta_freq = Freqs[1] - Freqs[0]
-        #     wlow = (Freqs - delta_freq/2.0)/self.ref_freq
-        #     whigh = (Freqs + delta_freq/2.0)/self.ref_freq
-        #     wdiff = whigh - wlow
-        #     Xdesign = np.zeros([Freqs.size, self.order])
-        #     for i in xrange(1, self.order+1):
-        #         Xdesign[:, i-1] = (whigh**i - wlow**i)/(i*wdiff)
         else:
             raise NotImplementedError("Frequency basis %s not supported" % mode)
         return Xdesign
@@ -225,15 +226,64 @@ class ClassFrequencyMachine(object):
 
         return ListBeamFactor, ListBeamFactorWeightSq, self.PSFServer.DicoMappingDesc['MeanJonesBand'][iFacet]
 
-    def solve_ML(self, Iapp, A, W):
-        Dinv = A.T.dot(W[:, None] * A)
-        res = np.linalg.solve(Dinv, A.T.dot(W * Iapp))
-        return res
+    def compute_pseudo_inverse(self, A, W):
+        """
+        Computes the pseudo-inverse of design matrix A for the facet 
+        weighted by the WeightsChansImages
+        """
+        sqrtW = np.sqrt(W)
+        WX = sqrtW[:, None] * A
+        if self.nchan >= self.order:
+            # get left pinv
+            XTX = WX.T.dot(WX)
+            XTXinv = np.linalg.inv(XTX)
+            pinv = XTXinv.dot(WX.T)
+        else:
+            # get right pinv
+            XXT = WX.dot(WX.T)
+            XXTinv = np.linalg.inv(XXT)
+            pinv = WX.T.dot(XXTinv)
+        return pinv
 
-    def FitPoly(self, Vals, JonesNorm, WeightsChansImages):
+    def give_pseudo_inverse(self, JonesNorm, WeightsChansImages):
+        """
+        Checks if we need to recompute the pseudo-inverse and recomputes it if necessary
+        :return: 
+        """
+        if self.BeamEnable:
+            key = self.PSFServer.iFacet
+            if key not in self.sax_dict:
+                # SumJonesChanList, SumJonesChanWeightSqList, MeanJonesBand = self.GiveBeamFactorsFacet(key)
+                # SumJonesChan = np.concatenate(SumJonesChanList)
+                # SumJonesChanWeightSq = np.concatenate(SumJonesChanWeightSqList)
+                # BeamFactor = np.sqrt(SumJonesChan / SumJonesChanWeightSq)  # unstitched sqrt(JonesNorm) at full resolution
+                # # incorporate stitched JonesNorm
+                # JonesFactor = np.sqrt(MeanJonesBand / JonesNorm)
+                # # The division by JonesFactor corrects for the fact that the PSF is normalised
+                # SAmat = self.S * BeamFactor[None, :] / JonesFactor[:, None]
+                # SAX = SAmat.dot(self.Xdes_full)
+                SAX = np.sqrt(JonesNorm)[:, None] * self.Xdes
+                self.sax_dict[key] = SAX
+            if key not in self.pinv_dict:
+                SAX = self.sax_dict[key]
+                pinv = self.compute_pseudo_inverse(SAX, WeightsChansImages)
+                self.pinv_dict[key] = pinv
+        else:
+            key = 0
+            if key not in self.sax_dict:
+                # SAX = self.S.dot(self.Xdes_full)
+                SAX = self.Xdes
+                self.sax_dict[key] = SAX
+            if key not in self.pinv_dict:
+                SAX = self.sax_dict[key]
+                pinv = self.compute_pseudo_inverse(SAX, WeightsChansImages)
+                self.pinv_dict[key] = pinv
+        return self.sax_dict[key], self.pinv_dict[key]
+
+    def FitPoly(self, Iapp, JonesNorm, WeightsChansImages):
         """
         This is for the new frequency fit mode incorporating FreqBandsFluxRation
-        :param Vals: Values in the imaging bands
+        :param Iapp: Apparent values in the imaging bands
         :param JonesNorm: the value of the JonesNorm at the location of vals
         :param JNWeight: the distance of the location of vals from facet center used to weight the fit between the 
                         unstitched JonesNorm (BeamFactor) at full resolution and the stitched one (at gridding res) 
@@ -248,32 +298,13 @@ class ClassFrequencyMachine(object):
         ChanMappingGrid - specifies the band that each channel falls into for each MS [iMS][iChannel]
         ChanMappingGridChan - 
         """
-        self.CurrentFacet = self.PSFServer.iFacet
-        if self.BeamEnable:
-            # # get BeamFactor
-            # SumJonesChanList, SumJonesChanWeightSqList, MeanJonesBand = self.GiveBeamFactorsFacet(self.CurrentFacet)
-            # SumJonesChan = np.concatenate(SumJonesChanList)
-            # SumJonesChanWeightSq = np.concatenate(SumJonesChanWeightSqList)
-            # BeamFactor = np.sqrt(SumJonesChan/SumJonesChanWeightSq)  # unstitched sqrt(JonesNorm) at full resolution
-            # # incorporate stitched JonesNorm
-            # JonesFactor = np.sqrt(MeanJonesBand/JonesNorm)
-            # # scale I0 by beam at ref_freq
-            # # I0 = MaxDirty / BeamFactor[self.ref_freq_index]  # TODO - learn optimal I0 for prior from evidence
-            # # next compute the product of the averaging matrix and beam matrix
-            # # ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
-            # # ChanMappingGridChan = self.PSFServer.DicoMappingDesc["ChanMappingGridChan"]
-            # SAmat = self.S * BeamFactor[None, :] / JonesFactor[:, None]  # The division by JonesFactor corrects for the fact that the PSF is normalised
-            # self.SAX = SAmat.dot(self.Xdes_full)
-            self.SAX = np.sqrt(JonesNorm)[:, None] * self.Xdes
-        # get MFS weights
-        # W = self.PSFServer.DicoVariablePSF['SumWeights'].squeeze().astype(np.float64)
-        # Ig = Vals.astype(np.float64)
-        try:
-            theta = self.solve_ML(Vals, self.SAX, WeightsChansImages)
-        except:
-            theta = np.polyfit(self.Freqs/self.ref_freq, Vals/np.sqrt(JonesNorm), self.order-1,
-                               w=np.sqrt(WeightsChansImages))[::-1]
-            # print>>log, "ML fit failed. Using numpy to fit Iapp/sqrt(JonesNorm)."
+        # get design matrix and pseudo-inverse
+        SAX, pinv = self.give_pseudo_inverse(JonesNorm, WeightsChansImages)
+
+        # fit to whitened data
+        sqrtW = np.sqrt(WeightsChansImages)
+        Wy = sqrtW * Iapp
+        theta = pinv.dot(Wy)
         return theta
 
     def EvalPoly(self, coeffs, Freqsp=None):
@@ -298,8 +329,6 @@ class ClassFrequencyMachine(object):
             # evaluate poly and return result
             return np.dot(Xdes, coeffs)
 
-    # IMPORTANT!!!! If beam is enabled assumes self.SAX is set in previous call to FitPoly
-    # TODO - more reliable way to do this, maybe store in dict keyed on components
     def EvalPolyApparent(self, coeffs):
         """
         Gives the apparent flux for coeffs given beam in this facet
@@ -309,4 +338,9 @@ class ClassFrequencyMachine(object):
         Returns:
             The polynomial evaluated at Freqs
         """
-        return self.SAX.dot(coeffs)
+        if self.BeamEnable:
+            key = self.PSFServer.iFacet
+        else:
+            key = 0
+        SAX = self.sax_dict[key]
+        return SAX.dot(coeffs)

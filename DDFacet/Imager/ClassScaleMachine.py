@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 import numexpr
 from DDFacet.Other import logger
@@ -95,15 +101,13 @@ class ClassScaleMachine(object):
         self.ConvPSFs = pylru.WriteThroughCacheManager(conv_psf_store, self.GD['WSCMS']['CacheSize'])
         conv_psf_mean_store = Store(cachepath+'/convpsfmean')
         self.Conv2PSFmean = pylru.WriteThroughCacheManager(conv_psf_mean_store, self.GD['WSCMS']['CacheSize'])
-        gains_store = Store(cachepath+'/gains')
-        self.gains = pylru.WriteThroughCacheManager(gains_store, self.GD['WSCMS']['CacheSize'])
         ft_psf_store = Store(cachepath+'/ft_psf')
         self.FT_PSF = pylru.WriteThroughCacheManager(ft_psf_store, self.GD['WSCMS']['CacheSize'])
         ft_meanpsf_store = Store(cachepath+'/ft_meanpsf')
         self.FT_meanPSF = pylru.WriteThroughCacheManager(ft_meanpsf_store, self.GD['WSCMS']['CacheSize'])
 
-        scale_mask_store = Store(cachepath + '/scale_mask')
-        self.ScaleMaskArray = pylru.WriteThroughCacheManager(scale_mask_store, self.GD['WSCMS']['CacheSize'])
+        # dictionary to store per facet per scale gains
+        self.gains = {}
 
         # set PSF server
         self.PSFServer = PSFServer
@@ -149,20 +153,25 @@ class ClassScaleMachine(object):
         self.set_kernels()
 
         # initialise Scale dependent masks (everything masked initially)
+        self.ScaleMaskArray = {}
         if self.GD["WSCMS"]["AutoMask"]:
             self.AppendMaskComponents = True  # set to false once masking kicks in
-            for iScale in xrange(self.Nscales):
+            for iScale in range(self.Nscales):
                 self.ScaleMaskArray[str(iScale)] = np.ones((1, 1, self.Npix, self.Npix), dtype=np.bool)
         else:
             self.AppendMaskComponents = False
 
         # Initialise gains for central facet (logs scale info)
-        for i in xrange(self.Nscales):
+        for i in range(self.Nscales):
             self.set_gains(self.CentralFacetID, i)
             key = 'S' + str(i) + 'F' + str(self.CentralFacetID)
-            print>> log, " - Scale %i, bias factor=%f, psfpeak=%f, gain=%f, kernel peak=%f" % \
+            print(" - Scale %i, bias factor=%f, psfpeak=%f, gain=%f, kernel peak=%f" % \
                                (self.alphas[i], self.bias[i], self.ConvPSFmeanMax,
-                                self.gains[key], self.kernels[i].max())
+                                self.gains[key], self.kernels[i].max()), file=log)
+        # these are permanent
+        self.forbidden_scales = []
+        # these get reset at the start of every major cycle
+        self.retired_scales = []
 
     def set_coordinates(self):
         # get pixel coordinates for unpadded image
@@ -238,29 +247,74 @@ class ClassScaleMachine(object):
     # doesn't seem correct hence the sqrt(2) factor. Is this baseline length or baseline?
     # TODO - Set max scale with minimum baseline or facet size?
     def set_scales(self):
+        if self.GD['WSCMS']["MaxScale"] is None:
+            MaxScale = self.NpixFacet//3
+        else:
+            MaxScale = self.GD['WSCMS']["MaxScale"]
         if self.GD["WSCMS"]["Scales"] is None:
-            print>>log, "Setting scales automatically from theoretical minimum beam size"
+            print("Setting scales automatically from theoretical minimum beam size", file=log)
             min_beam = 1.0/self.MaxBaseline  # computed at max frequency
             cell_size_rad = self.GD["Image"]["Cell"] * np.pi / (180 * 3600)
             FWHM0_pix = np.sqrt(2) * min_beam/cell_size_rad  # sqrt(2) is fiddle factor which gives approx same scales as wsclean
             alpha0 = np.ceil(FWHM0_pix / 0.45)
+            if alpha0 % 2:
+                alpha0 += 1
             alphas = [alpha0, 4*alpha0]
             i = 1
-            while alphas[i] < self.GD["WSCMS"]["MaxScale"]:  # hardcoded for now
-                alphas.append(2.0*alphas[i])
+            while alphas[i] < MaxScale:  # hardcoded for now
+                alphas.append(1.5*alphas[i])
                 i += 1
             self.alphas = np.asarray(alphas[0:-1])
             self.Nscales = self.alphas.size
         else:
-            print>>log, "Using user defined scales"
+            print("Using user defined scales", file=log)
             self.alphas = np.asarray(self.GD["WSCMS"]["Scales"], dtype=float)
             self.Nscales = self.alphas.size
 
-        for i in xrange(self.Nscales):
+        for i in range(self.Nscales):
             if self.alphas[i] % 2 == 0:
                 self.alphas[i] += 1
 
         self.FWHMs = self.alphas/0.45
+
+    def dilate_scale_masks(self):
+        """
+        For each scale we compute minor and major axes of Gaussian fit to PSF convolved 
+        with the scale kernel and then dilate the scale masks by the average of this value
+        :return: 
+        """
+        from DDFacet.ToolsDir import ModFitPSF
+        from scipy.ndimage import binary_dilation
+        import matplotlib.pyplot as plt
+        for iScale in range(self.Nscales):
+            tmpMask = ~self.ScaleMaskArray[str(iScale)].squeeze()
+            if tmpMask.any():
+                # get PSF and make FWHM mask
+                key = 'S' + str(iScale) + 'F' + str(self.CentralFacetID)
+                ScalePSF = self.Conv2PSFmean[key].squeeze()
+                PSFmax = ScalePSF.max()
+                FWHMmask = np.where(ScalePSF.squeeze() > PSFmax/2.0, True, False)
+                # get bounding box
+                rows = np.any(FWHMmask, axis=1).squeeze()
+                cols = np.any(FWHMmask, axis=0).squeeze()
+                tmpr = np.where(rows)[0]
+                tmpc = np.where(cols)[0]
+                rmin, rmax = tmpr[0],  tmpr[-1]
+                cmin, cmax = tmpc[0],  tmpc[-1]
+                structure = np.asarray(FWHMmask[rmin:rmax+1, cmin:cmax+1])
+                self.ScaleMaskArray[str(iScale)] = ~binary_dilation(tmpMask, structure=structure)[None, None]
+                # make sure they conform to the external mask
+                if self.GD["Mask"]["External"] is not None:
+                    self.ScaleMaskArray[str(iScale)] = np.where(self.MaskArray, self.MaskArray,
+                                                                self.ScaleMaskArray[str(iScale)])
+
+    def CheckScaleMasks(self, DicoSMStacked):
+        DicoComp = DicoSMStacked.setdefault("Comp", {})
+        for iScale in DicoComp.keys():
+            for key in DicoComp[iScale].keys():
+                if key != "NumComps":  # LB - dirty dirty hack needs to die!!!
+                    x, y = key
+                    self.ScaleMaskArray[str(iScale)][0, 0, x, y] = 0
 
     def set_bias(self):
         # get scale bias factor
@@ -268,7 +322,7 @@ class ClassScaleMachine(object):
 
         # set scale bias according to Offringa definition implemented i.t.o. inverse bias
         self.bias = np.ones(self.Nscales, dtype=np.float64)
-        for scale in xrange(1, self.Nscales):
+        for scale in range(1, self.Nscales):
             self.bias[scale] = self.beta**(-1.0 - np.log2(self.alphas[scale]/self.alphas[1]))
 
 
@@ -281,7 +335,7 @@ class ClassScaleMachine(object):
         self.extents = np.zeros(self.Nscales, dtype=np.int32)
         self.volumes = np.zeros(self.Nscales, dtype=np.float64)
         self.kernels = np.empty(self.Nscales, dtype=object)
-        for i in xrange(self.Nscales):
+        for i in range(self.Nscales):
             self.sigmas[i] = 3.0 * self.alphas[i] / 16.0
 
             # support of Gaussian components in pixels
@@ -386,39 +440,37 @@ class ClassScaleMachine(object):
         self.FTMachine.iSFFT()
         ConvMeanDirtys = np.ascontiguousarray(Fs(self.FTMachine.Shat.real, axes=(2, 3))[:, :, I, I])
 
-        # find most relevant scale
-        maxvals = np.zeros(self.Nscales)
-        for iScale in xrange(self.Nscales):
-            # get mask for scale (once auto-masking kicks in we use that instead of external mask)
-            if self.AppendMaskComponents or not self.GD["WSCMS"]["AutoMask"]:
-                CurrentMask = self.MaskArray
-            else:
-                CurrentMask = self.ScaleMaskArray[str(iScale)]
+        # reset the zero scale
+        # LB - for scale 0 we might want to do scale selection based
+        # on the convolved image instead of MeanDirty
+        ConvMeanDirtys[0:1] = MeanDirty.copy()
 
-            if iScale:
+        # initialise to zero so we always trigger the
+        # if statement below at least once
+        BiasedMaxVal = 0.0
+        # find most relevant scale
+        for iScale in range(self.Nscales):
+            if iScale not in self.retired_scales:
+                # get mask for scale (once auto-masking kicks in we use that instead of external mask)
+                if self.AppendMaskComponents or not self.GD["WSCMS"]["AutoMask"]:
+                    ScaleMask = self.MaskArray
+                else:
+                    ScaleMask = self.ScaleMaskArray[str(iScale)]
+
                 xtmp, ytmp, ConvMaxDirty = NpParallel.A_whereMax(ConvMeanDirtys[iScale:iScale+1],
                                                                  NCPU=self.NCPU, DoAbs=self.DoAbs,
-                                                                 Mask=CurrentMask)
-            else:
-                xtmp, ytmp, ConvMaxDirty = NpParallel.A_whereMax(MeanDirty,
-                                                                 NCPU=self.NCPU, DoAbs=self.DoAbs,
-                                                                 Mask=CurrentMask)
-            maxvals[iScale] = ConvMaxDirty * self.bias[iScale]
-            if iScale:
-                # only update if new scale is more significant
+                                                                 Mask=ScaleMask)
+
                 if ConvMaxDirty * self.bias[iScale] >= BiasedMaxVal:
                     x = xtmp
                     y = ytmp
                     BiasedMaxVal = ConvMaxDirty * self.bias[iScale]
                     MaxDirty = ConvMaxDirty
-                    CurrentDirty = ConvMeanDirtys[iScale:iScale+1]  # [None, None, :, :]
+                    CurrentDirty = ConvMeanDirtys[iScale:iScale+1]
                     CurrentScale = iScale
-            else:
-                x = xtmp
-                y = ytmp
-                BiasedMaxVal = ConvMaxDirty * self.bias[iScale]
-                MaxDirty = ConvMaxDirty
-                CurrentDirty = MeanDirty
-                CurrentScale = iScale
+                    CurrentMask = ScaleMask
+        if BiasedMaxVal == 0:
+            print("No scale has been selected. This should never happen. Bug!")
+            print("Forbidden scales = ", self.forbidden_scales)
 
-        return x, y, MaxDirty, CurrentDirty, CurrentScale
+        return x, y, MaxDirty, CurrentDirty, CurrentScale, CurrentMask
