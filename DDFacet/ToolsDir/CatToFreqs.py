@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 
 def CatToFreqs(cat,fmin=0,fmax=-1,nf=0):
@@ -70,7 +76,7 @@ def CatToFreqs(cat,fmin=0,fmax=-1,nf=0):
         else:
             fSelCat.append(-1)
             indSelCat.append(idmin)
-            print "point at i = %i, with fTarget = %f not found"%(i,fi)
+            print("point at i = %i, with fTarget = %f not found"%(i,fi))
 
     indSelCat=np.array(indSelCat)
     fSelCat=np.array(fSelCat)

@@ -17,6 +17,13 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 from DDFacet.Other import logger
 from DDFacet.Other import ModColor
@@ -70,7 +77,7 @@ class ClassImageNoiseMachine():
         self.GD["Deconv"]["Gain"] = .1
 
         if self.NoiseMapReShape is not None:
-            print>> log, "Deconvolving on SNR map"
+            print("Deconvolving on SNR map", file=log)
             self.GD["Deconv"]["RMSFactor"] = 0.
 
         self.GD["HMP"]["AllowResidIncrease"] = 0.1
@@ -117,7 +124,7 @@ class ClassImageNoiseMachine():
     def giveMinStatNoiseMap(self,Image):
         Box,Step=self.GD["Noise"]["MinStats"]
         box=(Box,Box)
-        print>>log, "  Computing noise map..."
+        print("  Computing noise map...", file=log)
         Boost=Step
         Acopy=Image[0,0,0::Boost,0::Boost].copy()
         SBox=(box[0]/Boost,box[1]/Boost)
@@ -154,10 +161,10 @@ class ClassImageNoiseMachine():
 
     def calcNoiseMap(self,DicoResidual):
         if self._id_InputMap==id(DicoResidual["MeanImage"]):
-            print>>log,"Noise map has already been computed for that image"
+            print("Noise map has already been computed for that image", file=log)
             return self.NoiseMapReShape
         else:
-            print>>log,"(re-)Computing noise map"
+            print("(re-)Computing noise map", file=log)
             self._id_InputMap=id(DicoResidual["MeanImage"])
 
         # self.NoiseMapReShape=self.giveMinStatNoiseMap(DicoResidual["MeanImage"])
@@ -180,7 +187,7 @@ class ClassImageNoiseMachine():
         self.DicoVariablePSF=DicoVariablePSF
 
     def giveBrutalRestored(self,DicoResidual):
-        print>>log,"  Running Brutal deconvolution..."
+        print("  Running Brutal deconvolution...", file=log)
         ListSilentModules=["ClassImageDeconvMachineMSMF","ClassPSFServer","ClassMultiScaleMachine","GiveModelMachine",
                            "ClassModelMachineMSMF", "ClassImageDeconvMachineHogbom", "ClassModelMachineHogbom"]
         # MyLogger.setSilent(ListSilentModules)
@@ -189,7 +196,7 @@ class ClassImageNoiseMachine():
         self.Orig_Dirty=self.DicoDirty["ImageCube"].copy()
 
         if self.NoiseMapReShape is not None:
-            print>>log,"Deconvolving on SNR map"
+            print("Deconvolving on SNR map", file=log)
             self.DeconvMachine.RMSFactor = 0
             
         self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["EstimatesAvgPSF"][-1],
@@ -228,13 +235,13 @@ class ClassImageNoiseMachine():
         self.DeconvMachine.resetCounter()
         self.DeconvMachine.Deconvolve(UpdateRMS=False)
 
-        print>>log,"  Getting model image..."
+        print("  Getting model image...", file=log)
         Model=self.ModelMachine.GiveModelImage(DoAbs=True)
         if "Comp" in self.ExternalModelMachine.DicoSMStacked.keys():
             Model+=np.abs(self.ExternalModelMachine.GiveModelImage())
         ModelImage=Model[0,0]
 
-        print>>log,"  Convolving image with beam %s..."%str(self.DicoVariablePSF["EstimatesAvgPSF"][1])
+        print("  Convolving image with beam %s..."%str(self.DicoVariablePSF["EstimatesAvgPSF"][1]), file=log)
         #from DDFacet.ToolsDir import Gaussian
         
 

@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import scipy.fftpack
 from DDFacet.ToolsDir import Gaussian
 import numpy as np
@@ -355,8 +361,8 @@ class ClassWTermModified():
     def GiveReorgCF(self, A):
         Sup = A.shape[0]/self.OverS
         B = np.zeros((self.OverS, self.OverS, Sup, Sup), dtype=A.dtype)
-        for i in xrange(self.OverS):
-            for j in xrange(self.OverS):
+        for i in range(self.OverS):
+            for j in range(self.OverS):
                 B[i, j, :, :] = A[i::self.OverS, j::self.OverS]  # [::-1,:]
 
         B = B.reshape((A.shape[0], A.shape[0]))
@@ -439,7 +445,7 @@ class ClassWTermModified():
 
         # print "done FIT"
 
-        for i in xrange(Nw):
+        for i in range(Nw):
             #print>>log, "%i/%i"%(i,Nw)
             if not(Sups[i] % 2):
                 Sups[i] += 1

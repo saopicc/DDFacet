@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import math
 
 import numpy as np
@@ -33,7 +39,7 @@ from pyrap.tables import table
 from DDFacet.Array import NpShared
 
 def test(field=0,weight="Uniform"):
-    print>>log,"reading test MS"
+    print("reading test MS", file=log)
 #    MS=ClassMS.ClassMS("/media/6B5E-87D0/killMS2/TEST/Simul/0000.MS")
     MS= ClassMS.ClassMS("CYG-B-test.MS", DoReadData=False)
     t=table(MS.MSName,ack=False).query("FIELD_ID==%d"%field)
@@ -63,7 +69,7 @@ def test(field=0,weight="Uniform"):
     WEIGHT.fill(1)
     #flag_all[MS.A0==MS.A1]=1
     #WEIGHT[MS.flag_all[:,:,0]==1]=0
-    print>>log,"calculating test weights for shape %s"%(flag_all.shape,)
+    print("calculating test weights for shape %s"%(flag_all.shape,), file=log)
     CW.CalcWeights(uvw,WEIGHT,flag_all,MS.ChanFreq,Robust=0,Weighting=weight)
     
 
@@ -102,7 +108,7 @@ class ClassWeighting():
         # if every weight is in cache, then VisWeights has been constructed properly -- return, else
         # carry on to compute it
         if have_all_weights:
-            print>> log, "all imaging weights are available in cache"
+            print("all imaging weights are available in cache", file=log)
             return
 
         # Read UVs, weights, flags, freqs from all MSs in the list.
@@ -127,18 +133,18 @@ class ClassWeighting():
                 nrows = row1 - row0
                 chanslice = ms.ChanSlice
                 if not nrows:
-                    print>> log, "  0 rows: empty chunk"
+                    print("  0 rows: empty chunk", file=log)
                     continue
-                print>> log, "  %d.%d reading %s UVW" % (iMS + 1, iChunk + 1, ms.MSName)
+                print("  %d.%d reading %s UVW" % (iMS + 1, iChunk + 1, ms.MSName), file=log)
                 uvw = tab.getcol("UVW", row0, nrows)
                 flags = np.empty((nrows, len(ms.ChanFreq), len(ms.CorrelationIds)), np.bool)
                 # print>>log,(ms.cs_tlc,ms.cs_brc,ms.cs_inc,flags.shape)
-                print>> log, "  reading FLAG" % ms.MSName
+                print("  reading FLAG" % ms.MSName, file=log)
                 tab.getcolslicenp("FLAG", flags, ms.cs_tlc, ms.cs_brc, ms.cs_inc, row0, nrows)
                 if ms._reverse_channel_order:
                     flags = flags[:, ::-1, :]
                 # if any polarization is flagged, flag all 4 correlations. Shape of flags becomes nrow,nchan
-                print>> log, "  adjusting flags"
+                print("  adjusting flags", file=log)
                 # if any polarization is flagged, flag all 4 correlations. Shape
                 # of flags becomes nrow,nchan
                 flags = flags.max(axis=2)
@@ -146,7 +152,7 @@ class ClassWeighting():
                 rowflags = flags.min(axis=1)
                 # if everything is flagged, skip this entry
                 if rowflags.all():
-                    print>> log, "  all flagged: marking as null"
+                    print("  all flagged: marking as null", file=log)
                     continue
                 # if all channels are flagged, flag whole row. Shape of flags becomes nrow
                 msw["flags"] = rowflags
@@ -161,27 +167,27 @@ class ClassWeighting():
                 weight = msw.addSharedArray("weight", (nrows, ms.Nchan), np.float32)
                 if WeightCol == "WEIGHT_SPECTRUM":
                     w = tab.getcol(WeightCol, row0, nrows)[:, chanslice]
-                    print>> log, "  reading column %s for the weights, shape is %s" % (
-                        WeightCol, w.shape)
+                    print("  reading column %s for the weights, shape is %s" % (
+                          WeightCol, w.shape), file=log)
                     if ms._reverse_channel_order:
                         w = w[:, ::-1, :]
                     # take mean weight across correlations and apply this to all
                     weight[...] = w.mean(axis=2)
                 elif WeightCol == "None" or WeightCol == None:
-                    print>> log, "  Selected weights columns is None, filling weights with ones"
+                    print("  Selected weights columns is None, filling weights with ones", file=log)
                     weight.fill(1)
                 elif WeightCol == "WEIGHT":
                     w = tab.getcol(WeightCol, row0, nrows)
-                    print>> log, "  reading column %s for the weights, shape is %s, will expand frequency axis" % (
-                        WeightCol, w.shape)
+                    print("  reading column %s for the weights, shape is %s, will expand frequency axis" % (
+                        WeightCol, w.shape), file=log)
                     # take mean weight across correlations, and expand to have frequency axis
                     weight[...] = w.mean(axis=1)[:, np.newaxis]
                 else:
                     # in all other cases (i.e. IMAGING_WEIGHT) assume a column
                     # of shape NRow,NFreq to begin with, check for this:
                     w = tab.getcol(WeightCol, row0, nrows)[:, chanslice]
-                    print>> log, "  reading column %s for the weights, shape is %s" % (
-                        WeightCol, w.shape)
+                    print("  reading column %s for the weights, shape is %s" % (
+                        WeightCol, w.shape), file=log)
                     if w.shape != valid.shape:
                         raise TypeError(
                             "weights column expected to have shape of %s" %
@@ -200,8 +206,8 @@ class ClassWeighting():
 
         # compute normalization factor
         weightnorm = nweights / weightsum if weightsum else 1
-        print>> log, "weight norm is %g (sum %g from %d valid visibility points)" % (
-            weightnorm, weightsum, nweights)
+        print("weight norm is %g (sum %g from %d valid visibility points)" % (
+            weightnorm, weightsum, nweights), file=log)
 
         # now compute actual imaging weights
         ImShape = self.FullImShape  # self.FacetShape
@@ -237,10 +243,10 @@ class ClassWeighting():
             for (row0, row1), path in zip(MS.getChunkRow0Row1(), self.VisWeights[iMS]):
                 array = weight_arrays.get(path)
                 if array is not None:
-                    print>> log, "saving %s" % path
+                    print("saving %s" % path, file=log)
                     np.save(path, array)
                 else:
-                    print>> log, "saving empty %s (all flagged or null)" % path
+                    print("saving empty %s (all flagged or null)" % path, file=log)
                     # make an empty weights file in the cache
                     file(path, 'w').truncate(0)
                 MS.getChunkCache(row0, row1).saveCache("ImagingWeights.npy")
@@ -268,7 +274,7 @@ class ClassWeighting():
 
         Weighting = Weighting.lower()
         if Weighting == "natural":
-            print>> log, "Weighting in natural mode"
+            print("Weighting in natural mode", file=log)
             if force_unity_weight:
                 for uv, weights, flags, freqs in uvw_weights_flags_freqs:
                     if flags is not None:
@@ -284,9 +290,9 @@ class ClassWeighting():
 
         if band_mapping is None:
             nbands = 1
-            print>> log, "initializing weighting grid for single band (or MFS weighting)"
+            print("initializing weighting grid for single band (or MFS weighting)", file=log)
         else:
-            print>> log, "initializing weighting grids for %d bands"%nbands
+            print("initializing weighting grids for %d bands"%nbands, file=log)
 
         # find max grid extent by considering _unflagged_ UVs
         xymax = 0
@@ -294,7 +300,7 @@ class ClassWeighting():
             # max |u|,|v| in lambda
             uvsel=abs(uv)[~flags, :]
             if uvsel.size==0:
-                print>> log, ModColor.Str("  A dataset is fully flagged")
+                print(ModColor.Str("  A dataset is fully flagged"), file=log)
                 continue
             uvmax = uvsel.max() * freqs.max() / _cc
             xymax = max(xymax, int(math.floor(uvmax / cell)))
@@ -312,7 +318,7 @@ class ClassWeighting():
         npix = npixx * npixy
 
 
-        print>> log, "Calculating imaging weights on an [%i,%i]x%i grid with cellsize %g" % (npixx, npixy, nbands, cell)
+        print("Calculating imaging weights on an [%i,%i]x%i grid with cellsize %g" % (npixx, npixy, nbands, cell), file=log)
         grid0 = np.zeros((nbands, npix), np.float64)
         grid = grid0.reshape((nbands*npix,))
 
@@ -352,7 +358,7 @@ class ClassWeighting():
 
             weights_index[iMS] = weights_or_path, index
             del uv
-            print>> log, "Accumulating weights (%d/%d)" % (iMS + 1, len(uvw_weights_flags_freqs))
+            print("Accumulating weights (%d/%d)" % (iMS + 1, len(uvw_weights_flags_freqs)), file=log)
             # accumulate onto grid
             # print>>log,weights,index
             _pyGridderSmearPols.pyAccumulateWeightsOntoGrid(grid, weights.ravel(), index.ravel())
@@ -360,7 +366,7 @@ class ClassWeighting():
         if Weighting == "uniform":
             #            print>>log,"adjusting grid to uniform weight"
             #           grid[grid!=0] = 1/grid[grid!=0]
-            print>> log, ("applying uniform weighting (super=%.2f)" % Super)
+            print("applying uniform weighting (super=%.2f)" % Super, file=log)
             for weights_or_path, index in weights_index:
                 if index is not None:
                     weights = NpShared.GiveArray(weights_or_path) if type(weights_or_path) is str else weights_or_path
@@ -369,7 +375,7 @@ class ClassWeighting():
         elif Weighting == "briggs" or Weighting == "robust":
             numeratorSqrt = 5.0 * 10 ** (-Robust)
             for band in range(nbands):
-                print>> log, ("applying Briggs weighting (robust=%.2f, super=%.2f, band %d)" % (Robust, Super, band))
+                print("applying Briggs weighting (robust=%.2f, super=%.2f, band %d)" % (Robust, Super, band), file=log)
                 grid1 = grid0[band,:]
                 avgW = (grid1 ** 2).sum() / grid1.sum()
                 sSq = numeratorSqrt ** 2 / avgW
@@ -382,4 +388,4 @@ class ClassWeighting():
         else:
             raise ValueError("unknown weighting \"%s\"" % Weighting)
 
-        print>> log, "weights computed"
+        print("weights computed", file=log)

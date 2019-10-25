@@ -17,6 +17,13 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 RuntimeWarning("Deprecated class")
 
 import psutil
@@ -89,7 +96,7 @@ def cleanupStaleShm ():
     # ok, make list of candidates for deletion
     victims = [ filename for filename,pid in shmlist if pid in dead_pids ]
     if victims:
-        print>>log, "reaping %d shared memory objects associated with %d dead DDFacet processes"%(len(victims), len(dead_pids))
+        print("reaping %d shared memory objects associated with %d dead DDFacet processes"%(len(victims), len(dead_pids)), file=log)
         dirs = [ v for v in victims if os.path.isdir(v) ]
         files = [ v for v in victims if not os.path.isdir(v) ]
         # rm -fr only works for a limited number of arguments (which the semaphore list can easily exceed)

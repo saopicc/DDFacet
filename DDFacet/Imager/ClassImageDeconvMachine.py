@@ -18,15 +18,19 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
-import MyLogger
-import ModColor
-log=MyLogger.getLogger(" ClassImageDeconvMachine")
-import NpParallel
-import ModFFTW
-import ModToolBox
-
-
+from DDFacet.Other import logger
+log= logger.getLogger(" ClassImageDeconvMachine")
+from DDFacet.Other import ModColor
+from DDFacet.Array import NpParallel
+from DDFacet.ToolsDir import ModFFTW
+from DDFacet.ToolsDir import ModToolBox
 
 
 class ClassImageDeconvMachine():
@@ -91,10 +95,10 @@ class ClassImageDeconvMachine():
                     itest+=1
             x0=xtest[itest]
             dx0=(x0-NPSF/2)
-            print>>log, "PSF extends to [%i] from center, with rms=%.5f"%(dx0,std)
+            print("PSF extends to [%i] from center, with rms=%.5f"%(dx0,std), file=log)
         elif Method=="FromSideLobe":
             dx0=2*self.OffsetSideLobe
-            print>>log, "PSF extends to [%i] from center"%(dx0)
+            print("PSF extends to [%i] from center"%(dx0), file=log)
         
         npix=2*dx0+1
         npix=ModToolBox.GiveClosestFastSize(npix,Odd=True)
@@ -110,7 +114,7 @@ class ClassImageDeconvMachine():
 
     def MakeMultiScaleCube(self):
         if self.CubePSFScales is not None: return
-        print>>log, "Making MultiScale PSFs..."
+        print("Making MultiScale PSFs...", file=log)
         LScales=self.GD["HMP"]["Scales"]
         if 0 in LScales: LScales.remove(0)
         LRatios=self.GD["HMP"]["Ratios"]
@@ -184,7 +188,7 @@ class ClassImageDeconvMachine():
         self.WeightFunction=ModFFTW.GiveGauss(self.SubPSF.shape[-1],CellSizeRad=1.,GaussPars=PSFGaussPars)
         #self.WeightFunction.fill(1)
         self.SupWeightWidth=3.*self.WeightWidth
-        print>>log, "   ... Done"
+        print("   ... Done", file=log)
 
 
     def FindBestScale(self,(x,y),Fpol):
@@ -387,7 +391,7 @@ class ClassImageDeconvMachine():
         # pylab.show(False)
         # pylab.pause(0.1)
 
-        print>>log, "  Running minor cycle [MaxMinorIter = %i, CycleFactor=%3.1f]"%(Nminor,self.CycleFactor)
+        print("  Running minor cycle [MaxMinorIter = %i, CycleFactor=%3.1f]"%(Nminor,self.CycleFactor), file=log)
 
         NPixStats=1000
         RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
@@ -400,9 +404,9 @@ class ClassImageDeconvMachine():
         Threshold_SideLobe=self.CycleFactor*MaxDirty*(self.SideLobeLevel)
 
         mm0,mm1=self.Dirty.min(),self.Dirty.max()
-        print>>log, "    Dirty image peak flux   = %7.3f Jy [(min, max) = (%7.3f, %7.3f) Jy]"%(MaxDirty,mm0,mm1)
-        print>>log, "    RMS threshold flux      = %7.3f Jy [rms      = %7.3f Jy]"%(FluxLimit, RMS)
-        print>>log, "    Sidelobe threshold flux = %7.3f Jy [sidelobe = %7.3f of peak]"%(Threshold_SideLobe,self.SideLobeLevel)
+        print("    Dirty image peak flux   = %7.3f Jy [(min, max) = (%7.3f, %7.3f) Jy]"%(MaxDirty,mm0,mm1), file=log)
+        print("    RMS threshold flux      = %7.3f Jy [rms      = %7.3f Jy]"%(FluxLimit, RMS), file=log)
+        print("    Sidelobe threshold flux = %7.3f Jy [sidelobe = %7.3f of peak]"%(Threshold_SideLobe,self.SideLobeLevel), file=log)
 
         MaxModelInit=np.max(np.abs(self.ModelImage))
 
@@ -421,7 +425,7 @@ class ClassImageDeconvMachine():
         #print x,y
 
         if ThisFlux < FluxLimit:
-            print>>log, ModColor.Str("    Initial maximum peak %f Jy lower that rms-based limit of %f Jy (%i-sigma)" % (ThisFlux,Threshold_RMS,Threshold_RMS))
+            print(ModColor.Str("    Initial maximum peak %f Jy lower that rms-based limit of %f Jy (%i-sigma)" % (ThisFlux,Threshold_RMS,Threshold_RMS)), file=log)
             return "DoneMinFlux"
 
 
@@ -440,11 +444,11 @@ class ClassImageDeconvMachine():
             T.timeit("max0")
 
             if ThisFlux < FluxLimit:
-                print>>log, "    [iter=%i] Maximum peak lower that rms-based limit of %f Jy (%i-sigma)" % (i,FluxLimit,Threshold_RMS)
+                print("    [iter=%i] Maximum peak lower that rms-based limit of %f Jy (%i-sigma)" % (i,FluxLimit,Threshold_RMS), file=log)
                 return "MinFlux"
 
             if ThisFlux < Threshold_SideLobe:
-                print>>log, "    [iter=%i] Peak residual flux %f Jy higher than sidelobe-based limit of %f Jy" % (i,ThisFlux, Threshold_SideLobe)
+                print("    [iter=%i] Peak residual flux %f Jy higher than sidelobe-based limit of %f Jy" % (i,ThisFlux, Threshold_SideLobe), file=log)
 
                 return "MinFlux"
 
@@ -529,6 +533,6 @@ class ClassImageDeconvMachine():
 
 
 
-        print>>log, ModColor.Str("    [iter=%i] Reached maximum number of iterations" % (Nminor))
+        print(ModColor.Str("    [iter=%i] Reached maximum number of iterations" % (Nminor)), file=log)
         return "MaxIter"
 

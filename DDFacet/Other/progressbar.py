@@ -7,10 +7,16 @@ Usage:
     p.render(percentage, message)
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import sys
 import time as timemod
 
-import ModColor
+from DDFacet.Other import ModColor
 
 
 def disableBars():

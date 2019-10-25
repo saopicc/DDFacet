@@ -1,3 +1,9 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 from DDFacet.Imager.MORESANE import ClassImageDeconvMachineMoresane
 import copy
@@ -32,7 +38,7 @@ class ClassInitSSDModelParallel():
         self.DicoVariablePSF=DicoVariablePSF
         self.GridFreqs=GridFreqs
         self.DegridFreqs=DegridFreqs
-        print>>log,"Initialise MORESANE machine"
+        print("Initialise MORESANE machine", file=log)
         self.InitMachine=ClassInitSSDModel(self.GD,
                                            self.DicoVariablePSF,
                                            self.RefFreq,
@@ -64,7 +70,7 @@ class ClassInitSSDModelParallel():
 
         #MyLogger.setLoud("ClassImageDeconvMachineMSMF")
 
-        print>>log,"Launch MORESANE workers"
+        print("Launch MORESANE workers", file=log)
         for ii in range(NCPU):
             W = WorkerInitMSMF(work_queue,
                                result_queue,
@@ -199,13 +205,13 @@ class ClassInitSSDModel():
                                 GridFreqs=self.GridFreqs,DegridFreqs=self.DegridFreqs,DoWait=DoWait,RefFreq=self.RefFreq)
 
         if DoWait:
-            print "IINit3"
+            print("IINit3")
             time.sleep(10)
-            print "Start 4"
+            print("Start 4")
 
         self.DeconvMachine.Update(self.DicoDirty,DoSetMask=False)
         if DoWait:
-            print "IINit4"
+            print("IINit4")
             time.sleep(10)
 
         #self.DeconvMachine.updateRMS()
@@ -527,12 +533,12 @@ class WorkerInitMSMF(multiprocessing.Process):
             try:
                 self.initIsland(DicoJob)
             except:
-                print traceback.format_exc()
+                print(traceback.format_exc())
                 iIsland=DicoJob["iIsland"]
                 FileOut="errIsland_%6.6i.npy"%iIsland
-                print ModColor.Str("...... on island %i, saving to file %s"%(iIsland,FileOut))
+                print(ModColor.Str("...... on island %i, saving to file %s"%(iIsland,FileOut)))
                 np.save(FileOut,np.array(self.ListIsland[iIsland]))
-                print
+                print()
 
 
 

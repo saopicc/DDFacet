@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 HEADER = '\033[95m'
 OKBLUE = '\033[94m'
 OKGREEN = '\033[92m'
@@ -60,12 +66,12 @@ def Sep(strin=None,D=1):
         return Str(Separator%(strin))
 
 def Title(strin,Big=False):
-    print
-    print
-    if Big: print Sep(strin,D=0)
-    print Sep(strin)
-    if Big: print Sep(strin,D=0)
-    print
+    print()
+    print()
+    if Big: print(Sep(strin,D=0))
+    print(Sep(strin))
+    if Big: print(Sep(strin,D=0))
+    print()
 
 def disable():
     HEADER = ''

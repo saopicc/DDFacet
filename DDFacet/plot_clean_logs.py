@@ -1,5 +1,11 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import pylab
 import re
 import numpy as np
@@ -27,17 +33,17 @@ class DDFLog(object):
                 miter = int(m.group(1))+1
             m = re.search('\[iter=(\d+)\] (peak of|Reached.*peak flux)\s+(\d[^\s,]+)\s+', line)
             if m:
-                print line
+                print(line)
                 self.major_end_iter.append(int(m.group(1))+1)
                 self.major_end_flux.append(float(m.group(3)))
             m = re.search('Dirty image peak flux\s+=\s+(\d[^\s]+)\s', line)
             if m:
-                print line
+                print(line)
                 self.major_start_flux.append(float(m.group(1)))
                 self.major_start_iter.append(miter)
             m = re.search('\[iter=(\d+)\] peak residual\s+(\d[^\s]+),\s+.*PNR\s+(\d[^\s]*)', line)
             if m:
-                print line
+                print(line)
                 self.minor_iters.append(int(m.group(1))+1)
                 self.minor_peaks.append(float(m.group(2)))
                 self.minor_pnrs.append(float(m.group(3)))
@@ -56,7 +62,7 @@ class DDFLog(object):
 colors = ('red', 'blue', 'green', 'black', 'purple')
 
 if __name__ == '__main__':
-    print sys.argv
+    print(sys.argv)
     logs = [ DDFLog(x) for x in sys.argv[1:] ]
     for i, log in enumerate(logs):
         log.plot(col=colors[i])

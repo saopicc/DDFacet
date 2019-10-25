@@ -17,6 +17,13 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 from DDFacet.Other import logger
 from DDFacet.Other import ModColor
@@ -55,30 +62,30 @@ class ClassMaskMachine():
 
     def updateNoiseMap(self):
         if self.Restored:
-            print>>log,"Computing noise map based on brutal restored"
+            print("Computing noise map based on brutal restored", file=log)
             self.NoiseMap=self.giveNoiseMap(self.Restored)
             nx,ny=self.NoiseMap.shape
             self.NoiseMapReShape=self.NoiseMap.reshape((1,1,nx,ny))
         else:
-             print>>log,"Computing noise map based on residual image"
+             print("Computing noise map based on residual image", file=log)
         
     def setImageNoiseMachine(self,ImageNoiseMachine):
         self.ImageNoiseMachine=ImageNoiseMachine
 
     def updateMask(self,DicoResidual):
         if not self.DoMask: return
-        print>>log, "Computing Mask"
+        print("Computing Mask", file=log)
         
         if self.GD["Mask"]["Auto"]:
             self.ImageNoiseMachine.calcNoiseMap(DicoResidual)
             self.NoiseMask=(self.ImageNoiseMachine.FluxImage>self.GD["Mask"]["SigTh"]*self.ImageNoiseMachine.NoiseMapReShape)
 
         if self.NoiseMask is not None: 
-            print>>log,"  Merging Current mask with Noise-based mask"
+            print("  Merging Current mask with Noise-based mask", file=log)
             self.CurrentMask = OR(self.CurrentMask,self.NoiseMask)
         if self.ExternalMask is not None:
             if self.GD["Mask"]["Auto"]:
-                print>>log,"  Merging Current mask with external mask"
+                print("  Merging Current mask with external mask", file=log)
                 self.CurrentMask = OR(self.CurrentMask,self.ExternalMask)
             else:
                 self.CurrentMask = self.ExternalMask
@@ -89,7 +96,7 @@ class ClassMaskMachine():
     def readExternalMaskFromFits(self):
         CleanMaskImage=self.GD["Mask"]["External"]
         if not CleanMaskImage: return
-        print>>log, "  Reading mask image: %s"%CleanMaskImage
+        print("  Reading mask image: %s"%CleanMaskImage, file=log)
         MaskImage=image(CleanMaskImage).getdata()
         nch,npol,_,_=MaskImage.shape
         MaskArray=np.zeros(MaskImage.shape,np.bool8)
@@ -108,7 +115,7 @@ class ClassMaskMachine():
     def AdaptMaskShape(self):
         _,_,NMask,_=self._MaskArray.shape
         if NMask!=NDirty:
-            print>>log,"  Mask do not have the same shape as the residual image"
+            print("  Mask do not have the same shape as the residual image", file=log)
             self._MaskArray=self.AdaptArrayShape(self._MaskArray,NDirty)
             self.MaskArray=self._MaskArray[0]
             self.IslandArray=np.zeros_like(self._MaskArray)

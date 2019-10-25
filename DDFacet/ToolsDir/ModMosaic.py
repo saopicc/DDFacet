@@ -19,6 +19,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 from pyrap.images import image
 import glob
 import numpy
@@ -42,8 +48,8 @@ def MakeEmpty():
     # llPB=llPB[0:2]
     # ############################"
 
-    print "Files In: ", ll
-    print "FilesPB In: ", llPB
+    print("Files In: ", ll)
+    print("FilesPB In: ", llPB)
 
     ############################"
     # That was meant to compute the average of RA and DEC
@@ -86,7 +92,7 @@ def MakeEmpty():
     
 
     for i in range(len(ll)):
-        print "Read %s"%ll[i]
+        print("Read %s"%ll[i])
         FileTemp="_temp_%3.3i"%i
         FileTempPB="_tempPB_%3.3i"%i
         #os.system("rm -Rf %s"%FileTemp)
@@ -148,6 +154,6 @@ def MakeEmpty():
 
     PBStack[PBStack<0.1]=1.
     imOut.putdata(Stack/PBStack)
-    print "Saving mosaic in file: %s"%OutFile
+    print("Saving mosaic in file: %s"%OutFile)
     imOut.saveas(OutFile)
     #os.system("rm -Rf %s* %s*"%(FileTemp,FileTempPB))

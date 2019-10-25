@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import os, re, glob
 import pyrap.measures as pm
 import pyrap.quanta as qa
@@ -34,7 +40,7 @@ log = logger.getLogger("ClassMS")
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other.CacheManager import CacheManager
 from DDFacet.Array import NpShared
-import sidereal
+from DDFacet.Data import sidereal
 from DDFacet.Array import PrintRecArray
 
 import datetime
@@ -154,9 +160,9 @@ class ClassMS():
         except RuntimeError:
             tf = None
         if tf is not None and to is not None:
-            print >> log, 'Read observing details from %s'%self.MSName
+            print('Read observing details from %s'%self.MSName, file=log)
         else:
-            print >> log, 'Some observing details in %s missing'%self.MSName
+            print('Some observing details in %s missing'%self.MSName, file=log)
 
         # Stuff relying on an OBSERVATION table:
         if to is not None:
@@ -370,7 +376,7 @@ class ClassMS():
 
         #ListStrSel=["RT9-RTA", "RTA-RTB", "RTC-RTD", "RT6-RT7", "RT5"]
 
-        print>>log, ModColor.Str("  ... Building BL-mapping for %s" % str(ListStrSel))
+        print(ModColor.Str("  ... Building BL-mapping for %s" % str(ListStrSel)), file=log)
 
         if row1 is None:
             row0=0
@@ -589,8 +595,8 @@ class ClassMS():
         DATA["datatype"]  = np.complex64
 
         strMS = "%s" % (ModColor.Str(self.MSName, col="green"))
-        print>>log, "%s: Reading next data chunk in [%i, %i] rows" % (
-            strMS, row0, row1)
+        print("%s: Reading next data chunk in [%i, %i] rows" % (
+            strMS, row0, row1), file=log)
         table_all = None
 
         # check cache for A0,A1,time,uvw
@@ -630,10 +636,10 @@ class ClassMS():
             uvw = table_all.getcol('UVW', row0, nRowRead)
             if sort_by_baseline:
                 # make sort index
-                print>>log,"sorting by baseline-time"
+                print("sorting by baseline-time", file=log)
                 sortby = sorted(zip(A0, A1, time_all, range(nRowRead)))
                 sort_index = np.array([ s[3] for s in sortby ])
-                print>>log,"applying sort index to metadata rows"
+                print("applying sort index to metadata rows", file=log)
                 A0 = A0[sort_index]
                 A1 = A1[sort_index]
                 uvw = uvw[sort_index]
@@ -662,20 +668,20 @@ class ClassMS():
                 datavalid = False
             # read from cache if available, else from MS
             if datavalid:
-                print>> log, "reading cached visibilities from %s" % datapath
+                print("reading cached visibilities from %s" % datapath, file=log)
                 visdata[...] = np.load(datapath)
                 #self.RotateType=["uvw"]
             else:
-                print>> log, "reading MS visibilities from column %s" % self.ColName
+                print("reading MS visibilities from column %s" % self.ColName, file=log)
                 table_all = table_all or self.GiveMainTable()
                 if sort_index is not None:
                     visdata1 = np.ndarray(shape=datashape, dtype=np.complex64)
                     table_all.getcolslicenp(self.ColName, visdata1, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
-                    print>>log,"sorting visibilities"
+                    print("sorting visibilities", file=log)
                     t0 = time.time()
                     visdata[...] = visdata1[sort_index]
                     del visdata1
-                    print>>log,"sorting took %.1fs"%(time.time()-t0)
+                    print("sorting took %.1fs"%(time.time()-t0), file=log)
                 else:
                     table_all.getcolslicenp(self.ColName, visdata, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                 if self._reverse_channel_order:
@@ -685,7 +691,7 @@ class ClassMS():
                     self.Rotate(DATA,RotateType=["vis"])
 
                 if use_cache:
-                    print>> log, "caching visibilities to %s" % datapath
+                    print("caching visibilities to %s" % datapath, file=log)
                     np.save(datapath, visdata)
                     self.cache.saveCache("Data.npy")
         # create flag array (if flagbuf is not None, array uses memory of buffer)
@@ -697,23 +703,23 @@ class ClassMS():
             flagvalid = False
         # read from cache if available, else from MS
         if flagvalid:
-            print>> log, "reading cached flags from %s" % flagpath
+            print("reading cached flags from %s" % flagpath, file=log)
             flags[...] = np.load(flagpath)
         else:
-            print>> log, "reading MS flags from column FLAG"
+            print("reading MS flags from column FLAG", file=log)
             table_all = table_all or self.GiveMainTable()
             if sort_index is not None:
                 flags1 = table_all.getcolslice("FLAG", self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
-                print>> log, "sorting flags"
+                print("sorting flags", file=log)
                 t0 = time.time()
                 flags[...] = flags1[sort_index]
                 del flags1
-                print>>log,"sorting took %.1fs"%(time.time()-t0)
+                print("sorting took %.1fs"%(time.time()-t0), file=log)
             else:
                 table_all.getcolslicenp("FLAG", flags, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
             self.UpdateFlags(flags, uvw, visdata, A0, A1, time_all)
             if use_cache:
-                print>> log, "caching flags to %s" % flagpath
+                print("caching flags to %s" % flagpath, file=log)
                 np.save(flagpath, flags)
                 self.cache.saveCache("Flags.npy")
         if table_all:
@@ -819,7 +825,7 @@ class ClassMS():
         dtOut=self.dt*StepTime
         nrow=DicoData["times"].size
         for irow in range(nrow):
-            print irow,"/",nrow
+            print(irow,"/",nrow)
             ThisTime=DicoData["times"][irow]
             iTimeOut=int((ThisTime-DicoData["times"][0])/dtOut)
             iA0=DicoData["A0"][irow]
@@ -927,14 +933,14 @@ class ClassMS():
 
         self.empty = (self.Field,self.DDID) not in ddid_fields
         if self.empty:
-            print>>log, ModColor.Str("MS %s (field %d, ddid %d): no rows, skipping"%(self.MSName, self.Field, self.DDID))
+            print(ModColor.Str("MS %s (field %d, ddid %d): no rows, skipping"%(self.MSName, self.Field, self.DDID)), file=log)
             return
 
         # open main table
         table_all = self.GiveMainTable()
         self.empty = not table_all.nrows()
         if self.empty:
-            print>>log, ModColor.Str("MS %s (field %d, ddid %d): no rows, skipping"%(self.MSName, self.Field, self.DDID))
+            print(ModColor.Str("MS %s (field %d, ddid %d): no rows, skipping"%(self.MSName, self.Field, self.DDID)), file=log)
             return
 #            raise RuntimeError,"no rows in MS %s, check your Field/DDID/TaQL settings"%(self.MSName)
 
@@ -980,7 +986,7 @@ class ClassMS():
         if not self.TimeChunkSize:
             T0=table_all.getcol('TIME',0,1)[0]
             T1=table_all.getcol('TIME',self.F_nrows-1,1)[0]
-            print>>log,"--Data-ChunkHours is null: MS %s (%d rows) column %s will be processed as a single chunk"%(self.MSName, self.F_nrows, self.ColName)
+            print("--Data-ChunkHours is null: MS %s (%d rows) column %s will be processed as a single chunk"%(self.MSName, self.F_nrows, self.ColName), file=log)
             chunk_row0 = [0]
         else:
             all_times = table_all.getcol("TIME")
@@ -994,10 +1000,10 @@ class ClassMS():
             chunk_row0 = sorted(set(chunk_row0))
             # chunk_row0 gives the starting row of each chunk
             if len(chunk_row0) == 1:
-                print>>log,"MS %s DDID %d FIELD %d (%d rows) column %s will be processed as a single chunk"%(self.MSName, self.DDID, self.Field, self.F_nrows, self.ColName)
+                print("MS %s DDID %d FIELD %d (%d rows) column %s will be processed as a single chunk"%(self.MSName, self.DDID, self.Field, self.F_nrows, self.ColName), file=log)
             else:
-                print>>log,"MS %s DDID %d FIELD %d (%d rows) column %s will be split into %d chunks, at rows %s"%(self.MSName, self.DDID, self.Field,  self.F_nrows,
-                                                                                       self.ColName, len(chunk_row0), " ".join(map(str,chunk_row0)))
+                print("MS %s DDID %d FIELD %d (%d rows) column %s will be split into %d chunks, at rows %s"%(self.MSName, self.DDID, self.Field,  self.F_nrows,
+                                                                                       self.ColName, len(chunk_row0), " ".join(map(str,chunk_row0))), file=log)
         self.Nchunk = len(chunk_row0)
         chunk_row0.append(self.F_nrows)
         self._chunk_r0r1 = [ chunk_row0[i:i+2] for i in range(self.Nchunk) ]
@@ -1101,7 +1107,7 @@ class ClassMS():
                 decnew=(np.pi/180)*np.sign(float(sdecd))*(abs(float(sdecd))+float(sdecm)/60.+float(sdecs)/3600.)
             # only enable rotation if coordinates actually change
             if ranew != rarad or decnew != decrad:
-                print>>log,ModColor.Str("MS %s will be rephased to %s"%(self.MSName,which))
+                print(ModColor.Str("MS %s will be rephased to %s"%(self.MSName,which)), file=log)
                 self.OldRadec = rarad,decrad
                 self.NewRadec = ranew,decnew
                 rarad,decrad = ranew,decnew
@@ -1116,7 +1122,7 @@ class ClassMS():
          
         self._reverse_channel_order = Nchan>1 and self.ChanFreq[0] > self.ChanFreq[-1]
         if self._reverse_channel_order:
-            print>>log, ModColor.Str("(NB: this MS has reverse channel order)",col="blue")
+            print(ModColor.Str("(NB: this MS has reverse channel order)",col="blue"), file=log)
             wavelength_chan = wavelength_chan[::-1]
             self.ChanFreq = self.ChanFreq[::-1]
             self.dFreq = np.abs(self.dFreq)
@@ -1177,7 +1183,7 @@ class ClassMS():
         by applying various selection criteria from self.DicoSelectOptions.
         Also sets flagged data to 1e9.
         """
-        print>> log, "Updating flags"
+        print("Updating flags", file=log)
 
         ThresholdFlag = 0.9 # flag antennas with % of flags over threshold
 
@@ -1199,7 +1205,7 @@ class ClassMS():
 
         if self.DicoSelectOptions["UVRangeKm"]:
             d0, d1 = self.DicoSelectOptions["UVRangeKm"]
-            print>> log, "  flagging uv data outside uv distance of [%5.1f~%5.1f] km" % (d0, d1)
+            print("  flagging uv data outside uv distance of [%5.1f~%5.1f] km" % (d0, d1), file=log)
             d0 = d0**2*1e6
             d1 = d1**2*1e6
             duv = (uvw[:,:2]**2).sum(1)  # u^2+v^2... and we already squared d0 and d1
@@ -1209,7 +1215,7 @@ class ClassMS():
             t0 = times[0]
             tt = (times - t0) / 3600.
             st0, st1 = self.DicoSelectOptions["TimeRange"]
-            print>> log, "  selecting uv data in time range [%.4f~%5.4f] hours" % (st0, st1)
+            print("  selecting uv data in time range [%.4f~%5.4f] hours" % (st0, st1), file=log)
             ind = np.where((tt >= st0) & (tt < st1))[0]
             flags[ind, :, :] = True
 
@@ -1220,8 +1226,8 @@ class ClassMS():
             Dist = np.sqrt((X - Xm) ** 2 + (Y - Ym) ** 2 + (Z - Zm) ** 2)
             ind = np.where(Dist > DMax)[0]
             for iAnt in ind.tolist():
-                print>> log, "  flagging antenna #%2.2i[%s] (distance to core: %.1f km)" % (
-                iAnt, self.StationNames[iAnt], Dist[iAnt] / 1e3)
+                print("  flagging antenna #%2.2i[%s] (distance to core: %.1f km)" % (
+                iAnt, self.StationNames[iAnt], Dist[iAnt] / 1e3), file=log)
                 FlagAntNumber.add(iAnt)
 
         # C0=(A0 == 7) & (A1 == 17)
@@ -1231,20 +1237,20 @@ class ClassMS():
 
         # print>>log,"  forming per-antenna index"
         # per each antenna, form up boolean mask indicating its rows
-        antenna_rows = [(A0 == A) | (A1 == A) for A in xrange(self.na)]
+        antenna_rows = [(A0 == A) | (A1 == A) for A in range(self.na)]
         # print>>log,"  row index formed"
 
         
         
         antenna_flagfrac = [flags1[rows].sum() / float(flags1[rows].size or 1) for rows in antenna_rows]
-        print>> log, "  flagged fractions per antenna: %s" % " ".join(["%.2f" % frac for frac in antenna_flagfrac])
+        print("  flagged fractions per antenna: %s" % " ".join(["%.2f" % frac for frac in antenna_flagfrac]), file=log)
 
         FlagAntFrac = [ant for ant, frac in enumerate(antenna_flagfrac) if frac > ThresholdFlag]
         FlagAntNumber.update(FlagAntFrac)
 
         for A in FlagAntFrac:
-            print>> log, "    antenna %i has ~%4.1f%s of flagged data (more than %4.1f%s)" % \
-                         (A, antenna_flagfrac[A] * 100, "%", ThresholdFlag * 100, "%")
+            print("    antenna %i has ~%4.1f%s of flagged data (more than %4.1f%s)" % \
+                         (A, antenna_flagfrac[A] * 100, "%", ThresholdFlag * 100, "%"), file=log)
 
         if self.DicoSelectOptions["FlagAnts"]:
             FlagAnts = self.DicoSelectOptions["FlagAnts"]
@@ -1253,13 +1259,13 @@ class ClassMS():
                 for Name in FlagAnts:
                     for iAnt in range(self.na):
                         if Name in self.StationNames[iAnt]:
-                            print>> log, "  explicitly flagging antenna #%2.2i[%s]" % (
-                            iAnt, self.StationNames[iAnt])
+                            print("  explicitly flagging antenna #%2.2i[%s]" % (
+                            iAnt, self.StationNames[iAnt]), file=log)
                             FlagAntNumber.add(iAnt)
 
         for A in FlagAntNumber:
             flags[antenna_rows[A], :, :] = True
-        print>>log, "Flags updated"
+        print("Flags updated", file=log)
 
     def __str__(self):
         ll=[]
@@ -1301,7 +1307,7 @@ class ClassMS():
         nrow = row1 - row0
         if self._reverse_channel_order:
             vis = vis[:,::-1,:]
-        print>>log, "writing column %s rows %d:%d"%(colname,row0,row1)
+        print("writing column %s rows %d:%d"%(colname,row0,row1), file=log)
         t = self.GiveMainTable(readonly=False, ack=False)
 
         # if sorting rows, rearrange vis array back into MS order
@@ -1332,7 +1338,7 @@ class ClassMS():
     def SaveVis(self,vis=None,Col="CORRECTED_DATA",spw=0,DoPrint=True):
         if vis is None:
             vis=self.data
-        if DoPrint: print>>log, "Writing data in column %s" % ModColor.Str(Col, col="green")
+        if DoPrint: print("Writing data in column %s" % ModColor.Str(Col, col="green"), file=log)
         table_all=self.GiveMainTable(readonly=False)
 
         if self.swapped:
@@ -1415,10 +1421,10 @@ class ClassMS():
         backnameFlag="FLAG_BACKUP"
         t=table(self.MSName,readonly=False,ack=False)
         if backname in t.colnames():
-            print>>log, "  Copying ",backname," to CORRECTED_DATA"
+            print("  Copying ",backname," to CORRECTED_DATA", file=log)
             #t.putcol("CORRECTED_DATA",t.getcol(backname))
             self.CopyCol(backname,"CORRECTED_DATA")
-            print>>log, "  Copying ",backnameFlag," to FLAG"
+            print("  Copying ",backnameFlag," to FLAG", file=log)
             self.CopyCol(backnameFlag,"FLAG")
             #t.putcol(,t.getcol(backnameFlag))
         t.close()
@@ -1437,15 +1443,15 @@ class ClassMS():
     def CopyCol(self,Colin,Colout):
         t=table(self.MSName,readonly=False,ack=False)
         if self.TimeChunkSize is None:
-            print>>log, "  ... Copying column %s to %s"%(Colin,Colout)
+            print("  ... Copying column %s to %s"%(Colin,Colout), file=log)
             t.putcol(Colout,t.getcol(Colin))
         else:
-            print>>log, "  ... Copying column %s to %s"%(Colin,Colout)
+            print("  ... Copying column %s to %s"%(Colin,Colout), file=log)
             TimesInt=np.arange(0,self.DTh,self.TimeChunkSize).tolist()
             if not(self.DTh in TimesInt): TimesInt.append(self.DTh)
             for i in range(len(TimesInt)-1):
                 t0,t1=TimesInt[i],TimesInt[i+1]
-                print>>log, "      ... Copy in [%5.2f,%5.2f] hours"%( t0,t1)
+                print("      ... Copy in [%5.2f,%5.2f] hours"%( t0,t1), file=log)
                 t0=t0*3600.+self.F_tstart
                 t1=t1*3600.+self.F_tstart
                 ind0=np.argmin(np.abs(t0-self.F_times))
@@ -1460,13 +1466,13 @@ class ClassMS():
         t=table(self.MSName,readonly=False,ack=False)
         if (ColName in t.colnames()):# and not self.GD["Predict"]["Overwrite"]):
             if not quiet:
-                print>>log, "  Column %s already in %s"%(ColName,self.MSName)
+                print("  Column %s already in %s"%(ColName,self.MSName), file=log)
             t.close()
             return
         # elif (ColName in t.colnames() and self.GD["Predict"]["Overwrite"]):
         #     t.removecols(ColName)
 
-        print>>log, "  Putting column %s in %s"%(ColName,self.MSName)
+        print("  Putting column %s in %s"%(ColName,self.MSName), file=log)
         desc=t.getcoldesc(LikeCol)
         desc["name"]=ColName
         desc['comment']=desc['comment'].replace(" ","_")
@@ -1480,15 +1486,15 @@ class ClassMS():
         t=table(self.MSName,readonly=False,ack=False)
         JustAdded=False
         if not(backname in t.colnames()):
-            print>>log, "  Putting column ",backname," in MS"
+            print("  Putting column ",backname," in MS", file=log)
             desc=t.getcoldesc("CORRECTED_DATA")
             desc["name"]=backname
             desc['comment']=desc['comment'].replace(" ","_")
             t.addcols(desc)
-            print>>log, "  Copying %s in %s"%(incol,backname)
+            print("  Copying %s in %s"%(incol,backname), file=log)
             self.CopyCol(incol,backname)
         else:
-            print>>log, "  Column %s already there"%(backname)
+            print("  Column %s already there"%(backname), file=log)
 
         if not(backnameFlag in t.colnames()):
             desc=t.getcoldesc("FLAG")
@@ -1504,7 +1510,7 @@ class ClassMS():
 
     def PutNewCol(self,Name,LikeCol="CORRECTED_DATA"):
         if not(Name in self.ColNames):
-            print>>log, "  Putting column %s in MS, with format of %s"%(Name,LikeCol)
+            print("  Putting column %s in MS, with format of %s"%(Name,LikeCol), file=log)
             t=table(self.MSName,readonly=False,ack=False)
             desc=t.getcoldesc(LikeCol)
             desc["name"]=Name
@@ -1525,9 +1531,9 @@ class ClassMS():
         StrDECOld = rad2hmsdms(dec0,Type="dec").replace(" ",".")
         StrRA  = rad2hmsdms(ra1,Type="ra").replace(" ",":")
         StrDEC = rad2hmsdms(dec1,Type="dec").replace(" ",".")
-        print>>log, "Rotate %s [Mode = %s]"%(",".join(RotateType),Sense)
-        print>>log, "     from [%s, %s] [%f %f]"%(StrRAOld,StrDECOld,ra0,dec0)
-        print>>log, "       to [%s, %s] [%f %f]"%(StrRA,StrDEC,ra1,dec1)
+        print("Rotate %s [Mode = %s]"%(",".join(RotateType),Sense), file=log)
+        print("     from [%s, %s] [%f %f]"%(StrRAOld,StrDECOld,ra0,dec0), file=log)
+        print("       to [%s, %s] [%f %f]"%(StrRA,StrDEC,ra1,dec1), file=log)
         
         DDFacet.ToolsDir.ModRotate.Rotate2((ra0,dec0),(ra1,dec1),DATA["uvw"],DATA[DataFieldName],self.wavelength_chan,
                                            RotateType=RotateType)
@@ -1578,7 +1584,7 @@ class ClassMS():
         return UVW_dt
 
     def AddUVW_dt(self):
-        print>>log,"Compute UVW speed column"
+        print("Compute UVW speed column", file=log)
         MSName=self.MSName
         MS=self
         t=table(MSName,readonly=False,ack=False)
@@ -1588,7 +1594,7 @@ class ClassMS():
         UVW=t.getcol("UVW")
         UVW_dt=np.zeros_like(UVW)
         if "UVWDT" not in t.colnames():
-            print>>log,"Adding column UVWDT in %s"%self.MSName
+            print("Adding column UVWDT in %s"%self.MSName, file=log)
             desc=t.getcoldesc("UVW")
             desc["name"]="UVWDT"
             desc['comment']=desc['comment'].replace(" ","_")
@@ -1621,7 +1627,7 @@ class ClassMS():
             pBAR.render(ant0+1, na)
                     
     
-        print>>log,"Writing in column UVWDT"
+        print("Writing in column UVWDT", file=log)
         t.putcol("UVWDT",UVW_dt)
         t.close()
     
@@ -1659,17 +1665,17 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
     and field are indices.
     """
     if type(MSName) is list:
-        print>> log, "multi-MS mode"
+        print("multi-MS mode", file=log)
     elif type(MSName) is not str:
         raise TypeError, "MSName parameter must be a list or a filename"
     elif MSName.endswith(".txt"):
         MSName0 = MSName
         MSName = [ l.strip() for l in open(MSName).readlines() ]
-        print>> log, "list file %s contains %d MSs" % (MSName0, len(MSName))
+        print("list file %s contains %d MSs" % (MSName0, len(MSName)), file=log)
     elif MSName.endswith(".pickle"):
         MSName0 = MSName
         MSName = MyPickle.Load(MSName)
-        print>> log, "list file %s contains %d MSs" % (MSName0, len(MSName))
+        print("list file %s contains %d MSs" % (MSName0, len(MSName)), file=log)
     else:
         MSName = [MSName]
     # now, at this point each entry in the list can still contain wildcards, and ":Fx:Dx" groups. Process it
@@ -1709,33 +1715,33 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
         dg = groupToSlice(dgroup) if dgroup else defaultDDID
         # now, go over MSs specified by the name
         paths = sorted(glob.glob(msname))
-        print>> log, "found %d MSs matching %s" % (len(paths), msname)
+        print("found %d MSs matching %s" % (len(paths), msname), file=log)
         for mspath in paths:
             # if F/D was specified as a slice or wildcard, look into MS to determine numbers
             if type(dg) is slice:
                 nddid = table(table(mspath, ack=False).getkeyword('DATA_DESCRIPTION'), ack=False).nrows()
                 ddids = range(nddid)[dg]
                 if ddids:
-                    print>>log,"%s: selecting DDIDs %s" % (mspath, " ".join(map(str,ddids)))
+                    print("%s: selecting DDIDs %s" % (mspath, " ".join(map(str,ddids))), file=log)
                 else:
-                    print>>log,ModColor.Str("%s: no DDIDs in range %s" % (mspath, dgroup))
+                    print(ModColor.Str("%s: no DDIDs in range %s" % (mspath, dgroup)), file=log)
                     continue
             else:
                 ddids = [ dg ]
-                print>> log, "%s: selecting DDID %d" % (mspath, dg)
+                print("%s: selecting DDID %d" % (mspath, dg), file=log)
             if type(fg) is slice:
                 nf = table(table(mspath, ack=False).getkeyword('FIELD'), ack=False).nrows()
                 fields = range(nf)[fg]
                 if fields:
-                    print>>log,"%s: selecting fields %s" % (mspath, " ".join(map(str,fields)))
+                    print("%s: selecting fields %s" % (mspath, " ".join(map(str,fields))), file=log)
                 else:
-                    print>> log, ModColor.Str("%s: no fields in range %s" % (mspath, fgroup))
+                    print(ModColor.Str("%s: no fields in range %s" % (mspath, fgroup)), file=log)
             else:
                 fields = [ fg ]
-                print>> log, "%s: selecting field %d" % (mspath, fg)
+                print("%s: selecting field %d" % (mspath, fg), file=log)
             if col is not None:
-                print>>log, "%s: non-default column %s"%(mspath, col)
+                print("%s: non-default column %s"%(mspath, col), file=log)
             # make output list
             mslist += [ (mspath,d,f,col) for d in ddids for f in fields ]
-    print>>log, "%d MS section(s) selected" % len(mslist)
+    print("%d MS section(s) selected" % len(mslist), file=log)
     return mslist

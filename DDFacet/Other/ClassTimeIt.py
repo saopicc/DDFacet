@@ -18,8 +18,14 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import time as timemod
-import logger
+from DDFacet.Other import logger
 log = logger.getLogger("ClassTimeIt")
 DoLog = False
 
@@ -71,9 +77,9 @@ class ClassTimeIt():
         else:
             Sout = "  * %s computation time: %s" % (stri, ts)
         if DoLog:
-            print>>log, Sout
+            print(Sout, file=log)
         else:
-            print Sout
+            print(Sout)
 
     def disable(self):
         self.IsEnable = False

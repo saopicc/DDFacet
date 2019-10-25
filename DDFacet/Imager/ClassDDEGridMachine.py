@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import DDFacet.cbuild.Gridder._pyGridderSmearPols as _pyGridderSmear
 import DDFacet.cbuild.Gridder._pyGridderSmearPolsClassic as _pyGridderSmearClassic
 # import DDFacet.cbuild.Gridder._pyGridderSmearPolsFaster as _pyGridderSmearFaster
@@ -28,7 +34,7 @@ import DDFacet.cbuild.Gridder._pyGridder as _pyGridder
 
 import numpy as np
 import os
-import ModCF
+from DDFacet.Imager import ModCF
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Parset import ReadCFG
@@ -1146,8 +1152,8 @@ class ClassDDEGridMachine():
         ModelImCorr = ModelIm*(self.WTerm.OverS*self.Padding)**2
 
         nchan, npol, _, _ = ModelImCorr.shape
-        for ichan in xrange(nchan):
-            for ipol in xrange(npol):
+        for ichan in range(nchan):
+            for ipol in range(npol):
                 ModelImCorr[
                     ichan, ipol][
                     :, :] = ModelImCorr[

@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 
 import montblanc
@@ -245,7 +251,7 @@ class DataDictionaryManager(object):
                 station_uv[iapos] = dm.to_uvw(dm.baseline("ITRF", quantity([apos[0], station_ECEF[0, 0]], "m"),
                                                                    quantity([apos[1], station_ECEF[0, 1]], "m"),
                                                                    quantity([apos[2], station_ECEF[0, 2]], "m")))["xyz"].get_value()[0:3]
-            for bl in xrange(nbl):
+            for bl in range(nbl):
                 blants = antenna_indicies[bl]
                 bla1 = blants[0]
                 bla2 = blants[1]
@@ -323,8 +329,8 @@ class DataDictionaryManager(object):
         self._datamask = np.zeros((self._ntime, self._nbl), dtype=np.bool)
         self._datamask[self._tindx, self._blindx] = True
         self._datamask = self._datamask.reshape((self._nrow))
-        print>> log, "Padding data matrix for missing baselines (%.2f %% data missing from MS)" % \
-            (100.0 - 100.0 * float(np.sum(self._datamask)) / self._datamask.size)
+        print("Padding data matrix for missing baselines (%.2f %% data missing from MS)" % \
+            (100.0 - 100.0 * float(np.sum(self._datamask)) / self._datamask.size), file=log)
         
         # padded row numbers of the sparce data matrix
         self._sparseindx = np.cumsum(self._datamask) - 1
@@ -334,7 +340,7 @@ class DataDictionaryManager(object):
         self._padded_a2 = np.empty((self._nbl), dtype=np.int32)
 
         antenna_indicies = DataDictionaryManager.antenna_indicies(na, auto_correlations=True)
-        for bl in xrange(self._nbl):
+        for bl in range(self._nbl):
             blants = antenna_indicies[bl]
             self._padded_a1[bl] = blants[0]
             self._padded_a2[bl] = blants[1]
@@ -360,7 +366,7 @@ class DataDictionaryManager(object):
         
         # CASA split may have removed completely flagged baselines so resynthesize
         # uv coordinates as best as possible
-        print>> log, "Synthesizing new UVW coordinates from TIME column to fill gaps in measurement set"
+        print("Synthesizing new UVW coordinates from TIME column to fill gaps in measurement set", file=log)
         self._synth_uvw = DataDictionaryManager._synthesize_uvw(self._antenna_positions, 
                                                                 self._padded_time, 
                                                                 self._padded_a1, 
@@ -372,7 +378,7 @@ class DataDictionaryManager(object):
         q1 = np.percentile(np.abs(self._synth_uvw[self._datamask] - uvw[self._sort_index]), 1.0)
         q2 = np.percentile(np.abs(self._synth_uvw[self._datamask] - uvw[self._sort_index]), 50.0)
         q3 = np.percentile(np.abs(self._synth_uvw[self._datamask] - uvw[self._sort_index]), 99.0)
-        print>> log, ModColor.Str("WARNING: The 99th percentile error on newly synthesized UVW coordinates may be as large as %.5f" % q3)
+        print(ModColor.Str("WARNING: The 99th percentile error on newly synthesized UVW coordinates may be as large as %.5f" % q3), file=log)
         
         self._flag = flag
 

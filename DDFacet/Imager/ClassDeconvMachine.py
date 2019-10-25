@@ -18,7 +18,13 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
-from ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
+from DDFacet.Imager.ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
 import numpy as np
 from pyrap.images import image
 from DDFacet.Other import MyPickle
@@ -28,8 +34,8 @@ import os
 from DDFacet.ToolsDir import ModFitPSF
 from DDFacet.Data import ClassVisServer
 from DDFacet.Data import ClassMS
-import ClassCasaImage
-from ModModelMachine import ClassModModelMachine
+from DDFacet.Imager import ClassCasaImage
+from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 import time
 import glob
 from DDFacet.Other import ModColor
@@ -183,7 +189,7 @@ class ClassImagerDeconv():
         SubstractModel=self.GD["Predict"]["InitDicoModel"]
         DoSub=(SubstractModel!="")&(SubstractModel is not None)
         if DoSub:
-            print>>log, ModColor.Str("Initialise sky model using %s"%SubstractModel,col="blue")
+            print(ModColor.Str("Initialise sky model using %s"%SubstractModel,col="blue"), file=log)
             ModelMachine = self.ModConstructor.GiveInitialisedMMFromFile(SubstractModel)
             modeltype = ModelMachine.DicoSMStacked["Type"]
             if modeltype == "GA":
@@ -195,7 +201,8 @@ class ClassImagerDeconv():
                                           %(self.GD["Deconv"]["Mode"], modeltype))
 
             if ModelMachine.RefFreq!=self.VS.RefFreq:
-                print>>log, ModColor.Str("Taking reference frequency from the model machine %f MHz (instead of %f MHz from the data)"%(ModelMachine.RefFreq/1e6,self.VS.RefFreq/1e6))
+                print(ModColor.Str("Taking reference frequency from the model machine %f MHz (instead of %f MHz from the data)"%
+                        (ModelMachine.RefFreq/1e6,self.VS.RefFreq/1e6)), file=log)
             self.RefFreq=self.VS.RefFreq=ModelMachine.RefFreq
 
             if self.BaseName==self.GD["Predict"]["InitDicoModel"][0:-10]:
@@ -233,38 +240,38 @@ class ClassImagerDeconv():
                     raise NotImplementedError("Multi-polarization CLEAN is not supported in MSMF")
                 from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
                 self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
-                print>>log,"Using MSMF algorithm"
+                print("Using MSMF algorithm", file=log)
             elif self.GD["Deconv"]["Mode"]=="SSD":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                     raise NotImplementedError("Multi-polarization is not supported in SSD")
                 from DDFacet.Imager.SSD import ClassImageDeconvMachineSSD
                 self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
-                print>>log,"Using SSD with %s Minor Cycle algorithm"%self.GD["SSDClean"]["IslandDeconvMode"]
+                print("Using SSD with %s Minor Cycle algorithm"%self.GD["SSDClean"]["IslandDeconvMode"], file=log)
             elif self.GD["Deconv"]["Mode"] == "Hogbom":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                     raise NotImplementedError("Multi-polarization CLEAN is not supported in Hogbom")
                 from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
                 self.DeconvMachine=ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(**MinorCycleConfig)
-                print>>log,"Using Hogbom algorithm"
+                print("Using Hogbom algorithm", file=log)
             elif self.GD["Deconv"]["Mode"]=="MORESANE":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                     raise NotImplementedError("Multi-polarization is not supported in MORESANE")
                 from DDFacet.Imager.MORESANE import ClassImageDeconvMachineMoresane
                 self.DeconvMachine=ClassImageDeconvMachineMoresane.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
-                print>>log,"Using MORESANE algorithm"
+                print("Using MORESANE algorithm", file=log)
             elif self.GD["Deconv"]["Mode"]=="MUFFIN":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                     raise NotImplementedError("Multi-polarization is not supported in MORESANE")
                 from DDFacet.Imager.MUFFIN import ClassImageDeconvMachineMUFFIN
                 self.DeconvMachine=ClassImageDeconvMachineMUFFIN.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
-                print>>log,"Using MUFFIN algorithm"
+                print("Using MUFFIN algorithm", file=log)
             elif self.GD["Deconv"]["Mode"]=="WSCMS":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                     raise NotImplementedError("Multi-polarization is not supported in WSCMS")
                 from DDFacet.Imager.WSCMS import ClassImageDeconvMachineWSCMS
                 self.DeconvMachine = ClassImageDeconvMachineWSCMS.ClassImageDeconvMachine(MainCache=self.VS.maincache,
                                                                                           **MinorCycleConfig)
-                print>> log, "Using WSCMS algorithm"
+                print("Using WSCMS algorithm", file=log)
             else:
                 raise NotImplementedError("Unknown --Deconvolution-Mode setting '%s'" % self.GD["Deconv"]["Mode"])
             self.DeconvMachine.setMaskMachine(self.MaskMachine)
@@ -310,16 +317,16 @@ class ClassImagerDeconv():
             self.FacetMachine.Init()
         if self.do_psf:
             if self.PSFFacets:
-                print>> log, "the PSFFacets version is currently not supported, using 0 (i.e. same facets as image)"
+                print("the PSFFacets version is currently not supported, using 0 (i.e. same facets as image)", file=log)
                 self.PSFFacets = 0
             oversize = self.GD["Facets"]["PSFOversize"] or 1
             if self.PSFFacets:
                 MainFacetOptions["NFacets"] = self.PSFFacets
-                print>> log, "using %d facets to compute the PSF" % self.PSFFacets
+                print("using %d facets to compute the PSF" % self.PSFFacets, file=log)
                 if self.PSFFacets == 1:
                     oversize = 1
-                    print>> log, "PSFFacets=1 implies PSFOversize=1"
-            print>> log, "using PSFOversize=%.2f" % oversize
+                    print("PSFFacets=1 implies PSFOversize=1", file=log)
+            print("using PSFOversize=%.2f" % oversize, file=log)
             self.FacetMachinePSF = ClassFacetMachine(self.VS, self.GD,
                                                 Precision=self.Precision, PolMode=self.PolMode,
                                                 DoPSF=True, Oversize=oversize)
@@ -358,7 +365,7 @@ class ClassImagerDeconv():
         if mode in (0, False, None, 'off'):
             return None, False, False
         elif mode == 'reset':
-            print>> log, ModColor.Str("Forcing to reset the cached PSF image", col="red")
+            print(ModColor.Str("Forcing to reset the cached PSF image", col="red"), file=log)
             cachepath, valid = self.VS.maincache.checkCache("PSF", key or self._createDirtyPSFCacheKey(sparsify),
                                                                       reset=True)
             writecache = True
@@ -368,7 +375,7 @@ class ClassImagerDeconv():
         elif mode == 'force':
             cachepath = self.VS.maincache.getElementPath("PSF")
             valid = os.path.exists(cachepath)
-            print>> log, ModColor.Str("Forcing to read the cached PSF", col="red")
+            print(ModColor.Str("Forcing to read the cached PSF", col="red"), file=log)
             writecache = False
         else:
             raise ValueError("unknown --Cache-PSF setting %s"%self.GD["Cache"]["PSF"])
@@ -380,7 +387,7 @@ class ClassImagerDeconv():
             cachepath, valid = None, False
             writecache = False
         elif mode == 'reset':
-            print>> log, ModColor.Str("Forcing to reset the cached dirty image", col="red")
+            print(ModColor.Str("Forcing to reset the cached dirty image", col="red"), file=log)
             cachepath, valid = self.VS.maincache.checkCache("Dirty", key or self._createDirtyDirtyCacheKey(sparsify),
                                                                       reset=True)
             writecache = True
@@ -391,18 +398,18 @@ class ClassImagerDeconv():
             cachepath = self.VS.maincache.getElementPath("Dirty")
             valid = os.path.exists(cachepath)
             if not valid:
-                print>> log, ModColor.Str("Can't force-read cached dirty %s: does not exist" % cachepath, col="red")
+                print(ModColor.Str("Can't force-read cached dirty %s: does not exist" % cachepath, col="red"), file=log)
                 raise RuntimeError("--Cache-Dirty forcedirty in effect, but no cached dirty image found")
-            print>> log, ModColor.Str("Forcing reading the cached dirty image", col="red")
+            print(ModColor.Str("Forcing reading the cached dirty image", col="red"), file=log)
             writecache = False
         elif mode == 'forceresidual':
             cachepath = self.VS.maincache.getElementPath("LastResidual")
             valid = os.path.exists(cachepath)
 
             if not valid:
-                print>> log, ModColor.Str("Can't force-read cached last residual %s: does not exist" % cachepath, col="red")
+                print(ModColor.Str("Can't force-read cached last residual %s: does not exist" % cachepath, col="red"), file=log)
                 raise RuntimeError("--Cache-Dirty forceresidual in effect, but no cached residual image found")
-            print>> log, ModColor.Str("Forcing reading the cached last residual image", col="red")
+            print(ModColor.Str("Forcing reading the cached last residual image", col="red"), file=log)
 
             writecache = False
         else:
@@ -435,7 +442,7 @@ class ClassImagerDeconv():
             f_beam=(forced_beam[0]/3600.0,forced_beam[1]/3600.0,forced_beam[2])
             FWHMFact = 2. * np.sqrt(2. * np.log(2.))
             f_gau=(np.deg2rad(f_beam[0])/FWHMFact,np.deg2rad(f_beam[1])/FWHMFact,np.deg2rad(f_beam[2]))
-            print>>log, 'Will use user-specified beam: bmaj=%f, bmin=%f, bpa=%f degrees' % f_beam
+            print('Will use user-specified beam: bmaj=%f, bmin=%f, bpa=%f degrees' % f_beam, file=log)
             beam, gausspars = f_beam, f_gau
             self.FWHMBeamAvg, self.PSFGaussParsAvg = beam, gausspars
         # #########################"
@@ -463,9 +470,9 @@ class ClassImagerDeconv():
                 if self.fit_stat is not None:
                     raise self.fit_stat #delay fitting errors
             except:
-                print>> log, traceback.format_exc()
-                print>> log, ModColor.Str(
-                    "WARNING: PSF cache could not be written, see error report above. Proceeding anyway.")
+                print(traceback.format_exc(), file=log)
+                print(ModColor.Str(
+                    "WARNING: PSF cache could not be written, see error report above. Proceeding anyway."), file=log)
 
     def _fitAndSavePSF (self, FacetMachinePSF, save=True, cycle=None):
         if not self.HasFittedPSFBeam:
@@ -485,7 +492,7 @@ class ClassImagerDeconv():
             if self.fit_stat is not None:
                 raise self.fit_stat
         except:
-            print>> log, traceback.format_exc()
+            print(traceback.format_exc(), file=log)
             raise RuntimeError("there was an error fitting the PSF. Something is really wrong with the data?")
 
     def MakePSF(self, sparsify=0):
@@ -502,15 +509,15 @@ class ClassImagerDeconv():
 
 
         if valid:
-            print>>log, ModColor.Str("============================ Loading cached PSF ==========================")
-            print>> log, "found valid cached PSF in %s" % cachepath
+            print(ModColor.Str("============================ Loading cached PSF =========================="), file=log)
+            print("found valid cached PSF in %s" % cachepath, file=log)
             if not self.GD["Cache"]["PSF"].startswith("force"):
-                print>>log, ModColor.Str("As near as we can tell, we can reuse this cache because it was produced")
-                print>>log, ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,")
-                print>>log, ModColor.Str("or if your MS has changed, please remove the cache, or run with --Cache-PSF reset.")
+                print(ModColor.Str("As near as we can tell, we can reuse this cache because it was produced"), file=log)
+                print(ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,"), file=log)
+                print(ModColor.Str("or if your MS has changed, please remove the cache, or run with --Cache-PSF reset."), file=log)
             self._loadCachedPSF(cachepath)
         else:
-            print>>log, ModColor.Str("=============================== Making PSF ===============================")
+            print(ModColor.Str("=============================== Making PSF ==============================="), file=log)
 
             # tell the I/O thread to go load the first chunk
             self.VS.ReInitChunkCount()
@@ -527,7 +534,7 @@ class ClassImagerDeconv():
                 # self.VS.startChunkLoadInBackground()
                 DATA = self.VS.collectLoadedChunk(start_next=True)
                 if type(DATA) is str:
-                    print>> log, ModColor.Str("no more data: %s" % DATA, col="red")
+                    print(ModColor.Str("no more data: %s" % DATA, col="red"), file=log)
                     break
                 # None weights indicates an all-flagged chunk: go on to the next chunk
                 if DATA["Weights"] is None:
@@ -567,15 +574,15 @@ class ClassImagerDeconv():
         # load from cache
         if dirty_valid:
             if self.GD["Cache"]["Dirty"] == "forceresidual":
-                print>>log, ModColor.Str("============================ Loading last residual image ========================")
-                print>>log, "found valid cached residual image in %s"%dirty_cachepath
+                print(ModColor.Str("============================ Loading last residual image ========================"), file=log)
+                print("found valid cached residual image in %s"%dirty_cachepath, file=log)
             else:
-                print>>log, ModColor.Str("============================ Loading cached dirty image =========================")
-                print>> log, "found valid cached residual image in %s" % dirty_cachepath
+                print(ModColor.Str("============================ Loading cached dirty image ========================="), file=log)
+                print("found valid cached residual image in %s" % dirty_cachepath, file=log)
             if type(self.GD["Cache"]["Dirty"]) is not str or not self.GD["Cache"]["Dirty"].startswith("force"):
-                print>>log, ModColor.Str("As near as we can tell, we can reuse this cache because it was produced")
-                print>>log, ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,")
-                print>>log, ModColor.Str("or if your MS has changed, please remove the cache, or run with --Cache-Dirty reset.")
+                print(ModColor.Str("As near as we can tell, we can reuse this cache because it was produced"), file=log)
+                print(ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,"), file=log)
+                print(ModColor.Str("or if your MS has changed, please remove the cache, or run with --Cache-Dirty reset."), file=log)
 
             self.DicoDirty = shared_dict.create("FM_AllImages")
             self.DicoDirty.restore(dirty_cachepath)
@@ -600,17 +607,17 @@ class ClassImagerDeconv():
                 self.MaskMachine.joinExternalMask(self.DicoDirty["LastMask"])
 
         if psf_valid:
-            print>>log, ModColor.Str("============================ Loading cached PSF =================================")
-            print>> log, "found valid cached PSF in %s" % psf_cachepath
+            print(ModColor.Str("============================ Loading cached PSF ================================="), file=log)
+            print("found valid cached PSF in %s" % psf_cachepath, file=log)
             if type(self.GD["Cache"]["PSF"]) is not str or not self.GD["Cache"]["PSF"].startswith("force"):
-                print>>log, ModColor.Str("As near as we can tell, we can reuse this cache because it was produced")
-                print>>log, ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,")
-                print>>log, ModColor.Str("or if your MS has changed, please remove the cache, or run with --Cache-PSF reset.")
+                print(ModColor.Str("As near as we can tell, we can reuse this cache because it was produced"), file=log)
+                print(ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,"), file=log)
+                print(ModColor.Str("or if your MS has changed, please remove the cache, or run with --Cache-PSF reset."), file=log)
             self._loadCachedPSF(psf_cachepath)
 
         # run FM loop if need to generate either
         if not (dirty_valid and psf_valid):
-            print>>log, ModColor.Str("============================== Making Dirty Image and/or PSF ====================")
+            print(ModColor.Str("============================== Making Dirty Image and/or PSF ===================="), file=log)
             # tell the I/O thread to go load the first chunk
             self.VS.ReInitChunkCount()
             self.VS.startChunkLoadInBackground()
@@ -634,7 +641,7 @@ class ClassImagerDeconv():
                 DATA = self.VS.collectLoadedChunk(start_next=True)
 
                 if type(DATA) is str:
-                    print>>log,ModColor.Str("no more data: %s"%DATA, col="red")
+                    print(ModColor.Str("no more data: %s"%DATA, col="red"), file=log)
                     break
 
                 # Allow for predict mode when a residual only is computed
@@ -650,7 +657,7 @@ class ClassImagerDeconv():
                 # None weights indicates an all-flagged chunk: go on to the next chunk
                 if DATA["Weights"] is None:
                     continue
-                print>>log,"sparsify %f"%sparsify
+                print("sparsify %f"%sparsify, file=log)
                 self.FacetMachine.applySparsification(DATA, sparsify)
 
                 if self.DoDirtySub:
@@ -661,10 +668,10 @@ class ClassImagerDeconv():
                         self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model"%(self.BaseName),
                                                       Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
                         current_model_freqs = model_freqs
-                        print>> log, "model image @%s MHz (min,max) = (%f, %f)" % (
-                        str(model_freqs / 1e6), ModelImage.min(), ModelImage.max())
+                        print("model image @%s MHz (min,max) = (%f, %f)" % (
+                            str(model_freqs / 1e6), ModelImage.min(), ModelImage.max()), file=log)
                     else:
-                        print>> log, "reusing model image from previous chunk"
+                        print("reusing model image from previous chunk", file=log)
                     if not dirty_valid:
                         self.FacetMachine.getChunkInBackground(DATA)
                         self.FacetMachine.collectDegriddingResults()
@@ -723,8 +730,8 @@ class ClassImagerDeconv():
                         self.DicoDirty.save(dirty_cachepath)
                         self.VS.maincache.saveCache("Dirty")
                     except:
-                        print>> log, traceback.format_exc()
-                        print>> log, ModColor.Str("WARNING: Dirty image cache could not be written, see error report above. Proceeding anyway.")
+                        print(traceback.format_exc(), file=log)
+                        print(ModColor.Str("WARNING: Dirty image cache could not be written, see error report above. Proceeding anyway."), file=log)
 
             if psf and not psf_valid:
                 self._finalizeComputedPSF(self.FacetMachinePSF, psf_writecache and psf_cachepath)
@@ -805,12 +812,12 @@ class ClassImagerDeconv():
         if self.PredictMode == "Montblanc":
             self._pointing_machines = []
             for iMS, MS in enumerate(self.VS.ListMS):
-                print>> log, ModColor.Str("Initializing pointing solutions for measurement %d / %d" % (iMS + 1,len(self.VS.ListMS)))
+                print(ModColor.Str("Initializing pointing solutions for measurement %d / %d" % (iMS + 1,len(self.VS.ListMS))), file=log)
                 point_sols_csv = self.GD["PointingSolutions"].get("PointingSolsCSV", None)
                 point_sols_interp_mode = self.GD["PointingSolutions"].get("InterpolationMode", None)
                 self._pointing_machines.append(PointingProvider(MS, point_sols_csv, point_sols_interp_mode))
         else:
-            print>> log, ModColor.Str("Montblanc predict not enabled. Will not apply pointing corrections.")
+            print(ModColor.Str("Montblanc predict not enabled. Will not apply pointing corrections."), file=log)
             
     def GiveMontblancPredict(self, DATA, datacolumn):
         """
@@ -838,9 +845,9 @@ class ClassImagerDeconv():
 
     def GivePredict(self, subtract=False, from_fits=True):
         if subtract:
-            print>>log, ModColor.Str("============================== Making Predict/Subtract =====================")
+            print(ModColor.Str("============================== Making Predict/Subtract ====================="), file=log)
         else:
-            print>>log, ModColor.Str("============================== Making Predict ==============================")
+            print(ModColor.Str("============================== Making Predict =============================="), file=log)
 
         if not self.GD["Predict"]["ColName"]:
             raise ValueError("--Predict-ColName must be set")
@@ -879,12 +886,12 @@ class ClassImagerDeconv():
         modelfile = self.GD["Predict"]["FromImage"]
         # if model image is specified, we'll use that, rather than the ModelMachine
         if modelfile is not None and modelfile is not "":
-            print>>log,ModColor.Str("Reading image file for the predict: %s" % modelfile)
+            print(ModColor.Str("Reading image file for the predict: %s" % modelfile), file=log)
             FixedModelImage = ClassCasaImage.FileToArray(modelfile,True)
             nch,npol,_,NPix=self.FacetMachine.OutImShape
             nchModel,npolModel,_,NPixModel=FixedModelImage.shape
             if NPixModel!=NPix:
-                print>>log,ModColor.Str("Model image spatial shape does not match DDFacet settings [%i vs %i]"%(FixedModelImage.shape[-1],NPix))
+                print(ModColor.Str("Model image spatial shape does not match DDFacet settings [%i vs %i]"%(FixedModelImage.shape[-1],NPix)), file=log)
                 CA=ClassAdaptShape(FixedModelImage)
                 FixedModelImage=CA.giveOutIm(NPix)
 
@@ -924,7 +931,7 @@ class ClassImagerDeconv():
             if self.VS.StokesConverter.RequiredStokesProducts() != ['I']:
                 raise RuntimeError("Unsupported: Polarization prediction is not defined")
             if type(DATA) is str:
-                print>> log, ModColor.Str("no more data: %s" % DATA, col="red")
+                print(ModColor.Str("no more data: %s" % DATA, col="red"), file=log)
                 break
             # None weights indicates an all-flagged chunk: go on to the next chunk
             if DATA["Weights"] is None:
@@ -939,22 +946,22 @@ class ClassImagerDeconv():
                 if not np.array_equal(model_freqs, current_model_freqs):
                     ModelImage = self.FacetMachine.setModelImage(self.ModelMachine.GiveModelImage(model_freqs))
                     current_model_freqs = model_freqs
-                    print>> log, "model image @%s MHz (min,max) = (%f, %f)" % (
-                    str(model_freqs / 1e6), ModelImage.min(), ModelImage.max())
+                    print("model image @%s MHz (min,max) = (%f, %f)" % (
+                        str(model_freqs / 1e6), ModelImage.min(), ModelImage.max()), file=log)
                 else:
-                    print>> log, "reusing model image from previous chunk"
+                    print("reusing model image from previous chunk", file=log)
             else:
                 if ModelImage is None:
                     nch=model_freqs.size
                     nchModel=FixedModelImage.shape[0]
                     ThisChFixedModelImage=FixedModelImage # so it's initialized
                     if nch!=nchModel:
-                        print>>log,ModColor.Str("Model image spectral shape does not match DDFacet settings [%i vs %i]"%(nchModel,nch))
+                        print(ModColor.Str("Model image spectral shape does not match DDFacet settings [%i vs %i]"%(nchModel,nch)), file=log)
                         if nchModel>nch:
-                            print>>log,ModColor.Str("  taking the model's %i first channels only"%(nch))
+                            print(ModColor.Str("  taking the model's %i first channels only"%(nch)), file=log)
                             ThisChFixedModelImage=FixedModelImage[0:nch].copy()
                         else:
-                            print>>log,ModColor.Str("  Replicating %i-times the 1st channel"%(nch))
+                            print(ModColor.Str("  Replicating %i-times the 1st channel"%(nch)), file=log)
                             ThisChFixedModelImage=FixedModelImage[0].reshape((1,npol,NPix,NPix))*np.ones((DATA["ChanMappingDegrid"].size,1,1,1))
                         self.FacetMachine.ToCasaImage(ThisChFixedModelImage,
                                                       ImageName="%s.cube.model"%(self.BaseName),
@@ -973,7 +980,7 @@ class ClassImagerDeconv():
                 elif MaskOutSide==1:
                     SquareMaskMode="Outside"
                 NpixInside, _ = EstimateNpix(float(NpixInside), Padding=1)
-                print>>log,"  Zeroing model %s square [%i pixels]"%(SquareMaskMode,NpixInside)
+                print("  Zeroing model %s square [%i pixels]"%(SquareMaskMode,NpixInside), file=log)
                 dn=NpixInside/2
                 n=self.FacetMachine.Npix
                 InSquare=np.zeros(ModelImage.shape,bool)
@@ -1061,7 +1068,7 @@ class ClassImagerDeconv():
 
         # use an approximate PSF when sparsification is above this value. 0 means never
         approximate_psf_above = self.GD["Deconv"]["ApproximatePSF"] or 999999
-        print>>log,"allowing PSF approximations for sparsification > %.1f" % approximate_psf_above
+        print("allowing PSF approximations for sparsification > %.1f" % approximate_psf_above, file=log)
 
         # previous_sparsify keeps track of the sparsity factor at which the dirty/PSF was computed
         # in the previous cycle. We use this to decide when to recompute the PSF.
@@ -1069,7 +1076,7 @@ class ClassImagerDeconv():
         if sparsify <= 1:
             sparsify = previous_sparsify = 0
         if sparsify:
-            print>> log, "applying a sparsification factor of %f to data for dirty image" % sparsify
+            print("applying a sparsification factor of %f to data for dirty image" % sparsify, file=log)
         
         # if running in NMajor=0 mode, then we simply want to subtract/predict the model probably
         self.GiveDirty(psf=True, sparsify=sparsify, last_cycle=(NMajor==0))
@@ -1120,7 +1127,7 @@ class ClassImagerDeconv():
             if not continue_deconv:
                 break
 
-            print>>log, ModColor.Str("========================== Running major cycle %i ========================="%(iMajor-1))
+            print(ModColor.Str("========================== Running major cycle %i ========================="%(iMajor-1)), file=log)
 
             # noise mask first (this may be RAM-hungry due to HMP inside, but ClassImageNoiseMachine.giveBrutalRestored()
             # eventually Reset()s its HMP machine, releasing memory)
@@ -1184,7 +1191,7 @@ class ClassImagerDeconv():
             ModelImage = self.FacetMachine.setModelImage(self.DeconvMachine.GiveModelImage(model_freqs))
             # write out model image, if asked to
             current_model_freqs = model_freqs
-            print>>log,"model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max())
+            print("model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max()), file=log)
             if "o" in self._saveims:
                 self.FacetMachine.ToCasaImage(ModelImage, ImageName="%s.model%2.2i" % (self.BaseName, iMajor),
                                               Fits=True, Freqs=current_model_freqs,
@@ -1195,9 +1202,9 @@ class ClassImagerDeconv():
             ## returned with nothing done in minor cycle? Break out
             if not update_model or iMajor == NMajor:
                 continue_deconv = False
-                print>> log, "This is the last major cycle"
+                print("This is the last major cycle", file=log)
             else:
-                print>> log, "Finished Deconvolving for this major cycle... Going back to visibility space."
+                print("Finished Deconvolving for this major cycle... Going back to visibility space.", file=log)
             predict_colname = not continue_deconv and self.GD["Predict"]["ColName"]
 
             # in the meantime, tell the I/O thread to go reload the first data chunk
@@ -1222,9 +1229,9 @@ class ClassImagerDeconv():
                 self.DicoDirty = None
             self.FacetMachine.ReinitDirty()
             if sparsify or previous_sparsify:
-                print>>log, "applying a sparsification factor of %f (was %f in previous cycle)" % (sparsify, previous_sparsify)
+                print("applying a sparsification factor of %f (was %f in previous cycle)" % (sparsify, previous_sparsify), file=log)
             if do_psf:
-                print>>log, "the PSF will be recomputed"
+                print("the PSF will be recomputed", file=log)
                 self.FacetMachinePSF.ReinitDirty()
             if do_psf or not continue_deconv:
                 if self.DicoImagesPSF is not None:
@@ -1258,7 +1265,7 @@ class ClassImagerDeconv():
                 # note that if we're writing predict data out, DON'T schedule until we're done writing this one
                 DATA = self.VS.collectLoadedChunk(start_next=not predict_colname)
                 if type(DATA) is str:
-                    print>>log,ModColor.Str("no more data: %s"%DATA, col="red")
+                    print(ModColor.Str("no more data: %s"%DATA, col="red"), file=log)
                     break
 
                 # None weights indicates an all-flagged chunk: go on to the next chunk
@@ -1283,14 +1290,14 @@ class ClassImagerDeconv():
                     ModelImage = self.FacetMachine.setModelImage(self.DeconvMachine.GiveModelImage(model_freqs))
                     # write out model image, if asked to
                     current_model_freqs = model_freqs
-                    print>>log,"model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max())
+                    print("model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max()), file=log)
                     if "o" in self._saveims and not HasWrittenModel:
                         self.FacetMachine.ToCasaImage(ModelImage, ImageName="%s.model%2.2i" % (self.BaseName, iMajor),
                                                       Fits=True, Freqs=current_model_freqs,
                                                       Stokes=self.VS.StokesConverter.RequiredStokesProducts())
                         HasWrittenModel=True
                 else:
-                    print>>log,"reusing model image from previous chunk"
+                    print("reusing model image from previous chunk", file=log)
 
                 ## @cyriltasse added this but it seems unnecessary
                 # if "o" in self._saveims:
@@ -1304,7 +1311,7 @@ class ClassImagerDeconv():
 
 
                 if predict_colname:
-                    print>>log,"last major cycle: model visibilities will be stored to %s"%predict_colname
+                    print("last major cycle: model visibilities will be stored to %s"%predict_colname, file=log)
 
                 if self.PredictMode == "BDA-degrid" or self.PredictMode == "Classic" or self.PredictMode == "DeGridder" or self.PredictMode == "BDA-degrid-classic":
                     self.FacetMachine.getChunkInBackground(DATA)
@@ -1376,13 +1383,13 @@ class ClassImagerDeconv():
                                                                 ), 
                                                                 reset=False)
                 try:
-                    print>>log,"Saving last residual image to %s"%cachepath
+                    print("Saving last residual image to %s"%cachepath, file=log)
                     self.DicoDirty.save(cachepath)
                     MyPickle.DicoNPToFile(self.DicoDirty,"%s.DicoPickle"%cachepath)
                     self.VS.maincache.saveCache("LastResidual")
                 except:
-                    print>> log, traceback.format_exc()
-                    print>> log, ModColor.Str("WARNING: Residual image cache could not be written, see error report above. Proceeding anyway.")
+                    print(traceback.format_exc(), file=log)
+                    print(ModColor.Str("WARNING: Residual image cache could not be written, see error report above. Proceeding anyway."), file=log)
 
         self.FacetMachine.finaliseSmoothBeam()
 
@@ -1398,12 +1405,12 @@ class ClassImagerDeconv():
                                                             ),
                                                             reset=False)
             try:
-                print>>log,"Saving last residual image to %s"%cachepath
+                print("Saving last residual image to %s"%cachepath, file=log)
                 self.DicoDirty.save(cachepath)
                 self.VS.maincache.saveCache("LastResidual")
             except:
-                print>> log, traceback.format_exc()
-                print>> log, ModColor.Str("WARNING: Residual image cache could not be written, see error report above. Proceeding anyway.")
+                print(traceback.format_exc(), file=log)
+                print(ModColor.Str("WARNING: Residual image cache could not be written, see error report above. Proceeding anyway."), file=log)
 
         # delete shared dicts that are no longer needed, since Restore() may need a lot of memory
         self.VS.releaseLoadedChunk()
@@ -1433,9 +1440,9 @@ class ClassImagerDeconv():
             Post-conditions: Dump out stokes residues to disk as requested in
             Output-StokesResidues, Stokes residues stored in self.DicoDirty
          """
-         print>>log, ModColor.Str("============================== Making Stokes residual maps ====================")
-         print>>log, ModColor.Str ("WARNING: Stokes parameters other than I have not been deconvolved. Use these maps"
-                                  " only as a debugging tool")
+         print(ModColor.Str("============================== Making Stokes residual maps ===================="), file=log)
+         print(ModColor.Str ("WARNING: Stokes parameters other than I have not been deconvolved. Use these maps"
+                                  " only as a debugging tool"), file=log)
 
          # tell the I/O thread to go load the first chunk
          self.VS.ReInitChunkCount()
@@ -1457,7 +1464,7 @@ class ClassImagerDeconv():
             # self.VS.startChunkLoadInBackground()
             DATA = self.VS.collectLoadedChunk(start_next=True)
             if type(DATA) is str:
-                print>>log,ModColor.Str("no more data: %s"%DATA, col="red")
+                print(ModColor.Str("no more data: %s"%DATA, col="red"), file=log)
                 break
             # None weights indicates an all-flagged chunk: go on to the next chunk
             if DATA["Weights"] is None:
@@ -1476,9 +1483,9 @@ class ClassImagerDeconv():
                 ModelImage = self.FacetMachine.setModelImage(self.DeconvMachine.GiveModelImage(model_freqs))
                 # write out model image, if asked to
                 current_model_freqs = model_freqs
-                print>>log,"model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max())
+                print("model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max()), file=log)
             else:
-                print>>log,"reusing model image from previous chunk"
+                print("reusing model image from previous chunk", file=log)
             if self.PredictMode == "BDA-degrid" or self.PredictMode == "DeGridder" or self.PredictMode == "Classic" or self.PredictMode == "BDA-degrid-classic":
                 self.FacetMachine.getChunkInBackground(DATA)
             elif self.PredictMode == "Montblanc":
@@ -1548,11 +1555,11 @@ class ClassImagerDeconv():
         if x.shape[0] == 0:
             raise RuntimeError("Empty PSF slice detected while fitting. Check your data.")
         off = min(off, x[0], nx-x[0], y[0], ny-y[0])
-        print>> log, "Fitting %s PSF in a [%i,%i] box ..." % (label, off * 2, off * 2)
+        print("Fitting %s PSF in a [%i,%i] box ..." % (label, off * 2, off * 2), file=log)
         P = PSF[0, x[0] - off:x[0] + off, y[0] - off:y[0] + off].copy()
         bmaj, bmin, theta = ModFitPSF.FitCleanBeam(P)
         sidelobes = ModFitPSF.FindSidelobe(P)
-        print>>log, "PSF max is %f"%P.max()
+        print("PSF max is %f"%P.max(), file=log)
 
         FWHMFact = 2. * np.sqrt(2. * np.log(2.))
 
@@ -1560,12 +1567,12 @@ class ClassImagerDeconv():
                 bmin * self.CellArcSec * FWHMFact / 3600.,
                 np.rad2deg(theta))
         gausspars = (bmaj * self.CellSizeRad, bmin * self.CellSizeRad, theta)
-        print>> log, "\tsigma is %f, %f (FWHM is %f, %f), PA is %f deg" % (bmaj * self.CellArcSec,
-                                                                           bmin * self.CellArcSec,
-                                                                           bmaj * self.CellArcSec * FWHMFact,
-                                                                           bmin * self.CellArcSec * FWHMFact,
-                                                                           90-np.rad2deg(theta))
-        print>> log, "\tSecondary sidelobe at the level of %5.1f at a position of %i from the center" % sidelobes
+        print("\tsigma is %f, %f (FWHM is %f, %f), PA is %f deg" % (bmaj * self.CellArcSec,
+                                                                    bmin * self.CellArcSec,
+                                                                    bmaj * self.CellArcSec * FWHMFact,
+                                                                    bmin * self.CellArcSec * FWHMFact,
+                                                                    90-np.rad2deg(theta)), file=log)
+        print("\tSecondary sidelobe at the level of %5.1f at a position of %i from the center" % sidelobes, file=log)
         return fwhm, gausspars, sidelobes
 
     def FitPSF(self):
@@ -1609,7 +1616,7 @@ class ClassImagerDeconv():
             fit_err = e  # we need to bail if we can't fit the average psf
 
         if forced_beam is not None:
-            print>>log, 'Will use user-specified beam: bmaj=%f, bmin=%f, bpa=%f degrees' % f_beam
+            print('Will use user-specified beam: bmaj=%f, bmin=%f, bpa=%f degrees' % f_beam, file=log)
             beam, gausspars = f_beam, f_gau
             fit_err = None # don't care if user provided parameters
 
@@ -1693,7 +1700,7 @@ class ClassImagerDeconv():
 
         # ####################
         # Run MetroClean
-        print>>log,"Running a Metropolis-Hastings MCMC on islands larger than %i pixels"%self.GD["SSDClean"]["RestoreMetroSwitch"]
+        print("Running a Metropolis-Hastings MCMC on islands larger than %i pixels"%self.GD["SSDClean"]["RestoreMetroSwitch"], file=log)
         DeconvMachine.setDeconvMode(Mode="MetroClean")
         DeconvMachine.Update(self.DicoDirty)
         repMinor, continue_deconv, update_model = DeconvMachine.Deconvolve()
@@ -1744,9 +1751,9 @@ class ClassImagerDeconv():
         valid = os.path.exists(dirty_cachepath)
         
         if not valid:
-            print>> log, ModColor.Str("Can't force-read cached last residual %s: does not exist" % dirty_cachepath, col="red")
+            print(ModColor.Str("Can't force-read cached last residual %s: does not exist" % dirty_cachepath, col="red"), file=log)
             raise RuntimeError("--Cache-Dirty forceresidual in effect, but no cached residual image found")
-        print>> log, ModColor.Str("Forcing reading the cached last residual image", col="red")
+        print(ModColor.Str("Forcing reading the cached last residual image", col="red"), file=log)
         
         self.DicoDirty = shared_dict.create("FM_AllImages")
         self.DicoDirty.restore(dirty_cachepath)
@@ -1755,9 +1762,9 @@ class ClassImagerDeconv():
         cachepath = self.VS.maincache.getElementPath("PSF")
         valid = os.path.exists(cachepath)
         if not valid:
-            print>> log, ModColor.Str("Can't force-read cached PSF %s: does not exist" % cachepath, col="red")
+            print(ModColor.Str("Can't force-read cached PSF %s: does not exist" % cachepath, col="red"), file=log)
             raise RuntimeError("--Cache-PSF force in effect, but no cached PSF image found")
-        print>> log, ModColor.Str("Forcing to read the cached PSF", col="red")
+        print(ModColor.Str("Forcing to read the cached PSF", col="red"), file=log)
         self.DicoImagesPSF = shared_dict.create("FMPSF_AllImages")
         self.DicoImagesPSF.restore(cachepath)
         self.FWHMBeam=self.DicoImagesPSF["FWHMBeam"]
@@ -1789,7 +1796,7 @@ class ClassImagerDeconv():
                 SmoothNorm=Norm
                 sqrtSmoothNorm=sqrtNorm
             else:
-                print>>log,ModColor.Str("Using the freq-averaged smooth beam to normalise the apparent images",col="blue")
+                print(ModColor.Str("Using the freq-averaged smooth beam to normalise the apparent images",col="blue"), file=log)
                 SmoothNorm=self.FacetMachine.MeanSmoothJonesNorm
                 sqrtSmoothNorm=np.sqrt(SmoothNorm)
 
@@ -1818,7 +1825,7 @@ class ClassImagerDeconv():
     def Restore(self):
 
 
-        print>>log, "Create restored image"
+        print("Create restored image", file=log)
 
         if self.PSFGaussPars is None:
             self.fit_stat = self.FitPSF()
@@ -1838,7 +1845,7 @@ class ClassImagerDeconv():
             try:
                 ModelMachine.PutBackSubsComps()
             except:
-                print>>log, ModColor.Str("Failed putting back subtracted components")
+                print(ModColor.Str("Failed putting back subtracted components"), file=log)
 
         # do we have a non-trivial norm (i.e. DDE solutions or beam)?
         # @cyriltasse: maybe there's a quicker way to check?
@@ -1882,7 +1889,7 @@ class ClassImagerDeconv():
                     if self.FacetMachine.MeanSmoothJonesNorm is None:
                         a = self.MeanJonesNorm 
                     else:
-                        print>>log,ModColor.Str("Using the freq-averaged smooth beam to normalise the apparent images",col="blue")
+                        print(ModColor.Str("Using the freq-averaged smooth beam to normalise the apparent images",col="blue"), file=log)
                         a=self.FacetMachine.MeanSmoothJonesNorm
                 else:
                     a=np.array([1])
@@ -1896,7 +1903,7 @@ class ClassImagerDeconv():
                     if self.FacetMachine.MeanSmoothJonesNorm is None:
                         a = self.JonesNorm 
                     else:
-                        print>>log,ModColor.Str("Using the smooth beam to normalise the apparent images",col="blue")
+                        print(ModColor.Str("Using the smooth beam to normalise the apparent images",col="blue"), file=log)
                         a=self.FacetMachine.SmoothJonesNorm
                 else:
                     a=np.array([1])
@@ -2276,7 +2283,7 @@ class ClassImagerDeconv():
         im=image("lala2.nocompDeg3.model.fits")
         testImageIn=im.getdata()
         nchan,npol,_,_=testImageIn.shape
-        print testImageIn.shape
+        print(testImageIn.shape)
         testImage=np.zeros_like(testImageIn)
         for ch in range(nchan):
             for pol in range(npol):

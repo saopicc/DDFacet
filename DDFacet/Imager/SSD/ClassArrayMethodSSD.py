@@ -1,3 +1,9 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import collections
 import random
 
@@ -17,9 +23,9 @@ from deap import tools
 log= logger.getLogger("ClassArrayMethodSSD")
 
 
-from ClassParamMachine import ClassParamMachine
+from DDFacet.Imager.SSD.ClassParamMachine import ClassParamMachine
 from DDFacet.ToolsDir.GeneDist import ClassDistMachine
-import ClassMutate
+from DDFacet.Imager.SSD import ClassMutate
 
 class ClassArrayMethodSSD():
     def __init__(self,Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,GD=None,
@@ -112,7 +118,7 @@ class ClassArrayMethodSSD():
             self._island_dict.delete_item("Population")
 
     def SetDirtyArrays(self,Dirty):
-        print>>log,"SetConvMatrix"
+        print("SetConvMatrix", file=log)
         PSF=self.PSF
         NPixPSF=PSF.shape[-1]
         if self.ListPixData is None:
@@ -376,11 +382,11 @@ class ClassArrayMethodSSD():
             for j,jIndiv in enumerate(pop):
                 D[i,j]=D[j,i]=np.count_nonzero(iIndiv-jIndiv)
                 
-        print D
+        print(D)
         from tsp_solver.greedy import solve_tsp
         path = solve_tsp( D )
         for i in path[1::]:
-            print D[i,path[i-1]]/float(len(iIndiv))
+            print(D[i,path[i-1]]/float(len(iIndiv)))
 
     def _fill_pop_array(self, pop):
         """Creates "Population" cube inside the island dict, iof not already created, or if the wrong shape."""
@@ -988,7 +994,7 @@ class WorkerFitness(multiprocessing.Process):
             if FuncType=="MEM":
                 chi2=np.sum((Resid)**2)/(self.PixVariance)
                 if self.EntropyMinMax is None:
-                    print "Not computing entropy"
+                    print("Not computing entropy")
                     ContinuousFitNess.append(-chi2)
                     continue
                 aS=np.abs(self.ModelA)

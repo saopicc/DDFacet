@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import os
 import numpy as np
 from DDFacet.Other import logger
@@ -200,8 +206,8 @@ class ClassImageDeconvMachine():
         s_psf_cut=self.giveSliceCut(psf,2*Nout)
 
         if s_psf_cut is None:
-            print>>log, ModColor.Str("Could not adapt psf shape to 2*dirty shape!")
-            print>>log, ModColor.Str("   shapes are (dirty, psf) = [%s, %s]"%(str(dirty.shape),str(psf.shape)))
+            print(ModColor.Str("Could not adapt psf shape to 2*dirty shape!"), file=log)
+            print(ModColor.Str("   shapes are (dirty, psf) = [%s, %s]"%(str(dirty.shape),str(psf.shape))), file=log)
             s_psf_cut=self.giveSliceCut(psf,Nout)
             
 

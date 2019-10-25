@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 from DDFacet.Other import logger
 from DDFacet.ToolsDir import ClassSpectralFunctions
@@ -58,7 +64,7 @@ class ClassPSFServer():
 
         if NormalisePSF:
             if not quiet:
-                print>>log,"Using peak-normalised PSFs"
+                print("Using peak-normalised PSFs", file=log)
             # for iFacet in range(self.NFacets):
             #     self.CubeMeanVariablePSF[iFacet]/=np.max(self.CubeMeanVariablePSF[iFacet])
             #     for iChan in range(nch):
@@ -216,11 +222,11 @@ class ClassPSFServer():
         xc_psf = nx_psf / 2
 
         if npix % 2 == 0:
-            print >> log, "Cropping size should be odd (npix=%d) !!! Adding 1 pixel" % npix
+            print("Cropping size should be odd (npix=%d) !!! Adding 1 pixel" % npix, file=log)
             npix = npix + 1
 
         if npix > nx_psf or npix > ny_psf:
-            print >> log, "Cropping size larger than PSF size !!!"
+            print("Cropping size larger than PSF size !!!", file=log)
             raise NameError("Cropping size larger than PSF size !!!")
 
         npixside = (npix - 1) / 2  # pixel to include from PSF center.

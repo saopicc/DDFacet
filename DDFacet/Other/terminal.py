@@ -8,6 +8,12 @@ Example of usage:
     print BLUE + BG_YELLOW + BOLD + 'text' + NORMAL
 """
  
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import sys
  
 # The current module
@@ -91,5 +97,5 @@ try:
     setup()
 except Exception, e:
     # There is a failure; set all attributes to default
-    print 'Warning: %s' % e
+    print('Warning: %s' % e)
     default()

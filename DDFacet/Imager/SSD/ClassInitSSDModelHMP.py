@@ -1,3 +1,9 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 import copy
 import time
@@ -28,7 +34,7 @@ class ClassInitSSDModelParallel():
         self.GridFreqs=GridFreqs
         self.DegridFreqs=DegridFreqs
 
-        print>>log,"Initialise HMP machine"
+        print("Initialise HMP machine", file=log)
         self.InitMachine.Init(DicoVariablePSF, GridFreqs, DegridFreqs)
 
     def Reset(self):
@@ -50,9 +56,9 @@ class ClassInitSSDModelParallel():
         except:
             if not self.GD["GAClean"]["ParallelInitHMP"]:
                 raise
-            print>>log, traceback.format_exc()
+            print(traceback.format_exc(), file=log)
             FileOut = "errIsland_%6.6i.npy" % iIsland
-            print>>log, ModColor.Str("...... error on island %i, saving to file %s" % (iIsland, FileOut))
+            print(ModColor.Str("...... error on island %i, saving to file %s" % (iIsland, FileOut)), file=log)
             np.save(FileOut, np.array(Island))
             self.InitMachine.Reset()
             return
@@ -111,7 +117,7 @@ class ClassInitSSDModelParallel():
 #         DicoInitIndiv.reload()
 
 
-        print>>log,"Initialise islands (parallelised over islands)"
+        print("Initialise islands (parallelised over islands)", file=log)
         if not self.GD["GAClean"]["ParallelInitHMP"]:
           pBAR = ProgressBar(Title="  Init islands")
           for iIsland,Island in enumerate(ListIslands):

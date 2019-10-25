@@ -18,6 +18,13 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import os
 # somewhere some library is trying to be too clever for its own good
 # we will set our own settings up later on
@@ -88,9 +95,9 @@ These options can be overridden by specifying a subset of the parset options in 
 passed as the first commandline argument. These options will override the corresponding defaults.
 '''
 import DDFacet
-print "DDFacet version is",report_version()
-print "Using python package located at: " + os.path.dirname(DDFacet.__file__)
-print "Using driver file located at: " + __file__
+print("DDFacet version is",report_version())
+print("Using python package located at: " + os.path.dirname(DDFacet.__file__))
+print("Using driver file located at: " + __file__)
 global Parset
 Parset = ReadCFG.Parset("%s/DefaultParset.cfg" % os.path.dirname(DDFacet.Parset.__file__))
 
@@ -132,7 +139,7 @@ def test():
 def main(OP=None, messages=[]):
     if OP is None:
         OP = MyPickle.Load(SaveFile)
-        print "Using settings from %s, then command line."%SaveFile
+        print("Using settings from %s, then command line."%SaveFile)
 
     DicoConfig = OP.DicoConfig
 
@@ -162,9 +169,9 @@ def main(OP=None, messages=[]):
             #os.system('clear')
             logo.print_logo()
         for msg in messages:
-            print>> log, msg
+            print(msg, file=log)
 
-    print>>log,"Checking system configuration:"
+    print("Checking system configuration:", file=log)
     # check for SHM size
     ram_size = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
     shm_stats = os.statvfs('/dev/shm')
@@ -173,52 +180,52 @@ def main(OP=None, messages=[]):
     shm_avail = shm_stats.f_bsize * shm_stats.f_bavail / float(ram_size)
 
     if shm_relsize < 0.6:
-        print>>log, ModColor.Str("""WARNING: max shared memory size is only {:.0%} of total RAM size.
+        print(ModColor.Str("""WARNING: max shared memory size is only {:.0%} of total RAM size.
             This can cause problems for large imaging jobs. A setting of 90% is recommended for 
             DDFacet and killMS. If your processes keep failing with SIGBUS or "bus error" messages,
             it is most likely for this reason. You can change the memory size by running
                 $ sudo mount -o remount,size=90% /dev/shm
             To make the change permanent, edit /etc/defaults/tmps, and add a line saying "SHM_SIZE=90%".
-            """.format(shm_relsize))
+            """.format(shm_relsize)), file=log)
     else:
-        print>>log, "  Max shared memory size is {:.0%} of total RAM size; {:.0%} currently available".format(shm_relsize, shm_avail)
+        print("  Max shared memory size is {:.0%} of total RAM size; {:.0%} currently available".format(shm_relsize, shm_avail), file=log)
 
     try:
         output = subprocess.check_output(["/sbin/sysctl", "vm.max_map_count"])
         max_map_count = int(output.strip().rsplit(" ", 1)[-1])
     except Exception:
-        print>>log, ModColor.Str("""WARNING: /sbin/sysctl vm.max_map_count failed. Unable to check this setting.""")
+        print(ModColor.Str("""WARNING: /sbin/sysctl vm.max_map_count failed. Unable to check this setting."""), file=log)
         max_map_count = None
 
     if max_map_count is not None:
         if max_map_count < 500000:
-            print>>log, ModColor.Str("""WARNING: sysctl vm.max_map_count = {}. 
+            print(ModColor.Str("""WARNING: sysctl vm.max_map_count = {}. 
             This may be too little for large DDFacet and killMS jobs. If you get strange "file exists" 
             errors on /dev/shm, them try to bribe, beg or threaten your friendly local sysadmin into 
             setting vm.max_map_count=1000000 in /etc/sysctl.conf.
-                """.format(max_map_count))
+                """.format(max_map_count)), file=log)
         else:
-            print>>log, "  sysctl vm.max_map_count = {}".format(max_map_count)
+            print("  sysctl vm.max_map_count = {}".format(max_map_count), file=log)
 
     # check for memory lock limits
     import resource
     msoft, mhard = resource.getrlimit(resource.RLIMIT_MEMLOCK)
     if msoft >=0 or mhard >=0:
-        print>>log,ModColor.Str("""WARNING: your system has a limit on memory locks configured.
+        print(ModColor.Str("""WARNING: your system has a limit on memory locks configured.
             This may possibly slow down DDFacet performance. You can try removing the limit by running
                 $ ulimit -l unlimited
             If this gives an "operation not permitted" error, you can try to bribe, beg or threaten 
             your friendly local sysadmin into doing
                 # echo "*        -   memlock     unlimited" >> /etc/security/limits.conf
-        """)
+        """), file=log)
 
 
     if DicoConfig["Debug"]["Pdb"] == "always":
-        print>>log, "--Debug-Pdb=always: unexpected errors will be dropped into pdb"
+        print("--Debug-Pdb=always: unexpected errors will be dropped into pdb", file=log)
         Exceptions.enable_pdb_on_error(ModColor.Str("DDFacet has encountered an unexpected error. Dropping you into pdb for a post-mortem.\n" +
                                            "(This is because you're running with --Debug-Pdb set to 'always'.)"))
     elif DicoConfig["Debug"]["Pdb"] == "auto" and not DicoConfig["Log"]["Boring"]:
-        print>>log, "--Debug-Pdb=auto and not --Log-Boring: unexpected errors will be dropped into pdb"
+        print("--Debug-Pdb=auto and not --Log-Boring: unexpected errors will be dropped into pdb", file=log)
         Exceptions.enable_pdb_on_error(ModColor.Str("DDFacet has encountered an unexpected error. Dropping you into pdb for a post-mortem.\n" +
             "(This is because you're running with --Debug-Pdb set to 'auto' and --Log-Boring is off.)"))
 
@@ -234,10 +241,10 @@ def main(OP=None, messages=[]):
     # initialize random seed from config if set, or else from system time
     if DicoConfig["Misc"]["RandomSeed"] is not None:
         DicoConfig["Misc"]["RandomSeed"]=int(DicoConfig["Misc"]["RandomSeed"])
-        print>>log, "random seed=%d (explicit)" % DicoConfig["Misc"]["RandomSeed"]
+        print("random seed=%d (explicit)" % DicoConfig["Misc"]["RandomSeed"], file=log)
     else:
         DicoConfig["Misc"]["RandomSeed"] = int(time.time())
-        print>> log, "random seed=%d (automatic)" % DicoConfig["Misc"]["RandomSeed"]
+        print("random seed=%d (automatic)" % DicoConfig["Misc"]["RandomSeed"], file=log)
     np.random.seed(DicoConfig["Misc"]["RandomSeed"])
 
     # init NCPU for different bits of parallelism
@@ -246,7 +253,7 @@ def main(OP=None, messages=[]):
     _pyArrays.pySetOMPNumThreads(ncpu)
     NpParallel.NCPU_global = ModFFTW.NCPU_global = ncpu
     numexpr.set_num_threads(ncpu)
-    print>>log,"using up to %d CPUs for parallelism" % ncpu
+    print("using up to %d CPUs for parallelism" % ncpu, file=log)
 
     # write parset
     OP.ToParset("%s.parset"%ImageName)
@@ -410,15 +417,15 @@ if __name__ == "__main__":
         new_parset = OP.DicoConfig["Output"]["Name"] + ".parset"
         if os.path.exists(new_parset) and os.path.samefile(ParsetFile, new_parset):
             if OP.DicoConfig["Output"]["Clobber"]:
-                print>> log, ModColor.Str("WARNING: will overwrite existing parset, since --Output-Clobber is specified.")
+                print(ModColor.Str("WARNING: will overwrite existing parset, since --Output-Clobber is specified."), file=log)
             else:
-                print>> log, ModColor.Str("Your --Output-Name setting is the same as the base name of the parset, which would\n"
+                print(ModColor.Str("Your --Output-Name setting is the same as the base name of the parset, which would\n"
                                           "mean overwriting the parset. I'm sorry, Dave, I'm afraid I can't do that.\n"
                                           "Please re-run with the --Output-Clobber option if you're sure this is what\n"
-                                          "you want to do, or set a different --Output-Name.")
+                                          "you want to do, or set a different --Output-Name."), file=log)
                 sys.exit(1)
     elif len(args):
-        print args
+        print(args)
         OP.ExitWithError("Incorrect number of arguments. Use -h for help.")
         sys.exit(1)
 
@@ -426,45 +433,45 @@ if __name__ == "__main__":
 
     try:
         main(OP, messages)
-        print>>log, ModColor.Str(
+        print(ModColor.Str(
             "DDFacet ended successfully after %s" %
-            T.timehms(), col="green")
+            T.timehms(), col="green"), file=log)
     except KeyboardInterrupt:
-        print>>log, traceback.format_exc()
-        print>>log, ModColor.Str("DDFacet interrupted by Ctrl+C", col="red")
+        print(traceback.format_exc(), file=log)
+        print(ModColor.Str("DDFacet interrupted by Ctrl+C", col="red"), file=log)
         APP.terminate()
         retcode = 1 #Should at least give the command line an indication of failure
     except Exceptions.UserInputError:
-        print>> log, ModColor.Str(sys.exc_info()[1], col="red")
-        print>> log, ModColor.Str("There was a problem with some user input. See messages above for an indication.")
+        print(ModColor.Str(sys.exc_info()[1], col="red"), file=log)
+        print(ModColor.Str("There was a problem with some user input. See messages above for an indication."), file=log)
         APP.terminate()
         retcode = 1  # Should at least give the command line an indication of failure
     except WorkerProcessError:
-        print>> log, ModColor.Str("A worker process has died on us unexpectedly. This probably indicates a bug:")
-        print>> log, ModColor.Str("  the original underlying error may be reported in the log [possibly far] above.")
+        print(ModColor.Str("A worker process has died on us unexpectedly. This probably indicates a bug:"), file=log)
+        print(ModColor.Str("  the original underlying error may be reported in the log [possibly far] above."), file=log)
         report_error = True
     except:
         if sys.exc_info()[0] is not WorkerProcessError and Exceptions.is_pdb_enabled():
             APP.terminate()
             raise
         else:
-            print>>log, traceback.format_exc()
+            print(traceback.format_exc(), file=log)
         report_error = True
 
     if report_error:
         logfileName = logger.getLogFilename()
         logfileName = logfileName if logfileName is not None else "[file logging is not enabled]"
-        print>> log, ""
-        print>> log, ModColor.Str(
+        print("", file=log)
+        print(ModColor.Str(
             "There was a problem after %s; if you think this is a bug please open an issue, "%
-            T.timehms(), col = "red")
-        print>> log, ModColor.Str("  quote your version of DDFacet and attach your logfile.", col="red")
-        print>> log, ModColor.Str(
+            T.timehms(), col = "red"), file=log)
+        print(ModColor.Str("  quote your version of DDFacet and attach your logfile.", col="red"), file=log)
+        print(ModColor.Str(
             "You are using DDFacet revision: %s" %
-            version, col="red")
-        print>> log, ModColor.Str(
+            version, col="red"), file=log)
+        print(ModColor.Str(
             "Your logfile is available here: %s" %
-            logfileName, col="red")
+            logfileName, col="red"), file=log)
         # print>>log, traceback_msg
         # Should at least give the command line an indication of failure
         APP.terminate()

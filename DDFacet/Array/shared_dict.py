@@ -1,5 +1,11 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import sys, os, os.path, cPickle, re
-import NpShared
+from DDFacet.Array import NpShared
 import numpy as np
 import traceback
 import collections
@@ -57,7 +63,7 @@ class SharedDict (collections.OrderedDict):
             try:
                 return self.load_impl()
             except:
-                print "Error loading item %s" % self.path
+                print("Error loading item %s" % self.path)
                 traceback.print_exc()
                 return SharedDict.ItemLoadError(self.path, sys.exc_info())
 
@@ -162,19 +168,19 @@ class SharedDict (collections.OrderedDict):
             # is looked up in _proxy_class_map to determine how to load the file
             match = re.match("^(\w+):(.*):(%s)$" % "|".join(SharedDict._proxy_class_map.keys()), name)
             if not match:
-                print "Can't parse shared dict entry " + filepath
+                print("Can't parse shared dict entry " + filepath)
                 continue
             keytype, key, valuetype = match.groups()
             typefunc = _allowed_key_types.get(keytype)
             if typefunc is None:
-                print "Unknown shared dict key type "+keytype
+                print("Unknown shared dict key type "+keytype)
                 continue
             key = typefunc(key)
             try:
                 proxyclass = SharedDict._proxy_class_map[valuetype]
                 collections.OrderedDict.__setitem__(self, key, proxyclass(filepath))
             except:
-                print "Error loading item %s"%name
+                print("Error loading item %s"%name)
                 traceback.print_exc()
                 pass
 
@@ -315,10 +321,10 @@ def testSharedDict ():
     arr = subcollections.OrderedDict.addSharedArray("foo",(4, 4), np.float32)
     arr.fill(1)
 
-    print dic
+    print(dic)
 
     other_view = SharedDict("foo", reset=False)
-    print other_view
+    print(other_view)
 
 
 SharedDict.setBaseName("ddf."+str(os.getpid()))

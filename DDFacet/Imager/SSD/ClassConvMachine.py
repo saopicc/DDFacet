@@ -1,3 +1,9 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import logger
@@ -98,8 +104,8 @@ def test():
         #print np.var(Array),np.var(ConvArray0)/Fact
 
     Fact=CC.NormData[0]
-    print np.median(np.std(ArrKeep0,axis=0)**2)
-    print np.median(np.std(ArrKeep1,axis=0)**2/Fact)
+    print(np.median(np.std(ArrKeep0,axis=0)**2))
+    print(np.median(np.std(ArrKeep1,axis=0)**2/Fact))
     return
     
     from scipy.stats import chi2
@@ -129,8 +135,8 @@ def test():
     # dx=xd[1]-xd[0]
     # yd/=np.sum(yd)
     # yd/=dx
-    print np.mean(Lchi1)/Fact
-    print np.mean(Lchi0)
+    print(np.mean(Lchi1)/Fact)
+    print(np.mean(Lchi0))
     # #pylab.xlim(0,800)
     # #pylab.hist(Lchi1,bins=100)
 

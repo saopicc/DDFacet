@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 def print_logo():
     
     # print "+------+.      +------+       +-------+       +------+      .+------+"
@@ -78,15 +84,15 @@ def print_logo():
     # print """                    |_|          /_/ \_\  v 1.0 """
 
 
-    print """            __________________             _   """
-    print """            |  _  \  _  \  ___|           | |  """
-    print """            | | | | | | | |_ __ _  ___ ___| |_ """
-    print """            | | | | | | |  _/ _` |/ __/ _ \ __|"""
-    print """            | |/ /| |/ /| || (_| | (_|  __/ |_ """
-    print """            |___/ |___/ \_| \__,_|\___\___|\__|"""
+    print("""            __________________             _   """)
+    print("""            |  _  \  _  \  ___|           | |  """)
+    print("""            | | | | | | | |_ __ _  ___ ___| |_ """)
+    print("""            | | | | | | |  _/ _` |/ __/ _ \ __|""")
+    print("""            | |/ /| |/ /| || (_| | (_|  __/ |_ """)
+    print("""            |___/ |___/ \_| \__,_|\___\___|\__|""")
                                                          
                                                          
 
-    print
-    print
+    print()
+    print()
                                                   

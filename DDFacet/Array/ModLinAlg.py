@@ -17,6 +17,11 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
 
 import scipy.linalg
 import numpy as np
@@ -99,9 +104,9 @@ def BatchDot(A,B):
     #     C=np.zeros_like(B)
     #     shapeOut=B.shape
 
-    # print "A:",A.shape
-    # print "B:",B.shape
-    # print "C:",C.shape
+    # print("A:",A.shape)
+    # print("B:",B.shape)
+    # print("C:",C.shape)
     
     a0=A[:,0,0]
     b0=A[:,1,0]
@@ -142,9 +147,9 @@ def BatchDot2(A,B):
 
     # if B.shape[0]==1:
     #     NDir=A.shape[0]
-    #     #print "a"
+    #     #print("a")
     #     #B=B*np.ones((NDir,1,1,1,1))
-    #     #print "b"
+    #     #print("b")
     #     #return BatchDot(A,B)
     #     #B=B.reshape((1,B.size/(4*NDir),2,2))
     #     C=np.zeros_like(A)
@@ -152,9 +157,9 @@ def BatchDot2(A,B):
     #     C=np.zeros_like(B)
     #     shapeOut=B.shape
 
-    # print "A:",A.shape
-    # print "B:",B.shape
-    # print "C:",C.shape
+    # print("A:",A.shape)
+    # print("B:",B.shape)
+    # print("C:",C.shape)
     
     a0=A[:,:,:,0,0]
     b0=A[:,:,:,1,0]
@@ -216,16 +221,16 @@ def testInvertSVD():
 
 
 def invSVD(A,Cut=1e-6):
-    #print "rand"
+    #print("rand")
     Ar=A  # +np.random.randn(*A.shape)*(1e-6*A.max())
-    #print "stard",Ar.shape
+    #print("stard",Ar.shape)
     
     try:
         u,s,v=np.linalg.svd(Ar)
     except:
         Name="errSVDArray_%i"%int(np.random.rand(1)[0]*10000)
-        print ModColor.Str("Problem inverting Matrix, saving as %s"%Name)
-        print ModColor.Str("  will make it svd-able")
+        print(ModColor.Str("Problem inverting Matrix, saving as %s"%Name))
+        print(ModColor.Str("  will make it svd-able"))
         np.save(Name,Ar)
         # weird - I found a matrix I cannot do svd on... - that works
         Cut=1e-20
@@ -238,8 +243,6 @@ def invSVD(A,Cut=1e-6):
         
 
     #u,s,v=np.linalg.svd(np.complex128(Ar))
-
-    #print "ok"
     
     s[s<0.]=Cut
 
@@ -282,7 +285,6 @@ def EigClean(A):
     #UqInv=np.linalg.inv(Uq)
     Anew=np.real(np.dot(np.dot(Uq,np.diag(Lq)),Uq.T))
     Lq,Uq=np.linalg.eig(Anew)
-#    print Lq
     return Anew
 
 
@@ -333,7 +335,7 @@ def test_Dot_ListBlockMat_Mat():
     T=ClassTimeIt.ClassTimeIt()
 
 
-    print "Dimensions A[%s], B[%s]"%(BlocksMat.shape,B.shape)
+    print("Dimensions A[%s], B[%s]"%(BlocksMat.shape,B.shape))
     R0=Dot_ListBlockMat_Mat(ListBlocks,B)
     T.timeit("ListProd")
     R1=np.dot(BlocksMat,B)
@@ -341,8 +343,8 @@ def test_Dot_ListBlockMat_Mat():
     R2=Dot_ListBlockMat_Mat_Iregular(ListBlocks,B)
     T.timeit("ListProdIrregular")
 
-    print np.allclose(R0,R1)
-    print np.allclose(R2,R1)
+    print(np.allclose(R0,R1))
+    print(np.allclose(R2,R1))
 
     
 def test_Dot_ListBlockMat_Mat_Big():
@@ -361,7 +363,7 @@ def test_Dot_ListBlockMat_Mat_Big():
     T=ClassTimeIt.ClassTimeIt()
 
 
-    print "Dimensions A[%ix%s -> %s], B[%s]"%(nblocks,ThisBlock.shape,(nblocks*n,nblocks*n),B.shape)
+    print("Dimensions A[%ix%s -> %s], B[%s]"%(nblocks,ThisBlock.shape,(nblocks*n,nblocks*n),B.shape))
     R0=Dot_ListBlockMat_Mat(ListBlocks,B)
     T.timeit("ListProd")
 

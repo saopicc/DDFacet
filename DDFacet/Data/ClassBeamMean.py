@@ -18,12 +18,18 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 import numexpr
 from DDFacet.Other import logger
 log= logger.getLogger("ClassBeamMean")
 from DDFacet.ToolsDir import ModCoord
-import ClassJones
+from DDFacet.Data import ClassJones
 from DDFacet.Imager import ModCF
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Other import ClassTimeIt
@@ -312,7 +318,7 @@ class ClassBeamMean():
 
         np.save(self.CachePath,self.SmoothBeam)
         self.VS.maincache.saveCache("SmoothBeam.npy")
-        # print>>log, ModColor.Str("======================= Done calculating smooth beams ====================")
+        # print(ModColor.Str("======================= Done calculating smooth beams ===================="), file=log)
         return "HasBeenComputed"
 
        
@@ -337,7 +343,7 @@ class ClassBeamMean():
             raise ValueError("unknown --Cache-SmoothBeam setting %s"%self.GD["Cache"]["SmoothBeam"])
 
         if self.CacheValid:
-            print>>log,"Found valid smooth beam in %s"%self.CachePath
+            print("Found valid smooth beam in %s"%self.CachePath, file=log)
             self.SmoothBeam=np.load(self.CachePath)
             self.MeanSmoothBeam=np.mean(self.SmoothBeam,axis=0)
 

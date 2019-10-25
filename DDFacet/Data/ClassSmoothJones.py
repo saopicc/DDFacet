@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 from DDFacet.Other import logger
 log= logger.getLogger("ClassSoothJones")
@@ -30,7 +36,7 @@ class ClassSmoothJones():
         self.AlphaReg=None
 
     def GiveDicoJonesMatrices(self):
-        print>>log, "  Getting Jones matrices from Shared Memory"
+        print("  Getting Jones matrices from Shared Memory", file=log)
         DicoJonesMatrices={}
 
         GD=self.GD
@@ -58,7 +64,7 @@ class ClassSmoothJones():
     def FindAlpha(self):
         self.DicoJonesMatrices=self.GiveDicoJonesMatrices()
         DicoJonesMatrices=self.DicoJonesMatrices
-        print>>log, "  Find Alpha for smoothing"
+        print("  Find Alpha for smoothing", file=log)
         l_List=DicoJonesMatrices["DicoJones_killMS"]["DicoClusterDirs"]["l"].tolist()
         m_List=DicoJonesMatrices["DicoJones_killMS"]["DicoClusterDirs"]["m"].tolist()
 

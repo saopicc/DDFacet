@@ -18,10 +18,17 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 from DDFacet.Other import logger
 log=logger.getLogger("ClassModelMachine")
 from DDFacet.Other import MyPickle
+from DDFacet.Other import ModColor
 
 
 class ClassModelMachine():
@@ -64,14 +71,14 @@ class ClassModelMachine():
 
     def setRefFreq(self,RefFreq):
         if self.RefFreq is not None:
-            print>>log,ModColor.Str("Reference frequency already set to %f MHz"%(self.RefFreq/1e6))
+            print(ModColor.Str("Reference frequency already set to %f MHz"%(self.RefFreq/1e6)), file=log)
             return
         self.RefFreq=RefFreq
         self.DicoSMStacked["RefFreq"]=RefFreq
         #self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
 
     def ToFile(self,FileName,DicoIn=None):
-        print>>log, "Saving dico model to %s"%FileName
+        print("Saving dico model to %s"%FileName, file=log)
         if DicoIn is None:
             D=self.DicoSMStacked
         else:
@@ -82,7 +89,7 @@ class ClassModelMachine():
         MyPickle.Save(D,FileName)
 
     def FromFile(self,FileName):
-        print>>log, "Reading dico model from %s"%FileName
+        print("Reading dico model from %s"%FileName, file=log)
         self.DicoSMStacked=MyPickle.Load(FileName)
         self.FromDico(self.DicoSMStacked)
 

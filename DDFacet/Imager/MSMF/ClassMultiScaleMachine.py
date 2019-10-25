@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 from DDFacet.Other import logger
 
@@ -156,7 +162,7 @@ class CleanSolutionsDump(object):
                 self._complist.append(cPickle.load(fobj))
             except EOFError:
                 break
-        print "Loaded %dx%d component dump"%(len(self._complist), len(self._complist[0]))
+        print("Loaded %dx%d component dump"%(len(self._complist), len(self._complist[0])))
         for ent in self._columns:
             setattr(self, ent, [])
         for comp in self._complist:
@@ -165,7 +171,7 @@ class CleanSolutionsDump(object):
         for ent in self._columns:
             col = np.array([x for x in getattr(self, ent) if x is not None])
             setattr(self, ent, col)
-            print "%s: shape %s" % (ent, col.shape)
+            print("%s: shape %s" % (ent, col.shape))
 
 
 class ClassMultiScaleMachine():
@@ -219,7 +225,7 @@ class ClassMultiScaleMachine():
                 self._dump_xyr = tuple(dump_stamps)
             else:
                 self._dump_xyr = 0,0,0
-            print>>log,ModColor.Str("Dumping minor cycle postage stamps at %d,%d r=%dpix"%self._dump_xyr)
+            print(ModColor.Str("Dumping minor cycle postage stamps at %d,%d r=%dpix"%self._dump_xyr), file=log)
         else:
             self._dump_xyr = None
 
@@ -339,7 +345,7 @@ class ClassMultiScaleMachine():
         self.SubPSF = self._PSF[:,:,x0:x1,y0:y1]
         #print "!!!!!!!!!!!!!!!!!!!!!!!!!!!",self.SubPSF.shape
         if verbose:
-            print>>log,"using %s PSF box of size %dx%d in minor cycle subtraction" % (method, dx*2+1, dx*2+1)
+            print("using %s PSF box of size %dx%d in minor cycle subtraction" % (method, dx*2+1, dx*2+1), file=log)
 
     def CopyListScales(self, other):
         """
@@ -450,7 +456,7 @@ class ClassMultiScaleMachine():
         self.ModelMachine.setListComponants(self.ListScales)
 
         if verbose:
-            print>>log,"%d scales and %d scale functions in list" % (len(self.ListScales), self._num_scales)
+            print("%d scales and %d scale functions in list" % (len(self.ListScales), self._num_scales), file=log)
 
     def MakeMultiScaleCube(self, verbose=False):
         if self.IsInit_MultiScaleCube: return
@@ -535,7 +541,7 @@ class ClassMultiScaleMachine():
                 ThisMFPSF *= FluxRatios
                 icube += 1
                 # cubes 1...N are cube 0, convolved with the appropriate scale function
-                for i in xrange(self._num_scales):
+                for i in range(self._num_scales):
                     ThisPSF = self.CubePSFScales[icube,...]
                     ModFFTW.ConvolveGaussianWrapper(ThisMFPSF.reshape((nch,1,nx,ny)),
                                                     Out=ThisPSF.reshape((nch,1,nx,ny)),
@@ -626,7 +632,7 @@ class ClassMultiScaleMachine():
         if self.SupWeightWidth%2==0: self.SupWeightWidth+=1
 
         if verbose:
-            print>>log,"  using HMP taper width %d, support size %d"%(self.WeightWidth, self.SupWeightWidth)
+            print("  using HMP taper width %d, support size %d"%(self.WeightWidth, self.SupWeightWidth), file=log)
 
         T.timeit("init2")
         if self.GlobalWeightFunction is None:
@@ -1034,8 +1040,8 @@ class ClassMultiScaleMachine():
             
             
             if abs(Sol).max() < self._stall_threshold:
-                print>>log,"Stalled CLEAN!"
-                print>>log,(self.iFacet, x, y, Fpol, FpolTrue, Sol, Sol0, SolReg, coef, coef1, coef2, MeanFluxTrue, self.WeightMuellerSignal)
+                print("Stalled CLEAN!", file=log)
+                print((self.iFacet, x, y, Fpol, FpolTrue, Sol, Sol0, SolReg, coef, coef1, coef2, MeanFluxTrue, self.WeightMuellerSignal), file=log)
                 raise RuntimeError("CLEAN has stalled. This is a bug!")
 
             # print "Sum, Sol",np.sum(Sol),Sol.ravel()

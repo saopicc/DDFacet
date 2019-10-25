@@ -18,6 +18,13 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 """
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 from killMS.Array import ModLinAlg
 
@@ -61,7 +68,7 @@ class ClassJonesDomains():
 
 
     def AddVisToJonesMapping(self,Jones,VisTimes,VisFreqs):
-        print>>log, "Building VisToJones time mapping..."
+        print("Building VisToJones time mapping...", file=log)
         DicoJonesMatrices=Jones
         G=DicoJonesMatrices["Jones"]
         ind=np.zeros((VisTimes.size,),np.int32)
@@ -79,7 +86,7 @@ class ClassJonesDomains():
             ii+=indMStime.size
         Jones["Map_VisToJones_Time"]=ind
 
-        print>>log, "Building VisToJones freq mapping..."
+        print("Building VisToJones freq mapping...", file=log)
         FreqDomains=Jones["FreqDomains"]
         NChanJones=FreqDomains.shape[0]
         MeanFreqJonesChan=(FreqDomains[:,0]+FreqDomains[:,1])/2.
@@ -87,12 +94,12 @@ class ClassJonesDomains():
         DFreq=np.abs(VisFreqs.reshape((NVisChan,1))-MeanFreqJonesChan.reshape((1,NChanJones)))
         VisToJonesChanMapping=np.argmin(DFreq,axis=1)
         Jones["Map_VisToJones_Freq"]=VisToJonesChanMapping
-        print>>log, "  VisToJonesChanMapping %s"%str(VisToJonesChanMapping)
+        print("  VisToJonesChanMapping %s"%str(VisToJonesChanMapping), file=log)
     
 
 
     def GetMergedFreqDomains(self,DicoJ0,DicoJ1):
-        print>>log, "Compute frequency domains of merged Jones arrays"
+        print("Compute frequency domains of merged Jones arrays", file=log)
         FreqDomain0=DicoJ0["FreqDomains"]
         FreqDomain1=DicoJ1["FreqDomains"]
         f0=FreqDomain0.flatten().tolist()
@@ -124,14 +131,14 @@ class ClassJonesDomains():
         ind=np.where((fm>=fmin)&(fm<fmax))[0]
         FreqDomainOut=FreqDomainOut[ind]
 
-        print>>log, "  There are %i channels in the merged Jones array"%FreqDomainOut.shape[0]
+        print("  There are %i channels in the merged Jones array"%FreqDomainOut.shape[0], file=log)
         return FreqDomainOut
         
 
 
     def MergeJones(self,DicoJ0,DicoJ1):
 
-        print>>log, "Merging Jones arrays"
+        print("Merging Jones arrays", file=log)
 
         FreqDomainOut=self.GetMergedFreqDomains(DicoJ0,DicoJ1)
 

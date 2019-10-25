@@ -18,8 +18,14 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
-from ClassMoresane import ClassMoresane
+from DDFacet.Imager.MORESANE.ClassMoresane import ClassMoresane
 from DDFacet.Other import MyPickle
 from DDFacet.ToolsDir import ModFFTW
 
@@ -166,11 +172,11 @@ def CropPSF(PSF, npix):
     xc_psf = nx_psf / 2
 
     if npix % 2 == 0:
-        print "Cropping size should be odd (npix=%d) !!! Adding 1 pixel" % npix
+        print("Cropping size should be odd (npix=%d) !!! Adding 1 pixel" % npix)
         npix = npix + 1
 
     if npix > nx_psf or npix > ny_psf:
-        print "Cropping size larger than PSF size !!!"
+        print("Cropping size larger than PSF size !!!")
         stop
 
     npixside = (npix - 1) / 2  # pixel to include from PSF center.
@@ -242,7 +248,7 @@ def testMO_DATA():
     ListSquarePix_Data=PSF2
 
     xisland,yisland=ListSquarePix_Data.shape # size of the square postage stamp around island
-    print xisland
+    print(xisland)
 
     # 1) Shape PSF and Dirty to have even number of pixels (required by Moresane)
     # DEAL WITH SQUARE DATA OF ISLAND IF UNEVEN

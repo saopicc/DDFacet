@@ -75,7 +75,7 @@ class ClassFrequencyMachine(object):
         else:
             mode = self.GD['Deconv']['Mode']
             if mode == 'Hogbom' or mode == 'WSCMS':
-                print>>log, "No PSFServer provided, unable to use new freq fit mode"
+                print("No PSFServer provided, unable to use new freq fit mode", file=log)
 
     def set_Method(self, mode="Poly"):
         """
@@ -108,7 +108,7 @@ class ClassFrequencyMachine(object):
 
                     # get frequencies at full channel resolution
                     self.freqs_full = []
-                    for iCh in xrange(self.nchan):
+                    for iCh in range(self.nchan):
                         self.freqs_full.append(self.PSFServer.DicoVariablePSF["freqs"][iCh]
                         if hasattr(self, "PSFServer") and self.PSFServer is not None else [self.Freqs[iCh]])
                     self.freqs_full = np.concatenate(self.freqs_full)

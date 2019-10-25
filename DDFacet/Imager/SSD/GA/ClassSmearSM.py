@@ -1,7 +1,12 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
 
 import numpy as np
 import scipy.signal
-import ClassConvMachine
+from DDFacet.Imager.SSD import ClassConvMachine
 from DDFacet.Other import logger
 log=logger.getLogger("ClassSmearSM")
 import multiprocessing
@@ -63,7 +68,7 @@ class ClassSmearSM():
 
         self.ListGauss=ListGauss
         
-        print>>log, "Declare convolution machines"
+        print("Declare convolution machines", file=log)
         NJobs=self.PSFServer.NFacets
         pBAR= ProgressBar(Title=" Declare      ")
         #pBAR.disable()
@@ -128,7 +133,7 @@ class ClassSmearSM():
             v=scipy.signal.fftconvolve(Func, RestoringBeam, mode='same')
             ListRestoredGauss.append(v)
         self.ListRestoredGauss=ListRestoredGauss
-        print>>log, "Support for restoring beam: %5.2f pixels (sigma = %5.2f pixels)"%(FWHM,self.SigMin)
+        print("Support for restoring beam: %5.2f pixels (sigma = %5.2f pixels)"%(FWHM,self.SigMin), file=log)
         
         # import pylab
         # pylab.clf()
@@ -152,7 +157,7 @@ class ClassSmearSM():
         else:
             NCPU=1
         StopWhenQueueEmpty=True
-        print>>log, "Building queue"
+        print("Building queue", file=log)
         self.ModelOut=np.zeros_like(self.MeanModelImage)
         indx,indy=np.where(self.MeanModelImage[0,0]!=0)
         #indx,indy=np.where(self.MeanModelImage==np.max(self.MeanModelImage))

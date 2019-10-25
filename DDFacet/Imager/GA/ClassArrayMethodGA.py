@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import collections
 import random
 
@@ -30,7 +36,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 log= logger.getLogger("ClassArrayMethodGA")
 
 
-from ClassParamMachine import ClassParamMachine
+from DDFacet.Imager.SSD.ClassParamMachine import ClassParamMachine
 from DDFacet.ToolsDir.GeneDist import ClassDistMachine
 
 
@@ -90,7 +96,7 @@ class ClassArrayMethodGA():
 
 
     def SetConvMatrix(self):
-        print>>log,"SetConvMatrix"
+        print("SetConvMatrix", file=log)
         PSF=self.PSF
         NPixPSF=PSF.shape[-1]
         if self.ListPixData is None:
@@ -108,7 +114,7 @@ class ClassArrayMethodGA():
         #PSF.flat[:]=np.arange(PSF.size)
         #LL=[]
 
-        print>>log,"  Calculate M"
+        print("  Calculate M", file=log)
 
         # #####################################
         # for iBand in range(self.NFreqBands):
@@ -147,7 +153,7 @@ class ClassArrayMethodGA():
 
         self.CM=M
         
-        print>>log,"    Done calculate M"
+        print("    Done calculate M", file=log)
 
         #self.Gain=.5
         ALPHA=1.
@@ -179,13 +185,13 @@ class ClassArrayMethodGA():
                 self.DirtyArray+=AddArray
 
         
-        print>>log,"  Average M"
+        print("  Average M", file=log)
         self.DirtyArrayMean=np.mean(self.DirtyArray,axis=0).reshape((1,1,self.NPixListData))
         self.DirtyCMMean=np.mean(M,axis=0).reshape((1,1,self.NPixListData,self.NPixListParms))
         self.DirtyArrayAbsMean=np.mean(np.abs(self.DirtyArray),axis=0).reshape((1,1,self.NPixListData))
-        print>>log,"    Done average M"
+        print("    Done average M", file=log)
 
-        print>>log,"  Calculate MParms"
+        print("  Calculate MParms", file=log)
         MParms=np.zeros((self.NFreqBands,1,self.NPixListParms,self.NPixListParms),np.float32)
         self.DirtyArrayParms=np.zeros((self.NFreqBands,1,self.NPixListParms),np.float32)
         # ###############################
@@ -227,11 +233,11 @@ class ClassArrayMethodGA():
         self.CMParms=MParms
         if self.IslandBestIndiv is not None:
             self.DirtyArrayParms+=self.ToConvArray(self.IslandBestIndiv,OutMode="Parms")
-        print>>log,"  Mean MParms"
+        print("  Mean MParms", file=log)
         self.DirtyArrayParmsMean=np.mean(self.DirtyArrayParms,axis=0).reshape((1,1,self.NPixListParms))
         self.CMParmsMean=np.mean(MParms,axis=0).reshape((1,1,self.NPixListParms,self.NPixListParms))
         
-        print>>log,"Done"
+        print("Done", file=log)
         # DirtyArrayOnes=np.ones_like(self.DirtyArray)
         # NormArray=self.Convolve(DirtyArrayOnes,Norm=False)
         # NormPSFInteg=np.sum(self.CM,axis=2)[:,0,0]
@@ -377,7 +383,7 @@ class ClassArrayMethodGA():
         A=np.random.randn(self.PM.NParam,self.NPixListParms)
         A.fill(0.)
         A[:,10]=1.
-        print A.shape
+        print(A.shape)
 
         ArrayModel=self.PM.GiveModelArray(A)
         A0=self.PM.ModelToSquareArray(ArrayModel,TypeInOut=("Parms","Parms"),DomainOut="Parms").copy()

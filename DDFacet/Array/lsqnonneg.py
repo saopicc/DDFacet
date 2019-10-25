@@ -9,6 +9,12 @@ based on MATLAB's lsqnonneg function
 
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy
 
 def lsqnonneg(C, d, x0=None, tol=None, itmax_factor=3):
@@ -126,19 +132,19 @@ if __name__=='__main__':
 
     [x, resnorm, residual] = lsqnonneg(C, d)
     dres = abs(resnorm - 0.8315)          # compare with matlab result
-    print 'ok, diff:', dres
+    print('ok, diff:', dres)
     if dres > 0.001:
         raise Exeption('Error')
 
     [x, resnorm, residual] = lsqnonneg(C1, d)
     dres = abs(resnorm - 0.1477)          # compare with matlab result
-    print 'ok, diff:', dres
+    print('ok, diff:', dres)
     if dres > 0.01:
         raise Exeption('Error')
 
     [x, resnorm, residual] = lsqnonneg(C2, d)
     dres = abs(resnorm - 0.1027)          # compare with matlab result
-    print 'ok, diff:', dres
+    print('ok, diff:', dres)
     if dres > 0.01:
         raise Exeption('Error')
 
@@ -159,13 +165,13 @@ if __name__=='__main__':
 
     [x, resnorm, residual] = lsqnonneg(k, l)
     dres = abs(resnorm - 0.3695)          # compare with matlab result
-    print 'ok, diff:', dres
+    print('ok, diff:', dres)
     if dres > 0.01:
         raise Exeption('Error')
 
     [x, resnorm, residual] = lsqnonneg(k1, l)
     dres = abs(resnorm - 2.8639)          # compare with matlab result
-    print 'ok, diff:', dres
+    print('ok, diff:', dres)
     if dres > 0.01:
         raise Exeption('Error')
 
@@ -179,4 +185,4 @@ if __name__=='__main__':
 
     [x, resnorm, residual] = lsqnonneg(C, d)
 
-    print [x, resnorm, residual]
+    print([x, resnorm, residual])

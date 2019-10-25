@@ -18,8 +18,14 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
-import gaussfitter2
+from DDFacet.Other import gaussfitter2
 import scipy.ndimage.measurements
 
 from DDFacet.Other import logger
@@ -107,7 +113,7 @@ if __name__ == "__main__":
     xx,yy = np.meshgrid(np.linspace(-500,500,1000),np.linspace(-500,500,1000))
     g = gaussfitter2.twodgaussian([1,0,0,50,100,10],0,1,0)(xx,yy)
     params = FitCleanBeam(g)
-    print params * np.array([1,1,180/np.pi])
+    print(params * np.array([1,1,180/np.pi]))
     g2 = gaussfitter2.twodgaussian([1,0,0,params[1],params[0],np.rad2deg(params[2])],0,1,0)(xx,yy)
     plt.figure()
     plt.imshow(g)
