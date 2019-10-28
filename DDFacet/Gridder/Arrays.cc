@@ -19,6 +19,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 #include <Python.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
 #include "arrayobject.h"
 #include "common.h"
 #include <omp.h>
@@ -232,24 +234,17 @@ static PyObject *pyProdArray(PyObject */*self*/, PyObject *args)
 static PyObject *pyDivArray(PyObject */*self*/, PyObject *args)
 { return pyOpArray(args, diveq()); }
 
-/* ==== Set up the methods table ====================== */
-static PyMethodDef _pyArrays_testMethods[] = {
-  {"pyAddArray", pyAddArray, METH_VARARGS, 0},
-  {"pyProdArray", pyProdArray, METH_VARARGS, 0},
-  {"pyDivArray", pyDivArray, METH_VARARGS, 0},
-  {"pyWhereMax", pyWhereMax, METH_VARARGS, 0},
-  {"pyWhereMaxMask", pyWhereMaxMask, METH_VARARGS, 0},
-  {"pySetOMPNumThreads", pySetOMPNumThreads, METH_VARARGS, 0},
-  {"pySetOMPDynamicNumThreads", pySetOMPDynamicNumThreads, METH_VARARGS, 0},
-  {NULL, NULL, 0, 0}     /* Sentinel - marks the end of this structure */
-};
-
-extern "C" {
-
-void init_pyArrays()
-  {
-  Py_InitModule("_pyArrays", _pyArrays_testMethods);
-  import_array();  // Must be present for NumPy.  Called first after above line.
-  }
-
+#if PY_MAJOR_VERSION >= 3
+PYBIND11_MODULE(_pyArrays3x, m) {
+#else
+PYBIND11_MODULE(_pyArrays27, m) {
+#endif
+  m.doc() = "DDFacet Parallel Arrays operations backend";
+  m.def("pyAddArray", &pyAddArray);
+  m.def("pyProdArray", &pyProdArray);
+  m.def("pyDivArray", &pyDivArray);
+  m.def("pyWhereMax", &pyWhereMax);
+  m.def("pyWhereMaxMask", &pyWhereMaxMask);
+  m.def("pySetOMPNumThreads", &pySetOMPNumThreads);
+  m.def("pySetOMPDynamicNumThreads", &pySetOMPDynamicNumThreads);
 }

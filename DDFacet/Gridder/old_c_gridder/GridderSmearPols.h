@@ -55,7 +55,9 @@ int nint(double n){
   return floor(n+0.5);};
 
 /* .... Python callable Matrix functions ..................*/
-
+#if PY_MAJOR_VERSION >= 3
+  #define PyString_AsString PyBytes_AsString
+#endif
 int *I_ptr(PyArrayObject *arrayin)  {
 	return (int *) arrayin->data;
 }
