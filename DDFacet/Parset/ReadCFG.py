@@ -23,8 +23,11 @@ from __future__ import division
 from __future__ import print_function
 
 from DDFacet.compatibility import range
-
-import ConfigParser
+import six
+if six.PY3:
+    import configparser as ConfigParser
+else:
+    import ConfigParser
 from collections import OrderedDict
 import re
 

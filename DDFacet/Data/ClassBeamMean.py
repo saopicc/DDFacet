@@ -327,11 +327,11 @@ class ClassBeamMean():
         reset=0
         Dict=dict([("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
                   [(section, self.GD[section]) 
-                   for section in "Data", 
+                   for section in ["Data", 
                    "Beam", "Selection",
                    "Freq", "Image", 
                    "Comp", "Facets", 
-                   "Weight", "RIME"])
+                   "Weight", "RIME"]])
 
         if self.GD["Cache"]["SmoothBeam"]=="auto": 
             self.CachePath, self.CacheValid = self.VS.maincache.checkCache("SmoothBeam.npy", Dict, reset=0)

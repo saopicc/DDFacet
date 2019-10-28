@@ -26,7 +26,7 @@ from __future__ import print_function
 from DDFacet.compatibility import range
 
 import numpy as np
-from DDFacet.Other import gaussfitter2
+from DDFacet.ToolsDir import gaussfitter2
 import scipy.ndimage.measurements
 
 from DDFacet.Other import logger

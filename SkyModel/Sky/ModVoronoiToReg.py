@@ -4,7 +4,7 @@ from __future__ import division
 from SkyModel.Other import ModCoord
 import numpy as np
 from scipy.spatial import Voronoi
-import ModVoronoi
+from . import ModVoronoi
 from SkyModel.Other import MyLogger
 from SkyModel.Other import ModColor
 log=MyLogger.getLogger("VoronoiToReg")

@@ -370,7 +370,7 @@ class ClassMS():
     #     return Beam
 
 
-    def GiveMappingAnt(self,ListStrSel,(row0,row1)=(None,None),FlagAutoCorr=True,WriteAttribute=True):
+    def GiveMappingAnt(self,ListStrSel,row0=None,row1=None,FlagAutoCorr=True,WriteAttribute=True):
 
         if type(ListStrSel)!=list:
             assert(False)
@@ -992,7 +992,7 @@ class ClassMS():
         else:
             all_times = table_all.getcol("TIME")
             if (all_times[1:] - all_times[:-1]).min() < 0:
-                raise RuntimeError,"MS %s: the TIME column must be in increasing order"%self.MSName
+                raise RuntimeError("MS %s: the TIME column must be in increasing order"%self.MSName)
             T0, T1 = all_times[0], all_times[-1]
             chunk_t0 = np.arange(T0, T1, self.TimeChunkSize*3600)
             # chunk_t0 now gives starting time of each chunk
@@ -1668,7 +1668,7 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
     if type(MSName) is list:
         print("multi-MS mode", file=log)
     elif type(MSName) is not str:
-        raise TypeError, "MSName parameter must be a list or a filename"
+        raise TypeError("MSName parameter must be a list or a filename")
     elif MSName.endswith(".txt"):
         MSName0 = MSName
         MSName = [ l.strip() for l in open(MSName).readlines() ]
@@ -1701,7 +1701,7 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
             """Converts a group specification into a slice object"""
             match = re.match("^" + regrp +"$", group)
             if not match:
-                raise ValueError,"invalid group '%s' in MS specification %s" % (group, msspec)
+                raise ValueError("invalid group '%s' in MS specification %s" % (group, msspec))
             _, single, rng1, sep, rng2, wild = match.groups()
             if single:
                 return int(single)
@@ -1710,7 +1710,7 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
             elif wild:
                 return slice(0,None)
             else:
-                raise ValueError, "invalid group '%s' in MS specification %s" % (group, msspec)
+                raise ValueError("invalid group '%s' in MS specification %s" % (group, msspec))
         # now, fgroup/dgroup will become a slice, or a single number
         fg = groupToSlice(fgroup) if fgroup else defaultField
         dg = groupToSlice(dgroup) if dgroup else defaultDDID

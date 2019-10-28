@@ -3,8 +3,12 @@ from __future__ import division
 from __future__ import print_function
 
 from DDFacet.compatibility import range
-
-import sys, os, os.path, cPickle, re
+import six
+if six.PY3:
+    import pickle as cPickle
+else:
+    import cPickle
+import sys, os, os.path, re
 from DDFacet.Array import NpShared
 import numpy as np
 import traceback
@@ -240,7 +244,7 @@ class SharedDict (collections.OrderedDict):
         if not self._readwrite:
             raise RuntimeError("SharedDict %s attached as read-only" % self.path)
         if type(item).__name__ not in _allowed_key_types:
-            raise KeyError,"unsupported key of type "+type(item).__name__
+            raise KeyError("unsupported key of type "+type(item).__name__)
         name = self._key_to_name(item)
         path = os.path.join(self.path, name)
         # remove previous item from SHM, if it's in the local dict

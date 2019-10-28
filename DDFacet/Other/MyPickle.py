@@ -26,7 +26,11 @@ from __future__ import print_function
 from DDFacet.compatibility import range
 
 import os
-import cPickle
+import six
+if six.PY3:
+    import pickle as cPickle
+else:
+    import cPickle
 import pickle
 
 def Save(Obj,fileout):

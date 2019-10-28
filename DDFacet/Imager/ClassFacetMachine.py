@@ -32,7 +32,11 @@ from DDFacet.Array import NpShared, NpParallel, shared_dict
 from DDFacet.Imager.ClassImToGrid import ClassImToGrid
 from DDFacet.Other import ClassTimeIt, logger, ModColor, Multiprocessing
 from DDFacet.Other.progressbar import ProgressBar
-import cPickle
+import six
+if six.PY3:
+    import pickle as cPickle
+else:
+    import cPickle
 import atexit
 import traceback
 from matplotlib.path import Path
@@ -44,8 +48,15 @@ from DDFacet.Data.ClassStokes import ClassStokes
 log=logger.getLogger("ClassFacetMachine")
 from DDFacet.Other.AsyncProcessPool import APP
 import numexpr
-from DDFacet.cbuild.Gridder import _pyGridderSmearPols
-from DDFacet.cbuild.Gridder import _pyGridderSmearPolsClassic
+import six
+if six.PY3:
+    from DDFacet.cbuild.Gridder import _pyGridderSmearPols3x as _pyGridderSmear
+else:
+    from DDFacet.cbuild.Gridder import _pyGridderSmearPols27 as _pyGridderSmear
+if six.PY3:
+    import DDFacet.cbuild.Gridder._pyGridderSmearPolsClassic3x as _pyGridderSmearClassic
+else:
+    import DDFacet.cbuild.Gridder._pyGridderSmearPolsClassic27 as _pyGridderSmearClassic
 import cpuinfo
 import scipy.ndimage
 from scipy.spatial import Voronoi
@@ -1304,7 +1315,7 @@ class ClassFacetMachine():
                             # make copy since subsequent operations are in-place
                             Im = self.DicoGridMachine[iFacet]["Dirty"][Channel][pol].real.copy()
                         else:
-                            raise RuntimeError,"unknown kind=%s argument -- this is a silly bug"%kind
+                            raise RuntimeError("unknown kind=%s argument -- this is a silly bug"%kind)
                         # normalize by sum of weights, and Jones weight
                         weights = ThisSumWeights[pol]*np.sqrt(ThisSumJones)
                         weights = np.where(weights, weights, 1.0)

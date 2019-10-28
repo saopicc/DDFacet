@@ -147,10 +147,10 @@ def test():
     
     # plot
     regions, vertices = voronoi_finite_polygons_2d(vor)
-    print "--"
-    print regions
-    print "--"
-    print vertices
+    print("--")
+    print(regions)
+    print("--")
+    print(vertices)
     Plot(points,regions, vertices)
     # colorize
 

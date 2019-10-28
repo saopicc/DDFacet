@@ -26,7 +26,11 @@ from __future__ import print_function
 from DDFacet.compatibility import range
 
 import os, os.path, subprocess
-import cPickle
+import six
+if six.PY3:
+    import pickle as cPickle
+else:
+    import cPickle
 import collections
 
 from DDFacet.Other import logger, ModColor
@@ -245,7 +249,7 @@ class CacheManager (object):
             if os.path.exists(cachepath):
                 if directory:
                     if os.system("rm -fr %s" % cachepath):
-                        raise OSError,"Failed to remove cache directory %s. Check permissions/ownership." % cachepath
+                        raise OSError("Failed to remove cache directory %s. Check permissions/ownership." % cachepath)
                     os.mkdir(cachepath)
                 else:
                     os.unlink(cachepath)

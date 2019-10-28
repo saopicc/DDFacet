@@ -40,7 +40,11 @@ import scipy.optimize
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 
 import pickle
-import cPickle
+import six
+if six.PY3:
+    import pickle as cPickle
+else:
+    import cPickle
 from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 import numexpr
 
@@ -150,7 +154,7 @@ class CleanSolutionsDump(object):
 
     def _write(self, *components):
         if len(components) != len(self._columns):
-            raise TypeError,"%d components given, but dump initialized with %d columns"%(len(components), len(self._columns))
+            raise TypeError("%d components given, but dump initialized with %d columns"%(len(components), len(self._columns)))
         cPickle.dump(components, self._fobj, 2)
 
     def read(self, fobj):
@@ -330,7 +334,7 @@ class ClassMultiScaleMachine():
             elif method == "full":
                 dx0 = NPSF//2
             else:
-                raise ValueError,"unknown PSFBox setting %s" % method
+                raise ValueError("unknown PSFBox setting %s" % method)
 
             dx0=np.max([dx0,200])
             dx0=np.min([dx0,NPSF//2])
@@ -827,7 +831,7 @@ class ClassMultiScaleMachine():
         return np.array(y)
 
     #@profile
-    def GiveLocalSM(self,(x,y),Fpol):
+    def GiveLocalSM(self,x,y,Fpol):
         T= ClassTimeIt.ClassTimeIt("   GiveLocalSM")
         T.disable()
 

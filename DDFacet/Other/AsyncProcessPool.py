@@ -28,7 +28,11 @@ from DDFacet.compatibility import range
 import psutil
 import os
 import fnmatch
-import Queue
+import six
+if six.PY3:
+    import queue
+else:
+    import Queue
 import multiprocessing
 import numpy as np
 import traceback
@@ -46,7 +50,11 @@ from DDFacet.Other import ModColor
 from DDFacet.Other import Exceptions
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Array import shared_dict
-import DDFacet.cbuild.Gridder._pyArrays as _pyArrays
+import six
+if six.PY3:
+    from DDFacet.cbuild.Gridder import _pyArrays3x as _pyArrays
+else:
+    from DDFacet.cbuild.Gridder import _pyArrays27 as _pyArrays
 
 log = logger.getLogger("AsyncProcessPool")
 
@@ -140,7 +148,7 @@ class JobCounterPool(object):
     def _register(self, counter):
         cid = id(counter)
         if cid in self._counters:
-            raise RuntimeError,"job counter %s already exists. This is a bug."%cid
+            raise RuntimeError("job counter %s already exists. This is a bug."%cid)
         if os.getpid() != parent_pid:
             raise RuntimeError("This method can only be called in the parent process. This is a bug.")
         if self._counters_array is not None:
@@ -294,7 +302,7 @@ class AsyncProcessPool (object):
         elif not self.affinity:
             cores = range(self.ncpu)
         else:
-            raise ValueError, "unknown affinity setting"
+            raise ValueError("unknown affinity setting")
         if not self.affinity:
             print("Worker affinities not specified, leaving unset", file=log)
         else:
@@ -826,7 +834,7 @@ class AsyncProcessPool (object):
         event = counter = None
         try:
             job_id, event_id, counter_id, args, kwargs = [jobitem.get(attr) for attr in
-                                                        "job_id", "event", "counter", "args", "kwargs"]
+                                                         ["job_id", "event", "counter", "args", "kwargs"]]
             handler_id, method, handler_desc = jobitem["handler"]
             handler = self._job_handlers.get(handler_id)
             if handler is None:
@@ -863,7 +871,7 @@ class AsyncProcessPool (object):
                     dict(job_id=job_id, proc_id=self.proc_id, success=True, result=result, time=timer.seconds()))
         except KeyboardInterrupt:
             raise
-        except Exception, exc:
+        except Exception as exc:
             
             if reraise:
                 raise

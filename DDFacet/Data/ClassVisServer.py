@@ -26,7 +26,12 @@ from __future__ import print_function
 from DDFacet.compatibility import range
 
 import numpy as np
-import math, os, cPickle, traceback
+import six
+if six.PY3:
+    import pickle as cPickle
+else:
+    import cPickle
+import math, os, traceback
 
 
 from DDFacet.Data import ClassMS
@@ -39,7 +44,11 @@ from DDFacet.Data import ClassSmearMapping
 from DDFacet.Data import ClassJones
 from DDFacet.Array import shared_dict
 from DDFacet.Other.AsyncProcessPool import APP
-import DDFacet.cbuild.Gridder._pyGridderSmearPols as _pyGridderSmearPols
+import six
+if six.PY3:
+    from DDFacet.cbuild.Gridder import _pyGridderSmearPols3x as _pyGridderSmear
+else:
+    from DDFacet.cbuild.Gridder import _pyGridderSmearPols27 as _pyGridderSmear
 import copy
 
 log = logger.getLogger("ClassVisServer")
@@ -162,7 +171,7 @@ class ClassVisServer():
 
         if not self.ListMS:
             print(ModColor.Str("--Data-MS does not specify any valid Measurement Set(s)"), file=log)
-            raise RuntimeError,"--Data-MS does not specify any valid Measurement Set(s)"
+            raise RuntimeError("--Data-MS does not specify any valid Measurement Set(s)")
 
         self.obs_detail = self.ListMS[0].get_obs_details()
 
@@ -885,7 +894,7 @@ class ClassVisServer():
                 msw.delete_item("flags")
             else:
                 msw["bandmap"] = self.DicoMSChanMapping[ims]
-        except Exception,exc:
+        except Exception as exc:
             print(ModColor.Str("Error loading weights from %s:"%msname), file=log)
             for line in traceback.format_exc().split("\n"):
                 print(ModColor.Str("  "+line), file=log)
@@ -929,7 +938,7 @@ class ClassVisServer():
                 _pyGridderSmearPols.pyAccumulateWeightsOntoGrid(wg["grid"], weights.ravel(), index.ravel())
             else:
                 _pyGridderSmearPols.pyAccumulateWeightsOntoGridNoSem(wg["grid"], weights.ravel(), index.ravel())
-        except Exception,exc:
+        except Exception as exc:
             print(ModColor.Str("Error accumulating weights from %s:"%msname), file=log)
             for line in traceback.format_exc().split("\n"):
                 print(ModColor.Str("  "+line), file=log)
@@ -971,7 +980,7 @@ class ClassVisServer():
             else:
                 msw["null"] = True
                 file(msw["cachepath"], 'w').truncate(0)
-        except Exception,exc:
+        except Exception as exc:
             print(ModColor.Str("Error accumulating weights from %s:"%msname), file=log)
             for line in traceback.format_exc().split("\n"):
                 print(ModColor.Str("  "+line), file=log)

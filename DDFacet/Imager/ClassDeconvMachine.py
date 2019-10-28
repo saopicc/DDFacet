@@ -46,7 +46,11 @@ from DDFacet.ToolsDir.ClassAdaptShape import ClassAdaptShape
 import copy
 from DDFacet.Other import AsyncProcessPool
 from DDFacet.Other.AsyncProcessPool import APP
-import cPickle
+import six
+if six.PY3:
+    import pickle as cPickle
+else:
+    import cPickle
 log=logger.getLogger("ClassImagerDeconv")
 import DDFacet.Data.ClassBeamMean as ClassBeamMean
 from DDFacet.Imager import ClassMaskMachine
@@ -351,9 +355,9 @@ class ClassImagerDeconv():
         """Creates cache key used for Dirty and PSF caches"""
         key = dict([("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
                     [(section, self.GD[section]) for section in
-                     "Data", "Beam", "Selection",
+                     ["Data", "Beam", "Selection",
                      "Freq", "Image", "Comp",
-                     "CF", "RIME","Facets","Weight","DDESolutions"]+
+                     "CF", "RIME","Facets","Weight","DDESolutions"]]+
                    [("InitDicoModel",self.GD["Predict"]["InitDicoModel"])]
                )
 
@@ -1376,10 +1380,11 @@ class ClassImagerDeconv():
                 cachepath, valid = self.VS.maincache.checkCache("LastResidual", 
                                                                 dict(
                                                                     [("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
-                                                                    [(section, self.GD[section]) for section in "Data", "Beam", "Selection",
-                                                                     "Freq", "Image", "Comp",
-                                                                     "RIME","Weight","Facets",
-                                                                     "DDESolutions"]
+                                                                    [(section, self.GD[section]) for section in 
+                                                                     ["Data", "Beam", "Selection",
+                                                                      "Freq", "Image", "Comp",
+                                                                      "RIME","Weight","Facets",
+                                                                      "DDESolutions"]]
                                                                 ), 
                                                                 reset=False)
                 try:
@@ -1398,10 +1403,11 @@ class ClassImagerDeconv():
             cachepath, valid = self.VS.maincache.checkCache("LastResidual",
                                                             dict(
                                                                 [("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
-                                                                [(section, self.GD[section]) for section in "Data", "Beam", "Selection",
-                                                                 "Freq", "Image", "Comp",
-                                                                 "RIME","Weight","Facets",
-                                                                 "DDESolutions"]
+                                                                [(section, self.GD[section]) for section in 
+                                                                 ["Data", "Beam", "Selection",
+                                                                  "Freq", "Image", "Comp",
+                                                                  "RIME","Weight","Facets",
+                                                                  "DDESolutions"]]
                                                             ),
                                                             reset=False)
             try:

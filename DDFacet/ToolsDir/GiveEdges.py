@@ -27,7 +27,7 @@ from DDFacet.compatibility import range
 
 import numpy as np
 
-def GiveEdges((xc0,yc0),N0,(xc1,yc1),N1,Parity=None):
+def GiveEdges(xc0,yc0,N0,xc1,yc1,N1,Parity=None):
     M_xc=xc0
     M_yc=yc0
     NpixMain=N0
@@ -83,7 +83,7 @@ def GiveEdges((xc0,yc0),N0,(xc1,yc1),N1,Parity=None):
     return Aedge,Bedge
 
 
-def GiveEdgesDissymetric((xc0,yc0),(N0x,N0y),(xc1,yc1),(N1x,N1y),WidthMax=None):
+def GiveEdgesDissymetric(xc0,yc0,N0x,N0y,xc1,yc1,N1x,N1y,WidthMax=None):
     M_xc=xc0
     M_yc=yc0
     NpixMain_x=N0x

@@ -25,7 +25,12 @@ from __future__ import print_function
 
 from DDFacet.compatibility import range
 
-import DDFacet.cbuild.Gridder._pyArrays as _pyArrays
+import six
+if six.PY3:
+    from DDFacet.cbuild.Gridder import _pyArrays3x as _pyArrays
+else:
+    from DDFacet.cbuild.Gridder import _pyArrays27 as _pyArrays
+
 from DDFacet.Other import ClassTimeIt
 import numpy as np
 import psutil

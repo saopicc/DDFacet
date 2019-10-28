@@ -28,7 +28,11 @@ RuntimeWarning("Deprecated class")
 
 import psutil
 import os, re, errno
-import Queue
+import six
+if six.PY3:
+    import queue
+else:
+    import Queue
 import multiprocessing
 import numpy as np
 import glob
@@ -90,7 +94,7 @@ def cleanupStaleShm ():
     for pid in set([x[1] for x in shmlist]):
         try:
             os.kill(pid, 0)
-        except OSError, err:
+        except OSError as err:
             if err.errno == errno.ESRCH:
                 dead_pids.add(pid)
     # ok, make list of candidates for deletion

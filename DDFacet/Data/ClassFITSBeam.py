@@ -88,7 +88,7 @@ class ClassFITSBeam (object):
         feed = opts["FITSFeed"]
         if feed:
             if len(feed) != 2:
-                raise ValueError,"FITSFeed parameter must be two characters (e.g. 'xy')"
+                raise ValueError("FITSFeed parameter must be two characters (e.g. 'xy')")
             feed = feed.lower()
             self.corrs = [ a+b for a in feed for b in feed ]
             print("polarization basis specified by FITSFeed parameter: %s"%" ".join(self.corrs), file=log)

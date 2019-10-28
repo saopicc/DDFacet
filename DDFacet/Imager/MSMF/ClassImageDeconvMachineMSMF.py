@@ -424,7 +424,7 @@ class ClassImageDeconvMachine():
         #             print>>log,ModColor.Str("Are you sure you supplied the correct cleaning mask?")
         
 
-    def GiveEdges(self,(xc0,yc0),N0,(xc1,yc1),N1):
+    def GiveEdges(self,xc0,yc0,N0,xc1,yc1,N1):
         M_xc=xc0
         M_yc=yc0
         NpixMain=N0
@@ -460,7 +460,7 @@ class ClassImageDeconvMachine():
         return Aedge,Bedge
 
 
-    def SubStep(self,(dx,dy),LocalSM):
+    def SubStep(self,dx,dy,LocalSM):
         _,npol,_,_ = self._MeanDirty.shape
         x0,x1,y0,y1=self.DirtyExtent
 

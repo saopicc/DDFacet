@@ -25,12 +25,22 @@ from __future__ import print_function
 
 from DDFacet.compatibility import range
 
-import DDFacet.cbuild.Gridder._pyGridderSmearPols as _pyGridderSmear
-import DDFacet.cbuild.Gridder._pyGridderSmearPolsClassic as _pyGridderSmearClassic
+import six
+if six.PY3:
+    from DDFacet.cbuild.Gridder import _pyGridderSmearPols3x as _pyGridderSmear
+else:
+    from DDFacet.cbuild.Gridder import _pyGridderSmearPols27 as _pyGridderSmear
+if six.PY3:
+    import DDFacet.cbuild.Gridder._pyGridderSmearPolsClassic3x as _pyGridderSmearClassic
+else:
+    import DDFacet.cbuild.Gridder._pyGridderSmearPolsClassic27 as _pyGridderSmearClassic
 # import DDFacet.cbuild.Gridder._pyGridderSmearPolsFaster as _pyGridderSmearFaster
 ##########################################################"
 # Please do not remove this import again - Needed for killMS
-import DDFacet.cbuild.Gridder._pyGridder as _pyGridder
+if six.PY3:
+    import DDFacet.cbuild.Gridder._pyGridder3x as _pyGridder
+else:
+    import DDFacet.cbuild.Gridder._pyGridder27 as _pyGridder
 ##########################################################"
 
 import numpy as np

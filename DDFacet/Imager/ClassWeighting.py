@@ -38,6 +38,16 @@ from DDFacet.Data import ClassMS
 from pyrap.tables import table
 from DDFacet.Array import NpShared
 
+import six
+if six.PY3:
+    from DDFacet.cbuild.Gridder import _pyGridderSmearPols3x as _pyGridderSmear
+else:
+    from DDFacet.cbuild.Gridder import _pyGridderSmearPols27 as _pyGridderSmear
+if six.PY3:
+    import DDFacet.cbuild.Gridder._pyGridderSmearPolsClassic3x as _pyGridderSmearClassic
+else:
+    import DDFacet.cbuild.Gridder._pyGridderSmearPolsClassic27 as _pyGridderSmearClassic
+
 def test(field=0,weight="Uniform"):
     print("reading test MS", file=log)
 #    MS=ClassMS.ClassMS("/media/6B5E-87D0/killMS2/TEST/Simul/0000.MS")

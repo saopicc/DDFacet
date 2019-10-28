@@ -31,7 +31,11 @@ from DDFacet.Array import NpShared
 from DDFacet.Other import logger
 
 log= logger.getLogger("ClearSHM")
-from DDFacet.cbuild.Gridder import _pyGridderSmearPols as _pyGridderSmear
+import six
+if six.PY3:
+    from DDFacet.cbuild.Gridder import _pyGridderSmearPols3x as _pyGridderSmear
+else:
+    from DDFacet.cbuild.Gridder import _pyGridderSmearPols27 as _pyGridderSmear
 import glob
 import os
 import shutil

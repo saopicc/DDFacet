@@ -70,7 +70,11 @@ from DDFacet.Other import Multiprocessing
 import SkyModel.Other.ModColor   # because it's duplicated there
 from DDFacet.Other import progressbar
 from DDFacet.Other.AsyncProcessPool import APP, WorkerProcessError
-import DDFacet.cbuild.Gridder._pyArrays as _pyArrays
+import six
+if six.PY3:
+    from DDFacet.cbuild.Gridder import _pyArrays3x as _pyArrays
+else:
+    from DDFacet.cbuild.Gridder import _pyArrays27 as _pyArrays
 from DDFacet.report_version import report_version
 log = None
 
