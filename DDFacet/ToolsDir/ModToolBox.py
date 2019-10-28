@@ -27,7 +27,7 @@ from DDFacet.compatibility import range
 import scipy.fftpack
 import scipy.ndimage
 
-import ModTaper
+from DDFacet.ToolsDir import ModTaper
 import numpy as np
 
 F=scipy.fftpack.fft
