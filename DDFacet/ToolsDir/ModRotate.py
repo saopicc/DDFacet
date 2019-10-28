@@ -32,7 +32,7 @@ import ephem
 import re
 import pyrap.quanta as qa
 import pyrap.measures as pm
-import rad2hmsdms
+from DDFacet.ToolsDir import rad2hmsdms
 
 
 def Rotate2((ra,dec),(ra1,dec1),uvw,data,wavelength,RotateType=["uvw","vis"]):
