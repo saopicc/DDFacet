@@ -6,6 +6,7 @@ Usage:
     p = ProgressBar("blue")
     p.render(percentage, message)
 """
+from __future__ import division
 
 from __future__ import absolute_import
 from __future__ import division
@@ -158,7 +159,7 @@ class ProgressBar(object):
         # Check if render is called for the first time
         if self.progress != None:
             self.clear()
-        self.progress = (bar_width * percent) / 100
+        self.progress = (bar_width * percent) // 100
 
 
         DicoData={

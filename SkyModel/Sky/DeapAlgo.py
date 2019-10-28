@@ -24,6 +24,7 @@ for selection and :meth:`evaluate` for evaluation.
 You are encouraged to write your own algorithms in order to make them do what
 you really want them to do.
 """
+from __future__ import division
 
 import random
 from SkyModel.Other.progressbar import ProgressBar

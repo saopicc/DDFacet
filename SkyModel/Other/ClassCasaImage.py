@@ -1,3 +1,4 @@
+from __future__ import division
 
 from pyrap.images import image
 import os
@@ -57,11 +58,11 @@ class ClassCasaimage():
         incr[-1][1]=-incrRad
         #RefPix=c.get_referencepixel()
         Npix=self.Npix
-        #RefPix[0][0]=Npix/2
-        #RefPix[0][1]=Npix/2
+        #RefPix[0][0]=Npix//2
+        #RefPix[0][1]=Npix//2
 
-        #RefPix[0][0]=Npix/2-1
-        #RefPix[0][1]=Npix/2-1
+        #RefPix[0][0]=Npix//2-1
+        #RefPix[0][1]=Npix//2-1
 
         #RefPix=c.set_referencepixel(RefPix)
         RefVal=c.get_referencevalue()

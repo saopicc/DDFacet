@@ -1,4 +1,3 @@
-import os
 '''
 DDFacet, a facet-based radio imaging package
 Copyright (C) 2013-2016  Cyril Tasse, l'Observatoire de Paris,
@@ -24,6 +23,8 @@ from __future__ import division
 from __future__ import print_function
 
 from DDFacet.compatibility import range
+
+import os
 
 def main():
 

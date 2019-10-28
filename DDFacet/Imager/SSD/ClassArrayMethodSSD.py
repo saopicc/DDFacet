@@ -129,7 +129,7 @@ class ClassArrayMethodSSD():
             self.ListPixParms=np.array([x.ravel().tolist(),y.ravel().tolist()]).T.tolist()
 
         self.DirtyArray=np.zeros((self.NFreqBands,1,self.NPixListData),np.float32)
-        xc=yc=NPixPSF/2
+        xc=yc=NPixPSF//2
 
         x0,y0=np.array(self.ListPixData).T
         for iBand in range(self.NFreqBands):
@@ -218,8 +218,8 @@ class ClassArrayMethodSSD():
             _,_,NPixPSF,_=PSF.shape
             PSFMean=np.mean(PSF,axis=0).reshape((NPixPSF,NPixPSF))
             ArrayMode="Image"
-            xcPSF=NPixPSF/2
-            xcDirty=NPix/2
+            xcPSF=NPixPSF//2
+            xcDirty=NPix//2
             SModelArray=np.zeros_like(A)
 
         MaxA=np.max(A)
@@ -282,13 +282,13 @@ class ClassArrayMethodSSD():
                 dx=iPix-xcDirty
                 dy=jPix-xcDirty
                 ThisPSF=np.roll(np.roll(PSFMean,dx,axis=0),dy,axis=1)
-                ThisPSFCut=ThisPSF[xcPSF-NPixPSF/2:xcPSF+NPixPSF/2+1,xcPSF-NPixPSF/2:xcPSF+NPixPSF/2+1]
+                ThisPSFCut=ThisPSF[xcPSF-NPixPSF//2:xcPSF+NPixPSF//2+1,xcPSF-NPixPSF//2:xcPSF+NPixPSF//2+1]
 
                 NMin=np.min([A.shape[-1],ThisPSFCut.shape[-1]])
-                xc0=A.shape[-1]/2
-                xc1=ThisPSFCut.shape[-1]/2
+                xc0=A.shape[-1]//2
+                xc1=ThisPSFCut.shape[-1]//2
                 #pylab.subplot(1,3,2); pylab.imshow(ThisPSFCut,interpolation="nearest")
-                A[xc0-NMin/2:xc0+NMin/2+1,xc0-NMin/2:xc0+NMin/2+1]-=gain*f*ThisPSFCut[xc1-NMin/2:xc1+NMin/2+1,xc1-NMin/2:xc1+NMin/2+1]
+                A[xc0-NMin//2:xc0+NMin//2+1,xc0-NMin//2:xc0+NMin//2+1]-=gain*f*ThisPSFCut[xc1-NMin//2:xc1+NMin//2+1,xc1-NMin//2:xc1+NMin//2+1]
                 A[Mask]=0
                 #pylab.subplot(1,3,3); pylab.imshow(A,interpolation="nearest")
                 #pylab.draw()

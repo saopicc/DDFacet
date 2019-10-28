@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy.lib.recfunctions
 import numpy as np
 

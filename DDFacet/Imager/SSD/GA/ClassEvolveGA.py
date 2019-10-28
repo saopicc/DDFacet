@@ -152,7 +152,7 @@ class ClassEvolveGA():
                 self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArrayMP,AlphaModel=AModelArrayMP)
             else:
                 #print "MIX"
-                NIndiv=len(self.pop)/10
+                NIndiv=len(self.pop)//10
                 pop0=self.pop[0:NIndiv]
                 pop1=self.pop[NIndiv::]
 

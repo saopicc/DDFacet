@@ -148,7 +148,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                            "Cell"] / 3600.) * np.pi / 180
             lrad = Npix * CellSizeRad * 0.5
 
-            NpixFacet = Npix / NFacets
+            NpixFacet = Npix // NFacets
             lfacet = NpixFacet * CellSizeRad * 0.5
             lcenter_max = lrad - lfacet
 
@@ -207,11 +207,26 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             LPolygon=[]
             ListNode=[]
             for region,iNode in zip(regions,range(NodesCat.shape[0])):
-                ThisP = np.array(PP & Polygon.Polygon(np.array(vertices[region])))
+                PP1=Polygon.Polygon(np.array(vertices[region]))
+                ThisP = np.array(PP & PP1)
+                # x,y=np.array(PP1).T
+                # xp,yp=np.array(PP).T
+                # stop
+                # import pylab
+                # pylab.clf()
+                # #pylab.plot(x,y)
+                # pylab.plot(xp,yp)
+                # pylab.draw()
+                # pylab.show()
+                # #pylab.pause(0.1)
+                
                 if ThisP.size>0:
                     LPolygon.append(ThisP[0])
                     ListNode.append(iNode)
             NodesCat=NodesCat[np.array(ListNode)].copy()
+
+
+            
 # =======
 #             LPolygon = [
 #                 np.array(PP & Polygon.Polygon(np.array(vertices[region])))[0]
@@ -584,7 +599,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             #Create smoothned facet tessel mask:
             Npix = self.DicoImager[iFacet]["NpixFacetPadded"]
             l0, l1, m0, m1 = self.DicoImager[iFacet]["lmExtentPadded"]
-            X, Y = np.mgrid[l0:l1:Npix/10 * 1j, m0:m1:Npix/10 * 1j]
+            X, Y = np.mgrid[l0:l1:Npix//10 * 1j, m0:m1:Npix//10 * 1j]
             XY = np.dstack((X, Y))
             XY_flat = XY.reshape((-1, 2))
             vertices = self.DicoImager[iFacet]["Polygon"]

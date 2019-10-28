@@ -1,3 +1,4 @@
+from __future__ import division
 def reformat(ssin,slash=True,LastSlash=True):
     ss=ssin.split("/")
     ss=filter (lambda a: a != "", ss)

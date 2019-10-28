@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+from __future__ import division
 
 from __future__ import absolute_import
 from __future__ import division
@@ -61,7 +62,7 @@ def testGrid():
     npix = 2025
     Cell = 1.5
     # Cell=.5
-    offy, offx = 3465/2-1030, 3465/2-1303
+    offy, offx = 3465//2-1030, 3465//2-1303
     offx = offx
     offy = -offy
     CellRad = (Cell/3600.)*np.pi/180
@@ -224,7 +225,7 @@ def testGrid():
 
     # Grid.fill(0)
     _, _, n, n = Grid.shape
-    Grid[:, :, n/2+offx, n/2+offy] = 10.
+    Grid[:, :, n//2+offx, n//2+offy] = 10.
 
     data.fill(0)
 
@@ -396,7 +397,7 @@ class ClassDDEGridMachine():
 
         self.GridShape = (self.NFreqBands, self.npol, self.Npix, self.Npix)
 
-        x0 = (self.Npix-self.NonPaddedNpix)/2  # +1
+        x0 = (self.Npix-self.NonPaddedNpix)//2  # +1
         self.PaddingInnerCoord = (x0, x0+self.NonPaddedNpix)
 
         T.timeit("1")

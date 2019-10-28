@@ -12,6 +12,7 @@
 #
 #    You should have received a copy of the GNU Lesser General Public
 #    License along with DEAP. If not, see <http://www.gnu.org/licenses/>.
+from __future__ import division
 
 import random
 
@@ -80,7 +81,7 @@ def cxTwoPointCopy(ind1, ind2):
 
     
 def Mutate(Indiv,indpb=0.05,AmpRad=0.017453292519943295):
-    N=Indiv.size/2
+    N=Indiv.size//2
     Ind=Indiv.reshape((2,N))
     #i=int(np.random.rand(1)[0]*N)
     for i in range(N):
@@ -191,8 +192,8 @@ class ClassCluster():
         # for i,ii in enumerate(p): pop[i][:]=ii[:]
         # return 
 
-        pop0=pop[0:N/2]
-        pop1=pop[N/2:]
+        pop0=pop[0:N//2]
+        pop1=pop[N//2:]
         for iIndiv,Indiv in enumerate(pop0):
             #print iIndiv,len(pop0)
             x,y=Indiv.reshape((2,self.nNode))
@@ -264,7 +265,7 @@ class ClassPlotMachine():
     def Plot(self,hof):
         import pylab
         indiv=hof[-1]
-        N=indiv.size/2
+        N=indiv.size//2
         xc,yc=indiv.reshape((2,N))
 
         CMD=ClassMetricDEAP.ClassMetricDEAP(indiv,x=self.x,y=self.y,S=self.S,Polygons=self.Polygons,PolyCut=self.PolyCut)

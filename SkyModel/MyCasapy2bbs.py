@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import division
 
 from pyrap.tables import table
 from pyrap.images import image
@@ -133,7 +134,7 @@ class MyCasapy2BBS():
     def Plot(self,data,dx=None):
 
         import pylab
-        xc=data.shape[0]/2
+        xc=data.shape[0]//2
         pylab.clf()
         if dx!=None:
             pylab.imshow(data[xc-dx:xc+dx,xc-dx:xc+dx],interpolation="nearest",cmap="gray")
@@ -147,7 +148,7 @@ class MyCasapy2BBS():
     #     print "Compute noise map..."
     #     Boost=self.Boost
     #     Acopy=self.ImResidual[0::Boost,0::Boost].copy()
-    #     SBox=(self.box[0]/Boost,self.box[1]/Boost)
+    #     SBox=(self.box[0]//Boost,self.box[1]//Boost)
     #     #Noise=scipy.ndimage.filters.median_filter(Acopy**2,SBox)
     #     #Noise-=scipy.ndimage.filters.median_filter(Acopy,SBox)**2
 

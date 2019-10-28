@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+from __future__ import division
 
 from __future__ import absolute_import
 from __future__ import division
@@ -40,7 +41,7 @@ def fft_comparison_tests(size=2048, dtype=np.complex128, byte_align=False):
     
  
     test_array = np.ones( (size,size), dtype=dtype)
-    test_array[size*3/8:size*5/8, size*3/8:size*5/8] = 1 # square aperture oversampling 2...
+    test_array[size*3//8:size*5//8, size*3//8:size*5//8] = 1 # square aperture oversampling 2...
  
     ncores = multiprocessing.cpu_count()
  
@@ -82,7 +83,7 @@ def fft_comparison_tests(size=2048, dtype=np.complex128, byte_align=False):
  
             else:
                 test_array = np.zeros( (size,size), dtype=np.complex128)
-            test_array[size*3/8:size*5/8, size*3/8:size*5/8] = 1 # square aperture oversampling 2...
+            test_array[size*3//8:size*5//8, size*3//8:size*5//8] = 1 # square aperture oversampling 2...
             pl.subplot(2,3, 1 + i)
             pl.imshow(np.abs(test_array), vmin=0, vmax=1)
             pl.title( "FFT type: {0:10s} input array".format(fft_type))
@@ -121,7 +122,7 @@ def fft_comparison_tests(size=2048, dtype=np.complex128, byte_align=False):
             cmap = matplotlib.cm.jet
             cmap.set_bad((0,0,0.5))
  
-            pl.imshow(psf[size*3/8:size*5/8, size*3/8:size*5/8], norm=norm)
+            pl.imshow(psf[size*3//8:size*5//8, size*3//8:size*5//8], norm=norm)
             pl.title(summarytext)
             pl.draw()
             pl.show(False)

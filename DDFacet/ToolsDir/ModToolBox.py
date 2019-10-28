@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+from __future__ import division
 
 from __future__ import absolute_import
 from __future__ import division
@@ -194,8 +195,8 @@ def testFFTW2D():
     n=1024
     A=np.zeros((1,1,n,n),np.complex128)
     
-    A[0,0,n/2+1,n/2+1]=1+0.5*1j
-    #A[n/2,n/2]=1#+0.5*1j
+    A[0,0,n//2+1,n//2+1]=1+0.5*1j
+    #A[n//2,n//2]=1#+0.5*1j
     #A=np.random.randn(6,6)+1j*np.random.randn(6,6)
 
     import ModFFTW
@@ -313,9 +314,9 @@ def ZeroPad(A,outshape=1001):
 #    B=np.zeros((nx*zp,nx*zp),dtype=A.dtype)
     B=np.zeros((outshape,),dtype=A.dtype)
     if (outshape%2)==0:
-        off=(B.shape[0]-A.shape[0])/2+1
+        off=(B.shape[0]-A.shape[0])//2+1
     else:
-        off=(B.shape[0]-A.shape[0])/2#+1
+        off=(B.shape[0]-A.shape[0])//2#+1
     B[off:off+nx]=A
     return B   
  

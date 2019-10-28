@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+from __future__ import division
 
 from __future__ import absolute_import
 from __future__ import division
@@ -29,7 +30,7 @@ import numpy as np
 def TaperGauss(A):
 
     x=np.arange(A.size)
-    x0=A.size/2
+    x0=A.size//2
     sigx=(0.5*A.size)/3
     g=np.exp(-(x-x0)**2/(2*sigx**2))
     return A*g
@@ -59,12 +60,12 @@ def Sphe2D(Npix,factor=1.):
 def Sphe1D(Npix,factor=1.):
     y=np.zeros((Npix,),float)
     if Npix%2==0:
-        xx0=Npix/2
+        xx0=Npix//2
         dx=(Npix)/2.
         xx=(np.arange(Npix)-xx0)/dx
     else:
         dx=(Npix-1)/2.
-        xx0=(Npix-1)/2
+        xx0=(Npix-1)//2
         xx=(np.arange(Npix)-xx0)/dx
 
     for (i,x) in zip(range(Npix),xx):

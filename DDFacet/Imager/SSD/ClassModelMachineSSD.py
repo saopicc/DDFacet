@@ -178,7 +178,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def AppendIsland(self,ListPixParms,V,JonesNorm=None):
         ListPix=ListPixParms
-        Vr=V.reshape((self.NParam,V.size/self.NParam))
+        Vr=V.reshape((self.NParam,V.size//self.NParam))
         NPixListParms=len(ListPixParms)
 
         

@@ -127,7 +127,7 @@ class ClassImageNoiseMachine():
         print("  Computing noise map...", file=log)
         Boost=Step
         Acopy=Image[0,0,0::Boost,0::Boost].copy()
-        SBox=(box[0]/Boost,box[1]/Boost)
+        SBox=(box[0]//Boost,box[1]//Boost)
 
         x=np.linspace(-10,10,1000)
         f=0.5*(1.+scipy.special.erf(x/np.sqrt(2.)))
@@ -262,7 +262,7 @@ class ClassImageNoiseMachine():
         # ModelConv=np.zeros_like(ModelImage)
         # for iComp in range(indx.size):
         #     xc,yc=indx[iComp],indy[iComp]
-        #     Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1/2,N1/2),(N1,N1))
+        #     Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1//2,N1//2),(N1,N1))
         #     x0d,x1d,y0d,y1d=Aedge
         #     x0p,x1p,y0p,y1p=Bedge
         #     ModelConv[x0d:x1d,y0d:y1d]+=G[x0p:x1p,y0p:y1p]*ModelImage[xc,yc]

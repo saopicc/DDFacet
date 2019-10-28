@@ -171,10 +171,15 @@ class ClassImageDeconvMachine():
         if Nin==Nout: 
             return A
         elif Nin>Nout:
-            dx=Nout/2
+            dx=Nout//2
             B=np.zeros((nch,npol,Nout,Nout),A.dtype)
+<<<<<<< HEAD
             print("  Adapt shapes: %s -> %s"%(str(A.shape),str(B.shape)), file=log)
             B[:]=A[...,Nin/2-dx:Nin/2+dx+1,Nin/2-dx:Nin/2+dx+1]
+=======
+            print>>log,"  Adapt shapes: %s -> %s"%(str(A.shape),str(B.shape))
+            B[:]=A[...,Nin//2-dx:Nin//2+dx+1,Nin//2-dx:Nin//2+dx+1]
+>>>>>>> upstream/to_py3_cyril
             return B
         else:
             stop
@@ -188,7 +193,7 @@ class ClassImageDeconvMachine():
         NPSF=self.PSFServer.NPSF
         _,_,NDirty,_=self._Dirty.shape
 
-        off=(NPSF-NDirty)/2
+        off=(NPSF-NDirty)//2
 
         self.DirtyExtent=(off,off+NDirty,off,off+NDirty)
 
@@ -336,7 +341,7 @@ class ClassImageDeconvMachine():
         self.setChannel(ch)
 
         _,npix,_=self.Dirty.shape
-        xc=(npix)/2
+        xc=(npix)//2
 
         npol,_,_=self.Dirty.shape
 
@@ -630,23 +635,23 @@ class ClassImageDeconvMachine():
         NpixFacet=N1
                 
         ## X
-        M_x0=M_xc-NpixFacet/2
+        M_x0=M_xc-NpixFacet//2
         x0main=np.max([0,M_x0])
         dx0=x0main-M_x0
         x0facet=dx0
                 
-        M_x1=M_xc+NpixFacet/2
+        M_x1=M_xc+NpixFacet//2
         x1main=np.min([NpixMain-1,M_x1])
         dx1=M_x1-x1main
         x1facet=NpixFacet-dx1
         x1main+=1
         ## Y
-        M_y0=M_yc-NpixFacet/2
+        M_y0=M_yc-NpixFacet//2
         y0main=np.max([0,M_y0])
         dy0=y0main-M_y0
         y0facet=dy0
         
-        M_y1=M_yc+NpixFacet/2
+        M_y1=M_yc+NpixFacet//2
         y1main=np.min([NpixMain-1,M_y1])
         dy1=M_y1-y1main
         y1facet=NpixFacet-dy1
@@ -663,7 +668,7 @@ class ClassImageDeconvMachine():
         xc,yc=dx,dy
         N0=self.Dirty.shape[-1]
         N1=LocalSM.shape[-1]
-        Aedge,Bedge=self.GiveEdges((xc,yc),N0,(N1/2,N1/2),N1)
+        Aedge,Bedge=self.GiveEdges((xc,yc),N0,(N1//2,N1//2),N1)
         factor=-1.
         nch,npol,nx,ny=LocalSM.shape
         x0d,x1d,y0d,y1d=Aedge

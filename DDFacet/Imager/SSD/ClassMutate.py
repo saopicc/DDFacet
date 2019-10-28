@@ -150,12 +150,12 @@ class ClassMutate():
             indSel=ind[indR]
         # zero a pixel
         elif Type==1:
-            N=np.max([(NNonZero/10),1])
+            N=np.max([(NNonZero//10),1])
             indR=sorted(list(set(np.int32(np.random.rand(N)*NNonZero).tolist())))
             indSel=ind[indR]
         # move a pixel
         elif Type==2:
-            NMax=int(np.max([3.,self.PM.NPixListParms/10]))
+            NMax=int(np.max([3.,self.PM.NPixListParms//10]))
             NMax=np.min([NMax,10])
             N=int(random.uniform(1, NMax))
             indR=sorted(list(set(np.int32(np.random.rand(N)*NNonZero).tolist())))

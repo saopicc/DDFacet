@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+from __future__ import division
 
 from __future__ import absolute_import
 from __future__ import division
@@ -681,7 +682,7 @@ def ConvolveGaussianScipy(Ain0,Sig=1.,GaussPar=None):
   #              DeprecationWarning)
   Npix=int(2*8*Sig)
   if Npix%2==0: Npix+=1
-  x0=Npix/2
+  x0=Npix//2
   x,y=np.mgrid[-x0:x0:Npix*1j,-x0:x0:Npix*1j]
   #in2=np.exp(-(x**2+y**2)/(2.*Sig**2))
   if GaussPar is None:
@@ -985,12 +986,12 @@ if APP:
 #       N=self.N
 #       zA=np.zeros((zN,zN),dtype=A.dtype)
 #       if N%2:
-#           zA[zN/2-N/2:zN/2+N/2+1,zN/2-N/2:zN/2+N/2+1]=A[:,:]
+#           zA[zN//2-N//2:zN//2+N//2+1,zN//2-N//2:zN//2+N//2+1]=A[:,:]
 #           #nx,ny=A.shape
-#           #zA[:nx/2+1,0:ny]=A[:nx/2+1,:]
-#           #zA[-nx/2+1:,0:ny]=A[-nx/2+1:,:]
+#           #zA[:nx//2+1,0:ny]=A[:nx//2+1,:]
+#           #zA[-nx//2+1:,0:ny]=A[-nx//2+1:,:]
 #       else:
-#           zA[zN/2-N/2:zN/2+N/2,zN/2-N/2:zN/2+N/2]=A[:,:]
+#           zA[zN//2-N//2:zN//2+N//2,zN//2-N//2:zN//2+N//2]=A[:,:]
 #           
 #       # import pylab
 #       # pylab.subplot(1,2,1)
@@ -1008,9 +1009,9 @@ if APP:
 #       N=self.N
 #       A=np.zeros((N,N),dtype=zA.dtype)
 #       if N%2:
-#           A[:,:]=zA[zN/2-N/2:zN/2+N/2+1,zN/2-N/2:zN/2+N/2+1]
+#           A[:,:]=zA[zN//2-N//2:zN//2+N//2+1,zN//2-N//2:zN//2+N//2+1]
 #       else:
-#           A[:,:]=zA[zN/2-N/2:zN/2+N/2,zN/2-N/2:zN/2+N/2]
+#           A[:,:]=zA[zN//2-N//2:zN//2+N//2,zN//2-N//2:zN//2+N//2]
 
 #       return A
 

@@ -980,11 +980,11 @@ class ClassImagerDeconv():
                 elif MaskOutSide==1:
                     SquareMaskMode="Outside"
                 NpixInside, _ = EstimateNpix(float(NpixInside), Padding=1)
-                print("  Zeroing model %s square [%i pixels]"%(SquareMaskMode,NpixInside), file=log)
-                dn=NpixInside/2
+                print>>log,"  Zeroing model %s square [%i pixels]"%(SquareMaskMode,NpixInside)
+                dn=NpixInside//2
                 n=self.FacetMachine.Npix
                 InSquare=np.zeros(ModelImage.shape,bool)
-                InSquare[:,:,n/2-dn:n/2+dn+1,n/2-dn:n/2+dn+1]=1
+                InSquare[:,:,n//2-dn:n//2+dn+1,n//2-dn:n//2+dn+1]=1
                 if SquareMaskMode=="Inside":
                     ModelImage[InSquare]=0
                 elif SquareMaskMode=="Outside":
@@ -2264,7 +2264,7 @@ class ClassImagerDeconv():
         # testImage.fill(0)
         # _,_,nx,_=testImage.shape
         # print "shape image:",testImage.shape
-        # xc=nx/2
+        # xc=nx//2
         # n=2
         # dn=200
         # #for i in range(-n,n+1):

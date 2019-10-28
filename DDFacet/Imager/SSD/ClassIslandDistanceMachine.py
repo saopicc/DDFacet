@@ -123,7 +123,7 @@ class ClassIslandDistanceMachine():
         
         
         nPSF,_=PSF.shape
-        xcPSF,ycPSF=nPSF/2,nPSF/2
+        xcPSF,ycPSF=nPSF//2,nPSF//2
 
         IN=lambda x: ((x>=0)&(x<nPSF))
 
