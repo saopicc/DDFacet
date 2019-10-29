@@ -324,7 +324,7 @@ class ClassImageDeconvMachine():
             if facetcache is None and not valid and cache and not approx:
                 try:
                     #MyPickle.DicoNPToFile(facetcache,cachepath)
-                    #cPickle.dump(facetcache, file(cachepath, 'w'), 2)
+                    #cPickle.dump(facetcache, open(cachepath, 'w'), 2)
                     print("  saving HMP cache to %s"%cachepath, file=log)
                     self.facetcache.save(cachepath)
                     #self.maincache.saveCache("HMPMachine")
@@ -850,7 +850,8 @@ class ClassImageDeconvMachine():
 
                 ThisPNR=ThisFlux/rms
 
-                if ThisFlux <= StopFlux or ThisPNR <= self._PNRStop:
+                if ThisFlux <= (StopFlux if StopFlux is not None else 0.0) or \
+                    ThisPNR <= (self._PNRStop if self._PNRStop is not None else 0.0):
                     rms = np.std(np.real(self._PeakSearchImage.ravel()[self.IndStats]))
                     # pBAR.render(100,"peak %.3g"%(ThisFlux,))
                     if ThisFlux <= StopFlux:

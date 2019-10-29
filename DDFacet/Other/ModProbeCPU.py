@@ -37,7 +37,7 @@ def getTimeList():
     Fetches a list of time units the cpu has spent in various modes
     Detailed explanation at http://www.linuxhowtos.org/System/procstat.htm
     """
-    cpuStats = file("/proc/stat", "r").readline()
+    cpuStats = open("/proc/stat", "r").readline()
     columns = cpuStats.replace("cpu", "").split(" ")
     return map(int, filter(None, columns))
 

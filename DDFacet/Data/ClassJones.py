@@ -214,13 +214,13 @@ class ClassJones():
         # np.savez(self.JonesNorm_killMS,l=l,m=m,I=I,Cluster=Cluster,t0=t0,t1=t1,tm=tm,Jones=Jones,TimeMapping=TimeMapping)
 
         os.system("touch %s"%OutName)
-        np.savez(file("%s.npz"%OutName, "w"),
+        np.savez(open("%s.npz"%OutName, "wb"),
                  l=l, m=m, I=I, Cluster=Cluster,
                  t0=t0, t1=t1, tm=tm,
                  ra=ra,dec=dec,
                  TimeMapping=TimeMapping,
                  VisToJonesChanMapping=VisToJonesChanMapping)
-        np.save(file("%s.npy"%OutName, "w"),
+        np.save(open("%s.npy"%OutName, "wb"),
                 Jones)
 
 

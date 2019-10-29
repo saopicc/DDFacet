@@ -40,7 +40,7 @@ def LoadModule(ThisDicoTerm,args=[]):
 
 
 def DictToFile(Dict,fout):
-    f=open(fout,"w")
+    f=open(fout,"wb")
     Lkeys=Dict.keys()
     
     for key in Lkeys:

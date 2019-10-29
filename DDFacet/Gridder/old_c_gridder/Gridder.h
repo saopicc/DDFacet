@@ -21,6 +21,11 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <stdbool.h>
 #include <stdint.h>
 
+#if PY_MAJOR_VERSION >= 3
+  typedef long int;
+  #define p_int32 p_int64
+#endif
+
 /* ==== Prototypes =================================== */
 
 // .... Python callable Vector functions ..................

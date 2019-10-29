@@ -1,4 +1,6 @@
 from __future__ import division
+from __future__ import absolute_import
+from __future__ import print_function
 import csv
 import numpy as np
 
@@ -8,10 +10,10 @@ def ReadBBSModel(infile,infile_cluster=""):
     ifile.close()
     
     if Header[0]=="#":
-        print "Using old SM format"
+        print("Using old SM format")
         return ReadBBSModelOld(infile,infile_cluster="")
     else:
-        print "Using new SM format"
+        print("Using new SM format")
         return ReadBBSModelNew(infile,infile_cluster="")
         
     
@@ -37,7 +39,7 @@ def ReadBBSModelNew(infile,infile_cluster=""):
     #for i in range(len(F)):
     #    F[i]=F[i].lower().replace(" ","")
 
-    print F
+    print(F)
 
     Cat=np.zeros((10000,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('Sref',np.float),('I',np.float),('Q',np.float),\
                                  ('U',np.float),('V',np.float),('RefFreq',np.float),('alpha',np.float),('ESref',np.float),\

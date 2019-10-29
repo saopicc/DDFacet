@@ -203,7 +203,7 @@ class ClassImageDeconvMachine():
             self._MaskArray=np.zeros(self._Dirty.shape,dtype=np.bool8)
 
 
-    def SubStep(self,(xc,yc),LocalSM):
+    def SubStep(self,xc,yc,LocalSM):
         """
         This is where subtraction in the image domain happens
         
@@ -359,7 +359,7 @@ class ClassImageDeconvMachine():
                 self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs)
 
                 # Subtract LocalSM*CurrentGain from dirty image
-                self.SubStep((x,y), PSF * Iapp[:, None, None, None] * self.GD["Deconv"]["Gain"])
+                self.SubStep(x, y, PSF * Iapp[:, None, None, None] * self.GD["Deconv"]["Gain"])
 
                 T.timeit("SubStep")
 

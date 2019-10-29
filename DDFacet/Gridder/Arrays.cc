@@ -30,12 +30,15 @@ using namespace std;
 
 //int is int32 in python 2 only
 #if PY_MAJOR_VERSION >= 3
-  #define int long int 
+  typedef signed long int_t;
+  #define p_int32 p_int64
+#else
+  typedef signed int int_t;
 #endif
 
 static PyObject *pySetOMPNumThreads(PyObject */*self*/, PyObject *args)
 {
-  int nthr;
+  int_t nthr;
   if (!PyArg_ParseTuple(args, "i", &nthr)) return NULL;
   omp_set_num_threads(nthr);
   Py_RETURN_NONE;
@@ -43,7 +46,7 @@ static PyObject *pySetOMPNumThreads(PyObject */*self*/, PyObject *args)
 
 static PyObject *pySetOMPDynamicNumThreads(PyObject */*self*/, PyObject *args)
 {
-  int nthr;
+  int_t nthr;
   if (!PyArg_ParseTuple(args, "i", &nthr)) return NULL;
   omp_set_dynamic(nthr);
   Py_RETURN_NONE;
@@ -53,7 +56,7 @@ static PyObject *pyWhereMaxMask(PyObject */*self*/, PyObject *args)
 {
   PyArrayObject *A, *Blocks, *Mask;
   PyObject *ObjAns;
-  int doabs;
+  int_t doabs;
   if (!PyArg_ParseTuple(args, "O!O!O!Oi",
       &PyArray_Type,  &A,
       &PyArray_Type,  &Mask,
@@ -64,24 +67,24 @@ static PyObject *pyWhereMaxMask(PyObject */*self*/, PyObject *args)
 
   PyArrayObject *Ans = (PyArrayObject *) PyArray_ContiguousFromObject(ObjAns, NPY_FLOAT32, 0, 4);
 
-  int NX=int(PyArray_DIMS(A)[0]), NY=int(PyArray_DIMS(A)[1]);
+  int_t NX=int_t(PyArray_DIMS(A)[0]), NY=int_t(PyArray_DIMS(A)[1]);
 
   const bool *pMask=p_bool(Mask);
-  const int *pBlocks=p_int32(Blocks);
-  int nblocks=int(PyArray_DIMS(Blocks)[0]);
+  const int_t *pBlocks=p_int32(Blocks);
+  int_t nblocks=int(PyArray_DIMS(Blocks)[0]);
   vector<float> MaxBlock(nblocks-1);
-  vector<int> xMaxBlock(nblocks-1), yMaxBlock(nblocks-1);
+  vector<int_t> xMaxBlock(nblocks-1), yMaxBlock(nblocks-1);
 
 #pragma omp parallel for
-  for (int iblock=0; iblock<nblocks-1; iblock++)
+  for (int_t iblock=0; iblock<nblocks-1; iblock++)
     {
     const float *a = p_float32(A);
     float ThisMax=-FLT_MAX;
-    int ThisxMax=0, ThisyMax=0;
-    for (int i_a=pBlocks[iblock]; i_a<min(pBlocks[iblock+1], NX); ++i_a)
-      for (int j_a=0; j_a<NY; ++j_a)
+    int_t ThisxMax=0, ThisyMax=0;
+    for (int_t i_a=pBlocks[iblock]; i_a<min(pBlocks[iblock+1], NX); ++i_a)
+      for (int_t j_a=0; j_a<NY; ++j_a)
         {
-        int ii=i_a*NY+j_a;
+        int_t ii=i_a*NY+j_a;
         if (!pMask[ii])
           {
           float ThisVal = doabs ? abs<float>(a[ii]) : a[ii];
@@ -96,7 +99,7 @@ static PyObject *pyWhereMaxMask(PyObject */*self*/, PyObject *args)
     }
 
   float Max=0;
-  int xMax=0, yMax=0;
+  int_t xMax=0, yMax=0;
   for (long iblock=0; iblock<nblocks-1; iblock++)
     if (MaxBlock[iblock]>Max)
       {
@@ -116,7 +119,7 @@ static PyObject *pyWhereMax(PyObject */*self*/, PyObject *args)
 {
   PyArrayObject *A, *Blocks;
   PyObject *ObjAns;
-  int doabs;
+  int_t doabs;
 
   if (!PyArg_ParseTuple(args, "O!O!Oi",
       &PyArray_Type,  &A,
@@ -126,10 +129,10 @@ static PyObject *pyWhereMax(PyObject */*self*/, PyObject *args)
       )) return NULL;
 
   PyArrayObject *Ans = (PyArrayObject *) PyArray_ContiguousFromObject(ObjAns, NPY_FLOAT32, 0, 4);
-  int NX=int(PyArray_DIMS(A)[0]), NY=int(PyArray_DIMS(A)[1]);
+  int_t NX=int(PyArray_DIMS(A)[0]), NY=int(PyArray_DIMS(A)[1]);
 
-  const int *pBlocks=p_int32(Blocks);
-  int nblocks=int(PyArray_DIMS(Blocks)[0]);
+  const int_t *pBlocks=p_int32(Blocks);
+  int_t nblocks=int(PyArray_DIMS(Blocks)[0]);
   vector<float> MaxBlock(nblocks-1);
   vector<int> xMaxBlock(nblocks-1), yMaxBlock(nblocks-1);
 
@@ -137,11 +140,11 @@ static PyObject *pyWhereMax(PyObject */*self*/, PyObject *args)
   for (long iblock = 0; iblock < nblocks-1; iblock++){
     const float *a = p_float32(A);
     float ThisMax=-FLT_MAX;
-    int ThisxMax=0, ThisyMax=0;
-    for (int i_a=pBlocks[iblock]; i_a<min(pBlocks[iblock+1], NX); ++i_a)
-      for (int j_a=0; j_a<NY; ++j_a)
+    int_t ThisxMax=0, ThisyMax=0;
+    for (int_t i_a=pBlocks[iblock]; i_a<min(pBlocks[iblock+1], NX); ++i_a)
+      for (int_t j_a=0; j_a<NY; ++j_a)
         {
-        int ii=i_a*NY+j_a;
+        int_t ii=i_a*NY+j_a;
         float ThisVal = doabs ? abs<float>(a[ii]) : a[ii];
         if (ThisVal > ThisMax)
           { ThisMax=ThisVal; ThisxMax=i_a; ThisyMax=j_a; }
@@ -153,7 +156,7 @@ static PyObject *pyWhereMax(PyObject */*self*/, PyObject *args)
     }
 
   float Max=0;
-  int xMax=0, yMax=0;
+  int_t xMax=0, yMax=0;
   for (long iblock = 0; iblock < nblocks-1; iblock++){
     if(MaxBlock[iblock]>Max){
       Max=MaxBlock[iblock];
@@ -202,26 +205,26 @@ template<typename Op>static PyObject *pyOpArray(PyObject *args, Op op)
 
   A = (PyArrayObject *)PyArray_ContiguousFromObject(ObjA, NPY_FLOAT32, 0, 4);
 
-  int NYa=int(PyArray_DIMS(A)[1]);
-  int NYb=int(PyArray_DIMS(B)[1]);
+  int_t NYa=int(PyArray_DIMS(A)[1]);
+  int_t NYb=int(PyArray_DIMS(B)[1]);
 
-  const int *aedge = p_int32(Aedge);
-  int a_x0=aedge[0], a_x1=aedge[1], a_y0=aedge[2], a_y1=aedge[3];
+  const int_t *aedge = p_int32(Aedge);
+  int_t a_x0=aedge[0], a_x1=aedge[1], a_y0=aedge[2], a_y1=aedge[3];
 
-  const int *bedge = p_int32(Bedge);
-  int b_x0=bedge[0], b_y0=bedge[2];
+  const int_t *bedge = p_int32(Bedge);
+  int_t b_x0=bedge[0], b_y0=bedge[2];
 
-  const int *pBlocks=p_int32(Blocks);
-  int nblocks=int(PyArray_DIMS(Blocks)[0]);
+  const int_t *pBlocks=p_int32(Blocks);
+  int_t nblocks=int(PyArray_DIMS(Blocks)[0]);
 #pragma omp parallel for
   for (long iblock=0; iblock<nblocks-1; iblock++){
    float *a = p_float32(A);
     const float *b = p_float32(B);
 
-    for (int i_a=pBlocks[iblock]; i_a<min(pBlocks[iblock+1], a_x1); i_a++)
+    for (int_t i_a=pBlocks[iblock]; i_a<min(pBlocks[iblock+1], a_x1); i_a++)
       {
-      int i_b = b_x0+i_a-a_x0;
-      for (int j_a=a_y0, j_b=b_y0; j_a<a_y1; ++j_a, ++j_b)
+      int_t i_b = b_x0+i_a-a_x0;
+      for (int_t j_a=a_y0, j_b=b_y0; j_a<a_y1; ++j_a, ++j_b)
         op(a[i_a*NYa+j_a],b[i_b*NYb+j_b]*factor);
       }
     }

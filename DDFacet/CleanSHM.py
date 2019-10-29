@@ -70,7 +70,7 @@ if __name__=="__main__":
     # remove semaphores we don't have access to
     ll = filter(lambda x: os.access(x, os.W_OK),ll)
 
-    ListSemaphores=[".".join(l.split(".")[1::]) for l in ll]
+    ListSemaphores=list(map(str, [".".join(l.split(".")[1::]) for l in ll]))
 
     _pyGridderSmear.pySetSemaphores(ListSemaphores)
     _pyGridderSmear.pyDeleteSemaphore()

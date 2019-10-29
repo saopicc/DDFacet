@@ -1,4 +1,6 @@
 from __future__ import division
+from __future__ import absolute_import
+from __future__ import print_function
 
 
 from SkyModel.Other import ModCoord
@@ -92,7 +94,7 @@ class VoronoiToReg():
         f.close()
 
     def PolygonToReg(self,regFile,LPolygon,radius=0.1,Col="red",labels=None):
-        print>>log, "Writing voronoi in: %s"%ModColor.Str(regFile,col="blue")
+        print("Writing voronoi in: %s"%ModColor.Str(regFile,col="blue"), file=log)
 
         f=open(regFile,"w")
         f.write("# Region file format: DS9 version 4.1\n")

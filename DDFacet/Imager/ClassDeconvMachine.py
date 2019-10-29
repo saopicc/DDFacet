@@ -64,7 +64,7 @@ from DDFacet.Data.PointingProvider import PointingProvider
 # from astropy import wcs
 # from astropy.io import fits
 #
-# def load_wcs_from_file(filename):
+# def load_wcs_from_open(filename):
 #     # Load the FITS hdulist using astropy.io.fits
 #     hdulist = fits.open(filename)
 #
@@ -467,7 +467,7 @@ class ClassImagerDeconv():
                 self.DicoImagesPSF["PSFGaussPars"]=self.PSFGaussPars
                 self.DicoImagesPSF["PSFSidelobes"]=self.PSFSidelobes
                 self.DicoImagesPSF["EstimatesAvgPSF"]=(self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg)
-                #cPickle.dump(self.DicoImagesPSF, file(self._psf_cachepath, 'w'), 2)
+                #cPickle.dump(self.DicoImagesPSF, open(self._psf_cachepath, 'w'), 2)
                 self.DicoImagesPSF.save(cachepath)
                 MyPickle.DicoNPToFile(self.DicoImagesPSF,"%s.DicoPickle"%cachepath)
                 self.VS.maincache.saveCache("PSF")
@@ -730,7 +730,7 @@ class ClassImagerDeconv():
                 # dump dirty to cache
                 if dirty_writecache:
                     try:
-                        #cPickle.dump(self.DicoDirty, file(cachepath, 'w'), 2)
+                        #cPickle.dump(self.DicoDirty, open(cachepath, 'w'), 2)
                         self.DicoDirty.save(dirty_cachepath)
                         self.VS.maincache.saveCache("Dirty")
                     except:

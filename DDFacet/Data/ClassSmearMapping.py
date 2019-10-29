@@ -93,7 +93,7 @@ class SmearMappingMachine (object):
         NTotBlocks = 0
         NTotRows = 0
 
-        for key in sizedict.iterkeys():
+        for key in getattr(sizedict, "iterkeys", sizedict.keys)():
             bsz = sizedict[key]
             NTotBlocks += len(bsz)
             NTotRows += bsz.sum()
@@ -111,7 +111,7 @@ class SmearMappingMachine (object):
         jjj = 0
 
         # now go through each per-baseline mapping, sorted by baseline
-        for key in sorted(sizedict.iterkeys()):
+        for key in sorted(getattr(sizedict, "iterkeys", sizedict.keys)()):
             BlocksSizesBL = sizedict[key]
             BlocksRowsListBL = blockdict[key]
 
@@ -216,7 +216,7 @@ class ClassSmearMapping():
         jjj = 0
 
         # now go through each per-worker mapping
-        for baseline, (BlocksRowsListBL, BlocksSizesBL) in BlockListsSizes.iteritems():
+        for baseline, (BlocksRowsListBL, BlocksSizesBL) in getattr(BlockListsSizes, "iteritems", BlockListsSizes.items)():
             # FinalMapping=np.concatenate((FinalMapping,BlocksRowsListBLWorker))
 
             FinalMapping[iii:iii + len(BlocksRowsListBL)] = BlocksRowsListBL
@@ -330,7 +330,7 @@ class ClassSmearMapping():
             BlockListSizes[jjj:jjj+BlocksSizesBL.size] = BlocksSizesBL[:]
             jjj += BlocksSizesBL.size
 
-        for MapName in worker_maps.iterkeys():
+        for MapName in getattr(worker_maps, "iterkeys", worker_maps.keys)():
             NpShared.DelArray(MapName)
 
         #print>>log, "  Put in shared mem"

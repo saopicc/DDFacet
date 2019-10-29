@@ -276,7 +276,9 @@ class ClassVisServer():
         freq_to_grid_band_chan = {}
         for iBand in range(self.NFreqBands):
             freqlist = sorted([freq for freq, band
-                               in freq_to_grid_band.iteritems()
+                               in getattr(freq_to_grid_band, 
+                                          "iteritems", 
+                                          freq_to_grid_band.items)()
                                if band == iBand])
             self.FreqBandChannels.append(freqlist)
             freq_to_grid_band_chan.update(
@@ -572,13 +574,13 @@ class ClassVisServer():
         if "BDA.Grid" not in DATA:
             FinalMapping, fact = self._smm_grid.collectSmearMapping(DATA, "BDA.Grid")
             print(ModColor.Str("  Effective compression [grid]  :   %.2f%%" % fact, col="green"), file=log)
-            np.save(file(self._bda_grid_cachename, 'w'), FinalMapping)
+            np.save(open(self._bda_grid_cachename, 'wb'), FinalMapping)
             self.cache.saveCache("BDA.Grid")
         if "BDA.Degrid" not in DATA:
             FinalMapping, fact = self._smm_degrid.collectSmearMapping(DATA, "BDA.Degrid")
             print(ModColor.Str("  Effective compression [degrid]:   %.2f%%" % fact, col="green"), file=log)
             DATA["BDA.Degrid"] = FinalMapping
-            np.save(file(self._bda_degrid_cachename, 'w'), FinalMapping)
+            np.save(open(self._bda_degrid_cachename, 'wb'), FinalMapping)
             self.cache.saveCache("BDA.Degrid")
 
     def computeBDAInBackground(self, base_job_id, ms, DATA, ChanMappingGridding=None, ChanMappingDeGridding=None):
@@ -641,7 +643,7 @@ class ClassVisServer():
         path = self.VisWeights[iMS][iChunk]["cachepath"]
         if not os.path.getsize(path):
             return None
-        return np.load(file(path))
+        return np.load(open(path, "rb"))
 
     def getMaxW(self):
         """Returns the max W value. Since this is estimated as part of weights computation, 
@@ -690,9 +692,9 @@ class ClassVisServer():
         wmax_path, wmax_valid = self.maincache.checkCache("wmax", cache_keys)
         uvmax_path, uvmax_valid = self.maincache.checkCache("uvmax", cache_keys)
         if wmax_valid:
-            self._weight_dict["wmax"] = cPickle.load(open(wmax_path))
+            self._weight_dict["wmax"] = cPickle.load(open(wmax_path,'rb'))
         if uvmax_valid:
-            self._weight_dict["uvmax"] = cPickle.load(open(uvmax_path))
+            self._weight_dict["uvmax"] = cPickle.load(open(uvmax_path,'rb'))
         # check cache first
         have_all_weights = wmax_valid and uvmax_valid
         for iMS, MS in enumerate(self.ListMS):
@@ -734,11 +736,11 @@ class ClassVisServer():
                     wmax = max(wmax, msw["wmax"])
                     self._uvmax = max(self._uvmax, msw["uvmax_wavelengths"])
         # save wmax to cache
-        cPickle.dump(wmax,open(wmax_path, "w"))
+        cPickle.dump(wmax,open(wmax_path, "wb"))
         self.maincache.saveCache("wmax")
         self._weight_dict["wmax"] = wmax
         # LB - Need to cache this to set scales in ScaleMachine
-        cPickle.dump(self._uvmax, open(uvmax_path, "w"))
+        cPickle.dump(self._uvmax, open(uvmax_path, "wb"))
         self.maincache.saveCache("uvmax")
         self._weight_dict["uvmax"] = self._uvmax
         if self._ignore_vis_weights:
@@ -979,7 +981,7 @@ class ClassVisServer():
                 os.unlink(msw["cachepath"])
             else:
                 msw["null"] = True
-                file(msw["cachepath"], 'w').truncate(0)
+                open(msw["cachepath"], 'w').truncate(0)
         except Exception as exc:
             print(ModColor.Str("Error accumulating weights from %s:"%msname), file=log)
             for line in traceback.format_exc().split("\n"):
@@ -1070,7 +1072,7 @@ class ClassVisServer():
                 if "error" in msw:
                     raise RuntimeError("weights computation failed for one or more MSs")
                 if "weight" not in msw:
-                    file(msw["cachepath"], 'w').truncate(0)
+                    open(msw["cachepath"], 'wb').truncate(0)
                     continue
 
                 # in Natural mode, we're done: dump weights out
@@ -1086,11 +1088,11 @@ class ClassVisServer():
                             msw.delete_item(field)
                             
         # save wmax to cache
-        cPickle.dump(wmax, open(wmax_path, "w"))
+        cPickle.dump(wmax, open(wmax_path, "wb"))
         self.maincache.saveCache("wmax")
         self._weight_dict["wmax"] = wmax
         # LB - Need to cache this to set scales in ScaleMachine
-        cPickle.dump(self._uvmax, open(uvmax_path, "w"))
+        cPickle.dump(self._uvmax, open(uvmax_path, "wb"))
         self.maincache.saveCache("uvmax")
         self._weight_dict["uvmax"] = self._uvmax
         print("overall max W is %.2f meters"%wmax, file=log)
@@ -1117,7 +1119,7 @@ class ClassVisServer():
                     msw = msweights[ichunk]
                     if msw["null"]:
                         print("skipping weights %d.%d (null)" % (ims, ichunk), file=log)
-                        file(msw["cachepath"], 'w').truncate(0)
+                        open(msw["cachepath"], 'w').truncate(0)
                         continue
                     print("reloading weights %d.%d" % (ims, ichunk), file=log)
                     self._loadWeights_handler(msw, ims, ichunk, self._ignore_vis_weights)
