@@ -25,7 +25,7 @@ from __future__ import print_function
 from DDFacet.compatibility import range
 import six
 if six.PY3:
-    import configparser as ConfigParser
+    from configparser import RawConfigParser as ConfigParser
 else:
     import ConfigParser
 from collections import OrderedDict
@@ -173,7 +173,10 @@ class Parset():
 
     def read (self, filename):
         self.filename = filename
-        self.Config = config = ConfigParser.ConfigParser(dict_type=OrderedDict)
+        if six.PY3:
+            self.Config = config = ConfigParser(dict_type=OrderedDict)
+        else:
+            self.Config = config = ConfigParser.ConfigParser(dict_type=OrderedDict)
         config.optionxform = str
         success = config.read(self.filename)
         self.success = bool(len(success))

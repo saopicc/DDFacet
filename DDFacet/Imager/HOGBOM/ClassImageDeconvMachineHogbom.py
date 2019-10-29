@@ -215,7 +215,7 @@ class ClassImageDeconvMachine():
                   normalised to unity at the center.
         """
         #Get overlap indices where psf should be subtracted
-        Aedge,Bedge=self.GiveEdges((xc,yc), self.Npix, (self.NpixPSF//2,self.NpixPSF//2),self.NpixPSF)
+        Aedge,Bedge=self.GiveEdges(xc,yc, self.Npix, self.NpixPSF//2, self.NpixPSF//2,self.NpixPSF)
 
         x0d,x1d,y0d,y1d=Aedge
         x0p,x1p,y0p,y1p=Bedge

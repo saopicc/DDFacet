@@ -35,7 +35,7 @@ import pickle
 
 def Save(Obj,fileout):
     #print "  Saving in %s ... "%fileout,
-    cPickle.dump(Obj, file(fileout,'w'), 2)
+    cPickle.dump(Obj, open(fileout,'wb'), 2)
     #pickle.dump(Obj, file(fileout,'w'))
     #print "  done"
 

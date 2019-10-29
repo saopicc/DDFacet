@@ -50,13 +50,13 @@ from DDFacet.Other.AsyncProcessPool import APP
 import numexpr
 import six
 if six.PY3:
-    from DDFacet.cbuild.Gridder import _pyGridderSmearPols3x as _pyGridderSmear
+    from DDFacet.cbuild.Gridder import _pyGridderSmearPols3x as _pyGridderSmearPols
 else:
-    from DDFacet.cbuild.Gridder import _pyGridderSmearPols27 as _pyGridderSmear
+    from DDFacet.cbuild.Gridder import _pyGridderSmearPols27 as _pyGridderSmearPols
 if six.PY3:
-    import DDFacet.cbuild.Gridder._pyGridderSmearPolsClassic3x as _pyGridderSmearClassic
+    import DDFacet.cbuild.Gridder._pyGridderSmearPolsClassic3x as _pyGridderSmearPolsClassic
 else:
-    import DDFacet.cbuild.Gridder._pyGridderSmearPolsClassic27 as _pyGridderSmearClassic
+    import DDFacet.cbuild.Gridder._pyGridderSmearPolsClassic27 as _pyGridderSmearPolsClassic
 import cpuinfo
 import scipy.ndimage
 from scipy.spatial import Voronoi
@@ -303,8 +303,9 @@ class ClassFacetMachine():
         _, NpixPaddedGrid = EstimateNpix(NpixFacet, Padding=self.Padding)
 
         if NpixPaddedGrid // NpixFacet > self.Padding and not getattr(self, '_warned_small_ffts', False):
-            print>> log, ModColor.Str("WARNING: Your FFTs are too small. We will pad them by x%.2f "\
-                                      "rather than x%.2f. Increase facet size and/or padding to get rid of this message." % (float(NpixPaddedGrid)/NpixFacet, self.Padding))
+            print(ModColor.Str("WARNING: Your FFTs are too small. We will pad them by x%.2f "\
+                               "rather than x%.2f. Increase facet size and/or padding to get rid of this message." % (float(NpixPaddedGrid)/NpixFacet, self.Padding)),
+                               file=log)
             self._warned_small_ffts = True
 
         diam = NpixFacet * self.CellSizeRad
@@ -1238,8 +1239,8 @@ class ClassFacetMachine():
                 xc, yc = self.DicoImager[iFacet]["pixCentral"]
                 NpixFacet = self.DicoImager[iFacet]["NpixFacetPadded"]
                 
-                Aedge, Bedge = GiveEdges((xc, yc), NPixOut,
-                                         (NpixFacet//2, NpixFacet//2), NpixFacet)
+                Aedge, Bedge = GiveEdges(xc, yc, NPixOut,
+                                         NpixFacet//2, NpixFacet//2, NpixFacet)
                 x0d, x1d, y0d, y1d = Aedge
                 x0p, x1p, y0p, y1p = Bedge
                 
@@ -1297,8 +1298,8 @@ class ClassFacetMachine():
             xc, yc = self.DicoImager[iFacet]["pixCentral"]
             NpixFacet = self.DicoGridMachine[iFacet]["Dirty"][0].shape[2]
 
-            Aedge, Bedge = GiveEdges((xc, yc), NPixOut,
-                                     (NpixFacet//2, NpixFacet//2), NpixFacet)
+            Aedge, Bedge = GiveEdges(xc, yc, NPixOut,
+                                     NpixFacet//2, NpixFacet//2, NpixFacet)
             x0main, x1main, y0main, y1main = Aedge
             x0facet, x1facet, y0facet, y1facet = Bedge
 

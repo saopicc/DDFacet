@@ -46,9 +46,9 @@ from DDFacet.Array import shared_dict
 from DDFacet.Other.AsyncProcessPool import APP
 import six
 if six.PY3:
-    from DDFacet.cbuild.Gridder import _pyGridderSmearPols3x as _pyGridderSmear
+    from DDFacet.cbuild.Gridder import _pyGridderSmearPols3x as _pyGridderSmearPols
 else:
-    from DDFacet.cbuild.Gridder import _pyGridderSmearPols27 as _pyGridderSmear
+    from DDFacet.cbuild.Gridder import _pyGridderSmearPols27 as _pyGridderSmearPols
 import copy
 
 log = logger.getLogger("ClassVisServer")

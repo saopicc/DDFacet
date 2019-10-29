@@ -128,7 +128,7 @@ class MyOptParse():
         duplicate values are assinged to the aliased keys)
         """
         DicoDest = vars(self.options)
-        for key, value in DicoDest.iteritems():
+        for key, value in getattr(DicoDest,"iteritems", DicoDest.items)():
             GroupName, Name = self.GiveKeysOut(key)
             GroupDict = self.DefaultDict.setdefault(GroupName, OrderedDict())
             attrs = self.AttrDict.get(GroupName, {}).get(Name, {})

@@ -677,7 +677,7 @@ class ClassMultiScaleMachine():
         # (x0,x1,y0,y1)=Bedge
 
         nxGWF,nyGWF=self.GlobalWeightFunction.shape[-2],self.GlobalWeightFunction.shape[-1]
-        Aedge,Bedge=GiveEdgesDissymetric((nxPSF//2,nxPSF//2),(nxPSF,nxPSF),(nxGWF//2,nyGWF//2),(nxGWF,nyGWF),WidthMax=(int(self.SupWeightWidth),int(self.SupWeightWidth)))
+        Aedge,Bedge=GiveEdgesDissymetric(nxPSF//2,nxPSF//2,nxPSF,nxPSF,nxGWF//2,nyGWF//2,nxGWF,nyGWF,WidthMax=(int(self.SupWeightWidth),int(self.SupWeightWidth)))
         x0d,x1d,y0d,y1d=Aedge
         (x0,x1,y0,y1)=Bedge
 
@@ -859,7 +859,7 @@ class ClassMultiScaleMachine():
 
         #Aedge,Bedge=GiveEdges((xc,yc),N0,(N1//2,N1//2),N1)
         N0x,N0y=self._Dirty.shape[-2],self._Dirty.shape[-1]
-        Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1//2,N1//2),(N1,N1))
+        Aedge,Bedge=GiveEdgesDissymetric(xc,yc,N0x,N0y,N1//2,N1//2,N1,N1)
         x0d,x1d,y0d,y1d=Aedge
         x0s,x1s,y0s,y1s=Bedge
         nxs,nys=x1s-x0s,y1s-y0s

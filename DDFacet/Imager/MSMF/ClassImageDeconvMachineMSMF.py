@@ -475,7 +475,7 @@ class ClassImageDeconvMachine():
 
         #Aedge,Bedge=self.GiveEdges((xc,yc),N0,(N1/2,N1/2),N1)
         N0x,N0y=self._MeanDirty.shape[-2::]
-        Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1//2,N1//2),(N1,N1))
+        Aedge,Bedge=GiveEdgesDissymetric(xc,yc,N0x,N0y,N1//2,N1//2,N1,N1)
 
         #_,n,n=self.PSF.shape
         # PSF=self.PSF.reshape((n,n))
@@ -916,7 +916,7 @@ class ClassImageDeconvMachine():
                 PSF = self.PSFServer.GivePSF()
                 MSMachine = self.DicoMSMachine[self.PSFServer.iFacet]
 
-                LocalSM = MSMachine.GiveLocalSM((x, y), Fpol)
+                LocalSM = MSMachine.GiveLocalSM(x, y, Fpol)
 
                 T.timeit("FindScale")
                 # print iScale
@@ -942,7 +942,7 @@ class ClassImageDeconvMachine():
                 CurrentGain=np.float32(self.GD["Deconv"]["Gain"])
 
                 numexpr.evaluate('LocalSM*CurrentGain', out=LocalSM)
-                self.SubStep((x,y),LocalSM)
+                self.SubStep(x,y,LocalSM)
                 T.timeit("SubStep")
 
                 # pylab.subplot(1,2,2)
