@@ -1,6 +1,5 @@
 # Copyright: 2008 Nadia Alramli
 # License: BSD
-from __future__ import division
  
 """Terminal controller module
 Example of usage:

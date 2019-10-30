@@ -173,13 +173,8 @@ class ClassImageDeconvMachine():
         elif Nin>Nout:
             dx=Nout//2
             B=np.zeros((nch,npol,Nout,Nout),A.dtype)
-<<<<<<< HEAD
-            print("  Adapt shapes: %s -> %s"%(str(A.shape),str(B.shape)), file=log)
-            B[:]=A[...,Nin/2-dx:Nin/2+dx+1,Nin/2-dx:Nin/2+dx+1]
-=======
             print>>log,"  Adapt shapes: %s -> %s"%(str(A.shape),str(B.shape))
             B[:]=A[...,Nin//2-dx:Nin//2+dx+1,Nin//2-dx:Nin//2+dx+1]
->>>>>>> upstream/to_py3_cyril
             return B
         else:
             stop
@@ -626,7 +621,7 @@ class ClassImageDeconvMachine():
     ###################################################################################
     ###################################################################################
     
-    def GiveEdges(self,(xc0,yc0),N0,(xc1,yc1),N1):
+    def GiveEdges(self,xc0,yc0,N0,xc1,yc1,N1):
         M_xc=xc0
         M_yc=yc0
         NpixMain=N0
@@ -668,7 +663,7 @@ class ClassImageDeconvMachine():
         xc,yc=dx,dy
         N0=self.Dirty.shape[-1]
         N1=LocalSM.shape[-1]
-        Aedge,Bedge=self.GiveEdges((xc,yc),N0,(N1//2,N1//2),N1)
+        Aedge,Bedge=self.GiveEdges(xc,yc,N0,N1//2,N1//2,N1)
         factor=-1.
         nch,npol,nx,ny=LocalSM.shape
         x0d,x1d,y0d,y1d=Aedge

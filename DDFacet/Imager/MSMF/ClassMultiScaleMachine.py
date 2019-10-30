@@ -17,7 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
-from __future__ import division
 
 from __future__ import absolute_import
 from __future__ import division
@@ -672,12 +671,12 @@ class ClassMultiScaleMachine():
         # x0,x1=nxPSF//2-int(self.SupWeightWidth),nxPSF//2+int(self.SupWeightWidth)+1
         # y0,y1=nxPSF//2-int(self.SupWeightWidth),nxPSF//2+int(self.SupWeightWidth)+1
 
-        # Aedge,Bedge=GiveEdgesDissymetric((nxPSF//2,nxPSF//2),(nxPSF,nxPSF),(nxPSF//2,nxPSF//2),(int(self.SupWeightWidth),int(self.SupWeightWidth)))
+        # Aedge,Bedge=GiveEdgesDissymetric(nxPSF//2,nxPSF//2,nxPSF,nxPSF,nxPSF//2,nxPSF//2,(int(self.SupWeightWidth),int(self.SupWeightWidth)))
         # #x0d,x1d,y0d,y1d=Aedge
         # (x0,x1,y0,y1)=Bedge
 
         nxGWF,nyGWF=self.GlobalWeightFunction.shape[-2],self.GlobalWeightFunction.shape[-1]
-        Aedge,Bedge=GiveEdgesDissymetric((nxPSF//2,nxPSF//2),(nxPSF,nxPSF),(nxGWF//2,nyGWF//2),(nxGWF,nyGWF),WidthMax=(int(self.SupWeightWidth),int(self.SupWeightWidth)))
+        Aedge,Bedge=GiveEdgesDissymetric(nxPSF//2,nxPSF//2,nxPSF,nxPSF,nxGWF//2,nyGWF//2,nxGWF,nyGWF,WidthMax=(int(self.SupWeightWidth),int(self.SupWeightWidth)))
         x0d,x1d,y0d,y1d=Aedge
         (x0,x1,y0,y1)=Bedge
 
@@ -857,9 +856,9 @@ class ClassMultiScaleMachine():
         # print "JonesNorm",JonesNorm
         # FpolMean=np.mean(Fpol,axis=0).reshape((1,npol,1,1))
 
-        #Aedge,Bedge=GiveEdges((xc,yc),N0,(N1//2,N1//2),N1)
+        #Aedge,Bedge=GiveEdges(xc,yc,N0,N1//2,N1//2,N1)
         N0x,N0y=self._Dirty.shape[-2],self._Dirty.shape[-1]
-        Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1//2,N1//2),(N1,N1))
+        Aedge,Bedge=GiveEdgesDissymetric(xc,yc,N0x,N0y,N1//2,N1//2,N1,N1)
         x0d,x1d,y0d,y1d=Aedge
         x0s,x1s,y0s,y1s=Bedge
         nxs,nys=x1s-x0s,y1s-y0s

@@ -26,7 +26,7 @@ from DDFacet.compatibility import range
 
 import unittest
 
-import ClassCompareFITSImage
+from . import ClassCompareFITSImage
 
 
 class TestSupernovaStokesV(ClassCompareFITSImage.ClassCompareFITSImage):

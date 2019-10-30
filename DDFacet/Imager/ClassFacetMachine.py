@@ -1238,8 +1238,8 @@ class ClassFacetMachine():
                 xc, yc = self.DicoImager[iFacet]["pixCentral"]
                 NpixFacet = self.DicoImager[iFacet]["NpixFacetPadded"]
                 
-                Aedge, Bedge = GiveEdges((xc, yc), NPixOut,
-                                         (NpixFacet//2, NpixFacet//2), NpixFacet)
+                Aedge, Bedge = GiveEdges(xc, yc, NPixOut,
+                                         NpixFacet//2, NpixFacet//2, NpixFacet)
                 x0d, x1d, y0d, y1d = Aedge
                 x0p, x1p, y0p, y1p = Bedge
                 
@@ -1297,8 +1297,8 @@ class ClassFacetMachine():
             xc, yc = self.DicoImager[iFacet]["pixCentral"]
             NpixFacet = self.DicoGridMachine[iFacet]["Dirty"][0].shape[2]
 
-            Aedge, Bedge = GiveEdges((xc, yc), NPixOut,
-                                     (NpixFacet//2, NpixFacet//2), NpixFacet)
+            Aedge, Bedge = GiveEdges(xc, yc, NPixOut,
+                                     NpixFacet//2, NpixFacet//2, NpixFacet)
             x0main, x1main, y0main, y1main = Aedge
             x0facet, x1facet, y0facet, y1facet = Bedge
 
@@ -1361,7 +1361,7 @@ class ClassFacetMachine():
     #     for iFacet in self.DicoImager.keys():
     #
     #         xc, yc = self.DicoImager[iFacet]["pixCentral"]
-    #         Aedge, Bedge = GiveEdges((xc, yc), NPixOut, (N1/2, N1/2), N1)
+    #         Aedge, Bedge = GiveEdges(xc, yc, NPixOut, N1/2, N1/2, N1)
     #         x0d, x1d, y0d, y1d = Aedge
     #         x0p, x1p, y0p, y1p = Bedge
     #

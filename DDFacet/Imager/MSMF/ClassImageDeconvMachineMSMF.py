@@ -473,9 +473,9 @@ class ClassImageDeconvMachine():
         # PSF=PSF[N1/2-1:N1/2+2,N1/2-1:N1/2+2]
         # N1=PSF.shape[-1]
 
-        #Aedge,Bedge=self.GiveEdges((xc,yc),N0,(N1/2,N1/2),N1)
+        #Aedge,Bedge=self.GiveEdges(xc,yc,N0,N1/2,N1/2,N1)
         N0x,N0y=self._MeanDirty.shape[-2::]
-        Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1//2,N1//2),(N1,N1))
+        Aedge,Bedge=GiveEdgesDissymetric(xc,yc,N0x,N0y,N1//2,N1//2,N1,N1)
 
         #_,n,n=self.PSF.shape
         # PSF=self.PSF.reshape((n,n))
@@ -973,7 +973,7 @@ class ClassImageDeconvMachine():
 
                 #     _,N0,_=self.ModelImage.shape
 
-                #     Aedge,Bedge=self.GiveEdges((x,y),N0,(Sup/2,Sup/2),Sup)
+                #     Aedge,Bedge=self.GiveEdges(x,y,N0,Sup/2,Sup/2,Sup)
                 #     x0d,x1d,y0d,y1d=Aedge
                 #     x0p,x1p,y0p,y1p=Bedge
 

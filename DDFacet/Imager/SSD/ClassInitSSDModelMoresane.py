@@ -242,7 +242,7 @@ class ClassInitSSDModel():
 
         N1=Size
         xc1=yc1=N1//2
-        Aedge,Bedge=GiveEdges((xc0,yc0),N0,(xc1,yc1),N1)
+        Aedge,Bedge=GiveEdges(xc0,yc0,N0,xc1,yc1,N1)
         x0d,x1d,y0d,y1d=Aedge
         x0p,x1p,y0p,y1p=Bedge
         self.SubDirty=self.Dirty[:,:,x0d:x1d,y0d:y1d].copy()

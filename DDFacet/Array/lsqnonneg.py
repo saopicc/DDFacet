@@ -8,7 +8,6 @@ Contributed by Klaus Schuch (schuch@igi.tugraz.at)
 based on MATLAB's lsqnonneg function
 
 """
-from __future__ import division
 
 from __future__ import absolute_import
 from __future__ import division

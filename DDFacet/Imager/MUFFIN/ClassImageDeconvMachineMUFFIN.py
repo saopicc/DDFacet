@@ -143,7 +143,7 @@ class ClassImageDeconvMachine():
             xc0=yc0=N0/2
             N1=Nout
             xc1=yc1=N1/2
-            Aedge,Bedge=GiveEdges((xc0,yc0),N0,(xc1,yc1),N1)
+            Aedge,Bedge=GiveEdges(xc0,yc0,N0,xc1,yc1,N1)
             x0d,x1d,y0d,y1d=Aedge
             x0p,x1p,y0p,y1p=Bedge
             B=A[...,x0d:x1d,y0d:y1d]
@@ -214,7 +214,7 @@ class ClassImageDeconvMachine():
 
 
         nxModel=dirty_MUFFIN.shape[0]
-        Aedge,Bedge=GiveEdges((nxModel/2,nxModel/2),nxModel,(nxDirty/2,nxDirty/2),nxDirty)
+        Aedge,Bedge=GiveEdges(nxModel//2,nxModel//2,nxModel,nxDirty//2,nxDirty//2,nxDirty)
         x0,x1,y0,y1=Bedge
 
         Model=np.zeros((nxDirty,nxDirty,nch))

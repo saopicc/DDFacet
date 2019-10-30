@@ -17,7 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
-from __future__ import division
 
 from __future__ import absolute_import
 from __future__ import division
@@ -142,7 +141,7 @@ class ClassImageDeconvMachine():
             xc0=yc0=N0//2
             N1=Nout
             xc1=yc1=N1//2
-            Aedge,Bedge=GiveEdges((xc0,yc0),N0,(xc1,yc1),N1)
+            Aedge,Bedge=GiveEdges(xc0,yc0,N0,xc1,yc1,N1)
             x0d,x1d,y0d,y1d=Aedge
             x0p,x1p,y0p,y1p=Bedge
             B=A[...,x0d:x1d,y0d:y1d]

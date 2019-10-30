@@ -184,14 +184,14 @@ class ClassConvMachineImages():
         if Nin%2==0: Nin+=1
         
         SubModelImage=np.zeros((nch,1,Nin,Nin),dtype=SubModelImageIn.dtype)
-        Aedge,Bedge=GiveEdgesDissymetric((N0x_in//2,N0y_in//2),(N0x_in,N0y_in),(Nin//2,Nin//2),(Nin,Nin))
+        Aedge,Bedge=GiveEdgesDissymetric(N0x_in//2,N0y_in//2,N0x_in,N0y_in,Nin//2,Nin//2,Nin,Nin)
         x0d,x1d,y0d,y1d=Aedge
         x0f,x1f,y0f,y1f=Bedge
         SubModelImage[...,x0f:x1f,y0f:y1f]=SubModelImageIn[...,x0d:x1d,y0d:y1d]
 
         PSF=self.PSF
         nPSF=PSF.shape[-1]
-        AedgeP,BedgeP=GiveEdgesDissymetric((Nin//2,Nin//2),(Nin,Nin),(nPSF//2,nPSF//2),(nPSF,nPSF))
+        AedgeP,BedgeP=GiveEdgesDissymetric(Nin//2,Nin//2,Nin,Nin,nPSF//2,nPSF//2,nPSF,nPSF)
         x0dP,x1dP,y0dP,y1dP=AedgeP
         x0fP,x1fP,y0fP,y1fP=BedgeP
         SubPSF=PSF[...,x0fP:x1fP,y0fP:y1fP]
@@ -302,7 +302,7 @@ class ClassConvMachine():
         N0x=zAsq.shape[-1]
         xc0=N0x//2
         N1=self.PSF.shape[-1]
-        Aedge,Bedge=GiveEdgesDissymetric((xc0,xc0),(N0x,N0x),(N1//2,N1//2),(N1,N1))
+        Aedge,Bedge=GiveEdgesDissymetric(xc0,xc0,N0x,N0x,N1//2,N1//2,N1,N1)
         x0d,x1d,y0d,y1d=Aedge
         x0s,x1s,y0s,y1s=Bedge
         SubPSF=self.PSF[:,:,x0s:x1s,y0s:y1s]

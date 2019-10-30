@@ -208,7 +208,7 @@ class ClassImageDeconvMachine():
         
         
         
-        Aedge,Bedge=self.GiveEdges((xc,yc),N0,(N1//2,N1//2),N1)
+        Aedge,Bedge=self.GiveEdges(xc,yc,N0,N1//2,N1//2,N1)
         x0d,x1d,y0d,y1d=Aedge
         x0p,x1p,y0p,y1p=Bedge
         #print Aedge
@@ -258,7 +258,7 @@ class ClassImageDeconvMachine():
 
         return iScale
 
-    def GiveEdges(self,(xc0,yc0),N0,(xc1,yc1),N1):
+    def GiveEdges(self,xc0,yc0,N0,xc1,yc1,N1):
         M_xc=xc0
         M_yc=yc0
         NpixMain=N0
@@ -307,7 +307,7 @@ class ClassImageDeconvMachine():
         # PSF=PSF[N1//2-1:N1//2+2,N1//2-1:N1//2+2]
         # N1=PSF.shape[-1]
 
-        Aedge,Bedge=self.GiveEdges((xc,yc),N0,(N1//2,N1//2),N1)
+        Aedge,Bedge=self.GiveEdges(xc,yc,N0,N1//2,N1//2,N1)
 
         
 
@@ -515,7 +515,7 @@ class ClassImageDeconvMachine():
 
                 _,N0,_=self.ModelImage.shape
                 
-                Aedge,Bedge=self.GiveEdges((x,y),N0,(Sup//2,Sup//2),Sup)
+                Aedge,Bedge=self.GiveEdges(x,y,N0,Sup//2,Sup//2,Sup)
                 x0d,x1d,y0d,y1d=Aedge
                 x0p,x1p,y0p,y1p=Bedge
                 

@@ -262,7 +262,7 @@ class ClassImageNoiseMachine():
         # ModelConv=np.zeros_like(ModelImage)
         # for iComp in range(indx.size):
         #     xc,yc=indx[iComp],indy[iComp]
-        #     Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1//2,N1//2),(N1,N1))
+        #     Aedge,Bedge=GiveEdgesDissymetric(xc,yc,N0x,N0y,N1//2,N1//2,N1,N1)
         #     x0d,x1d,y0d,y1d=Aedge
         #     x0p,x1p,y0p,y1p=Bedge
         #     ModelConv[x0d:x1d,y0d:y1d]+=G[x0p:x1p,y0p:y1p]*ModelImage[xc,yc]

@@ -6,7 +6,6 @@ Usage:
     p = ProgressBar("blue")
     p.render(percentage, message)
 """
-from __future__ import division
 
 from __future__ import absolute_import
 from __future__ import division

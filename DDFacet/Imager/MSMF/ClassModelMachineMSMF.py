@@ -17,7 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
-from __future__ import division
 
 from __future__ import absolute_import
 from __future__ import division
@@ -344,7 +343,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                             y0,y1=y-Sup//2,y+Sup//2+1
 
 
-                            Aedge,Bedge=GiveEdgesDissymetric((x,y),(N0x,N0y),(Sup//2,Sup//2),(Sup,Sup))
+                            Aedge,Bedge=GiveEdgesDissymetric(x,y,N0x,N0y,Sup//2,Sup//2,Sup,Sup)
                             x0d,x1d,y0d,y1d=Aedge
                             x0p,x1p,y0p,y1p=Bedge
 

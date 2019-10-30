@@ -322,7 +322,7 @@ class ClassIslandDistanceMachine():
             EdgesIsland=[]
             for iPix in range(x.size):
                 xc,yc=x[iPix],y[iPix]
-                Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(nx,nx),(1,1),(3,3))
+                Aedge,Bedge=GiveEdgesDissymetric(xc,yc,nx,nx,1,1,3,3)
                 x0d,x1d,y0d,y1d=Aedge
                 m=self._MaskArray[0,0][x0d:x1d,y0d:y1d]
                 if 1 in m:
