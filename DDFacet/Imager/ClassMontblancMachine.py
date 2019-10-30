@@ -66,7 +66,7 @@ class ClassMontblancMachine(object):
         for s in shndlrs:
             s.level = log_levels.get(GD["Montblanc"]["LogLevel"], logging.WARNING)
 
-        apnd = "a" if GD["Log"]["Append"] else "w"
+        apnd = "a" if GD["Log"]["Append"] else "wb"
         lgname = GD["Output"]["Name"] + ".montblanc.log" \
                 if GD["Montblanc"]["LogFile"] is None else GD["Montblanc"]["LogFile"]
         fhndlr = logging.FileHandler(lgname, mode=apnd)

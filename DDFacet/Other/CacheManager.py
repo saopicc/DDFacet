@@ -205,22 +205,22 @@ class CacheManager (object):
             # check for stored hash
             if not reset:
                 try:
-                    storedhash = cPickle.load(file(hashpath))
+                    storedhash = cPickle.load(open(hashpath))
                 except:
                     print("cache hash %s invalid, will re-make" % hashpath, file=log)
                     reset = True
             # check for hash match
             if not reset and not ignore_key and hash != storedhash:
                 ListDiffer=[]
-                for MainField, D1 in storedhash.iteritems():
+                for MainField, D1 in getattr(storedhash, "iteritems", storedhash.items)():
                     if MainField not in hash:
                         ListDiffer.append("(%s: missing in hash)" % (str(MainField)))
                         continue
                     D0 = hash[MainField]
                     if type(D0) != type(D1):
                         ListDiffer.append("(%s: %s vs %s)" % (str(MainField), type(D0), type(D1)))
-                    elif hasattr(D0,'iteritems'):
-                        for key, value0 in D0.iteritems():
+                    elif hasattr(D0,'iteritems') or hasattr(D0,'items'):
+                        for key, value0 in getattr(D0, "iteritems", D0.items)():
                             if key not in D1:
                                 ListDiffer.append(
                                     "(%s.%s: %s vs missing)" % (str(MainField), str(key), str(D0[key])))
@@ -274,6 +274,6 @@ class CacheManager (object):
         for name in names:
             hashpath, hash, reset = self.hashes[name]
             if reset:
-                cPickle.dump(hash, file(hashpath, "w"))
+                cPickle.dump(hash, open(hashpath, "wb"))
                 print("writing cache hash %s" % hashpath, file=log)
                 del self.hashes[name]

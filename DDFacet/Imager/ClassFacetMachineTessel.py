@@ -128,7 +128,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         elif SolsFile is not None and ".h5" in  SolsFile:
             h5file, apply_solsets, apply_map = _parse_solsfile(SolsFile)
             print >> log, "Taking facet directions from H5parm: {}, solsets: {}".format(h5file, apply_solsets)
-            with tables.open_file(h5file) as H:
+            with tables.open_open(h5file) as H:
                 lm, radec = [], []
                 for solset in apply_solsets:
                     _solset = getattr(H.root, solset)

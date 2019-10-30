@@ -258,7 +258,7 @@ class ClassWeighting():
                 else:
                     print("saving empty %s (all flagged or null)" % path, file=log)
                     # make an empty weights file in the cache
-                    file(path, 'w').truncate(0)
+                    open(path, 'w').truncate(0)
                 MS.getChunkCache(row0, row1).saveCache("ImagingWeights.npy")
 
     def CalcWeights(self, uvw_weights_flags_freqs, Robust=0, Weighting="Briggs", Super=1,

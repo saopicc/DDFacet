@@ -34,13 +34,13 @@ import pickle
 
 def Save(Obj,fileout):
     #print "  Saving in %s ... "%fileout,
-    cPickle.dump(Obj, file(fileout,'w'), 2)
-    #pickle.dump(Obj, file(fileout,'w'))
+    cPickle.dump(Obj, open(fileout,'wb'), 2)
+    #pickle.dump(Obj, open(fileout,'w'))
     #print "  done"
 
 def Load(filein):
     #print "  Loading from %s"%filein
-    G= cPickle.load( open( filein, "rb" ) )
+    G= cPickle.load( open( filein, "rb" ))
     #G=pickle.load( open( filein, "rb" ) )
     return G
 

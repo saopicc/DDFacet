@@ -25,7 +25,7 @@ from __future__ import print_function
 from DDFacet.compatibility import range
 import six
 if six.PY3:
-    import configparser as ConfigParser
+    from configparser import RawConfigParser as ConfigParser
 else:
     import ConfigParser
 from collections import OrderedDict
@@ -161,7 +161,9 @@ class Parset():
         """Updates this Parset with keys found in other parset. NB: does not update keys that are in other but
         not self."""
         for secname in self.value_dict.keys():
-            for name, value in other.value_dict.get(secname, {}).iteritems():
+            for name, value in getattr(other.value_dict.get(secname, {}), 
+                                       "iteritems", 
+                                       other.value_dict.get(secname, {}).items)():
                 if name in self.value_dict[secname]:
                     attrs = self.attr_dict[secname].get(name,{})
                     if not attrs.get('cmdline_only'):
@@ -173,7 +175,10 @@ class Parset():
 
     def read (self, filename):
         self.filename = filename
-        self.Config = config = ConfigParser.ConfigParser(dict_type=OrderedDict)
+        if six.PY3:
+            self.Config = config = ConfigParser(dict_type=OrderedDict)
+        else:
+            self.Config = config = ConfigParser.ConfigParser(dict_type=OrderedDict)
         config.optionxform = str
         success = config.read(self.filename)
         self.success = bool(len(success))
@@ -220,9 +225,9 @@ class Parset():
 
     def write (self, f):
         """Writes the Parset out to a file object"""
-        for section, content in self.value_dict.iteritems():
+        for section, content in getattr(self.value_dict, "iteritems", self.value_dict.items)():
             f.write('[%s]\n'%section)
-            for option, value in content.iteritems():
+            for option, value in getattr(content, "iteritems", content.items)():
                 attrs = self.attr_dict.get(section, {}).get(option, {})
                 if option[0] != "_" and not attrs.get('cmdline_only') and not attrs.get('alias_of'):
                     f.write('%s = %s \n'%(option, str(value)))

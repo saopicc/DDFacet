@@ -121,7 +121,7 @@ def read_options():
         values = default_values[section]
         # "_Help" value in each section is its documentation string
         OP.OptionGroup(values.get("_Help", section), section)
-        for name, value in default_values[section].iteritems():
+        for name, value in getattr(default_values[section], "iteritems", default_values[section].items)():
             if not attrs[section][name].get("no_cmdline"):
                 OP.add_option(name, value)
 

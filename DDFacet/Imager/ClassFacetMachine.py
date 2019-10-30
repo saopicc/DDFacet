@@ -50,13 +50,13 @@ from DDFacet.Other.AsyncProcessPool import APP
 import numexpr
 import six
 if six.PY3:
-    from DDFacet.cbuild.Gridder import _pyGridderSmearPols3x as _pyGridderSmear
+    from DDFacet.cbuild.Gridder import _pyGridderSmearPols3x as _pyGridderSmearPols
 else:
-    from DDFacet.cbuild.Gridder import _pyGridderSmearPols27 as _pyGridderSmear
+    from DDFacet.cbuild.Gridder import _pyGridderSmearPols27 as _pyGridderSmearPols
 if six.PY3:
-    import DDFacet.cbuild.Gridder._pyGridderSmearPolsClassic3x as _pyGridderSmearClassic
+    import DDFacet.cbuild.Gridder._pyGridderSmearPolsClassic3x as _pyGridderSmearPolsClassic
 else:
-    import DDFacet.cbuild.Gridder._pyGridderSmearPolsClassic27 as _pyGridderSmearClassic
+    import DDFacet.cbuild.Gridder._pyGridderSmearPolsClassic27 as _pyGridderSmearPolsClassic
 import cpuinfo
 import scipy.ndimage
 from scipy.spatial import Voronoi
@@ -157,8 +157,8 @@ class ClassFacetMachine():
     def setup_semaphores(GD):
         if not ClassFacetMachine._degridding_semaphores:
             NSemaphores = 3373
-            ClassFacetMachine._degridding_semaphores = [Multiprocessing.getShmName("Semaphore", sem=i) for i in
-                                                        range(NSemaphores)]
+            ClassFacetMachine._degridding_semaphores = list(map(str, [Multiprocessing.getShmName("Semaphore", sem=i) for i in
+                                                        range(NSemaphores)]))
             # set them up in both modules, since weights calculation uses _pyGridderSmearPols anyway
             _pyGridderSmearPolsClassic.pySetSemaphores(ClassFacetMachine._degridding_semaphores)
             _pyGridderSmearPols.pySetSemaphores(ClassFacetMachine._degridding_semaphores)
@@ -181,7 +181,7 @@ class ClassFacetMachine():
         if self._facet_grids is not None:
             self._facet_grids.delete()
             self._facet_grids = None
-        for GM in self.DicoGridMachine.itervalues():
+        for GM in getattr(self.DicoGridMachine, "itervalues", self.DicoGridMachine.values)():
             if "Dirty" in GM:
                 del GM["Dirty"]
 
@@ -303,8 +303,9 @@ class ClassFacetMachine():
         _, NpixPaddedGrid = EstimateNpix(NpixFacet, Padding=self.Padding)
 
         if NpixPaddedGrid // NpixFacet > self.Padding and not getattr(self, '_warned_small_ffts', False):
-            print>> log, ModColor.Str("WARNING: Your FFTs are too small. We will pad them by x%.2f "\
-                                      "rather than x%.2f. Increase facet size and/or padding to get rid of this message." % (float(NpixPaddedGrid)/NpixFacet, self.Padding))
+            print(ModColor.Str("WARNING: Your FFTs are too small. We will pad them by x%.2f "\
+                               "rather than x%.2f. Increase facet size and/or padding to get rid of this message." % (float(NpixPaddedGrid)/NpixFacet, self.Padding)),
+                               file=log)
             self._warned_small_ffts = True
 
         diam = NpixFacet * self.CellSizeRad
@@ -510,7 +511,7 @@ class ClassFacetMachine():
 
         print("Writing facets locations in %s" % regFile, file=log)
 
-        f = open(regFile, "w")
+        f = open(regFile, "wb")
         f.write("# Region file format: DS9 version 4.1\n")
         ss0 = 'global color=green dashlist=8 3 width=1 font="helvetica 10 \
             normal roman" select=1 highlite=1 dash=0'
@@ -627,9 +628,14 @@ class ClassFacetMachine():
 
         if os.path.isfile(self.wisdom_cache_file):
             print("Loading wisdom file %s" % (self.wisdom_cache_file), file=log)
-            DictWisdom = cPickle.load(file(self.wisdom_cache_file))
-            pyfftw.import_wisdom(DictWisdom["Wisdom"])
-            WisdomTypes=DictWisdom["WisdomTypes"]
+            try:
+                with open(str(self.wisdom_cache_file), 'rb') as f:
+                    DictWisdom = cPickle.load(f)
+                pyfftw.import_wisdom(DictWisdom["Wisdom"])
+                WisdomTypes=DictWisdom["WisdomTypes"]
+            except:
+                print("Exception while reading wisdom... will remake")
+                WisdomTypes=[]
         else:
             WisdomTypes=[]
 
@@ -660,7 +666,7 @@ class ClassFacetMachine():
 
         if HasTouchedWisdomFile:
             print("Saving wisdom file to %s"%self.wisdom_cache_file, file=log)
-            cPickle.dump(DictWisdom, file(self.wisdom_cache_file, "w"))
+            cPickle.dump(DictWisdom, open(self.wisdom_cache_file, "wb"))
 
 
     def initCFInBackground (self, other_fm=None):
@@ -700,7 +706,7 @@ class ClassFacetMachine():
             cachepath, cachevalid="",False
             
         # up to workers to load/save cache
-        for iFacet in self.DicoImager.iterkeys():
+        for iFacet in getattr(self.DicoImager, "iterkeys", self.DicoImager.keys)():
             facet_dict = self._CF.addSubdict(iFacet)
             APP.runJob("%s.InitCF.f%s"%(self._app_id, iFacet), self._initcf_worker,
                             args=(iFacet, facet_dict.readwrite(), cachepath, cachevalid, wmax))
@@ -714,8 +720,8 @@ class ClassFacetMachine():
         # try to load the cache, and copy it to the shared facet dict
         if cachevalid:
             try:
-                npzfile = np.load(file(path))
-                for key, value in npzfile.iteritems():
+                npzfile = np.load(open(path, "rb"))
+                for key, value in getattr(npzfile, "iteritems", npzfile.items)():
                     facet_dict[key] = value
                 # validate dict
                 ClassDDEGridMachine.ClassDDEGridMachine.verifyCFDict(facet_dict, self.GD["CF"]["Nw"])
@@ -770,7 +776,7 @@ class ClassFacetMachine():
         # DoPrintErr=False
         # while True:
         #     try:
-        #         np.savez(file(path, "w"), **facet_dict)
+        #         np.savez(open(path, "wb"), **facet_dict)
         #         if DoPrintErr:
         #             print>>log,ModColor.Str("  ok could save %s"%path,col="green")
         #         break
@@ -793,7 +799,7 @@ class ClassFacetMachine():
                     d={}
                     for key in facet_dict.keys():
                         d[key]=facet_dict[key]
-                    np.savez(file(path, "w"), **d)
+                    np.savez(open(path, "wb"), **d)
             if self.GD["Cache"]["CF"]:
                 self.VS.maincache.saveCache(self._cf_cachename)
             self.IsDDEGridMachineInit = True
@@ -927,7 +933,7 @@ class ClassFacetMachine():
     def _cutFacetSlice_worker(self, iFacet, DicoImages, nch, NPixMin):
         psf = DicoImages["Facets"][iFacet]["PSF"]
         _, npol, n, n = psf.shape
-        for ch in xrange(nch):
+        for ch in range(nch):
             i = n // 2 - NPixMin // 2
             j = n // 2 + NPixMin // 2 + 1
             DicoImages["CubeVariablePSF"][iFacet, ch, :, :, :] = psf[ch][:, i:j, i:j]

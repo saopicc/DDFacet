@@ -138,7 +138,7 @@ class CleanSolutionsDump(object):
         """
         Initializes dump object for writing to the given filename
         """
-        fobj = open(filename, "w")
+        fobj = open(filename, "wb")
         cPickle.dump(self, fobj)  # dump self as first entry of file object
         self._fobj = fobj
 

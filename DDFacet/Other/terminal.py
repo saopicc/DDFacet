@@ -1,5 +1,9 @@
 # Copyright: 2008 Nadia Alramli
 # License: BSD
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
  
 """Terminal controller module
 Example of usage:
@@ -7,10 +11,7 @@ Example of usage:
     print BLUE + UNDERLINE + 'Blue underlined text' + NORMAL
     print BLUE + BG_YELLOW + BOLD + 'text' + NORMAL
 """
- 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+
 
 from DDFacet.compatibility import range
 
@@ -95,7 +96,7 @@ def render(text):
 try:
     import curses
     setup()
-except Exception, e:
+except Exception as e:
     # There is a failure; set all attributes to default
     print('Warning: %s' % e)
     default()

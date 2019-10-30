@@ -29,7 +29,7 @@ import os
 import fnmatch
 import six
 if six.PY3:
-    import queue
+    import queue as Queue
 else:
     import Queue
 import multiprocessing
@@ -475,7 +475,7 @@ class AsyncProcessPool (object):
                     # check for dead children, unless workers_started event has been cleared by restartWorkers()
                     # (in which case they're already going to be exiting)
                     if self._workers_started_event.is_set():
-                        for pid, proc in worker_map.iteritems():
+                        for pid, proc in getattr(worker_map, "iteritems", worker_map.items)():
                             if not proc.is_alive():
                                 proc.join()
                                 dead_workers[proc.pid] = proc
@@ -493,20 +493,20 @@ class AsyncProcessPool (object):
                 if self._termination_event.is_set():
                     if self.verbose:
                         print("terminating workers, since termination event is set", file=log)
-                    for proc in worker_map.itervalues():
+                    for proc in getattr(worker_map, "itervalues", worker_map.values)():
                         if proc.is_alive():
                             proc.terminate()
                 if self.verbose:
                     print("reaping workers", file=log)
                 # join processes
-                for pid, proc in worker_map.iteritems():
+                for pid, proc in getattr(worker_map, "iteritems", worker_map.items)():
                     if self.verbose:
                         print("reaping worker %d"%pid, file=log)
                     proc.join()
                     if self.verbose:
                         print("worker %d's immortal soul has been put to rest"%pid, file=log)
 
-                # for pid, proc in worker_map.iteritems():
+                # for pid, proc in getattr(worker_map, "iteritems", worker_map.items)():
                 #     if self.verbose:
                 #         print>> log, "joining worker '%s' (%d) %s %s"%(proc.name, pid, proc.is_alive(), proc.exitcode)
                 #     proc.join(5)
@@ -562,11 +562,11 @@ class AsyncProcessPool (object):
             handler_desc  = "%s()" % handler.__name__
         # If this is a bound method, describe it by instance id, method_name
         elif inspect.ismethod(handler):
-            instance = handler.im_self
+            instance = getattr(handler, "im_self", handler.__self__)
             if instance is None:
                 raise RuntimeError("Job '%s': handler %s is not a bound method. This is a bug." % (job_id, handler))
             handler_id, method = id(instance), handler.__name__
-            handler_desc = "%s.%s()" % (handler.im_class.__name__, method)
+            handler_desc = "%s.%s()" % (getattr(handler, "im_class", handler.__class__).__name__, method)
         else:
             raise TypeError("'handler' argument must be a function or a bound method")
         if handler_id not in self._job_handlers:
@@ -583,7 +583,7 @@ class AsyncProcessPool (object):
         for iarg, arg in enumerate(args):
             if type(arg) is shared_dict.SharedDict:
                 raise TypeError("positional argument %d is a SharedDict. This is a bug! Use readonly()/readwrite()/writeonly()"%iarg)
-        for key, arg in kwargs.iteritems():
+        for key, arg in getattr(kwargs, "iteritems", kwargs.items)():
             if type(arg) is shared_dict.SharedDict:
                 raise TypeError("keyword %s is a SharedDict. This is a bug! Use readonly()/readwrite()/writeonly()"%key)
         # create the job item
@@ -680,7 +680,7 @@ class AsyncProcessPool (object):
         job_results = OrderedDict()   # this maps jobspec to a list of results
         total_jobs = complete_jobs = 0
         for jobspec in jobspecs:
-            matching_jobs = [job_id for job_id in self._results_map.iterkeys() if fnmatch.fnmatch(job_id, jobspec)]
+            matching_jobs = [job_id for job_id in getattr(self._results_map, "iterkeys", self._results_map.keys)() if fnmatch.fnmatch(job_id, jobspec)]
             for job_id in matching_jobs:
                 awaiting_jobs.setdefault(job_id, set()).add(jobspec)
             if not matching_jobs:
@@ -689,20 +689,26 @@ class AsyncProcessPool (object):
             job_results[jobspec] = len(matching_jobs), []
         # check dict of already returned results (perhaps from previous calls to awaitJobs). Remove
         # matching results, and assign them to appropriate jobspec lists
+        delmap = []
+        deljobs = []
         for job_id, job in self._results_map.items():
             if job_id in awaiting_jobs and job.complete:
                 for jobspec in awaiting_jobs[job_id]:
                     job_results[jobspec][1].append(job.result)
                     complete_jobs += 1
                 if not job.singleton:
-                    del self._results_map[job_id]
-                del awaiting_jobs[job_id]
+                    delmap.append(job_id)            
+                deljobs.append(job_id)
+        for job_id in delmap:
+            del self._results_map[job_id]
+        for job_id in deljobs:
+            del awaiting_jobs[job_id]
         if progress:
             pBAR = ProgressBar(Title="  "+progress)
             pBAR.render(complete_jobs,(total_jobs or 1))
         if self.verbose > 1:
             print("checking job results: %s (%d still pending)"%(
-                ", ".join(["%s %d/%d"%(jobspec, len(results), njobs) for jobspec, (njobs, results) in job_results.iteritems()]),
+                ", ".join(["%s %d/%d"%(jobspec, len(results), njobs) for jobspec, (njobs, results) in getattr(job_results, "iteritems", job_results.items)()]),
                 len(awaiting_jobs)), file=log)
         # sit here while any pending jobs remain
         while awaiting_jobs and not self._termination_event.is_set():
@@ -732,7 +738,7 @@ class AsyncProcessPool (object):
             # print status update
             if self.verbose > 1:
                 print("received job results %s" % " ".join(["%s:%d"%(jobspec, len(results)) for jobspec, (_, results)
-                                                             in job_results.iteritems()]), file=log)
+                                                             in getattr(job_results, "iteritems", job_results.items)()]), file=log)
         # render complete
         if progress:
             pBAR.render(complete_jobs,(total_jobs or 1))
@@ -743,7 +749,7 @@ class AsyncProcessPool (object):
             raise WorkerProcessError()
 
         # process list of results for each jobspec to check for errors
-        for jobspec, (njobs, results) in job_results.iteritems():
+        for jobspec, (njobs, results) in getattr(job_results, "iteritems", job_results.items)():
             times = np.array([ res['time'] for res in results ])
             num_errors = len([res for res in results if not res['success']])
             if timing or progress:
@@ -755,7 +761,7 @@ class AsyncProcessPool (object):
                 raise RuntimeError("some distributed jobs have failed")
         # return list of results
         result_values = []
-        for jobspec, (_, results) in job_results.iteritems():
+        for jobspec, (_, results) in getattr(job_results, "iteritems", job_results.items)():
             resvals = [resitem["result"] if resitem["success"] else resitem["error"] for resitem in results]
             if '*' not in jobspec:
                 resvals = resvals[0]

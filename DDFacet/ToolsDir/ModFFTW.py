@@ -516,7 +516,7 @@ class FFTW_Manager(object):
 
         if self.HasTouchedWisdomFile:
             print("Saving wisdom file to %s" % self.wisdom_cache_file, file=log)
-            cPickle.dump(DictWisdom, file(self.wisdom_cache_file, "w"))
+            cPickle.dump(DictWisdom, file(self.wisdom_cache_file, "wb"))
 
 
 # FFTW version of the FFT engine

@@ -128,7 +128,7 @@ class MyOptParse():
         duplicate values are assinged to the aliased keys)
         """
         DicoDest = vars(self.options)
-        for key, value in DicoDest.iteritems():
+        for key, value in getattr(DicoDest,"iteritems", DicoDest.items)():
             GroupName, Name = self.GiveKeysOut(key)
             GroupDict = self.DefaultDict.setdefault(GroupName, OrderedDict())
             attrs = self.AttrDict.get(GroupName, {}).get(Name, {})
@@ -145,12 +145,12 @@ class MyOptParse():
         Dico = self.GiveDicoConfig()
         f = open(ParsetName,"w")
         for MainKey in Dico.keys():
-            f.write('[%s]\n'%MainKey)
+            f.write('[%s]\n'%str(MainKey))
             D=Dico[MainKey]
             for SubKey in D.keys():
                 attrs = self.AttrDict.get(MainKey, {}).get(SubKey, {})
                 if SubKey[0] != "_" and not attrs.get('cmdline_only') and not attrs.get('alias_of'):
-                    f.write('%s = %s \n'%(SubKey,str(D[SubKey])))
+                    f.write('%s = %s \n'%(str(SubKey),str(D[SubKey])))
             f.write('\n')
         f.close()
                 

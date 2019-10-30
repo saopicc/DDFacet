@@ -1077,7 +1077,7 @@ class ClassMS():
         # set up cs_tlc,cd_brc,cs_inc: these are pyrap-style slice selection arguments
         # to select the [subset] of the column
         if self.ChanSlice is not None:
-            chan_nums = range(len(orig_freq))[self.ChanSlice]
+            chan_nums = np.arange(len(orig_freq))[self.ChanSlice]
             self.cs_tlc = (chan_nums[0], 0)
             self.cs_brc = (chan_nums[-1], self.Ncorr - 1)
             self.cs_inc = (self.ChanSlice.step or 1, 1)

@@ -15,7 +15,7 @@ from DDFacet.compatibility import range
 
 import sys
 import time as timemod
-
+from . import terminal
 from DDFacet.Other import ModColor
 
 
@@ -58,7 +58,6 @@ class ProgressBar(object):
         
         if self.silent==1: return
 
-        import terminal
         if color:
             self.color = getattr(terminal, color.upper())
         else:
@@ -123,7 +122,6 @@ class ProgressBar(object):
 
         if self.silent==1: return
         if self.disableTag: return
-        import terminal
 
         if (self.Title is not None)&(self.HasRendered==False):
             #print

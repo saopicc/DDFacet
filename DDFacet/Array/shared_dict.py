@@ -85,7 +85,7 @@ class SharedDict (collections.OrderedDict):
 
     class PickleProxy(ItemProxy):
         def load_impl(self):
-            return cPickle.load(file(self.path))
+            return cPickle.load(open(self.path, 'rb'))
 
     # this maps "class codes" parsed out of item filenames to appropriate item proxies. See reload() below
     _proxy_class_map = dict(a=SharedArrayProxy, d=SubdictProxy,  p=PickleProxy) # l=ListProxy,
@@ -206,18 +206,18 @@ class SharedDict (collections.OrderedDict):
         return value
 
     def iteritems(self):
-        for key in self.iterkeys():
+        for key in getattr(self, "iterkeys", self.keys)():
             yield key, self[key]
 
     def itervalues(self):
-        for key in self.iterkeys():
+        for key in getattr(self, "iterkeys", self.keys)():
             yield self[key]
 
     def items(self):
-        return list(self.iteritems())
+        return list(getattr(self, "iteritems", self.items))
 
     def values(self):
-        return list(self.itervalues())
+        return list(getattr(self, "itervalues", self.values))
 
     def __delitem__(self, item):
         if not self._readwrite:
@@ -266,7 +266,7 @@ class SharedDict (collections.OrderedDict):
         # for regular dicts, copy across
         elif isinstance(value, (dict, SharedDict, collections.OrderedDict)):
             dict1 = self.addSubdict(item)
-            for key1, value1 in value.iteritems():
+            for key1, value1 in getattr(value, "iteritems", value.items)():
                 dict1[key1] = value1
             value = dict1
         # # for lists, use dict
@@ -277,7 +277,7 @@ class SharedDict (collections.OrderedDict):
         #     value = dict1
         # all other types, just use pickle
         else:
-            cPickle.dump(value, file(path+'p', "w"), 2)
+            cPickle.dump(value, open(path+'p', "wb"), 2)
         collections.OrderedDict.__setitem__(self, item, value)
 
     # def addList (self, item):

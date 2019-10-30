@@ -14,7 +14,7 @@ import sys
 
 class DDFLog(object):
     def __init__ (self, filename):
-        self.read(file(filename))
+        self.read(open(filename))
         self.name = os.path.basename(filename)
 
     def read(self,fobj):

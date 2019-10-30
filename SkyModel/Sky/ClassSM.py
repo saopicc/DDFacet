@@ -1,20 +1,22 @@
 from __future__ import division
+from __future__ import absolute_import
+from __future__ import print_function
 import numpy as np
-import ModTigger
-import ModSMFromNp
+from . import ModTigger
+from . import ModSMFromNp
 
 from SkyModel.Other import rad2hmsdms
 from SkyModel.Other import ModColor
 from SkyModel.Array import RecArrayOps
-from ClassClusterClean import ClassClusterClean
-from ClassClusterTessel import ClassClusterTessel
-from ClassClusterRadial import ClassClusterRadial
-from ClassClusterKMean import ClassClusterKMean
+from SkyModel.Sky.ClassClusterClean import ClassClusterClean
+from SkyModel.Sky.ClassClusterTessel import ClassClusterTessel
+from SkyModel.Sky.ClassClusterRadial import ClassClusterRadial
+from SkyModel.Sky.ClassClusterKMean import ClassClusterKMean
 #import ModClusterRadial
 from pyrap.images import image
 import scipy.linalg
-from ModBBS2np import ReadBBSModel
-import ModRegFile
+from .ModBBS2np import ReadBBSModel
+from . import ModRegFile
 import time
 from DDFacet.ToolsDir import ModCoord
 
@@ -95,16 +97,16 @@ class ClassSM():
 
     def Save(self):
         infile=self.infile
-        print ModColor.Str(" SkyModel PROPERTIES: ")
-        print "   - SkyModel File Name: %s"%ModColor.Str(infile,col="green")
-        if self.REGFile!=None: print "   - ds9 region file: %s"%ModColor.Str(self.REGFile,col="green")
+        print(ModColor.Str(" SkyModel PROPERTIES: "))
+        print("   - SkyModel File Name: %s"%ModColor.Str(infile,col="green"))
+        if self.REGFile!=None: print("   - ds9 region file: %s"%ModColor.Str(self.REGFile,col="green"))
         npext=""
         if not(".npy" in infile): npext=".npy"
         self.NpFile="%s%s"%(infile,npext)
         np.save(infile,self.SourceCat)
 
         FileClusterCat="%s.ClusterCat.npy"%(self.infile)
-        print "   - ClusterCat File Name: %s"%ModColor.Str(FileClusterCat,col="green")
+        print("   - ClusterCat File Name: %s"%ModColor.Str(FileClusterCat,col="green"))
         np.save(FileClusterCat,self.ClusterCat)
 
         self.PrintBasics()
@@ -113,14 +115,14 @@ class ClassSM():
         infile=self.infile
         npext=""
         if not(".npy" in infile): npext=".npy"
-        print "   - Numpy catalog file: %s"%ModColor.Str("%s%s"%(infile,npext),col="green")
+        print("   - Numpy catalog file: %s"%ModColor.Str("%s%s"%(infile,npext),col="green"))
 
         #print "Oufile: %s"%self.infile_cluster
         #if infile_cluster!="":
         #print "   - Cluster File Name: %s"%self.infile_cluster
-        print "   - Number of Sources  = ",self.SourceCat.shape[0]
-        print "   - Number of Directions  = ",self.NDir
-        print
+        print("   - Number of Sources  = ",self.SourceCat.shape[0])
+        print("   - Number of Directions  = ",self.NDir)
+        print()
 
     def Cluster(self,NCluster=1,DoPlot=True,PreCluster="",FromClusterCat=""):
 
@@ -333,7 +335,7 @@ class ClassSM():
         for key in DictNode.keys():
             ind=np.array(DictNode[key]["ListCluster"])
             if ind.size==0: 
-                print "Direction %i is empty"%int(key)
+                print("Direction %i is empty"%int(key))
                 continue
             self.SourceCat["Cluster"][indSubSel[ind]]=iK
             iK+=1
@@ -349,7 +351,7 @@ class ClassSM():
 
 
 
-    def AppendRefSource(self,(rac,decc)):
+    def AppendRefSource(self,rac,decc):
         S0=1e-10
         CatCopy=self.SourceCat[0:1].copy()
         CatCopy['Name']="Reference"
@@ -392,7 +394,7 @@ class ClassSM():
     def SaveNP(self):
         infile=self.NpFile
         np.save(self.NpFile,self.SourceCat)
-        print "   - Numpy catalog file: %s"%ModColor.Str(self.NpFile,col="green")
+        print("   - Numpy catalog file: %s"%ModColor.Str(self.NpFile,col="green"))
 
     def SelectSourceMouse(self):
         from ClassSelectMouse2 import ClassSelectMouse
@@ -524,10 +526,10 @@ class ClassSM():
         ind=np.argsort(CatIn.Cluster)
         Cat=CatIn[ind]
         TEMPLATE = ('  %(Cluster)5s %(name)10s %(RA)15s %(DEC)15s %(Flux)10s %(alpha)10s %(RefFreq)10s %(Kill)6s ')
-        print
+        print()
         
-        print " TARGET LIST: "
-        print TEMPLATE % {
+        print(" TARGET LIST: ")
+        print(TEMPLATE % {
                 'Cluster': "K".center(5),
                 'name': "Name".center(10),
                 'RA': "RA".center(15),
@@ -535,7 +537,7 @@ class ClassSM():
                 'Flux': "Flux".rjust(10),
                 'alpha': "alpha".rjust(10),
                 'RefFreq': "RefFreq".rjust(10),
-                'Kill': "Kill" }
+                'Kill': "Kill" })
 
         for i in range(Cat.shape[0]):
             SName=Cat.Name[i]
@@ -555,14 +557,14 @@ class ClassSM():
                 'alpha': SAlpha,
                 'RefFreq':SRefFreq,
                 'Kill':SKill }
-            print StrOut
+            print(StrOut)
                 
 
     def print_sm(self,Cat):
         if self.infile_cluster=="":
-            print " TARGET LIST: "
+            print(" TARGET LIST: ")
             format="%13s%20s%20s%10s%10s%10s"#%10s"
-            print format%("Name","Ra","Dec","Flux","alpha","RefFreq")#,"Kill")
+            print(format%("Name","Ra","Dec","Flux","alpha","RefFreq"))#,"Kill")
             for i in range(Cat.shape[0]):
     
     
@@ -574,12 +576,12 @@ class ClassSM():
                 SRefFreq=Cat.RefFreq[i]
                 SKill=str(Cat.kill[i]==1)
                 #print "%13s%20s%20s%10.4f%10s%10.2e%8s"%(SName,SRa,SDec,SI,SAlpha,SRefFreq,SKill)
-                print "%13s%20s%20s%10.4f%10s%10.2e"%(SName,SRa,SDec,SI,SAlpha,SRefFreq)#,SKill)
+                print("%13s%20s%20s%10.4f%10s%10.2e"%(SName,SRa,SDec,SI,SAlpha,SRefFreq))#,SKill)
         else:
             format="%10s%10s%15s%15s%10s%10s%10s"#%8s"
-            print
-            print " TARGET LIST: "
-            print format%("Group","Name","Ra","Dec","Flux","alpha","RefFreq")#,"kill")
+            print()
+            print(" TARGET LIST: ")
+            print(format%("Group","Name","Ra","Dec","Flux","alpha","RefFreq"))#,"kill")
             for i in range(np.max(Cat.Cluster)+1):
                 ind=np.where(Cat.Cluster==i)[0]
                 for j in range(ind.shape[0]):
@@ -593,7 +595,7 @@ class ClassSM():
                     SKill=str(Cat.kill[jj]==1)
                     SGroup=str(i)
                     #print "%10s%10s%15s%15s%8.4f%10s%10.2e%8s"%(SGroup,SName,SRa,SDec,SI,SAlpha,SRefFreq)#,SKill)
-                    print "%10s%10s%15s%15s%8.4f%10s%10.2e"%(SGroup,SName,SRa,SDec,SI,SAlpha,SRefFreq)#,SKill)
+                    print("%10s%10s%15s%15s%8.4f%10s%10.2e"%(SGroup,SName,SRa,SDec,SI,SAlpha,SRefFreq))#,SKill)
                     
 
     
