@@ -1720,7 +1720,7 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
             # if F/D was specified as a slice or wildcard, look into MS to determine numbers
             if type(dg) is slice:
                 nddid = table(table(mspath, ack=False).getkeyword('DATA_DESCRIPTION'), ack=False).nrows()
-                ddids = range(nddid)[dg]
+                ddids = list(range(nddid))[dg]
                 if ddids:
                     print("%s: selecting DDIDs %s" % (mspath, " ".join(map(str,ddids))), file=log)
                 else:
