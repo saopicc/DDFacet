@@ -181,7 +181,6 @@ class ProgressBar(object):
     def clear(self):
         """Clear all printed lines"""
 
-        import terminal
         sys.stdout.write(
             self.lines * (terminal.UP + terminal.BOL + terminal.CLEAR_EOL)
         )
