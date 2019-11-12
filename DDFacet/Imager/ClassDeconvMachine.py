@@ -827,7 +827,7 @@ class ClassImagerDeconv():
         """
             Predicts montblanc model from given source model with gaussians and deltas
         """
-        from ClassMontblancMachine import ClassMontblancMachine
+        from DDFacet.Imager.ClassMontblancMachine import ClassMontblancMachine
         import psutil
         import os
         old_OMP_setting = os.environ["OMP_NUM_THREADS"]
