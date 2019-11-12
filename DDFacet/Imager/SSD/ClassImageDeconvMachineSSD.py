@@ -34,6 +34,7 @@ from DDFacet.Imager.SSD.MCMC.ClassMetropolis import ClassMetropolis
 from DDFacet.Array import NpParallel
 import ClassIslandDistanceMachine
 from DDFacet.Array import shared_dict
+import psutil
 
 logger.setSilent("ClassArrayMethodSSD")
 logger.setSilent("ClassIsland")
@@ -56,6 +57,8 @@ class ClassImageDeconvMachine():
         self.ModelImage=None
         self.MaxMinorIter=MaxMinorIter
         self.NCPU=NCPU
+        if NCPU==0:
+            self.NCPU=int(GD["Parallel"]["NCPU"] or psutil.cpu_count())
         self.Chi2Thr=10000
         self.GD=GD
         if IdSharedMem is None:

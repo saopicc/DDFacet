@@ -5,7 +5,7 @@ import numpy
 from DDFacet.Imager.SSD.GA import algorithms
 import numpy as np
 import random
-
+import psutil
 from DDFacet.Imager.SSD import ClassArrayMethodSSD
 
 def FilterIslandsPix(ListIn,Npix):
@@ -43,6 +43,11 @@ class ClassEvolveGA():
         
 
         self.iIsland=iIsland
+        
+        NCPU=(GD["GAClean"]["NCPU"] or None)
+        if NCPU==0:
+            NCPU=int(GD["Parallel"]["NCPU"] or psutil.cpu_count())
+        
         self.ArrayMethodsMachine=ClassArrayMethodSSD.ClassArrayMethodSSD(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,
                                                                          PixVariance=PixVariance,
                                                                          iFacet=iFacet,
@@ -52,7 +57,7 @@ class ClassEvolveGA():
                                                                          iIsland=iIsland,
                                                                          island_dict=island_dict,
                                                                          ParallelFitness=ParallelFitness,
-                                                                         NCPU=GD["GAClean"]["NCPU"] or None)
+                                                                         NCPU=NCPU)
 
         self.InitEvolutionAlgo()
         #self.ArrayMethodsMachine.testMovePix()
