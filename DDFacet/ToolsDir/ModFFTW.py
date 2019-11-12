@@ -812,7 +812,6 @@ def _convolveSingleGaussianFFTW(shareddict,
     npol, npix_y, npix_x = Ain.shape
     pad_edge = max(int(np.ceil((ModToolBox.EstimateNpix(npix_x)[1] - npix_x) /
                                2.0) * 2),0)
-
     T.timeit("givegauss %d"%ch)
     fPSF = pyfftw.interfaces.numpy_fft.rfft2(iFs(PSF),
                                              overwrite_input=True,

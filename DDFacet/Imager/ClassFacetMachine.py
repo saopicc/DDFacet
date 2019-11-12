@@ -761,7 +761,7 @@ class ClassFacetMachine():
                                       field_in = "in",
                                       field_out = "out",
                                       ch = 0,
-                                      CellSizeRad=1,
+                                      CellSizeRad=1.0,
                                       GaussPars_ch=GaussPars)
         sw = sw.reshape((Npix, Npix))
         sw /= np.max(sw)
