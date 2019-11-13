@@ -151,7 +151,8 @@ def main(OP=None, messages=[]):
     logger.logToFile(ImageName + ".log", append=DicoConfig["Log"]["Append"])
     global log
     log = logger.getLogger("DDFacet")
-
+    logger.setSilent("app")
+    
     # disable colors and progressbars if requested
     ModColor.silent = SkyModel.Other.ModColor.silent = \
                       progressbar.ProgressBar.silent = \

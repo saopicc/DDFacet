@@ -1659,6 +1659,7 @@ class ClassFacetMachine():
         model_dict[iFacet]["SumFlux"] = SumFlux
         if ToSHMDict:
             model_dict[iFacet]["FacetGrid"] = ModelGrid
+
         return ModelGrid
 
     def set_model_grid (self,ToGrid=True,ApplyNorm=True):
@@ -1682,7 +1683,7 @@ class ClassFacetMachine():
                        args=(iFacet, self._model_dict.readwrite(), self._CF[iFacet].readonly(),
                              ChanSel,ToSHMDict,ToGrid,ApplyNorm))
         APP.awaitJobResults(self._set_model_grid_job_id + "*", progress="Make model grids")
-
+        del(self._model_dict["Image"])
 
     # #####################################################"
     def _convolveShift_worker(self, iFacet, d_mat, dl,dm,
