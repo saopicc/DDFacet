@@ -236,7 +236,7 @@ class DataDictionaryManager(object):
         unique_ants = np.unique(ants)
         unique_time = np.unique(time)
         na = unique_ants.size
-        nbl = na * (na - 1) / 2 + na
+        nbl = na * (na - 1) // 2 + na
         ntime = unique_time.size
         assert time.size == nbl * ntime, "Input arrays must be padded to include autocorrelations, all baselines and all time"
         antenna_indicies = DataDictionaryManager.antenna_indicies(na, auto_correlations=True)

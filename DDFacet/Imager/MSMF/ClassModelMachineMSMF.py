@@ -261,14 +261,14 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             (ModelType, coordinate, vector of STOKES solutions per basis function, alpha, shape data)
             """
             sa = component["SolsArray"]
-
-            return map(lambda i, sol, ls: (ls["ModelType"],                                      # type
-                                             coord,                                                # coordinate
-                                             sol[0] * (FreqIn / ref_freq) ** ls.get("Alpha", 0.0), # only stokes I
-                                             ref_freq,                                             # reference frequency
-                                             ls.get("Alpha", 0.0),                                 # alpha
-                                             ls.get("ModelParams", None)),                         # shape
-               map(lambda i: (i, sa[i], self.ListScales[i]), range(sa.size)))
+            # starmap to unpack the returned tuple
+            return itertools.starmap(lambda i, sol, ls: (ls["ModelType"],                                      # type
+                                                         coord,                                                # coordinate
+                                                         sol[0] * (FreqIn / ref_freq) ** ls.get("Alpha", 0.0), # only stokes I
+                                                         ref_freq,                                             # reference frequency
+                                                         ls.get("Alpha", 0.0),                                 # alpha
+                                                         ls.get("ModelParams", None)),                         # shape
+                                                        map(lambda i: (i, sa[i], self.ListScales[i]), range(sa.size)))
 
         # Lazily iterate through DicoComp entries and associated ListScales and SolsArrays,
         # assigning values to arrays
