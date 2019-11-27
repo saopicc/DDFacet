@@ -4,9 +4,11 @@ from SkyModel.Other import ModCoord
 import numpy as np
 from scipy.spatial import Voronoi
 import ModVoronoi
-from SkyModel.Other import MyLogger
 from SkyModel.Other import ModColor
-log=MyLogger.getLogger("VoronoiToReg")
+from DDFacet.Other import logger
+log = logger.getLogger("VoronoiToReg")
+#from SkyModel.Other import MyLogger
+#log=MyLogger.getLogger("VoronoiToReg")
 
 class VoronoiToReg():
     def __init__(self,rac,decc):
