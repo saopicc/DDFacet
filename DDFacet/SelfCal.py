@@ -1,4 +1,3 @@
-import os
 '''
 DDFacet, a facet-based radio imaging package
 Copyright (C) 2013-2016  Cyril Tasse, l'Observatoire de Paris,
@@ -18,6 +17,15 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
+import os
+
 def main():
 
 

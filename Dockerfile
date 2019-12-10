@@ -229,7 +229,7 @@ RUN python -c "import lofar.stationresponse as lsr"
 
 RUN apt-get update
 RUN apt-get install -y gfortran
-RUN pip install bdsf
+RUN pip install "bdsf<=1.8.15"
 RUN python -c "import bdsf"
 
 #####################################################################

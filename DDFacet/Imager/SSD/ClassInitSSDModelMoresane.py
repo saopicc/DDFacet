@@ -1,3 +1,9 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 from DDFacet.Imager.MORESANE import ClassImageDeconvMachineMoresane
 import copy
@@ -32,7 +38,7 @@ class ClassInitSSDModelParallel():
         self.DicoVariablePSF=DicoVariablePSF
         self.GridFreqs=GridFreqs
         self.DegridFreqs=DegridFreqs
-        print>>log,"Initialise MORESANE machine"
+        print("Initialise MORESANE machine", file=log)
         self.InitMachine=ClassInitSSDModel(self.GD,
                                            self.DicoVariablePSF,
                                            self.RefFreq,
@@ -64,7 +70,7 @@ class ClassInitSSDModelParallel():
 
         #MyLogger.setLoud("ClassImageDeconvMachineMSMF")
 
-        print>>log,"Launch MORESANE workers"
+        print("Launch MORESANE workers", file=log)
         for ii in range(NCPU):
             W = WorkerInitMSMF(work_queue,
                                result_queue,
@@ -199,13 +205,13 @@ class ClassInitSSDModel():
                                 GridFreqs=self.GridFreqs,DegridFreqs=self.DegridFreqs,DoWait=DoWait,RefFreq=self.RefFreq)
 
         if DoWait:
-            print "IINit3"
+            print("IINit3")
             time.sleep(10)
-            print "Start 4"
+            print("Start 4")
 
         self.DeconvMachine.Update(self.DicoDirty,DoSetMask=False)
         if DoWait:
-            print "IINit4"
+            print("IINit4")
             time.sleep(10)
 
         #self.DeconvMachine.updateRMS()
@@ -235,8 +241,8 @@ class ClassInitSSDModel():
         self.DeconvMachine.PSFServer.setLocation(*self.xy0)
 
         N1=Size
-        xc1=yc1=N1/2
-        Aedge,Bedge=GiveEdges((xc0,yc0),N0,(xc1,yc1),N1)
+        xc1=yc1=N1//2
+        Aedge,Bedge=GiveEdges(xc0,yc0,N0,xc1,yc1,N1)
         x0d,x1d,y0d,y1d=Aedge
         x0p,x1p,y0p,y1p=Bedge
         self.SubDirty=self.Dirty[:,:,x0d:x1d,y0d:y1d].copy()
@@ -257,9 +263,9 @@ class ClassInitSSDModel():
 
         T.timeit("1")
         # ModelImage=np.zeros_like(self.Dirty)
-        # ModelImage[:,:,N0/2,N0/2]=10
-        # ModelImage[:,:,N0/2+3,N0/2]=10
-        # ModelImage[:,:,N0/2-2,N0/2-1]=10
+        # ModelImage[:,:,N0//2,N0//2]=10
+        # ModelImage[:,:,N0//2+3,N0//2]=10
+        # ModelImage[:,:,N0//2-2,N0//2-1]=10
         # self.setSSDModelImage(ModelImage)
 
         # Mask=np.zeros((nx,ny),np.bool8)
@@ -292,12 +298,12 @@ class ClassInitSSDModel():
         # ConvModel=np.zeros_like(SubModelImage)
         # nch,_,N0x,N0y=ConvModel.shape
         # indx,indy=np.where(SubModelImage[0,0]!=0)
-        # xc,yc=N0x/2,N0y/2
+        # xc,yc=N0x//2,N0y//2
         # N1=PSF.shape[-1]
         # #T.timeit("0")
         # for i,j in zip(indx.tolist(),indy.tolist()):
         #     ThisPSF=np.roll(np.roll(PSF,i-xc,axis=-2),j-yc,axis=-1)
-        #     Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1/2,N1/2),(N1,N1))
+        #     Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1//2,N1//2),(N1,N1))
         #     x0d,x1d,y0d,y1d=Aedge
         #     x0p,x1p,y0p,y1p=Bedge
         #     ConvModel[...,x0d:x1d,y0d:y1d]+=ThisPSF[...,x0p:x1p,y0p:y1p]*SubModelImage[...,i,j].reshape((-1,1,1,1))
@@ -527,12 +533,12 @@ class WorkerInitMSMF(multiprocessing.Process):
             try:
                 self.initIsland(DicoJob)
             except:
-                print traceback.format_exc()
+                print(traceback.format_exc())
                 iIsland=DicoJob["iIsland"]
                 FileOut="errIsland_%6.6i.npy"%iIsland
-                print ModColor.Str("...... on island %i, saving to file %s"%(iIsland,FileOut))
+                print(ModColor.Str("...... on island %i, saving to file %s"%(iIsland,FileOut)))
                 np.save(FileOut,np.array(self.ListIsland[iIsland]))
-                print
+                print()
 
 
 

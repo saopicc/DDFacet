@@ -18,9 +18,15 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
-import ClassPrint
-import ModColor
-import MyPickle
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
+from DDFacet.Other import ClassPrint
+from DDFacet.Other import ModColor
+from DDFacet.Other import MyPickle
 
 
 def test():
@@ -31,7 +37,7 @@ def test():
     #return ValObj
     LGroups=Obj.option_groups
     for Group in LGroups:
-        print Group.title
+        print(Group.title)
 
         option_list=Group.option_list
         for o in option_list:
@@ -43,7 +49,7 @@ def test():
                 P.Print(oname,V)
                 # strName=%s
                 # print "       "oname,V
-        print
+        print()
 
 def test2():
     Obj,ValObj= MyPickle.Load("test")
@@ -52,7 +58,7 @@ def test2():
 def PrintOptParse(Obj,ValObj,RejectGroup=[]):
     P= ClassPrint.ClassPrint(HW=30)
     LGroups=Obj.option_groups
-    print ModColor.Str(" Selected Options:")
+    print(ModColor.Str(" Selected Options:"))
 
     for Group in LGroups:
         Skip=False
@@ -61,7 +67,7 @@ def PrintOptParse(Obj,ValObj,RejectGroup=[]):
                 Skip=True
 
         if Skip: continue
-        print ModColor.Str(Group.title, col="green")
+        print(ModColor.Str(Group.title, col="green"))
 
         option_list=Group.option_list
         for o in option_list:
@@ -86,4 +92,4 @@ def PrintOptParse(Obj,ValObj,RejectGroup=[]):
 
                 # strName=%s
                 # print "       "oname,V
-        print
+        print()

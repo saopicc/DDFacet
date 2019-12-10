@@ -19,13 +19,19 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import collections
 import optparse as OptParse
 import sys
 from collections import OrderedDict
 
 
-import ReadCFG
+from DDFacet.Parset import ReadCFG
 from DDFacet.Other import ClassPrint
 from DDFacet.Other import ModColor
 
@@ -122,7 +128,7 @@ class MyOptParse():
         duplicate values are assinged to the aliased keys)
         """
         DicoDest = vars(self.options)
-        for key, value in DicoDest.iteritems():
+        for key, value in getattr(DicoDest,"iteritems", DicoDest.items)():
             GroupName, Name = self.GiveKeysOut(key)
             GroupDict = self.DefaultDict.setdefault(GroupName, OrderedDict())
             attrs = self.AttrDict.get(GroupName, {}).get(Name, {})
@@ -139,12 +145,12 @@ class MyOptParse():
         Dico = self.GiveDicoConfig()
         f = open(ParsetName,"w")
         for MainKey in Dico.keys():
-            f.write('[%s]\n'%MainKey)
+            f.write('[%s]\n'%str(MainKey))
             D=Dico[MainKey]
             for SubKey in D.keys():
                 attrs = self.AttrDict.get(MainKey, {}).get(SubKey, {})
                 if SubKey[0] != "_" and not attrs.get('cmdline_only') and not attrs.get('alias_of'):
-                    f.write('%s = %s \n'%(SubKey,str(D[SubKey])))
+                    f.write('%s = %s \n'%(str(SubKey),str(D[SubKey])))
             f.write('\n')
         f.close()
                 
@@ -152,7 +158,7 @@ class MyOptParse():
 
     def Print(self, RejectGroups=[], dest=sys.stdout):
         P= ClassPrint.ClassPrint(HW=50)
-        print>>dest, ModColor.Str(" Selected Options:")
+        print(ModColor.Str(" Selected Options:"), file=dest)
     
         for Group,V in self.DefaultDict.items():
             if Group in RejectGroups:
@@ -162,7 +168,7 @@ class MyOptParse():
                 GroupTitle=self.DicoGroupDesc[Group]
             except:
                 GroupTitle=Group
-            print>>dest, ModColor.Str("[%s] %s"%(Group,GroupTitle), col="green")
+            print(ModColor.Str("[%s] %s"%(Group,GroupTitle), col="green"), file=dest)
     
             option_list=self.DefaultDict[Group]
             for oname in option_list:
@@ -172,7 +178,7 @@ class MyOptParse():
                     if not attrs.get('alias_of') and not attrs.get("cmdline_only"): # and V!="":
                         if V=="": V="''"
                         P.Print(oname,V,dest=dest)
-            print
+            print()
 
 
 

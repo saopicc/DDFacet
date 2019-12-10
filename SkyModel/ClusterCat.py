@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import division
 import sys,os
 if "PYTHONPATH_FIRST" in os.environ.keys() and int(os.environ["PYTHONPATH_FIRST"]):
     sys.path = os.environ["PYTHONPATH"].split(":") + sys.path
@@ -93,7 +94,7 @@ class ClusterImage():
         self.decrad=decc
         self.CoordMachine = ModCoord.ClassCoordConv(self.rarad, self.decrad)
 
-        lmax=self.NPix/2*self.dPix*np.pi/180
+        lmax=self.NPix//2*self.dPix*np.pi/180
         self.PolyCut=np.array([[-lmax,-lmax],[-lmax,lmax],[lmax,lmax],[lmax,-lmax]])
 
         self.setCatName(self.SourceCat)
@@ -274,7 +275,7 @@ class ClusterImage():
         CC.setAvoidPolygon(PolyList)
             
         xyNodes,self.LPolygon=CC.Cluster()
-        nNodes=xyNodes.size/2
+        nNodes=xyNodes.size//2
         xc,yc=xyNodes.reshape((2,nNodes))
         self.xcyc=xc,yc
         
@@ -303,7 +304,7 @@ class ClusterImage():
         
     def WriteTessel(self):
         regFile="%s.tessel.reg"%self.SourceCat
-        lmax=self.NPix/2*self.dPix*np.pi/180
+        lmax=self.NPix//2*self.dPix*np.pi/180
         Poly=np.array([[-lmax,-lmax],[-lmax,lmax],[lmax,lmax],[lmax,-lmax]])
 
         POut=Polygon.Polygon(Poly)

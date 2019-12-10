@@ -1,3 +1,9 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 from DDFacet.Other import ClassTimeIt
 import random
@@ -144,12 +150,12 @@ class ClassMutate():
             indSel=ind[indR]
         # zero a pixel
         elif Type==1:
-            N=np.max([(NNonZero/10),1])
+            N=np.max([(NNonZero//10),1])
             indR=sorted(list(set(np.int32(np.random.rand(N)*NNonZero).tolist())))
             indSel=ind[indR]
         # move a pixel
         elif Type==2:
-            NMax=int(np.max([3.,self.PM.NPixListParms/10]))
+            NMax=int(np.max([3.,self.PM.NPixListParms//10]))
             NMax=np.min([NMax,10])
             N=int(random.uniform(1, NMax))
             indR=sorted(list(set(np.int32(np.random.rand(N)*NNonZero).tolist())))
@@ -265,7 +271,7 @@ class ClassMutate():
         A=np.random.randn(self.PM.NParam,self.PM.NPixListParms)
         A.fill(0.)
         A[:,10]=1.
-        print A.shape
+        print(A.shape)
 
         ArrayModel=self.PM.GiveModelArray(A)
         A0=self.PM.ModelToSquareArray(ArrayModel,TypeInOut=("Parms","Parms"),DomainOut="Parms").copy()

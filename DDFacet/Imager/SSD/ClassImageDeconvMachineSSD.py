@@ -17,6 +17,13 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import os
 import numpy as np
 import multiprocessing
@@ -32,7 +39,7 @@ from SkyModel.PSourceExtract import ClassIncreaseIsland
 from DDFacet.Imager.SSD.GA.ClassEvolveGA import ClassEvolveGA
 from DDFacet.Imager.SSD.MCMC.ClassMetropolis import ClassMetropolis
 from DDFacet.Array import NpParallel
-import ClassIslandDistanceMachine
+from DDFacet.Imager.SSD import ClassIslandDistanceMachine
 from DDFacet.Array import shared_dict
 
 logger.setSilent("ClassArrayMethodSSD")
@@ -164,10 +171,10 @@ class ClassImageDeconvMachine():
         if Nin==Nout: 
             return A
         elif Nin>Nout:
-            dx=Nout/2
+            dx=Nout//2
             B=np.zeros((nch,npol,Nout,Nout),A.dtype)
             print>>log,"  Adapt shapes: %s -> %s"%(str(A.shape),str(B.shape))
-            B[:]=A[...,Nin/2-dx:Nin/2+dx+1,Nin/2-dx:Nin/2+dx+1]
+            B[:]=A[...,Nin//2-dx:Nin//2+dx+1,Nin//2-dx:Nin//2+dx+1]
             return B
         else:
             stop
@@ -181,7 +188,7 @@ class ClassImageDeconvMachine():
         NPSF=self.PSFServer.NPSF
         _,_,NDirty,_=self._Dirty.shape
 
-        off=(NPSF-NDirty)/2
+        off=(NPSF-NDirty)//2
 
         self.DirtyExtent=(off,off+NDirty,off,off+NDirty)
 
@@ -238,7 +245,7 @@ class ClassImageDeconvMachine():
             #     self.ListIslands.append(ListIslands[iIsland])
             # ###############################
         # #############################
-        print>>log,"  selected %i islands [out of %i] with peak flux > %.3g Jy"%(len(ListIslandsFiltered),len(ListIslands),Threshold)
+        print("  selected %i islands [out of %i] with peak flux > %.3g Jy"%(len(ListIslandsFiltered),len(ListIslands),Threshold), file=log)
         ListIslands=ListIslandsFiltered
         #ListIslands=[np.load("errIsland_000524.npy").tolist()]
         
@@ -251,7 +258,7 @@ class ClassImageDeconvMachine():
         self.ListIslands=ListIslands
         self.NIslands=len(self.ListIslands)
 
-        print>>log,"Sorting islands by size"
+        print("Sorting islands by size", file=log)
         Sz=np.array([len(self.ListIslands[iIsland]) for iIsland in range(self.NIslands)])
         #print ":::::::::::::::::"
         ind=np.argsort(Sz)[::-1]
@@ -267,7 +274,7 @@ class ClassImageDeconvMachine():
         if self.GD["GAClean"]["MinSizeInit"]==-1: return
 
         DoAbs=int(self.GD["Deconv"]["AllowNegative"])
-        print>>log, "  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter,self.MaxMinorIter,DoAbs)
+        print("  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter,self.MaxMinorIter,DoAbs), file=log)
 
         # ##########################################################################
         # # Init SSD model using MSMF
@@ -304,7 +311,7 @@ class ClassImageDeconvMachine():
 
 
 
-        print>>log,"  selected %i islands larger than %i pixels for initialisation"%(np.count_nonzero(ListDoIslandsInit),self.GD["GAClean"]["MinSizeInit"])
+        print("  selected %i islands larger than %i pixels for initialisation"%(np.count_nonzero(ListDoIslandsInit),self.GD["GAClean"]["MinSizeInit"]), file=log)
 
         self._init_InitMachine()
         if np.count_nonzero(ListDoIslandsInit)>0:
@@ -329,14 +336,14 @@ class ClassImageDeconvMachine():
         self.setChannel(ch)
 
         _,npix,_=self.Dirty.shape
-        xc=(npix)/2
+        xc=(npix)//2
 
         npol,_,_=self.Dirty.shape
 
         m0,m1=self.Dirty[0].min(),self.Dirty[0].max()
 
         DoAbs=int(self.GD["Deconv"]["AllowNegative"])
-        print>>log, "  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter,self.MaxMinorIter,DoAbs)
+        print("  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter,self.MaxMinorIter,DoAbs), file=log)
 
         NPixStats=1000
         #RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
@@ -361,12 +368,12 @@ class ClassImageDeconvMachine():
         # work out uper threshold
         StopFlux = max(Fluxlimit_Peak, Fluxlimit_RMS, Fluxlimit_Sidelobe, Fluxlimit_Peak, self.FluxThreshold)
 
-        print>>log, "    Dirty image peak flux      = %10.6f Jy [(min, max) = (%.3g, %.3g) Jy]"%(MaxDirty,mm0,mm1)
-        print>>log, "      RMS-based threshold      = %10.6f Jy [rms = %.3g Jy; RMS factor %.1f]"%(Fluxlimit_RMS, RMS, self.RMSFactor)
-        print>>log, "      Sidelobe-based threshold = %10.6f Jy [sidelobe  = %.3f of peak; cycle factor %.1f]"%(Fluxlimit_Sidelobe,self.SideLobeLevel,self.CycleFactor)
-        print>>log, "      Peak-based threshold     = %10.6f Jy [%.3f of peak]"%(Fluxlimit_Peak,self.PeakFactor)
-        print>>log, "      Absolute threshold       = %10.6f Jy"%(self.FluxThreshold)
-        print>>log, "    Stopping flux              = %10.6f Jy [%.3f of peak ]"%(StopFlux,StopFlux/MaxDirty)
+        print("    Dirty image peak flux      = %10.6f Jy [(min, max) = (%.3g, %.3g) Jy]"%(MaxDirty,mm0,mm1), file=log)
+        print("      RMS-based threshold      = %10.6f Jy [rms = %.3g Jy; RMS factor %.1f]"%(Fluxlimit_RMS, RMS, self.RMSFactor), file=log)
+        print("      Sidelobe-based threshold = %10.6f Jy [sidelobe  = %.3f of peak; cycle factor %.1f]"%(Fluxlimit_Sidelobe,self.SideLobeLevel,self.CycleFactor), file=log)
+        print("      Peak-based threshold     = %10.6f Jy [%.3f of peak]"%(Fluxlimit_Peak,self.PeakFactor), file=log)
+        print("      Absolute threshold       = %10.6f Jy"%(self.FluxThreshold), file=log)
+        print("    Stopping flux              = %10.6f Jy [%.3f of peak ]"%(StopFlux,StopFlux/MaxDirty), file=log)
 
 
         MaxModelInit=np.max(np.abs(self.ModelImage))
@@ -384,7 +391,7 @@ class ClassImageDeconvMachine():
         x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskMachine.CurrentNegMask)
 
         if ThisFlux < StopFlux:
-            print>>log, ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done here" % (ThisFlux),col="green" )
+            print(ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done here" % (ThisFlux),col="green" ), file=log)
             return "FluxThreshold", False, False
 
         self.SearchIslands(StopFlux)
@@ -393,7 +400,7 @@ class ClassImageDeconvMachine():
 
 
         if self.DeconvMode=="GAClean":
-            print>>log, "Evolving %i generations of %i sourcekin"%(self.GD["GAClean"]["NMaxGen"],self.GD["GAClean"]["NSourceKin"])
+            print("Evolving %i generations of %i sourcekin"%(self.GD["GAClean"]["NMaxGen"],self.GD["GAClean"]["NSourceKin"]), file=log)
             ListBigIslands=[]
             ListSmallIslands=[]
             ListInitBigIslands=[]
@@ -407,16 +414,16 @@ class ClassImageDeconvMachine():
                     ListInitSmallIslands.append(self.DicoInitIndiv.get(iIsland,None))
 
             if len(ListSmallIslands)>0:
-                print>>log,"Deconvolve small islands (<=%i pixels) (parallelised over island)"%(self.GD["SSDClean"]["ConvFFTSwitch"])
+                print("Deconvolve small islands (<=%i pixels) (parallelised over island)"%(self.GD["SSDClean"]["ConvFFTSwitch"]), file=log)
                 self.DeconvListIsland(ListSmallIslands,ParallelMode="OverIslands",ListInitIslands=ListInitSmallIslands)
             else:
-                print>>log,"No small islands"
+                print("No small islands", file=log)
 
             if len(ListBigIslands)>0:
-                print>>log,"Deconvolve large islands (>%i pixels) (parallelised per island)"%(self.GD["SSDClean"]["ConvFFTSwitch"])
+                print("Deconvolve large islands (>%i pixels) (parallelised per island)"%(self.GD["SSDClean"]["ConvFFTSwitch"]), file=log)
                 self.DeconvListIsland(ListBigIslands,ParallelMode="PerIsland",ListInitIslands=ListInitBigIslands)
             else:
-                print>>log,"No large islands"
+                print("No large islands", file=log)
 
 
         elif self.DeconvMode=="MetroClean":
@@ -424,7 +431,7 @@ class ClassImageDeconvMachine():
                 self.NChains=self.GD["MetroClean"]["MetroNChains"]
             else:
                 self.NChains=self.NCPU
-            print>>log, "Evolving %i chains of %i iterations"%(self.NChains,self.GD["MetroClean"]["MetroNIter"])
+            print("Evolving %i chains of %i iterations"%(self.NChains,self.GD["MetroClean"]["MetroNIter"]), file=log)
             
             ListBigIslands=[]
             for ThisPixList in self.ListIslands:
@@ -436,7 +443,7 @@ class ClassImageDeconvMachine():
 
             # ListBigIslands=ListBigIslands[1::]
             # ListBigIslands=[Island for Island in self.ListIslands if len(Island)>=self.GD["SSDClean"]["RestoreMetroSwitch"]]
-            print>>log,"Deconvolve %i large islands (>=%i pixels) (parallelised per island)"%(len(ListBigIslands),self.GD["SSDClean"]["RestoreMetroSwitch"])
+            print("Deconvolve %i large islands (>=%i pixels) (parallelised per island)"%(len(ListBigIslands),self.GD["SSDClean"]["RestoreMetroSwitch"]), file=log)
             self.SelectedIslandsMask=np.zeros_like(self.DicoDirty["MeanImage"])
             for ThisIsland in ListBigIslands:
                 x,y=np.array(ThisIsland).T
@@ -614,7 +621,7 @@ class ClassImageDeconvMachine():
     ###################################################################################
     ###################################################################################
     
-    def GiveEdges(self,(xc0,yc0),N0,(xc1,yc1),N1):
+    def GiveEdges(self,xc0,yc0,N0,xc1,yc1,N1):
         M_xc=xc0
         M_yc=yc0
         NpixMain=N0
@@ -623,23 +630,23 @@ class ClassImageDeconvMachine():
         NpixFacet=N1
                 
         ## X
-        M_x0=M_xc-NpixFacet/2
+        M_x0=M_xc-NpixFacet//2
         x0main=np.max([0,M_x0])
         dx0=x0main-M_x0
         x0facet=dx0
                 
-        M_x1=M_xc+NpixFacet/2
+        M_x1=M_xc+NpixFacet//2
         x1main=np.min([NpixMain-1,M_x1])
         dx1=M_x1-x1main
         x1facet=NpixFacet-dx1
         x1main+=1
         ## Y
-        M_y0=M_yc-NpixFacet/2
+        M_y0=M_yc-NpixFacet//2
         y0main=np.max([0,M_y0])
         dy0=y0main-M_y0
         y0facet=dy0
         
-        M_y1=M_yc+NpixFacet/2
+        M_y1=M_yc+NpixFacet//2
         y1main=np.min([NpixMain-1,M_y1])
         dy1=M_y1-y1main
         y1facet=NpixFacet-dy1
@@ -656,7 +663,7 @@ class ClassImageDeconvMachine():
         xc,yc=dx,dy
         N0=self.Dirty.shape[-1]
         N1=LocalSM.shape[-1]
-        Aedge,Bedge=self.GiveEdges((xc,yc),N0,(N1/2,N1/2),N1)
+        Aedge,Bedge=self.GiveEdges(xc,yc,N0,N1//2,N1//2,N1)
         factor=-1.
         nch,npol,nx,ny=LocalSM.shape
         x0d,x1d,y0d,y1d=Aedge

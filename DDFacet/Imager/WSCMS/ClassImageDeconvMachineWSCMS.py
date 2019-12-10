@@ -276,7 +276,7 @@ class ClassImageDeconvMachine():
         N1 = LocalSM.shape[-1]
 
         # Get overlap indices where psf should be subtracted
-        Aedge, Bedge = GiveEdges((xc, yc), self.Npix, (N1//2, N1//2), N1)
+        Aedge, Bedge = GiveEdges(xc, yc, self.Npix, N1//2, N1//2, N1)
 
         x0d, x1d, y0d, y1d = Aedge
         x0p, x1p, y0p, y1p = Bedge

@@ -6,7 +6,12 @@
 # This module has been adapted from the DDFacet package,
 # (c) Cyril Tasse et al., see http://github.com/saopicc/DDFacet
 
+from __future__ import absolute_import
+from __future__ import division
 from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 from six import string_types
 import logging, logging.handlers, os, re, sys, multiprocessing
 from . import ModColor

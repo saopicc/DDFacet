@@ -1,3 +1,4 @@
+from __future__ import division
 HEADER = '\033[95m'
 OKBLUE = '\033[94m'
 OKGREEN = '\033[92m'
@@ -35,12 +36,12 @@ def Sep(strin=None,D=1):
         return Str(Separator%(strin))
 
 def Title(strin,Big=False):
-    print
-    print
-    if Big: print Sep(strin,D=0)
-    print Sep(strin)
-    if Big: print Sep(strin,D=0)
-    print
+    print()
+    print()
+    if Big: print(Sep(strin,D=0))
+    print(Sep(strin))
+    if Big: print(Sep(strin,D=0))
+    print()
 
 def disable():
     HEADER = ''

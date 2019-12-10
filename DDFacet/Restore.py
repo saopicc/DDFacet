@@ -18,6 +18,13 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import sys,os
 if "PYTHONPATH_FIRST" in os.environ.keys() and int(os.environ["PYTHONPATH_FIRST"]):
     sys.path = os.environ["PYTHONPATH"].split(":") + sys.path
@@ -103,7 +110,7 @@ class ClassRestoreMachine():
         # self.ModelMachine=ClassModelMachine(Gain=0.1)
         # self.ModelMachine.FromDico(DicoModel)
 
-        print>>log,"Building model machine"
+        print("Building model machine", file=log)
         ModConstructor = ClassModModelMachine()
         self.ModelMachine=ModConstructor.GiveInitialisedMMFromFile(FileDicoModel)
         if MaskName!="":
@@ -128,7 +135,7 @@ class ClassRestoreMachine():
                 NormImageName="%s.Norm.fits"%BaseImageName
             
 
-        print>>log,"Reading residual image"
+        print("Reading residual image", file=log)
         self.FitsFile=FitsFile
         im=image(FitsFile)
 
@@ -143,7 +150,7 @@ class ClassRestoreMachine():
         nchan,npol,_,_=self.ResidualData.shape
         testImage=np.zeros_like(self.ResidualData)
 
-        print>>log,"Transposing residual..."
+        print("Transposing residual...", file=log)
         if ResidualImName!="":
             for ch in range(nchan):
                 for pol in range(npol):
@@ -151,10 +158,10 @@ class ClassRestoreMachine():
 
             
         if self.MakeCorrected:
-            print>>log,"Reading beam..."
+            print("Reading beam...", file=log)
             SqrtNormImage=np.zeros_like(self.ResidualData)
             imNorm=image(NormImageName).getdata()
-            print>>log,"Transposing beam..."
+            print("Transposing beam...", file=log)
             for ch in range(nchan):
                 for pol in range(npol):
                     SqrtNormImage[ch,pol,:,:]=np.sqrt(imNorm[ch,pol,:,:].T[::-1,:])
@@ -169,13 +176,13 @@ class ClassRestoreMachine():
         self.SqrtNormImage=SqrtNormImage
 
     def killWorkers(self):
-        print>>log, "Killing workers"
+        print("Killing workers", file=log)
         APP.terminate()
         APP.shutdown()
         Multiprocessing.cleanupShm()
 
     def Restore(self):
-        print>>log, "Create restored image"
+        print("Create restored image", file=log)
 
 
 
@@ -286,28 +293,28 @@ class ClassRestoreMachine():
             freq=C/l
             
             if self.options.RandomCat:
-                print>>log,"Create random catalog... "
+                print("Create random catalog... ", file=log)
                 ModelImage=self.GiveRandomModelIm()
             else:
-                print>>log,"Get ModelImage... "
+                print("Get ModelImage... ", file=log)
                 ModelImage=self.ModelMachine.GiveModelImage(freq)
             
             if self.options.ZeroNegComp:
-                print>>log,"Zeroing negative componants... "
+                print("Zeroing negative componants... ", file=log)
                 ModelImage[ModelImage<0]=0
             ListModelIm.append(ModelImage)
 
 
             if self.options.Mode=="App":
-                print>>log,"  ModelImage to apparent flux... "
+                print("  ModelImage to apparent flux... ", file=log)
                 ModelImage=ModelImage*self.SqrtNormImage
-            print>>log,"Convolve... "
-            print>>log,"   MinMax = [%f , %f] @ freq = %f MHz"%(ModelImage.min(),ModelImage.max(),freq/1e6)
+            print("Convolve... ", file=log)
+            print("   MinMax = [%f , %f] @ freq = %f MHz"%(ModelImage.min(),ModelImage.max(),freq/1e6), file=log)
             #RestoredImage=ModFFTW.ConvolveGaussianScipy(ModelImage,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
 
             
             if self.options.AddNoise>0.:
-                print>>log,"Adding Noise... "
+                print("Adding Noise... ", file=log)
                 ModelImage+=np.random.randn(*ModelImage.shape)*self.options.AddNoise
 
             RestoredImage,_=ModFFTW.ConvolveGaussianWrapper(ModelImage,Sig=BeamPix)
@@ -360,7 +367,7 @@ class ClassRestoreMachine():
 
         #print FEdge,FCenter
 
-        print>>log,"Save... "
+        print("Save... ", file=log)
         _,_,nx,_=RestoredImageRes.shape
         RestoredImageRes=np.array(ListRestoredIm).reshape((self.NBands,1,nx,nx))
         RestoredImageResCorr=np.array(ListRestoredImCorr).reshape((self.NBands,1,nx,nx))
@@ -416,15 +423,15 @@ class ClassRestoreMachine():
 
         # Alpha image
         if self.DoAlpha:
-            print>>log,"Get Index Map... "
+            print("Get Index Map... ", file=log)
             IndexMap=self.ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
             ImageName="%s.alphaNew"%self.BaseImageName
-            print>>log,"  Save... "
+            print("  Save... ", file=log)
             CasaImage=ClassCasaImage.ClassCasaimage(ImageName,ModelImage.shape,self.Cell,self.radec)
             CasaImage.setdata(IndexMap,CorrT=True)
             CasaImage.ToFits()
             CasaImage.close()
-            print>>log,"  Done. "
+            print("  Done. ", file=log)
 
     def GiveRandomModelIm(self):
 #        np.random.seed(0)
@@ -488,7 +495,7 @@ class ClassRestoreMachine():
         #Cat.StrDEC=np.array(SDEC)
         Cat.S=np.array(LS)
         CatName="%s.cat.npy"%self.OutName
-        print>>log,"Saving simulated catalog as %s"%CatName
+        print("Saving simulated catalog as %s"%CatName, file=log)
         np.save(CatName,Cat)
 
         ModelOut=np.zeros_like(Model)
@@ -507,7 +514,7 @@ class ClassRestoreMachine():
             ListSig=np.linspace(0.001,10.,100)
             TotToPeak=np.array([1./np.max(G(s)) for s in ListSig])
             sig=np.interp(self.options.RandomCat_TotalToPeak,TotToPeak,ListSig)
-            print>>log,"Found a sig of %f"%sig
+            print("Found a sig of %f"%sig, file=log)
             Gaussian=G(sig)
             ModelOut[0,0]=scipy.signal.fftconvolve(ModelOut[0,0], G(sig), mode='same')
 
@@ -516,9 +523,9 @@ class ClassRestoreMachine():
             Model=G(sig).reshape((1,1,x.shape[0],x.shape[0]))
             ConvModel,_=ModFFTW.ConvolveGaussianWrapper(Model,Sig=BeamPix)
             self.SimulObsPeak=np.max(ConvModel)
-            print>>log,"  Gaussian Peak: %f"%np.max(Gaussian)
-            print>>log,"  Gaussian Int : %f"%np.sum(Gaussian)
-            print>>log,"  Obs peak     : %f"%self.SimulObsPeak
+            print("  Gaussian Peak: %f"%np.max(Gaussian), file=log)
+            print("  Gaussian Int : %f"%np.sum(Gaussian), file=log)
+            print("  Obs peak     : %f"%self.SimulObsPeak, file=log)
             self.header_dict["OPKRATIO"]=self.SimulObsPeak
             self.header_dict["GSIGMA"]=sig
             self.header_dict["RTOTPK"]=self.options.RandomCat_TotalToPeak

@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 from DDFacet.Other import logger
 from DDFacet.ToolsDir import ClassSpectralFunctions
@@ -42,8 +48,8 @@ class ClassPSFServer():
         # for iFacet in sorted(DicoVariablePSF.keys()):
         #     _,npol,n,n=DicoVariablePSF[iFacet]["PSF"][0].shape
         #     for ch in range(nch):
-        #         i=n/2-NPixMin/2
-        #         j=n/2+NPixMin/2+1
+        #         i=n//2-NPixMin//2
+        #         j=n//2+NPixMin//2+1
         #         CubeVariablePSF[iFacet,ch,:,:,:]=DicoVariablePSF[iFacet]["PSF"][ch][0,:,i:j,i:j]
         #     CubeMeanVariablePSF[iFacet,0,:,:,:]=DicoVariablePSF[iFacet]["MeanPSF"][0,:,i:j,i:j]
 
@@ -58,7 +64,7 @@ class ClassPSFServer():
 
         if NormalisePSF:
             if not quiet:
-                print>>log,"Using peak-normalised PSFs"
+                print("Using peak-normalised PSFs", file=log)
             # for iFacet in range(self.NFacets):
             #     self.CubeMeanVariablePSF[iFacet]/=np.max(self.CubeMeanVariablePSF[iFacet])
             #     for iChan in range(nch):
@@ -114,8 +120,8 @@ class ClassPSFServer():
         CellSizeRad=self.DicoVariablePSF["CellSizeRad"]
         _,_,nx,_=self.DicoVariablePSF["OutImShape"]
         for iFacet in range(self.NFacets):
-            l=CellSizeRad*(xp-nx/2)
-            m=CellSizeRad*(yp-nx/2)
+            l=CellSizeRad*(xp-nx//2)
+            m=CellSizeRad*(yp-nx//2)
             #lSol,mSol=self.DicoVariablePSF["Facets"][iFacet]["lmSol"]
             lSol,mSol=self.DicoVariablePSF["Facets"][iFacet]["l0m0"]
             #print "lsol, msol = ",lSol,mSol #,self.DicoVariablePSF[iFacet]["pixCentral"][0],self.DicoVariablePSF[iFacet]["pixCentral"][1]
@@ -141,7 +147,7 @@ class ClassPSFServer():
 
         # import pylab
         for iFacet in range(self.NFacets):
-            ThisCubePSF=self.CubeMeanVariablePSF[iFacet,0,0][nx/2-dx-1:nx/2+dx+1+1,nx/2-dx-1:nx/2+dx+1+1]
+            ThisCubePSF=self.CubeMeanVariablePSF[iFacet,0,0][nx//2-dx-1:nx//2+dx+1+1,nx//2-dx-1:nx//2+dx+1+1]
             Jx=(ThisCubePSF[:-2,:]-ThisCubePSF[2::,:])/2
             Jy=(ThisCubePSF[:,:-2]-ThisCubePSF[:,2::])/2
             Jx=Jx[:,1:-1]
@@ -178,10 +184,10 @@ class ClassPSFServer():
         JHJ=self.CubeJacobianMeanVariablePSF[iFacet]["JHJ"]
         JHJ1inv=np.linalg.inv(JHJ+Lambda*np.diag(np.diag(JHJ)))
 
-        dx=nx/2
+        dx=nx//2
         
         _,_,_,nx_psf,_=self.CubeMeanVariablePSF.shape
-        xc_psf=nx_psf/2
+        xc_psf=nx_psf//2
         ThisCubePSF=self.CubeMeanVariablePSF[iFacet,0,0][xc_psf-dx:xc_psf+dx+1,xc_psf-dx:xc_psf+dx+1]
         xc,yc=xc0,yc0
         Val=Dirty[xc,yc]
@@ -213,17 +219,17 @@ class ClassPSFServer():
         else:
             nx_psf, ny_psf = PSF.shape
 
-        xc_psf = nx_psf / 2
+        xc_psf = nx_psf // 2
 
         if npix % 2 == 0:
-            print >> log, "Cropping size should be odd (npix=%d) !!! Adding 1 pixel" % npix
+            print("Cropping size should be odd (npix=%d) !!! Adding 1 pixel" % npix, file=log)
             npix = npix + 1
 
         if npix > nx_psf or npix > ny_psf:
-            print >> log, "Cropping size larger than PSF size !!!"
+            print("Cropping size larger than PSF size !!!", file=log)
             raise NameError("Cropping size larger than PSF size !!!")
 
-        npixside = (npix - 1) / 2  # pixel to include from PSF center.
+        npixside = (npix - 1) // 2  # pixel to include from PSF center.
         if len(PSFshape) == 4:
             PSFCrop = PSF[nfreq, npol, xc_psf - npixside:xc_psf + npixside + 1,
                       xc_psf - npixside:xc_psf + npixside + 1]  # making it square psf

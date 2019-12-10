@@ -1,3 +1,4 @@
+from __future__ import division
 import logging
 import sys
 
@@ -10,7 +11,7 @@ class LoggerWriter:
         if message != '\n':
             self.logger.log(self.level, message)
 
-import ModColor
+from . import ModColor
 
 
 class MyLogger():
@@ -52,7 +53,7 @@ M=MyLogger()
 getLogger=M.getLogger
 
 itsLog=getLogger("MyLogger")
-import ModColor
+from . import ModColor
 def setSilent(Lname):
     print>>itsLog, ModColor.Str("Set silent: %s"%Lname,col="red")
     if type(Lname)==str:

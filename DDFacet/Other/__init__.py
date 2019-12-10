@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+from __future__ import print_function
 
 import sys
 from DDFacet.Other import ModColor
@@ -29,11 +30,11 @@ def _handle_exception(type, value, tb):
     # device, so we call the default hook
         sys.__excepthook__(type, value, tb)
     else:
-        print ModColor.Str(_advise)
+        print(ModColor.Str(_advise))
         import traceback, pdb
         # we are NOT in interactive mode, print the exception...
         traceback.print_exception(type, value, tb)
-        print
+        print()
         # ...then start the debugger in post-mortem mode.
         # pdb.pm() # deprecated
         pdb.post_mortem(tb) # more "modern"

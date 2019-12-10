@@ -21,6 +21,12 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #import matplotlib
 #matplotlib.use('agg')
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import time
 import os
 import numpy as np
@@ -175,7 +181,7 @@ class ConvertMachine():
 
         lmc.show_grayscale()
         rac,decc,radius=radecbox
-        print rac,decc,radius
+        print(rac,decc,radius)
         lmc.recenter(rac,decc,width=0.5,height=0.3)
         
         # if radecbox is not None:
@@ -202,7 +208,7 @@ class ConvertMachine():
     
 if __name__=="__main__":
     import sys
-    print sys.argv
+    print(sys.argv)
 
     fin=sys.argv[1]
     if len(sys.argv)==3:

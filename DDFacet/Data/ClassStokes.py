@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import re
 
 import numpy as np
@@ -143,7 +149,7 @@ class ClassStokes:
                 if corr == StokesTypes[k]:
                     self._MScorrLabels.append(k)
                     self._gridMSCorrMapping[corr] = corrId
-        print >> log, "Correlations stored in Measurement set (and gridded) is labeled as %s" % self._MScorrLabels
+        print("Correlations stored in Measurement set (and gridded) is labeled as %s" % self._MScorrLabels, file=log)
 
         #Check if the requested FITS polarizations are supported by the converter:
         self._FITSstokesList = []
@@ -162,7 +168,7 @@ class ClassStokes:
         self._FITSstokesSliceLookup = {}
         for slice, stokes in enumerate(self._FITSstokesList):
             self._FITSstokesSliceLookup[StokesTypes[stokes]] = slice
-        print >> log, "Stokes parameters required in FITS cube: %s" % self._FITSstokesList
+        print("Stokes parameters required in FITS cube: %s" % self._FITSstokesList, file=log)
 
     @staticmethod
     def _extractStokesCombinationExpression(exp):
@@ -245,8 +251,8 @@ class ClassStokes:
         else:
             stokesCube = corrCube.view()
         # only read one row at a time to keep the memory footprint down on the conversion of large cubes
-        for ch in xrange(nChan):
-            for v in xrange(nV):
+        for ch in range(nChan):
+            for v in range(nV):
                 resQ = []
                 for stokesId, (stokes, depExprId) in enumerate(zip(self._FITSstokesList, _stokesExpr)):
                     ops = self._extractStokesCombinationExpression(StokesDependencies[stokes][depExprId])
@@ -297,8 +303,8 @@ class ClassStokes:
         else:
             corrCube = stokesCube.view()
         # only read one row at a time to keep the memory footprint down on the conversion of large cubes
-        for ch in xrange(nChan):
-            for v in xrange(nV):
+        for ch in range(nChan):
+            for v in range(nV):
                 resQ = []
                 for corrId, (corr,depExprId) in enumerate(zip(self._MScorrLabels, _corrsExpr)):
                     ops = self._extractStokesCombinationExpression(CorrelationDependencies[corr][depExprId])

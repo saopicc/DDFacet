@@ -18,13 +18,24 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import optparse
 
 from DDFacet.Array import NpShared
 from DDFacet.Other import logger
 
 log= logger.getLogger("ClearSHM")
-from DDFacet.cbuild.Gridder import _pyGridderSmearPols as _pyGridderSmear
+import six
+if six.PY3:
+    from DDFacet.cbuild.Gridder import _pyGridderSmearPols3x as _pyGridderSmear
+else:
+    from DDFacet.cbuild.Gridder import _pyGridderSmearPols27 as _pyGridderSmear
 import glob
 import os
 import shutil
@@ -45,7 +56,7 @@ def read_options():
 
 if __name__=="__main__":
     options = read_options()
-    print>>log, "Clear shared memory"
+    print("Clear shared memory", file=log)
     if options.ID is not None:
         NpShared.DelAll(options.ID)
     else:
@@ -55,16 +66,16 @@ if __name__=="__main__":
     Multiprocessing.cleanupShm()
     ll=glob.glob("/dev/shm/sem.*")
         
-    print>>log, "Clear Semaphores"
+    print("Clear Semaphores", file=log)
     # remove semaphores we don't have access to
     ll = filter(lambda x: os.access(x, os.W_OK),ll)
 
-    ListSemaphores=[".".join(l.split(".")[1::]) for l in ll]
+    ListSemaphores=list(map(str, [".".join(l.split(".")[1::]) for l in ll]))
 
     _pyGridderSmear.pySetSemaphores(ListSemaphores)
     _pyGridderSmear.pyDeleteSemaphore()
 
-    print>>log, "Clear shared dictionaries"
+    print("Clear shared dictionaries", file=log)
     ll=glob.glob("/dev/shm/shared_dict:*")
     ll = filter(lambda x: os.access(x, os.W_OK),ll)
     for f in ll:

@@ -7,10 +7,16 @@ Usage:
     p.render(percentage, message)
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import sys
 import time as timemod
-
-import ModColor
+from . import terminal
+from DDFacet.Other import ModColor
 
 
 def disableBars():
@@ -52,7 +58,6 @@ class ProgressBar(object):
         
         if self.silent==1: return
 
-        import terminal
         if color:
             self.color = getattr(terminal, color.upper())
         else:
@@ -117,7 +122,6 @@ class ProgressBar(object):
 
         if self.silent==1: return
         if self.disableTag: return
-        import terminal
 
         if (self.Title is not None)&(self.HasRendered==False):
             #print
@@ -152,7 +156,7 @@ class ProgressBar(object):
         # Check if render is called for the first time
         if self.progress != None:
             self.clear()
-        self.progress = (bar_width * percent) / 100
+        self.progress = (bar_width * percent) // 100
 
 
         DicoData={
@@ -177,7 +181,6 @@ class ProgressBar(object):
     def clear(self):
         """Clear all printed lines"""
 
-        import terminal
         sys.stdout.write(
             self.lines * (terminal.UP + terminal.BOL + terminal.CLEAR_EOL)
         )

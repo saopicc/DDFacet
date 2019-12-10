@@ -242,8 +242,11 @@ namespace DDF {
       throw std::invalid_argument("Cannot convert input Stokes parameter to desired output correlations.");
     return np_vis;
   }
-
-  PYBIND11_MODULE(_pyGridderSmearPols, m) {
+    #if PY_MAJOR_VERSION >= 3
+    PYBIND11_MODULE(_pyGridderSmearPols3x, m) {
+    #else
+    PYBIND11_MODULE(_pyGridderSmearPols27, m) {
+    #endif
     m.doc() = "DDFacet Directional Dependent BDA gridding module";
     m.def("pyAccumulateWeightsOntoGrid",
 	  &pyAccumulateWeightsOntoGrid);

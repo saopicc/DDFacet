@@ -193,7 +193,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # Lazily iterate through DicoComp entries and associated ListScales and SolsArrays,
         # assigning values to arrays
         source_iter = itertools.chain.from_iterable(_model_map(coord, comp)
-            for coord, comp in DicoComp.iteritems())
+            for coord, comp in getattr(DicoComp, "iteritems", DicoComp.items)())
 
         # Create list with iterator results
         return [s for s in source_iter]

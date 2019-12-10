@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import scipy.fftpack
 from DDFacet.ToolsDir import Gaussian
 import numpy as np
@@ -66,12 +72,12 @@ def ZeroPad(A, outshape=1001):
     if outshape % 2 == 0:
         # PAIR
         B = np.zeros((outshape, outshape), dtype=A.dtype)
-        off = (B.shape[0]-A.shape[0])/2+1
+        off = (B.shape[0]-A.shape[0])//2+1
         B[off:off+nx, off:off+nx] = A
     else:
         # IMPAIR
         B = np.zeros((outshape, outshape), dtype=A.dtype)
-        off = (B.shape[0]-A.shape[0])/2
+        off = (B.shape[0]-A.shape[0])//2
         B[off:off+nx, off:off+nx] = A
     #print>>log, "!!!!!!!!!! ",outshape,off
 
@@ -90,14 +96,14 @@ class SpheMachine():
         Support = self.Support
         SupportSphe = self.SupportSpheCalc
         if self.Type == "Sphe":
-            xc = SupportSphe/2
+            xc = SupportSphe//2
             CF = ModTaper.Sphe2D(SupportSphe)
             # CF.fill(1)
             CF = np.complex128(CF)  # np.array(np.complex128(CF),order="F")
             fCF = fft2(CF)
             fCF = fCF[
-                xc-Support/2:xc+Support/2+1,
-                xc-Support/2:xc+Support/2+1].copy()
+                xc-Support//2:xc+Support//2+1,
+                xc-Support//2:xc+Support//2+1].copy()
             if_cut_fCF = ifft2(fCF)
         elif self.Type == "Gauss":
             x, y, CF = Gaussian.Gaussian(3, Support, 1)
@@ -353,10 +359,10 @@ class ClassWTermModified():
         self.CF, self.fCF, self.ifzfCF = self.SpheM.MakeSphe(self.Npix)
 
     def GiveReorgCF(self, A):
-        Sup = A.shape[0]/self.OverS
+        Sup = A.shape[0]//self.OverS
         B = np.zeros((self.OverS, self.OverS, Sup, Sup), dtype=A.dtype)
-        for i in xrange(self.OverS):
-            for j in xrange(self.OverS):
+        for i in range(self.OverS):
+            for j in range(self.OverS):
                 B[i, j, :, :] = A[i::self.OverS, j::self.OverS]  # [::-1,:]
 
         B = B.reshape((A.shape[0], A.shape[0]))
@@ -396,9 +402,9 @@ class ClassWTermModified():
         T.timeit("0")
         W = np.exp(-2.*1j*np.pi*(wmax/waveMin)*n_1)*self.SpheW
         fW = fft2(W)
-        fw1d = np.abs(fW[(SupMax-1)/2, :])
+        fw1d = np.abs(fW[(SupMax-1)//2, :])
         fw1d /= np.max(fw1d)
-        fw1d = fw1d[(SupMax-1)/2::]
+        fw1d = fw1d[(SupMax-1)//2::]
         ind = np.argsort(fw1d)
         T.timeit("1")
 
@@ -439,7 +445,7 @@ class ClassWTermModified():
 
         # print "done FIT"
 
-        for i in xrange(Nw):
+        for i in range(Nw):
             #print>>log, "%i/%i"%(i,Nw)
             if not(Sups[i] % 2):
                 Sups[i] += 1

@@ -18,8 +18,18 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import os, os.path, subprocess
-import cPickle
+import six
+if six.PY3:
+    import pickle as cPickle
+else:
+    import cPickle
 import collections
 
 from DDFacet.Other import logger, ModColor
@@ -110,11 +120,11 @@ class CacheManager (object):
         self.hashes = {}
         self.pid = os.getpid()
         if not os.path.exists(dirname):
-            print>>log, ("cache directory %s does not exist, creating" % dirname)
+            print("cache directory %s does not exist, creating" % dirname, file=log)
             os.mkdir(dirname)
         else:
             if reset:
-                print>> log, ("clearing cache %s, since we were asked to reset the cache" % dirname)
+                print("clearing cache %s, since we were asked to reset the cache" % dirname, file=log)
                 os.system("rm -fr "+dirname)
                 os.mkdir(dirname)
         # check for NFS system and print warning
@@ -122,15 +132,15 @@ class CacheManager (object):
             try:
                 fstype = subprocess.check_output(("stat --file-system --format=%T " + dirname).split()).strip()
             except:
-                print>> log, ModColor.Str("WARNING: unable to determine filesystem type for %s" % dirname, col="red",
-                                          Bold=True)
+                print(ModColor.Str("WARNING: unable to determine filesystem type for %s" % dirname, col="red",
+                                          Bold=True), file=log)
                 fstype = "unknown"
             if fstype == "nfs":
-                print>> log, ModColor.Str("WARNING: cache directory %s is mounted via NFS." % dirname, col="red",
-                                          Bold=True)
-                print>> log, ModColor.Str("This may cause performance issues. Consider using the --Cache-Dir option.",
+                print(ModColor.Str("WARNING: cache directory %s is mounted via NFS." % dirname, col="red",
+                                          Bold=True), file=log)
+                print(ModColor.Str("This may cause performance issues. Consider using the --Cache-Dir option.",
                                           col="red",
-                                          Bold=True)
+                                          Bold=True), file=log)
 
     @staticmethod
     def getElementName (name, **kw):
@@ -185,32 +195,32 @@ class CacheManager (object):
         self.hashes[name] = hashpath, hash
         # delete cache if explicitly asked to
         if reset:
-            print>>log, "cache element %s will be explicitly reset" % cachepath
+            print("cache element %s will be explicitly reset" % cachepath, file=log)
         else:
             if not os.path.exists(cachepath):
-                print>>log, "cache element %s does not exist, will re-make" % cachepath
+                print("cache element %s does not exist, will re-make" % cachepath, file=log)
                 if directory:
                     os.mkdir(cachepath)
                 reset = True
             # check for stored hash
             if not reset:
                 try:
-                    storedhash = cPickle.load(file(hashpath))
+                    storedhash = cPickle.load(open(hashpath))
                 except:
-                    print>>log, "cache hash %s invalid, will re-make" % hashpath
+                    print("cache hash %s invalid, will re-make" % hashpath, file=log)
                     reset = True
             # check for hash match
             if not reset and not ignore_key and hash != storedhash:
                 ListDiffer=[]
-                for MainField, D1 in storedhash.iteritems():
+                for MainField, D1 in getattr(storedhash, "iteritems", storedhash.items)():
                     if MainField not in hash:
                         ListDiffer.append("(%s: missing in hash)" % (str(MainField)))
                         continue
                     D0 = hash[MainField]
                     if type(D0) != type(D1):
                         ListDiffer.append("(%s: %s vs %s)" % (str(MainField), type(D0), type(D1)))
-                    elif hasattr(D0,'iteritems'):
-                        for key, value0 in D0.iteritems():
+                    elif hasattr(D0,'iteritems') or hasattr(D0,'items'):
+                        for key, value0 in getattr(D0, "iteritems", D0.items)():
                             if key not in D1:
                                 ListDiffer.append(
                                     "(%s.%s: %s vs missing)" % (str(MainField), str(key), str(D0[key])))
@@ -226,8 +236,8 @@ class CacheManager (object):
                     ListDiffer.append(
                         "(%s: missing in stored hash)" % (str(MainField)))
 
-                print>>log, "cache hash %s does not match, will re-make" % hashpath
-                print>>log, "  differences in parameters (Param: this vs cached): %s"%" & ".join(ListDiffer)
+                print("cache hash %s does not match, will re-make" % hashpath, file=log)
+                print("  differences in parameters (Param: this vs cached): %s"%" & ".join(ListDiffer), file=log)
                 
                 reset = True
             # if resetting cache, then mark new hash value for saving (will be saved in flushCache),
@@ -238,7 +248,7 @@ class CacheManager (object):
             if os.path.exists(cachepath):
                 if directory:
                     if os.system("rm -fr %s" % cachepath):
-                        raise OSError,"Failed to remove cache directory %s. Check permissions/ownership." % cachepath
+                        raise OSError("Failed to remove cache directory %s. Check permissions/ownership." % cachepath)
                     os.mkdir(cachepath)
                 else:
                     os.unlink(cachepath)
@@ -264,6 +274,6 @@ class CacheManager (object):
         for name in names:
             hashpath, hash, reset = self.hashes[name]
             if reset:
-                cPickle.dump(hash, file(hashpath, "w"))
-                print>>log, "writing cache hash %s" % hashpath
+                cPickle.dump(hash, open(hashpath, "wb"))
+                print("writing cache hash %s" % hashpath, file=log)
                 del self.hashes[name]

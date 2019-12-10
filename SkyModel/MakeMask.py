@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import division
 import sys,os
 if "PYTHONPATH_FIRST" in os.environ.keys() and int(os.environ["PYTHONPATH_FIRST"]):
     sys.path = os.environ["PYTHONPATH"].split(":") + sys.path
@@ -133,13 +134,13 @@ class ClassMakeMask():
 
         # #################"
         # _,_,nx,ny=self.Restored.shape
-        # xc,yc=nx/2,nx/2
+        # xc,yc=nx//2,nx//2
         # sup=200
         # x,y=np.mgrid[-sup:sup:1,-sup:sup:1]
         # G=Gaussian.GaussianXY(x,y,1.,sig=(7,18),pa=0.)
         # self.Restored[0,0,xc:xc+2*sup,yc:yc+2*sup]+=G[:,:]
 
-        # xc,yc=nx/2+10,nx/2+10
+        # xc,yc=nx//2+10,nx//2+10
 
         # G=Gaussian.GaussianXY(x,y,1.,sig=(3,3),pa=0.)
         # self.Restored[0,0,xc:xc+2*sup,yc:yc+2*sup]+=G[:,:]
@@ -215,7 +216,7 @@ class ClassMakeMask():
             for iFacet in DicoDir[iSol]:
                 PolyGon=D[iFacet]["Polygon"]
                 l,m=PolyGon.T
-                x,y=((l/self.incr_rad+nx/2)), ((m/self.incr_rad+nx/2))
+                x,y=((l/self.incr_rad+nx//2)), ((m/self.incr_rad+nx//2))
                 poly2=np.array([x,y]).T
                 x0,x1=x.min(),x.max()
                 y0,y1=y.min(),y.max()
@@ -282,7 +283,7 @@ class ClassMakeMask():
         print>>log, "Compute noise map..."
         Boost=self.Boost
         Acopy=self.Restored[0,0,0::Boost,0::Boost].copy()
-        SBox=(self.box[0]/Boost,self.box[1]/Boost)
+        SBox=(self.box[0]//Boost,self.box[1]//Boost)
 
         # MeanAbs=scipy.ndimage.filters.mean_filter(np.abs(Acopy),SBox)
         # Acopy[Acopy>0]=MeanAbs[Acopy>0]
@@ -374,8 +375,8 @@ class ClassMakeMask():
             # PutDataInNewImage(self.FitsFile,"TestCoord.fits",np.float32(TestArray))
             # ff,pol,dec,ra=self.CasaIm.toworld((0,0,xx,yy))
             # pp=[[xx,yy],[yy,xx],
-            #     [nx/2-xx,yy],[nx/2+xx,yy],
-            #     [nx/2-yy,xx],[nx/2+yy,xx]]
+            #     [nx//2-xx,yy],[nx//2+xx,yy],
+            #     [nx//2-yy,xx],[nx//2+yy,xx]]
             # for isol in range(len(pp)):
             #     xx,yy=pp[isol]
             #     ff,pol,dec,ra=self.CasaIm.toworld((0,0,xx,yy))
@@ -427,7 +428,7 @@ class ClassMakeMask():
     #     print "Compute noise map..."
     #     Boost=self.Boost
     #     Acopy=self.Restored[0,0,0::Boost,0::Boost].copy()
-    #     SBox=(self.box[0]/Boost,self.box[1]/Boost)
+    #     SBox=(self.box[0]//Boost,self.box[1]//Boost)
     #     Noise=np.sqrt(scipy.ndimage.filters.median_filter(np.abs(Acopy)**2,SBox))
     #     self.Noise=np.zeros_like(self.Restored[0,0])
     #     for i in range(Boost):

@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import time
 import socket
 
@@ -30,7 +36,7 @@ def getTimeList():
     Fetches a list of time units the cpu has spent in various modes
     Detailed explanation at http://www.linuxhowtos.org/System/procstat.htm
     """
-    cpuStats = file("/proc/stat", "r").readline()
+    cpuStats = open("/proc/stat", "r").readline()
     columns = cpuStats.replace("cpu", "").split(" ")
     return map(int, filter(None, columns))
 
@@ -58,7 +64,7 @@ if __name__=="__main__":
     # while True:
     #     print "CPU usage=%.2f%%" % (getCpuLoad()*100.0)
     #     time.sleep(0.1)
-    print "%s %7.2f"%(socket.gethostname(), getCpuLoad()*100.)
+    print("%s %7.2f"%(socket.gethostname(), getCpuLoad()*100.))
 
 
 

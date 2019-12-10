@@ -1,3 +1,4 @@
+from __future__ import division
 import Polygon
 import numpy as np
 
@@ -12,7 +13,7 @@ def test():
     Line=np.array([[0.,0.],
                    [5.,5.]])
 
-    print CutLineInside(Poly,Line)
+    print(CutLineInside(Poly,Line))
 
 def GiveABLin(P0,P1):
     x0,y0=P0
@@ -48,7 +49,7 @@ def CutLineInside(Poly,Line):
     PLine=[]
     for iB in range(len(B)):
         d=np.sum((B[iB]-B0)**2)
-        print d,PP[iB],PP[iB+1]
+        print(d,PP[iB],PP[iB+1])
         if d==0:
             PLine.append([PP[i],PP[i+1]])
 

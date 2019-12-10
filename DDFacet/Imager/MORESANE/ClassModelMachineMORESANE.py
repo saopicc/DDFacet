@@ -17,6 +17,13 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 from DDFacet.Other import logger
 from DDFacet.Other import ClassTimeIt
@@ -49,14 +56,14 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def setRefFreq(self,RefFreq,Force=False):#,AllFreqs):
         if self.RefFreq is not None and not Force:
-            print>>log,ModColor.Str("Reference frequency already set to %f MHz"%(self.RefFreq/1e6))
+            print(ModColor.Str("Reference frequency already set to %f MHz"%(self.RefFreq/1e6)), file=log)
             return
         self.RefFreq=RefFreq
         self.DicoModel["RefFreq"]=RefFreq
 
 
     def ToFile(self,FileName,DicoIn=None):
-        print>>log, "Saving dico model to %s"%FileName
+        print("Saving dico model to %s"%FileName, file=log)
         if DicoIn is None:
             D=self.DicoModel
         else:
@@ -76,13 +83,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         return D
 
     def FromFile(self,FileName):
-        print>>log, "Reading dico model from file %s"%FileName
+        print("Reading dico model from file %s"%FileName, file=log)
         self.DicoModel=MyPickle.Load(FileName)
         self.FromDico(self.DicoModel)
 
 
     def FromDico(self,DicoModel):
-        print>>log, "Reading dico model from dico with %i components"%len(DicoModel["Comp"])
+        print("Reading dico model from dico with %i components"%len(DicoModel["Comp"]), file=log)
         #self.PM=self.DicoModel["PM"]
         self.DicoModel=DicoModel
         self.RefFreq=self.DicoModel["RefFreq"]
@@ -180,8 +187,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         # mask out pixels above threshold
         mask = (M1 < minmod) | (M0 < minmod)
-        print>> log, "computing alpha map for model pixels above %.1e Jy (based on max DR setting of %g)" % (
-        minmod, MaxDR)
+        print("computing alpha map for model pixels above %.1e Jy (based on max DR setting of %g)" % (
+              minmod, MaxDR), file=log)
         M0[mask] = minmod
         M1[mask] = minmod
         # with np.errstate(invalid='ignore'):
@@ -199,7 +206,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         mask = alpha < -MaxSpi
         alpha[mask] = -MaxSpi
         if masked or mask.any():
-            print>> log, ModColor.Str("WARNING: some alpha pixels outside +/-%g. Masking them." % MaxSpi, col="red")
+            print(ModColor.Str("WARNING: some alpha pixels outside +/-%g. Masking them." % MaxSpi, col="red"), file=log)
         return alpha
 
 

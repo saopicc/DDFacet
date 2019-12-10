@@ -18,19 +18,29 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import os
-import cPickle
+import six
+if six.PY3:
+    import pickle as cPickle
+else:
+    import cPickle
 import pickle
 
 def Save(Obj,fileout):
     #print "  Saving in %s ... "%fileout,
-    cPickle.dump(Obj, file(fileout,'w'), 2)
-    #pickle.dump(Obj, file(fileout,'w'))
+    cPickle.dump(Obj, open(fileout,'wb'), 2)
+    #pickle.dump(Obj, open(fileout,'w'))
     #print "  done"
 
 def Load(filein):
     #print "  Loading from %s"%filein
-    G= cPickle.load( open( filein, "rb" ) )
+    G= cPickle.load( open( filein, "rb" ))
     #G=pickle.load( open( filein, "rb" ) )
     return G
 

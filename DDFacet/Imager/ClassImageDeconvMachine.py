@@ -18,15 +18,19 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
-import MyLogger
-import ModColor
-log=MyLogger.getLogger(" ClassImageDeconvMachine")
-import NpParallel
-import ModFFTW
-import ModToolBox
-
-
+from DDFacet.Other import logger
+log= logger.getLogger(" ClassImageDeconvMachine")
+from DDFacet.Other import ModColor
+from DDFacet.Array import NpParallel
+from DDFacet.ToolsDir import ModFFTW
+from DDFacet.ToolsDir import ModToolBox
 
 
 class ClassImageDeconvMachine():
@@ -57,7 +61,7 @@ class ClassImageDeconvMachine():
         self._Dirty=Dirty
         _,_,NPSF,_=PSF.shape
         _,_,NDirty,_=Dirty.shape
-        off=(NPSF-NDirty)/2
+        off=(NPSF-NDirty)//2
         self.DirtyExtent=(off,off+NDirty,off,off+NDirty)
         
 
@@ -73,16 +77,16 @@ class ClassImageDeconvMachine():
         if self.SubPSF is not None: return
         PSF=self._PSF
         _,_,NPSF,_=PSF.shape
-        xtest=np.int64(np.linspace(NPSF/2,NPSF,100))
+        xtest=np.int64(np.linspace(NPSF//2,NPSF,100))
         box=100
         itest=0
 
         if Method=="FromBox":
             while True:
                 X=xtest[itest]
-                psf=PSF[0,0,X-box:X+box,NPSF/2-box:NPSF/2+box]
+                psf=PSF[0,0,X-box:X+box,NPSF//2-box:NPSF//2+box]
                 std0=np.abs(psf.min()-psf.max())#np.std(psf)
-                psf=PSF[0,0,NPSF/2-box:NPSF/2+box,X-box:X+box]
+                psf=PSF[0,0,NPSF//2-box:NPSF//2+box,X-box:X+box]
                 std1=np.abs(psf.min()-psf.max())#np.std(psf)
                 std=np.max([std0,std1])
                 if std<1e-2:
@@ -90,19 +94,19 @@ class ClassImageDeconvMachine():
                 else:
                     itest+=1
             x0=xtest[itest]
-            dx0=(x0-NPSF/2)
+            dx0=(x0-NPSF//2)
             print>>log, "PSF extends to [%i] from center, with rms=%.5f"%(dx0,std)
         elif Method=="FromSideLobe":
             dx0=2*self.OffsetSideLobe
-            print>>log, "PSF extends to [%i] from center"%(dx0)
+            print("PSF extends to [%i] from center"%(dx0), file=log)
         
         npix=2*dx0+1
         npix=ModToolBox.GiveClosestFastSize(npix,Odd=True)
 
-        self.PSFMargin=(NPSF-npix)/2
+        self.PSFMargin=(NPSF-npix)//2
 
-        dx=npix/2
-        self.PSFExtent=(NPSF/2-dx,NPSF/2+dx+1,NPSF/2-dx,NPSF/2+dx+1)
+        dx=npix//2
+        self.PSFExtent=(NPSF//2-dx,NPSF//2+dx+1,NPSF//2-dx,NPSF//2+dx+1)
         x0,x1,y0,y1=self.PSFExtent
         self.SubPSF=self._PSF[:,:,x0:x1,y0:y1]
 
@@ -110,7 +114,7 @@ class ClassImageDeconvMachine():
 
     def MakeMultiScaleCube(self):
         if self.CubePSFScales is not None: return
-        print>>log, "Making MultiScale PSFs..."
+        print("Making MultiScale PSFs...", file=log)
         LScales=self.GD["HMP"]["Scales"]
         if 0 in LScales: LScales.remove(0)
         LRatios=self.GD["HMP"]["Ratios"]
@@ -184,7 +188,7 @@ class ClassImageDeconvMachine():
         self.WeightFunction=ModFFTW.GiveGauss(self.SubPSF.shape[-1],CellSizeRad=1.,GaussPars=PSFGaussPars)
         #self.WeightFunction.fill(1)
         self.SupWeightWidth=3.*self.WeightWidth
-        print>>log, "   ... Done"
+        print("   ... Done", file=log)
 
 
     def FindBestScale(self,(x,y),Fpol):
@@ -197,14 +201,14 @@ class ClassImageDeconvMachine():
         xc,yc=x,y
 
         nxPSF=self.CubePSFScales.shape[-1]
-        x0,x1=nxPSF/2-self.SupWeightWidth,nxPSF/2+self.SupWeightWidth+1
-        y0,y1=nxPSF/2-self.SupWeightWidth,nxPSF/2+self.SupWeightWidth+1
+        x0,x1=nxPSF//2-self.SupWeightWidth,nxPSF//2+self.SupWeightWidth+1
+        y0,y1=nxPSF//2-self.SupWeightWidth,nxPSF//2+self.SupWeightWidth+1
         CubePSF=self.CubePSFScales[:,x0:x1,y0:y1]
         N1=CubePSF.shape[-1]
         
         
         
-        Aedge,Bedge=self.GiveEdges((xc,yc),N0,(N1/2,N1/2),N1)
+        Aedge,Bedge=self.GiveEdges(xc,yc,N0,N1//2,N1//2,N1)
         x0d,x1d,y0d,y1d=Aedge
         x0p,x1p,y0p,y1p=Bedge
         #print Aedge
@@ -254,7 +258,7 @@ class ClassImageDeconvMachine():
 
         return iScale
 
-    def GiveEdges(self,(xc0,yc0),N0,(xc1,yc1),N1):
+    def GiveEdges(self,xc0,yc0,N0,xc1,yc1,N1):
         M_xc=xc0
         M_yc=yc0
         NpixMain=N0
@@ -263,23 +267,23 @@ class ClassImageDeconvMachine():
         NpixFacet=N1
                 
         ## X
-        M_x0=M_xc-NpixFacet/2
+        M_x0=M_xc-NpixFacet//2
         x0main=np.max([0,M_x0])
         dx0=x0main-M_x0
         x0facet=dx0
                 
-        M_x1=M_xc+NpixFacet/2
+        M_x1=M_xc+NpixFacet//2
         x1main=np.min([NpixMain-1,M_x1])
         dx1=M_x1-x1main
         x1facet=NpixFacet-dx1
         x1main+=1
         ## Y
-        M_y0=M_yc-NpixFacet/2
+        M_y0=M_yc-NpixFacet//2
         y0main=np.max([0,M_y0])
         dy0=y0main-M_y0
         y0facet=dy0
         
-        M_y1=M_yc+NpixFacet/2
+        M_y1=M_yc+NpixFacet//2
         y1main=np.min([NpixMain-1,M_y1])
         dy1=M_y1-y1main
         y1facet=NpixFacet-dy1
@@ -300,10 +304,10 @@ class ClassImageDeconvMachine():
         N0=self.Dirty.shape[-1]
         N1=PSF.shape[-1]
 
-        # PSF=PSF[N1/2-1:N1/2+2,N1/2-1:N1/2+2]
+        # PSF=PSF[N1//2-1:N1//2+2,N1//2-1:N1//2+2]
         # N1=PSF.shape[-1]
 
-        Aedge,Bedge=self.GiveEdges((xc,yc),N0,(N1/2,N1/2),N1)
+        Aedge,Bedge=self.GiveEdges(xc,yc,N0,N1//2,N1//2,N1)
 
         
 
@@ -327,8 +331,8 @@ class ClassImageDeconvMachine():
         x0p,x1p,y0p,y1p=Bedge
 
         # nxPSF=self.CubePSFScales.shape[-1]
-        # x0,x1=nxPSF/2-self.SupWeightWidth,nxPSF/2+self.SupWeightWidth+1
-        # y0,y1=nxPSF/2-self.SupWeightWidth,nxPSF/2+self.SupWeightWidth+1
+        # x0,x1=nxPSF//2-self.SupWeightWidth,nxPSF//2+self.SupWeightWidth+1
+        # y0,y1=nxPSF//2-self.SupWeightWidth,nxPSF//2+self.SupWeightWidth+1
         # x0p=x0+x0p
         # x1p=x0+x1p
         # y0p=y0+y0p
@@ -375,7 +379,7 @@ class ClassImageDeconvMachine():
         self.setChannel(ch)
 
         _,npix,_=self.Dirty.shape
-        xc=(npix)/2
+        xc=(npix)//2
 
         npol,_,_=self.Dirty.shape
 
@@ -387,7 +391,7 @@ class ClassImageDeconvMachine():
         # pylab.show(False)
         # pylab.pause(0.1)
 
-        print>>log, "  Running minor cycle [MaxMinorIter = %i, CycleFactor=%3.1f]"%(Nminor,self.CycleFactor)
+        print("  Running minor cycle [MaxMinorIter = %i, CycleFactor=%3.1f]"%(Nminor,self.CycleFactor), file=log)
 
         NPixStats=1000
         RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
@@ -400,9 +404,9 @@ class ClassImageDeconvMachine():
         Threshold_SideLobe=self.CycleFactor*MaxDirty*(self.SideLobeLevel)
 
         mm0,mm1=self.Dirty.min(),self.Dirty.max()
-        print>>log, "    Dirty image peak flux   = %7.3f Jy [(min, max) = (%7.3f, %7.3f) Jy]"%(MaxDirty,mm0,mm1)
-        print>>log, "    RMS threshold flux      = %7.3f Jy [rms      = %7.3f Jy]"%(FluxLimit, RMS)
-        print>>log, "    Sidelobe threshold flux = %7.3f Jy [sidelobe = %7.3f of peak]"%(Threshold_SideLobe,self.SideLobeLevel)
+        print("    Dirty image peak flux   = %7.3f Jy [(min, max) = (%7.3f, %7.3f) Jy]"%(MaxDirty,mm0,mm1), file=log)
+        print("    RMS threshold flux      = %7.3f Jy [rms      = %7.3f Jy]"%(FluxLimit, RMS), file=log)
+        print("    Sidelobe threshold flux = %7.3f Jy [sidelobe = %7.3f of peak]"%(Threshold_SideLobe,self.SideLobeLevel), file=log)
 
         MaxModelInit=np.max(np.abs(self.ModelImage))
 
@@ -421,7 +425,7 @@ class ClassImageDeconvMachine():
         #print x,y
 
         if ThisFlux < FluxLimit:
-            print>>log, ModColor.Str("    Initial maximum peak %f Jy lower that rms-based limit of %f Jy (%i-sigma)" % (ThisFlux,Threshold_RMS,Threshold_RMS))
+            print(ModColor.Str("    Initial maximum peak %f Jy lower that rms-based limit of %f Jy (%i-sigma)" % (ThisFlux,Threshold_RMS,Threshold_RMS)), file=log)
             return "DoneMinFlux"
 
 
@@ -440,11 +444,11 @@ class ClassImageDeconvMachine():
             T.timeit("max0")
 
             if ThisFlux < FluxLimit:
-                print>>log, "    [iter=%i] Maximum peak lower that rms-based limit of %f Jy (%i-sigma)" % (i,FluxLimit,Threshold_RMS)
+                print("    [iter=%i] Maximum peak lower that rms-based limit of %f Jy (%i-sigma)" % (i,FluxLimit,Threshold_RMS), file=log)
                 return "MinFlux"
 
             if ThisFlux < Threshold_SideLobe:
-                print>>log, "    [iter=%i] Peak residual flux %f Jy higher than sidelobe-based limit of %f Jy" % (i,ThisFlux, Threshold_SideLobe)
+                print("    [iter=%i] Peak residual flux %f Jy higher than sidelobe-based limit of %f Jy" % (i,ThisFlux, Threshold_SideLobe), file=log)
 
                 return "MinFlux"
 
@@ -506,12 +510,12 @@ class ClassImageDeconvMachine():
             elif ThisComp["ModelType"]=="Gaussian":
                 Gauss=ThisComp["Model"]
                 Sup,_=Gauss.shape
-                x0,x1=x-Sup/2,x+Sup/2+1
-                y0,y1=y-Sup/2,y+Sup/2+1
+                x0,x1=x-Sup//2,x+Sup//2+1
+                y0,y1=y-Sup//2,y+Sup//2+1
 
                 _,N0,_=self.ModelImage.shape
                 
-                Aedge,Bedge=self.GiveEdges((x,y),N0,(Sup/2,Sup/2),Sup)
+                Aedge,Bedge=self.GiveEdges(x,y,N0,Sup//2,Sup//2,Sup)
                 x0d,x1d,y0d,y1d=Aedge
                 x0p,x1p,y0p,y1p=Bedge
                 
@@ -529,6 +533,6 @@ class ClassImageDeconvMachine():
 
 
 
-        print>>log, ModColor.Str("    [iter=%i] Reached maximum number of iterations" % (Nminor))
+        print(ModColor.Str("    [iter=%i] Reached maximum number of iterations" % (Nminor)), file=log)
         return "MaxIter"
 

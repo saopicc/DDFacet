@@ -61,11 +61,29 @@ static PyMethodDef _pyGridder_testMethods[] = {
 
 /* ==== Initialize the C_test functions ====================== */
 // Module name must be _C_arraytest in compile and linked 
-void init_pyGridder()  {
-  (void) Py_InitModule("_pyGridder", _pyGridder_testMethods);
-  import_array();  // Must be present for NumPy.  Called first after above line.
-}
-
+#if PY_MAJOR_VERSION >= 3
+  static struct PyModuleDef _mod = {
+    PyModuleDef_HEAD_INIT,
+    "_pyGridder3x",
+    "_pyGridder3x",
+    -1,  
+    _pyGridder_testMethods,
+    NULL,
+    NULL,
+    NULL,
+    NULL
+  };
+  PyMODINIT_FUNC PyInit__pyGridder3x(void) {
+    PyObject * m = PyModule_Create(&_mod);
+    import_array();
+    return m;
+  }
+#else
+  void init_pyGridder27()  {
+    (void) Py_InitModule("_pyGridder27", _pyGridder_testMethods);
+    import_array();  // Must be present for NumPy.  Called first after above line.
+  }
+#endif
 
 
 

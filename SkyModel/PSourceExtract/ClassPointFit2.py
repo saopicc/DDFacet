@@ -1,3 +1,4 @@
+from __future__ import division
 
 import numpy as np
 import Gaussian
@@ -194,7 +195,7 @@ class ClassPointFit():
 #            return None,None
 
     def GetPars(self,pars):
-        ns=pars.shape[0]/3
+        ns=pars.shape[0]//3
         l,m,s,dp=pars[0:ns],pars[ns:2*ns],pars[2*ns:3*ns],pars[-1]
         s=np.abs(s)
         # print

@@ -18,9 +18,15 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
-import ClassFacetMachine
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
+from DDFacet.Imager import ClassFacetMachine
 import numpy as np
-import ToolsDir
+from DDFacet import ToolsDir
 import os
 
 
@@ -70,7 +76,7 @@ class MovieMachine():
         pylab.show(False)
         
         FileOut="%s/Snap%5.5i.png"%(self.pngBaseDir,self.CurrentPNGNum)
-        print "... saving %s"%FileOut
+        print("... saving %s"%FileOut)
         self.fig.savefig(FileOut)
         MS=self.DC.MS
         NpFileOut="%s/Snap%5.5i"%(self.pngBaseDir,self.CurrentPNGNum)
@@ -96,7 +102,7 @@ class MovieMachine():
 
     def MainLoop(self):
         for i in range(0,self.NTimes-1,self.Tincr):
-            print "Step %i/%i"%(i,self.NTimes)
+            print("Step %i/%i"%(i,self.NTimes))
             self.MakeSnap(i,i+self.Tincr)
             self.ToPngImage()
         

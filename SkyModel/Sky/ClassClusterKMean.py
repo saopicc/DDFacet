@@ -1,6 +1,9 @@
+from __future__ import division
+from __future__ import absolute_import
+from __future__ import print_function
 import numpy as np
 from scipy.spatial import Voronoi
-import ModVoronoi
+from . import ModVoronoi
 from SkyModel.Other import ModCoord
 
 def test():
@@ -91,7 +94,7 @@ class ClassClusterKMean():
 
             NIter+=1
             if NIter==NITerMax:
-                print "Has reached max iter of %i"%NITerMax
+                print("Has reached max iter of %i"%NITerMax)
             d=np.sqrt((x.reshape((ns,1))-xc.reshape((1,Nk)))**2+(y.reshape((ns,1))-yc.reshape((1,Nk)))**2)
             indk=np.argmin(d,axis=1)
             

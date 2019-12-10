@@ -243,7 +243,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                                            "'WSCMS-NumFreqBasisFuncs' or if you think this is a bug report it.")
 
                     if self.GD["WSCMS"]["MultiScale"] and iScale != 0:
-                        Aedge, Bedge = GiveEdges((x, y), nx, (extent // 2, extent // 2), extent)
+                        Aedge, Bedge = GiveEdges(x, y, nx, extent // 2, extent // 2, extent)
 
                         x0d, x1d, y0d, y1d = Aedge
                         x0p, x1p, y0p, y1p = Bedge
@@ -408,7 +408,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         N1 = LocalSM.shape[-1]
 
         # Get overlap indices where psf should be subtracted
-        Aedge, Bedge = GiveEdges((xc, yc), N0, (N1 // 2, N1 // 2), N1)
+        Aedge, Bedge = GiveEdges(xc, yc, N0, N1 // 2, N1 // 2, N1)
 
         x0d, x1d, y0d, y1d = Aedge
         x0p, x1p, y0p, y1p = Bedge
