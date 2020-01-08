@@ -188,7 +188,7 @@ RUN wget https://github.com/ska-sa/meqtrees-timba/archive/v1.7.0.tar.gz
 RUN tar -xvf v1.7.0.tar.gz.1
 RUN mkdir /src/meqtrees-timba-1.7.0/build
 WORKDIR /src/meqtrees-timba-1.7.0/build
-RUN cmake ..
+RUN cmake -DCMAKE_BUILD_TYPE=Debug -DENABLE_PYTHON_3=OFF ..
 RUN make -j4
 RUN make install
 RUN ldconfig
