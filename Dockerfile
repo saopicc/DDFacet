@@ -259,6 +259,9 @@ RUN cd /src/DDFacet/ && python2.7 setup.py build && cd /
 # Set MeqTrees Cattery path to installation directory
 ENV MEQTREES_CATTERY_PATH /usr/local/lib/python2.7/dist-packages/Cattery/
 ENV PYTHONPATH $MEQTREES_CATTERY_PATH:$PYTHONPATH
+
+RUN pip install -U astropy==2.0.10 # temporary py2 kludge to work around a WCS segfault
+
 RUN python2.7 -c "import Siamese"
 
 # perform some basic tests
