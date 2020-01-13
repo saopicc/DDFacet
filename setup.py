@@ -141,7 +141,7 @@ def requirements():
                     ("six >= 1.12.0", "six >= 1.12.0"),
                     ("pybind11 >= 2.2.2", "pybind11 >= 2.2.2"),
                     ("codex-africanus[dask] <= 0.1.8", "codex-africanus[dask] <= 0.1.8"),
-                    ("", "bdsf<=1.8.15") # SkyModel / kms dependency
+                    ("bdsf > 1.8.15", "bdsf<=1.8.15") # SkyModel / kms dependency
                     ] 
 
     py3_requirements, py2_requirements = zip(*requirements)

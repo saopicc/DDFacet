@@ -15,10 +15,10 @@ import optparse
 from .PSourceExtract import ClassFitIslands
 
 from pyrap.images import image
-from .Other.progressbar import ProgressBar
-from .Other import reformat
-from .Sky import ClassSM
-from .Other import rad2hmsdms
+from SkyModel.Other.progressbar import ProgressBar
+from SkyModel.Other import reformat
+from SkyModel.Sky import ClassSM
+from SkyModel.Other import rad2hmsdms
 
 from DDFacet.Other import logger
 log=logger.getLogger("Gaussify")

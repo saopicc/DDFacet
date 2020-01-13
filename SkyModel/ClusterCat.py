@@ -22,7 +22,7 @@ import Polygon
 SaveFile="ClusterImage.last"
 from SkyModel.Sky import ModVoronoiToReg
 from SkyModel import Sky
-from . import MakeCatalog
+from SkyModel import MakeCatalog
 
 import os
 

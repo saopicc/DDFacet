@@ -3,16 +3,16 @@ from __future__ import division, absolute_import, print_function
 
 from pyrap.tables import table
 from pyrap.images import image
-from .Sky import ClassSM
+from SkyModel.Sky import ClassSM
 import optparse
 import numpy as np
 import glob
 import os
-from .Other import reformat
+from SkyModel.Other import reformat
 SaveFile="last_MyCasapy2BBS.obj"
 import pickle
 import scipy.ndimage
-from .Tools import ModFFTW
+from SkyModel.Tools import ModFFTW
 
 def read_options():
     desc=""" cyril.tasse@obspm.fr"""

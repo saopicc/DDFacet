@@ -15,10 +15,10 @@ from .PSourceExtract.ClassGaussFit import ClassGaussFit as ClassFit
 #import ClassPointFit as ClassPointFit
 
 from pyrap.images import image
-from .Other.progressbar import ProgressBar
-from .Other import reformat
-from .Sky import ClassSM
-from .Other import rad2hmsdms
+from SkyModel.Other.progressbar import ProgressBar
+from SkyModel.Other import reformat
+from SkyModel.Sky import ClassSM
+from SkyModel.Other import rad2hmsdms
 
 def read_options():
     desc="""Questions and suggestions: cyril.tasse@obspm.fr"""
