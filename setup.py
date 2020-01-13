@@ -122,7 +122,7 @@ def requirements():
                     ("deap >= 1.0.1", "deap >= 1.0.1"),
                     ("ptyprocess>=0.5", "ptyprocess<=0.5"), #workaround for ipdb on py2
                     ("ipdb >= 0.10.3", "ipdb <= 0.10.3"),
-                    ("python-casacore <= 3.0.0", "python-casacore <= 3.0.0"),
+                    ("python-casacore >= 3.0.0", "python-casacore >= 3.0.0"),
                     ("pyephem >= 3.7.6.0", "pyephem >= 3.7.6.0"),
                     ("numexpr >= 2.6.2", "numexpr >= 2.6.2"),
                     ("matplotlib >= 2.0.0", "matplotlib >= 2.0.0"),

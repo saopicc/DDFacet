@@ -13,7 +13,7 @@ ENV DDFACET_TEST_OUTPUT_DIR /test_output
 RUN echo "*        -   memlock     unlimited" > /etc/security/limits.conf
 ENV DEBIAN_FRONTEND noninteractive
 ENV DEBIAN_PRIORITY critical
-ENV GNUCOMPILER 5
+ENV GNUCOMPILER 7
 ENV DEB_SETUP_DEPENDENCIES \
     dpkg-dev \
     g++-$GNUCOMPILER \
@@ -74,19 +74,20 @@ RUN ln -s /usr/bin/gfortran-$GNUCOMPILER /usr/bin/gfortran
 #####################################################################
 RUN mkdir /src
 WORKDIR /src
-RUN wget https://github.com/casacore/casacore/archive/v2.4.1.tar.gz
-RUN tar xvf v2.4.1.tar.gz
-RUN mkdir casacore-2.4.1/build
-WORKDIR /src/casacore-2.4.1/build
-RUN cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release ../
-RUN make -j 32
+RUN wget https://github.com/casacore/casacore/archive/v3.1.1.tar.gz
+RUN tar xvf v3.1.1.tar.gz
+RUN mkdir casacore-3.1.1/build
+WORKDIR /src/casacore-3.1.1/build
+RUN cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DBUILD_DEPRECATED=ON -DBUILD_PYTHON=ON -DBUILD_PYTHON3=ON ../
+RUN make -j 4
 RUN make install
 RUN ldconfig
 #RUN pip install -U --user --force-reinstall --install-option="--prefix=/usr"  pip setuptools wheel
 WORKDIR /src
-RUN wget https://github.com/casacore/python-casacore/archive/v2.2.1.tar.gz
-RUN tar xvf v2.2.1.tar.gz
-WORKDIR /src/python-casacore-2.2.1
+RUN rm v3.1.1.tar.gz
+RUN wget https://github.com/casacore/python-casacore/archive/v3.1.1.tar.gz
+RUN tar xvf v3.1.1.tar.gz
+WORKDIR /src/python-casacore-3.1.1
 RUN pip install .
 WORKDIR /
 RUN python -c "from pyrap.tables import table as tbl"
@@ -105,28 +106,27 @@ RUN rsync -avz rsync://casa-rsync.nrao.edu/casa-data .
 RUN mkdir -p /src/
 WORKDIR /src
 ENV BUILD /src
-RUN wget https://github.com/ska-sa/makems/archive/1.5.2.tar.gz
-RUN tar xvf 1.5.2.tar.gz
-RUN mkdir -p $BUILD/makems-1.5.2/LOFAR/build/gnu_opt
-WORKDIR $BUILD/makems-1.5.2/LOFAR/build/gnu_opt
-RUN cmake -DCMAKE_MODULE_PATH:PATH=$BUILD/makems-1.5.2/LOFAR/CMake \
+RUN wget https://github.com/ska-sa/makems/archive/1.5.3.tar.gz
+RUN tar xvf 1.5.3.tar.gz
+RUN mkdir -p $BUILD/makems-1.5.3/LOFAR/build/gnu_opt
+WORKDIR $BUILD/makems-1.5.3/LOFAR/build/gnu_opt
+RUN cmake -DCMAKE_MODULE_PATH:PATH=$BUILD/makems-1.5.3/LOFAR/CMake \
 -DUSE_LOG4CPLUS=OFF -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release ../..
 RUN make -j 16
 RUN make install
 
-ENV PATH=/src/makems-1.5.2/LOFAR/build/gnu_opt/CEP/MS/src:${PATH}
-WORKDIR $BUILD/makems-1.5.2/test
+ENV PATH=/src/makems-1.5.3/LOFAR/build/gnu_opt/CEP/MS/src:${PATH}
+WORKDIR $BUILD/makems-1.5.3/test
 RUN makems WSRT_makems.cfg
 
 #####################################################################
 ## BUILD CASArest from source
 #####################################################################
 WORKDIR /src
-RUN wget https://github.com/casacore/casarest/archive/v1.4.2.tar.gz
-RUN tar xvf v1.4.2.tar.gz
-WORKDIR /src/casarest-1.4.2
+RUN git clone https://github.com/casacore/casarest
+WORKDIR /src/casarest
 RUN mkdir -p build
-WORKDIR /src/casarest-1.4.2/build
+WORKDIR /src/casarest/build
 RUN cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release ../
 RUN make -j 32
 RUN make install
@@ -137,44 +137,38 @@ RUN ldconfig
 #####################################################################
 # Owlcat
 WORKDIR /src
-RUN wget https://github.com/ska-sa/owlcat/archive/v1.5.1.tar.gz
-RUN tar -xvf v1.5.1.tar.gz
-WORKDIR /src/owlcat-1.5.1
+RUN wget https://github.com/ska-sa/owlcat/archive/v1.6.0.tar.gz
+RUN tar -xvf v1.6.0.tar.gz
+WORKDIR /src/owlcat-1.6.0
 RUN pip install .
 
 # kittens
 WORKDIR /src
-RUN wget https://github.com/ska-sa/kittens/archive/v1.4.0.tar.gz
-RUN tar -xvf v1.4.0.tar.gz
-WORKDIR /src/kittens-1.4.0
+RUN wget https://github.com/ska-sa/kittens/archive/1.4.3.tar.gz
+RUN tar -xvf 1.4.3.tar.gz
+WORKDIR /src/kittens-1.4.3
 RUN pip install .
 
 # purr
 WORKDIR /src
-RUN wget https://github.com/ska-sa/purr/archive/v1.4.3.tar.gz
-RUN tar -xvf v1.4.3.tar.gz
-WORKDIR /src/purr-1.4.3
+RUN wget https://github.com/ska-sa/purr/archive/v1.5.0.tar.gz
+RUN tar -xvf v1.5.0.tar.gz
+WORKDIR /src/purr-1.5.0
 RUN pip install .
 
 # tigger-lsm
 WORKDIR /src
-RUN wget https://github.com/ska-sa/tigger-lsm/archive/1.5.0.tar.gz
-RUN tar -xvf 1.5.0.tar.gz
-WORKDIR /src/tigger-lsm-1.5.0
-RUN pip install .
-
-# tigger
-WORKDIR /src
-RUN wget https://github.com/ska-sa/tigger/archive/1.4.0.tar.gz
-RUN tar -xvf 1.4.0.tar.gz
-WORKDIR /src/tigger-1.4.0
+RUN rm v1.6.0.tar.gz
+RUN wget https://github.com/ska-sa/tigger-lsm/archive/v1.6.0.tar.gz
+RUN tar -xvf v1.6.0.tar.gz
+WORKDIR /src/tigger-lsm-1.6.0
 RUN pip install .
 
 # Cattery
 WORKDIR /src
-RUN wget https://github.com/ska-sa/meqtrees-cattery/archive/v1.6.1.tar.gz
-RUN tar -xvf v1.6.1.tar.gz
-WORKDIR /src/meqtrees-cattery-1.6.1
+RUN wget https://github.com/ska-sa/meqtrees-cattery/archive/v1.7.0.tar.gz
+RUN tar -xvf v1.7.0.tar.gz
+WORKDIR /src/meqtrees-cattery-1.7.0
 RUN pip install .
 
 # blitz
@@ -190,22 +184,23 @@ RUN ldconfig
 # timba
 RUN apt-get install -y libqdbm-dev
 WORKDIR /src
-RUN wget https://github.com/ska-sa/meqtrees-timba/archive/v1.5.1.tar.gz
-RUN tar -xvf v1.5.1.tar.gz.1
-RUN mkdir /src/meqtrees-timba-1.5.1/build
-WORKDIR /src/meqtrees-timba-1.5.1/build
-RUN cmake ..
-RUN make -j16
+RUN wget https://github.com/ska-sa/meqtrees-timba/archive/v1.7.0.tar.gz
+RUN tar -xvf v1.7.0.tar.gz.1
+RUN mkdir /src/meqtrees-timba-1.7.0/build
+WORKDIR /src/meqtrees-timba-1.7.0/build
+RUN cmake -DCMAKE_BUILD_TYPE=Debug -DENABLE_PYTHON_3=OFF ..
+RUN make -j4
 RUN make install
 RUN ldconfig
 
 # get the test from pyxis
 WORKDIR /src
-RUN wget https://github.com/ska-sa/pyxis/archive/v1.6.3.tar.gz
-RUN tar -xvf v1.6.3.tar.gz
-WORKDIR /src/pyxis-1.6.3
+RUN rm v1.7.0.tar.gz
+RUN wget https://github.com/ska-sa/pyxis/archive/v1.7.0.tar.gz
+RUN tar -xvf v1.7.0.tar.gz
+WORKDIR /src/pyxis-1.7.0
 RUN pip install .
-RUN cp -r /src/pyxis-1.6.3/Pyxis/recipies /usr/local/lib/python2.7/dist-packages/Pyxis/recipies
+RUN cp -r /src/pyxis-1.7.0/Pyxis/recipies /usr/local/lib/python2.7/dist-packages/Pyxis/recipies
 
 # run test when built
 RUN apt-get install -y python-qt4
@@ -216,15 +211,22 @@ RUN python2.7 -m "nose"
 #####################################################################
 ## BUILD LOFAR FROM SOURCE
 #####################################################################
-RUN svn co --non-interactive --no-auth-cache --username lofar-guest --password lofar-guest https://svn.astron.nl/LOFAR/tags/LOFAR-Release-3_2_12
-WORKDIR LOFAR-Release-3_2_12
+WORKDIR /src
+RUN git clone https://github.com/lofar-astron/LOFARBeam.git
+WORKDIR LOFARBeam
+RUN git checkout db8d082b34c203417b01d20b6f3bf0df17728ee8
+#RUN svn co --non-interactive --no-auth-cache --username lofar-guest --password lofar-guest https://svn.astron.nl/LOFAR/tags/LOFAR-Release-4_0_9
+#WORKDIR LOFAR-Release-4_0_9
+#RUN wget https://codeload.github.com/lofar-astron/LOFARBeam/tar.gz/v4.0
+#RUN tar xvf v4.0
 RUN mkdir -p build/gnucxx11_opt
 WORKDIR build/gnucxx11_opt
 RUN cmake -DBUILD_PACKAGES="pystationresponse" -DCMAKE_INSTALL_PREFIX=/usr ../../
 RUN make -j16
 RUN make install
 WORKDIR /
-ENV PYTHONPATH /usr/lib/python2.7/site-packages:$PYTHONPATH
+RUN touch /usr/lib/python2.7/site-packages/lofar/__init__.py
+ENV PYTHONPATH "/usr/lib/python2.7/site-packages:$PYTHONPATH"
 RUN python -c "import lofar.stationresponse as lsr"
 
 RUN apt-get update
@@ -257,6 +259,9 @@ RUN cd /src/DDFacet/ && python2.7 setup.py build && cd /
 # Set MeqTrees Cattery path to installation directory
 ENV MEQTREES_CATTERY_PATH /usr/local/lib/python2.7/dist-packages/Cattery/
 ENV PYTHONPATH $MEQTREES_CATTERY_PATH:$PYTHONPATH
+
+RUN pip install -U astropy==2.0.10 # temporary py2 kludge to work around a WCS segfault
+
 RUN python2.7 -c "import Siamese"
 
 # perform some basic tests
