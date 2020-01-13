@@ -14,7 +14,7 @@ from DDFacet.Other import logger
 log=logger.getLogger("ClassArrayMethodSSD")
 import multiprocessing
 
-import ClassConvMachine
+from DDFacet.Imager.SSD import ClassConvMachine
 import time
 from scipy.stats import chi2
 

@@ -35,7 +35,7 @@ import pyrap.measures as pm
 from DDFacet.ToolsDir import rad2hmsdms
 
 
-def Rotate2(ra,dec,ra1,dec1,uvw,data,wavelength,RotateType=["uvw","vis"]):
+def Rotate2((ra,dec),(ra1,dec1),uvw,data,wavelength,RotateType=["uvw","vis"]):
     
 
     # preparing rotation matrices (ORIGINAL PHASE DIRECTION)

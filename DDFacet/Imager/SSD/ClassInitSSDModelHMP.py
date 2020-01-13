@@ -15,7 +15,7 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import logger
 log=logger.getLogger("ClassInitSSDModel")
 from DDFacet.Other import ModColor
-from ClassConvMachine import ClassConvMachineImages
+from .ClassConvMachine import ClassConvMachineImages
 from DDFacet.Imager import ClassMaskMachine
 from DDFacet.Array import shared_dict
 import psutil
