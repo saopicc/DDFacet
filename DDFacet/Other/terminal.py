@@ -74,17 +74,17 @@ def setup():
         # Get the color index from curses
         colorIndex = getattr(curses, 'COLOR_%s' % color)
         # Set the color escape sequence after filling the template with index
-        setattr(MODULE, color, curses.tparm(fgColorSeq, colorIndex))
+        setattr(MODULE, color, curses.tparm(fgColorSeq, colorIndex).decode())
         # Set background escape sequence
         setattr(
             MODULE, 'BG_%s' % color, curses.tparm(bgColorSeq, colorIndex)
         )
     for control in CONTROLS:
         # Set the control escape sequence
-        setattr(MODULE, control, curses.tigetstr(CONTROLS[control]) or '')
+        setattr(MODULE, control, curses.tigetstr(CONTROLS[control]).decode() or '')
     for value in VALUES:
         # Set terminal related values
-        setattr(MODULE, value, curses.tigetnum(VALUES[value]))
+        setattr(MODULE, value, curses.tigetnum(VALUES[value]).decode())
  
 def render(text):
     """Helper function to render text easily
