@@ -175,7 +175,7 @@ class TestFacetPredict(unittest.TestCase):
                         "Facet amplitude prediction != meqtrees for ms %s correlation %d" % (ms, 0)
                     assert np.max(np.abs(diff[:, :, 3] - 1.0)) <= TestFacetPredict.getAmpThreshold(), \
                         "Facet amplitude prediction != meqtrees for ms %s correlation %d" % (ms, 3)
-                except AssertionError, e:
+                except AssertionError as e:
                     list_except.append(str(e))
 
                 # next test phase
@@ -205,7 +205,7 @@ class TestFacetPredict(unittest.TestCase):
                         "Facet phase prediction != meqtrees for ms %s correlation %d" % (ms, 0)
                     assert np.max(np.abs(diff_rel[:, :, 3] - 1.0)) <= TestFacetPredict.getPhaseThreshold(), \
                         "Facet phase prediction != meqtrees for ms %s correlation %d" % (ms, 3)
-                except AssertionError, e:
+                except AssertionError as e:
                     list_except.append(str(e))
 
         if len(list_except) != 0:
@@ -256,7 +256,7 @@ class TestFacetPredict(unittest.TestCase):
                         "Facet amplitude prediction != meqtrees for ms %s correlation %d" % (ms, 0)
                     assert np.max(np.abs(diff[:, :, 3] - 1.0)) <= TestFacetPredict.getAmpThreshold(), \
                         "Facet amplitude prediction != meqtrees for ms %s correlation %d" % (ms, 3)
-                except AssertionError, e:
+                except AssertionError as e:
                     list_except.append(str(e))
 
                 # next test phase
@@ -286,7 +286,7 @@ class TestFacetPredict(unittest.TestCase):
                         "Facet phase prediction != meqtrees for ms %s correlation %d" % (ms, 0)
                     assert np.max(np.abs(diff_rel[:, :, 3] - 1.0)) <= TestFacetPredict.getPhaseThreshold(), \
                         "Facet phase prediction != meqtrees for ms %s correlation %d" % (ms, 3)
-                except AssertionError, e:
+                except AssertionError as e:
                     list_except.append(str(e))
 
         if len(list_except) != 0:
