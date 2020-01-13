@@ -12,20 +12,20 @@
 #
 #    You should have received a copy of the GNU Lesser General Public
 #    License along with DEAP. If not, see <http://www.gnu.org/licenses/>.
-from __future__ import division
 
+from __future__ import division, absolute_import, print_function
 import random
 
 import numpy
 import numpy as np
 
 from deap import algorithms
-import DeapAlgo as algorithms
+from . import DeapAlgo as algorithms
 from deap import base
 from deap import creator
 from deap import tools
 from scipy.spatial import Voronoi
-import ModVoronoi
+from . import ModVoronoi
 from DDFacet.Other import logger
 from DDFacet.Other import MyPickle
 log=logger.getLogger("ClusterDEAP")
@@ -34,7 +34,7 @@ from DDFacet.Other import ClassTimeIt
 import multiprocessing
 import scipy.stats
 #import Polygon
-import ClassMetricDEAP
+from . import ClassMetricDEAP
 import DDFacet.ToolsDir.GeneDist
 
 def test():
@@ -166,7 +166,7 @@ class ClassCluster():
         
 
     def reinitPop(self,pop):
-        print>>log,"Initialise population"
+        print("Initialise population", file=log)
         x0,x1=self.x.min(),self.x.max()
         y0,y1=self.y.min(),self.y.max()
         for Indiv in pop:
@@ -184,7 +184,7 @@ class ClassCluster():
         #     y[:]=y0
             
     def reinitPop2(self,pop):
-        print>>log,"Initialise population"
+        print("Initialise population", file=log)
         x0,x1=self.x.min(),self.x.max()
         y0,y1=self.y.min(),self.y.max()
         N=len(pop)
@@ -233,8 +233,8 @@ class ClassCluster():
         # stats.register("min", numpy.min)
         # stats.register("max", numpy.max)
 
-        print>>log,"Clustering input catalog in %i directions"%(self.nNode)
-        print>>log,"  Start evolution of %i generations of %i individuals"%(self.NGen,self.NPop)
+        print("Clustering input catalog in %i directions"%(self.nNode), file=log)
+        print("  Start evolution of %i generations of %i individuals"%(self.NGen,self.NPop), file=log)
         PlotMachine=False
         if self.DoPlot:
             PlotMachine=ClassPlotMachine(self.x,self.y,self.S,self.Polygons,self.PolyCut)
@@ -280,13 +280,13 @@ class ClassPlotMachine():
             polygon = Poly
             if Poly.size==0: continue
             x,y=polygon.T
-            pylab.fill(*zip(*polygon), alpha=0.1)#, color=cms[iR])
+            pylab.fill(*list(zip(*polygon)), alpha=0.1)#, color=cms[iR])
             pylab.text(np.mean(x),np.mean(y),"%.2f"%fluxPerFacet[iR])
             
 
         if self.Polygons is not None:
             for Polygon in self.Polygons:
-                pylab.fill(*zip(*Polygon), color="black")#alpha=0.4)
+                pylab.fill(*list(zip(*Polygon)), color="black")#alpha=0.4)
 
             #pylab.plot(xp,yp)
         pylab.scatter(self.x,self.y,s=5,color="blue")

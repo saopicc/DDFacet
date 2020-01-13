@@ -1,6 +1,6 @@
-from __future__ import division
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import division, absolute_import, print_function
+
+
 import csv
 import numpy as np
 
@@ -21,7 +21,7 @@ def ReadBBSModel(infile,infile_cluster=""):
 def ReadBBSModelNew(infile,infile_cluster=""):
     ifile  = open(infile, "rb")
     reader = csv.reader(ifile)
-    F = reader.next()
+    F = next(reader)
     F[0]=F[0].lower().replace(" ","").strip()
     F[0]=F[0][7::]
     dtype_str=[]
@@ -67,7 +67,7 @@ def ReadBBSModelNew(infile,infile_cluster=""):
     icat=0
     while True:
         try:
-            L=reader.next()
+            L=next(reader)
         except:
             break
 
@@ -192,7 +192,7 @@ def ReadBBSModelNew(infile,infile_cluster=""):
         reader = csv.reader(ifile)
         while True:
             try:
-                F=reader.next()
+                F=next(reader)
             except:
                 break
             F=F[0].split(" ")
@@ -202,7 +202,7 @@ def ReadBBSModelNew(infile,infile_cluster=""):
                 ind=np.where(Cat.Name==F[i])[0]
                 Cat.Cluster[ind[0]]=cluster
     else:
-        Cat.Cluster=range(Cat.shape[0])
+        Cat.Cluster=list(range(Cat.shape[0]))
 
     # if (killhere==0)|(len(killdirs)>0):
     #     if (killdirs!=[]):
@@ -233,7 +233,7 @@ def ReadBBSModelNew(infile,infile_cluster=""):
 def ReadBBSModelOld(infile,infile_cluster=""):
     ifile  = open(infile, "rb")
     reader = csv.reader(ifile)
-    F = reader.next()
+    F = next(reader)
     F[0]=F[0].lower().replace(" ","").split("(")[-1]
     F[-1]=F[-1].lower().replace(" ","").split(")")[0]
     dtype_str=[]
@@ -278,7 +278,7 @@ def ReadBBSModelOld(infile,infile_cluster=""):
     icat=0
     while True:
         try:
-            L=reader.next()
+            L=next(reader)
         except:
             break
 
@@ -403,7 +403,7 @@ def ReadBBSModelOld(infile,infile_cluster=""):
         reader = csv.reader(ifile)
         while True:
             try:
-                F=reader.next()
+                F=next(reader)
             except:
                 break
             F=F[0].split(" ")
@@ -413,7 +413,7 @@ def ReadBBSModelOld(infile,infile_cluster=""):
                 ind=np.where(Cat.Name==F[i])[0]
                 Cat.Cluster[ind[0]]=cluster
     else:
-        Cat.Cluster=range(Cat.shape[0])
+        Cat.Cluster=list(range(Cat.shape[0]))
 
     # if (killhere==0)|(len(killdirs)>0):
     #     if (killdirs!=[]):

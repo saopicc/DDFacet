@@ -6,11 +6,11 @@ Usage:
     p = ProgressBar("blue")
     p.render(percentage, message)
 """
-from __future__ import division
- 
+
+from __future__ import division, absolute_import, print_function
 import sys
 import time as timemod
-import ModColor
+from . import ModColor
 
 def disableBars():
     ProgressBar.silent = 1
@@ -44,7 +44,7 @@ class ProgressBar(object):
         
         if self.silent==1: return
 
-        import terminal
+        from . import terminal
         if color:
             self.color = getattr(terminal, color.upper())
         else:

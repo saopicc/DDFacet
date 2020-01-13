@@ -1,11 +1,11 @@
-from __future__ import division
 
+from __future__ import division, absolute_import, print_function
 import numpy as np
-import Gaussian
+from . import Gaussian
 import pylab
 import scipy.optimize
 import time
-import ClassIslands
+from . import ClassIslands
 from Other import ModColor
 from Other.progressbar import ProgressBar
 
@@ -35,8 +35,8 @@ def init2():
     PMaj=(im.imageinfo()["restoringbeam"]["major"]["value"])
     PMin=(im.imageinfo()["restoringbeam"]["minor"]["value"])
     PPA=(im.imageinfo()["restoringbeam"]["positionangle"]["value"])
-    print ModColor.Str(" - Using psf (maj,min,pa)=(%6.2f, %6.2f, %6.2f)"
-                           %(PMaj,PMin,PPA),col='green',Bold=False)
+    print(ModColor.Str(" - Using psf (maj,min,pa)=(%6.2f, %6.2f, %6.2f)"
+                           %(PMaj,PMin,PPA),col='green',Bold=False))
 
 
     ToSig=(1./3600.)*(np.pi/180.)/(2.*np.sqrt(2.*np.log(2)))
@@ -48,7 +48,7 @@ def init2():
     b=b[3000:4000,3000:4000]#[100:250,200:350]
     c=im.coordinates()
     incr=np.abs(c.dict()["direction0"]["cdelt"][0])
-    print ModColor.Str("   - Psf Size Sigma_(Maj,Min) = (%5.1f,%5.1f) pixels"%(PMaj/incr,PMin/incr),col="green",Bold=False)
+    print(ModColor.Str("   - Psf Size Sigma_(Maj,Min) = (%5.1f,%5.1f) pixels"%(PMaj/incr,PMin/incr),col="green",Bold=False))
         
     Islands=ClassIslands.ClassIslands(b,10.,Boost=1,DoPlot=1)
     #Islands.Noise=30e-3

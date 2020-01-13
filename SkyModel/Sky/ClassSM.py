@@ -1,6 +1,6 @@
-from __future__ import division
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import division, absolute_import, print_function
+
+
 import numpy as np
 from . import ModTigger
 from . import ModSMFromNp
@@ -158,7 +158,7 @@ class ClassSM():
 
         ClusterList=sorted(list(set(self.SourceCat.Cluster.tolist())))
         self.NDir=len(ClusterList)
-        for iCluster,iNewCluster in zip(ClusterList,range(self.NDir)):
+        for iCluster,iNewCluster in zip(ClusterList,list(range(self.NDir))):
             ind=np.where(self.SourceCat.Cluster==iCluster)[0]
             self.SourceCat.Cluster[ind]=iNewCluster
             self.REGName=False
@@ -262,7 +262,7 @@ class ClassSM():
                 DictNode=CM.Cluster()
                 ra,dec=[],[]
                 ListL,ListM=[],[]
-                for idDir in DictNode.keys():
+                for idDir in list(DictNode.keys()):
                     LDir=DictNode[idDir]["ListCluster"]
                     #ra0,dec0=np.mean(self.SourceCat.ra[LDir]),np.mean(self.SourceCat.dec[LDir])
                     # print idDir,ra0,dec0,self.SourceCat.ra[LDir].min(),self.SourceCat.ra[LDir].max()
@@ -328,11 +328,11 @@ class ClassSM():
             pass
 
         iK=NPreCluster
-        self.NDir=len(DictNode.keys())
+        self.NDir=len(list(DictNode.keys()))
         
         # print self.SourceCat.Cluster.min(),self.SourceCat.Cluster.max()
         
-        for key in DictNode.keys():
+        for key in list(DictNode.keys()):
             ind=np.array(DictNode[key]["ListCluster"])
             if ind.size==0: 
                 print("Direction %i is empty"%int(key))
@@ -440,7 +440,7 @@ class ClassSM():
 
     def Calc_LM(self,rac,decc):
         Cat=self.SourceCat
-        if not("l" in Cat.dtype.fields.keys()):
+        if not("l" in list(Cat.dtype.fields.keys())):
             Cat=RecArrayOps.AppendField(Cat,('l',float))
             Cat=RecArrayOps.AppendField(Cat,('m',float))
         Cat.l,Cat.m=self.radec2lm_scalar(self.SourceCat.ra,self.SourceCat.dec,rac,decc)
@@ -448,7 +448,7 @@ class ClassSM():
         self.SourceCatKeepForSelector=self.SourceCat.copy()
 
         Cat=self.ClusterCat
-        if not("l" in Cat.dtype.fields.keys()):
+        if not("l" in list(Cat.dtype.fields.keys())):
             Cat=RecArrayOps.AppendField(Cat,('l',float))
             Cat=RecArrayOps.AppendField(Cat,('m',float))
         Cat.l,Cat.m=self.radec2lm_scalar(self.ClusterCat.ra,self.ClusterCat.dec,rac,decc)

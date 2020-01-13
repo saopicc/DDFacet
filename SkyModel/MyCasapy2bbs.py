@@ -1,18 +1,18 @@
 #!/usr/bin/env python
-from __future__ import division
+from __future__ import division, absolute_import, print_function
 
 from pyrap.tables import table
 from pyrap.images import image
-from Sky import ClassSM
+from .Sky import ClassSM
 import optparse
 import numpy as np
 import glob
 import os
-from Other import reformat
+from .Other import reformat
 SaveFile="last_MyCasapy2BBS.obj"
 import pickle
 import scipy.ndimage
-from Tools import ModFFTW
+from .Tools import ModFFTW
 
 def read_options():
     desc=""" cyril.tasse@obspm.fr"""
@@ -73,7 +73,7 @@ class MyCasapy2BBS():
             self.MakeMask2()
 
     def setModelImage(self):
-        print "set model image"
+        print("set model image")
         self.im=image(self.Fits)
         im=self.im
         c=im.coordinates()
@@ -91,7 +91,7 @@ class MyCasapy2BBS():
 
         #self.Plot(self.Model)
         
-        print " done set model image"
+        print(" done set model image")
         
 
     # def setRestored(self):

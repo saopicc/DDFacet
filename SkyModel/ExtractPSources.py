@@ -1,24 +1,24 @@
 #!/usr/bin/env python
-from __future__ import division
+from __future__ import division, absolute_import, print_function
 
 import numpy as np
-from PSourceExtract import Gaussian
+from .PSourceExtract import Gaussian
 import pylab
 import scipy.optimize
 import time
-from PSourceExtract import ClassIslands
-from Other import ModColor
+from .PSourceExtract import ClassIslands
+from .Other import ModColor
 import pickle
 import optparse
 #from PSourceExtract.ClassPointFit2 import ClassPointFit as ClassFit
-from PSourceExtract.ClassGaussFit import ClassGaussFit as ClassFit
+from .PSourceExtract.ClassGaussFit import ClassGaussFit as ClassFit
 #import ClassPointFit as ClassPointFit
 
 from pyrap.images import image
-from Other.progressbar import ProgressBar
-from Other import reformat
-from Sky import ClassSM
-from Other import rad2hmsdms
+from .Other.progressbar import ProgressBar
+from .Other import reformat
+from .Sky import ClassSM
+from .Other import rad2hmsdms
 
 def read_options():
     desc="""Questions and suggestions: cyril.tasse@obspm.fr"""
@@ -65,7 +65,7 @@ def main(options=None):
         PMaj*=Pfact
         PMin*=Pfact
     except:
-        print ModColor.Str(" No psf seen in header")
+        print(ModColor.Str(" No psf seen in header"))
         pass
 
     if options.PSF!="":
@@ -76,11 +76,11 @@ def main(options=None):
 
 
     if PMaj!=None:
-        print ModColor.Str(" - Using psf (maj,min,pa)=(%6.2f, %6.2f, %6.2f) (mult. fact.=%6.2f)"
-                           %(PMaj,PMin,PPA,Pfact),col='green',Bold=False)
+        print(ModColor.Str(" - Using psf (maj,min,pa)=(%6.2f, %6.2f, %6.2f) (mult. fact.=%6.2f)"
+                           %(PMaj,PMin,PPA,Pfact),col='green',Bold=False))
     else:
-        print ModColor.Str(" - No psf info could be gotten from anywhere")
-        print ModColor.Str("   use PSF keyword to tell what the psf is or is not")
+        print(ModColor.Str(" - No psf info could be gotten from anywhere"))
+        print(ModColor.Str("   use PSF keyword to tell what the psf is or is not"))
         exit()
 
 
@@ -94,7 +94,7 @@ def main(options=None):
     #b=b[3000:4000,3000:4000]#[120:170,300:370]
     c=im.coordinates()
     incr=np.abs(c.dict()["direction0"]["cdelt"][0])
-    print ModColor.Str("   - Psf Size Sigma_(Maj,Min) = (%5.1f,%5.1f) pixels"%(PMaj/incr,PMin/incr),col="green",Bold=False)
+    print(ModColor.Str("   - Psf Size Sigma_(Maj,Min) = (%5.1f,%5.1f) pixels"%(PMaj/incr,PMin/incr),col="green",Bold=False))
         
     Islands=ClassIslands.ClassIslands(b,snr,Boost=Boost,DoPlot=DoPlot)
     Islands.FindAllIslands()

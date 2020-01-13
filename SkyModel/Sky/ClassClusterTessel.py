@@ -1,6 +1,6 @@
-from __future__ import division
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import division, absolute_import, print_function
+
+
 import numpy as np
 from SkyModel.Other import ModColor
 
@@ -81,24 +81,24 @@ class ClassClusterTessel():
                 DictNode[ind]["ListCluster"]+=DictNode[i]["ListCluster"]
                 del(DictNode[i])
     
-        ListDictNode=sorted(DictNode.iteritems(), key=lambda x: x[1]["TotalFlux"])#,reverse=True)
+        ListDictNode=sorted(iter(DictNode.items()), key=lambda x: x[1]["TotalFlux"])#,reverse=True)
         
     
         while True:
             #printStatus(DictNode)
-            ListDictNode=sorted(DictNode.iteritems(), key=lambda x: x[1]["TotalFlux"])#,reverse=True)
+            ListDictNode=sorted(iter(DictNode.items()), key=lambda x: x[1]["TotalFlux"])#,reverse=True)
             #ListDictNode=sorted(DictNode.iteritems(), key=lambda x: x[1]["npix"])#*x[1]["TotalFlux"])#,reverse=True)
             iii=0#int(np.random.rand(1)[0]*len(ListDictNode))
             DictNode=self.mergeOne(DictNode,ListDictNode[iii][0])
             #print len(DictNode.keys())
             
-            if len(DictNode.keys())<=NCluster: break
+            if len(list(DictNode.keys()))<=NCluster: break
             #print
     
         #printStatus(DictNode)
         icol=1
         imout=np.zeros_like(im)
-        for i in DictNode.keys():
+        for i in list(DictNode.keys()):
             #print i
             for j in DictNode[i]["ListCluster"]:
                 ind=np.where(im==j)
@@ -150,7 +150,7 @@ class ClassClusterTessel():
         DictNode[ind]["npix"]+=DictNode[i]["npix"]
         DictNode[ind]["ListCluster"]+=DictNode[i]["ListCluster"]#.append(i)
         del(DictNode[i])
-        for j in DictNode.keys():
+        for j in list(DictNode.keys()):
             if i in DictNode[j]["SourceNum"]: 
                 #print "   Remove cell %i from neigboors of %i"%(i,j)
                 #print "before:",DictNode[j]["SourceNum"]
@@ -188,7 +188,7 @@ class ClassClusterTessel():
         
         print()
         print("State:")
-        for ind in DictNode.keys():
+        for ind in list(DictNode.keys()):
             print(ModColor.Str("Cluster %i: "%ind,col="green"))
             print("  - ListCluster : %s"%str(DictNode[ind]["ListCluster"]))
             print("  - SourceNum   : %s"%str(DictNode[ind]["SourceNum"]))

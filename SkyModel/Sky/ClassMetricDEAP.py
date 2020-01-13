@@ -1,15 +1,15 @@
-from __future__ import division
+from __future__ import division, absolute_import, print_function
 import numpy as np
 import Polygon
 from scipy.spatial import Voronoi
 from deap import algorithms
-import DeapAlgo as algorithms
+from . import DeapAlgo as algorithms
 from deap import base
 from deap import creator
 from deap import tools
 #import pylab
 from scipy.spatial import Voronoi
-import ModVoronoi
+from . import ModVoronoi
 from DDFacet.Other import logger
 log=logger.getLogger("ClusterDEAP")
 from DDFacet.Other import ClassTimeIt

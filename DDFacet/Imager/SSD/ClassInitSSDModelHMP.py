@@ -15,7 +15,7 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import logger
 log=logger.getLogger("ClassInitSSDModel")
 from DDFacet.Other import ModColor
-from ClassConvMachine import ClassConvMachineImages
+from DDFacet.Imager.SSD.ClassConvMachine import ClassConvMachineImages
 from DDFacet.Imager import ClassMaskMachine
 from DDFacet.Array import shared_dict
 import psutil
@@ -118,23 +118,36 @@ class ClassInitSSDModelParallel():
 
 
         print("Initialise islands (parallelised over islands)", file=log)
+        if self.InitMachine.DeconvMachine.facetcache is None:
+            print("HMP bases not initialized. Will re-initialize now.", file=log)
         if not self.GD["GAClean"]["ParallelInitHMP"]:
           pBAR = ProgressBar(Title="  Init islands")
           for iIsland,Island in enumerate(ListIslands):
             if not ListDoIsland or ListDoIsland[iIsland]:
                 subdict = DicoInitIndiv.addSubdict(iIsland)
-                self._initIsland_worker(subdict, iIsland, Island,
-                                        self.DicoVariablePSF, DicoDirty,
-                                        ParmDict, self.InitMachine.DeconvMachine.facetcache,1)
+                self._initIsland_worker(subdict, 
+                                        iIsland, 
+                                        Island,
+                                        self.DicoVariablePSF, 
+                                        DicoDirty,
+                                        ParmDict, 
+                                        self.InitMachine.DeconvMachine.facetcache,
+                                        1)
             pBAR.render(iIsland, len(ListIslands))
         else:
           for iIsland,Island in enumerate(ListIslands):
             if not ListDoIsland or ListDoIsland[iIsland]:
                 subdict = DicoInitIndiv.addSubdict(iIsland)
                 APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
-                           args=(subdict.writeonly(), iIsland, Island,
-                                 self.DicoVariablePSF.readonly(), DicoDirty.readonly(),
-                                 ParmDict.readonly(), self.InitMachine.DeconvMachine.facetcache.readonly(),1))
+                           args=(subdict.writeonly(), 
+                                 iIsland, 
+                                 Island,
+                                 self.DicoVariablePSF.readonly(), 
+                                 DicoDirty.readonly(),
+                                 ParmDict.readonly(), 
+                                 self.InitMachine.DeconvMachine.facetcache.readonly() 
+                                    if self.InitMachine.DeconvMachine.facetcache is not None else None,
+                                 1))
           APP.awaitJobResults("InitIsland:*", progress="Init islands")
           DicoInitIndiv.reload()
         
