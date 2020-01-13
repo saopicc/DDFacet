@@ -356,7 +356,7 @@ def setGlobalLogVerbosity(verbosity):
 
 def setSilent(Lname):
     """Silences the specified sublogger(s)"""
-    log.print(ModColor.Str("set silent: %s" % Lname, col="red"))
+    log(2).print(ModColor.Str("set silent: %s" % Lname, col="red"))
     if isinstance(Lname, string_types):
         getLogger(Lname).logger.setLevel(logging.CRITICAL)
     elif type(Lname) is list:
@@ -366,7 +366,7 @@ def setSilent(Lname):
 
 def setLoud(Lname):
     """Un-silences the specified sublogger(s)"""
-    log.print(ModColor.Str("set loud: %s" % Lname, col="green"))
+    log(2).print(ModColor.Str("set loud: %s" % Lname, col="green"))
     if isinstance(Lname, string_types):
         getLogger(Lname).logger.setLevel(logging.DEBUG)
     elif type(Lname) is list:

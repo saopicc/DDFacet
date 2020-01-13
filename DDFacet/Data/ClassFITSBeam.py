@@ -99,6 +99,11 @@ class ClassFITSBeam (object):
             else:
                 self.corrs = "rr","rl","lr","ll"
                 print("polarization basis is circular (MS corrs: %s)"%" ".join(self.ms.CorrelationNames), file=log)
+        if opts["FITSFeedSwap"]:
+            print("swapping feeds as per FITSFeedSwap setting", file=log)
+            self._feed_swap_map = dict(x="y", y="x", r="l", l="r")
+        else:
+            self._feed_swap_map = None
         # Following code is nicked from Cattery/Siamese/OMS/pybeams_fits.py
         REALIMAG = dict(re="real",im="imag");
 
@@ -135,8 +140,9 @@ class ClassFITSBeam (object):
 
         for corr in self.corrs:
             beamlist = []
+            corr1 = "".join([self._feed_swap_map[x] for x in corr])if self._feed_swap_map else corr
             for beamset in self.beamsets:
-                filenames = make_beam_filename(beamset, corr, 're'), make_beam_filename(beamset, corr, 'im')
+                filenames = make_beam_filename(beamset, corr1, 're'), make_beam_filename(beamset, corr1, 'im')
                 # get interpolator from cache, or create object
                 vb = ClassFITSBeam._vb_cache.get(filenames)
                 if vb is None:
