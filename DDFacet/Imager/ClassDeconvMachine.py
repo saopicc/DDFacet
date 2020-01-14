@@ -1164,7 +1164,7 @@ class ClassImagerDeconv():
                 self.DeconvMachine.Init(PSFVar=self.DicoImagesPSF, PSFAve=self.PSFSidelobesAvg,
                                         approx=(sparsify > approximate_psf_above), cache=False if sparsify else None,
                                         GridFreqs=self.VS.FreqBandCenters, DegridFreqs=self.VS.FreqBandChannelsDegrid,
-                                        RefFreq=self.VS.RefFreq, MaxBaseline=self.VS.VisWeights['uvmax'],
+                                        RefFreq=self.VS.RefFreq, MaxBaseline=self.VS.getMaxUV(),
                                         FacetMachine=self.FacetMachine, BaseName=self.BaseName)
                 deconvmachine_init = True
 

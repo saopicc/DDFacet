@@ -644,6 +644,12 @@ class ClassVisServer():
         wait for that to finish firest"""
         self.awaitWeights()
         return self.VisWeights["wmax"]
+        
+    def getMaxUV(self):
+        """Returns the max UV value. Since this is estimated as part of weights computation, 
+        wait for that to finish firest"""
+        self.awaitWeights()
+        return self.VisWeights["uvmax"]
 
     def awaitWeights(self):
         if self.VisWeights is None:
