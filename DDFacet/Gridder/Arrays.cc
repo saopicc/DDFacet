@@ -30,8 +30,8 @@ using namespace std;
 
 //int is int32 in python 2 only
 #if PY_MAJOR_VERSION >= 3
-  typedef signed long int_t;
-  #define p_int32 p_int64
+  typedef signed int int_t;
+  #define p_int32 (const signed int*) p_int32
 #else
   typedef signed int int_t;
 #endif
