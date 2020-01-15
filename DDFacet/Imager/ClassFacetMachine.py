@@ -721,7 +721,7 @@ class ClassFacetMachine():
         if cachevalid:
             try:
                 npzfile = np.load(open(path, "rb"))
-                for key, value in getattr(npzfile, "iteritems", npzfile.items)():
+                for key, value in getattr(npzfile, "items", npzfile.iteritems)():
                     facet_dict[key] = value
                 # validate dict
                 ClassDDEGridMachine.ClassDDEGridMachine.verifyCFDict(facet_dict, self.GD["CF"]["Nw"])
