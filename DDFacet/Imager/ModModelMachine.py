@@ -87,13 +87,13 @@ class ClassModModelMachine():
         def safe_encode(s): 
                 import six
                 return s.decode() if isinstance(s, bytes) and six.PY3 else s
-        Type = safe_encode(DicoSMStacked.get("Type", DicoSMStacked[b"Type"]))
+        Type = safe_encode(DicoSMStacked.get("Type", DicoSMStacked.get(b"Type", None)))
         if Type=="GA": 
             print(ModColor.Str("Model is of deprecated type GA, overwriting with type SSD"), file=log)
             DicoSMStacked["Type"]="SSD"
 
         if DicoSMStacked is not None: # If the Dict is provided use it to initialise a model machine
-            Type = safe_encode(DicoSMStacked.get("Type", DicoSMStacked[b"Type"]))
+            Type = safe_encode(DicoSMStacked.get("Type", DicoSMStacked.get(b"Type", None)))
             # backwards compatibility
             if Type == "GA":
                 Type = "SSD"

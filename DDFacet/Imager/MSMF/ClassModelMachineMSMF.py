@@ -93,9 +93,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def FromDico(self,DicoSMStacked):
         self.DicoSMStacked=DicoSMStacked
-        self.RefFreq=self.DicoSMStacked.get("RefFreq", self.DicoSMStacked[b"RefFreq"])
-        self.ListScales=self.DicoSMStacked.get("ListScales", self.DicoSMStacked[b"ListScales"])
-        self.ModelShape=self.DicoSMStacked.get("ModelShape", self.DicoSMStacked[b"ModelShape"])
+        self.RefFreq=self.DicoSMStacked.get("RefFreq", self.DicoSMStacked.get(b"RefFreq", None))
+        self.ListScales=self.DicoSMStacked.get("ListScales", self.DicoSMStacked.get(b"ListScales", None))
+        self.ModelShape=self.DicoSMStacked.get("ModelShape", self.DicoSMStacked.get(b"ModelShape", None))
 
 
 
@@ -265,7 +265,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             def safe_encode(s): 
                 import six
                 return s.decode() if isinstance(s, bytes) and six.PY3 else s
-            return itertools.starmap(lambda i, sol, ls: (safe_encode(ls.get("ModelType", ls[b"ModelType"])),       # type
+            return itertools.starmap(lambda i, sol, ls: (safe_encode(ls.get("ModelType", ls.get(b"ModelType", "Delta"))),       # type
                                                          coord,                                                # coordinate
                                                          sol[0] * (FreqIn / ref_freq) ** ls.get("Alpha", ls.get(b"Alpha", 0.0)), # only stokes I
                                                          ref_freq,                                             # reference frequency
@@ -295,7 +295,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             f_apply=np.abs
         else:
             f_apply=lambda x:x
-        RefFreq=self.DicoSMStacked.get("RefFreq", self.DicoSMStacked[b"RefFreq"])
+        RefFreq=self.DicoSMStacked.get("RefFreq", self.DicoSMStacked.get(b"RefFreq", None))
+
         if FreqIn is None:
             FreqIn=np.array([RefFreq])
 

@@ -198,7 +198,7 @@ class ClassImagerDeconv():
             def safe_encode(s): 
                 import six
                 return s.decode() if isinstance(s, bytes) and six.PY3 else s
-            modeltype = safe_encode(ModelMachine.DicoSMStacked.get("Type", ModelMachine.DicoSMStacked[b"Type"]))
+            modeltype = safe_encode(ModelMachine.DicoSMStacked.get("Type", ModelMachine.DicoSMStacked.get(b"Type", None)))
             if modeltype == "GA":
                 modeltype = "SSD"
             elif modeltype == "MSMF":
