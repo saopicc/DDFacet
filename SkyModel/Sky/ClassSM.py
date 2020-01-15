@@ -28,12 +28,28 @@ class ClassSM():
         self.infile_cluster=infile_cluster
         self.TargetList=infile
         self.Type="Catalog"
-
         self.DoPrint=True
         if type(infile).__name__=="instance":
             Cat=infile.SourceCat
             Cat=Cat.view(np.recarray)
             self.DoPrint=0
+# =======
+#         if "instance" in str(type(infile)):
+#             ClusterCat=infile.ClusterCat.copy()
+#             NN=ClusterCat.shape[0]
+#             Cat=np.zeros((NN,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('Sref',np.float),('I',np.float),('Q',np.float),\
+#                                                        ('U',np.float),('V',np.float),('RefFreq',np.float),('alpha',np.float),('ESref',np.float),\
+#                                                        ('Ealpha',np.float),('kill',np.int),('Cluster',np.int),('Type',np.int),('Gmin',np.float),\
+#                                                        ('Gmaj',np.float),('Gangle',np.float),("Select",np.int),('l',np.float),('m',np.float),
+#                                                        ("Exclude",bool)])
+#             Cat=Cat.view(np.recarray)
+#             Cat.RefFreq=1.
+#             Cat.ra[:]=ClusterCat.ra
+#             Cat.dec[:]=ClusterCat.dec
+#             Cat.I[:]=ClusterCat.SumI[:]
+#             Cat.Cluster=np.arange(NN)
+#             Cat.Sref[:]=ClusterCat.SumI[:]
+# >>>>>>> TestASKAP
         elif ".npy" in infile:
             Cat=np.load(infile)
             Cat=Cat.view(np.recarray)
@@ -113,6 +129,7 @@ class ClassSM():
 
     def PrintBasics(self):
         infile=self.infile
+        # if "instance" in str(type(infile)): return
         npext=""
         if not(".npy" in infile): npext=".npy"
         print("   - Numpy catalog file: %s"%ModColor.Str("%s%s"%(infile,npext),col="green"))

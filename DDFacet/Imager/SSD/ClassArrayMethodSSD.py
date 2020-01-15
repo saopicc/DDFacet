@@ -13,6 +13,7 @@ from DDFacet.Other import logger
 
 log=logger.getLogger("ClassArrayMethodSSD")
 import multiprocessing
+import psutil
 
 from DDFacet.Imager.SSD import ClassConvMachine
 import time
@@ -48,7 +49,7 @@ class ClassArrayMethodSSD():
         self.GD=GD
         self.NCPU=NCPU
         if NCPU==None:
-            self.NCPU=int(self.GD["Parallel"]["NCPU"])
+            self.NCPU=int(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
 
         self.BestChi2=1.
         self.EntropyMinMax=None

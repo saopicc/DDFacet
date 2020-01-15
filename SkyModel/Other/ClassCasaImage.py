@@ -4,8 +4,10 @@ from pyrap.images import image
 import os
 from SkyModel.Other import MyPickle
 import numpy as np
-from SkyModel.Other import MyLogger
-log=MyLogger.getLogger("ClassCasaImage")
+#from SkyModel.Other import MyLogger
+#log=MyLogger.getLogger("ClassCasaImage")
+from DDFacet.Other import logger
+log=logger.getLogger("ClassCasaImage")
 from SkyModel.Other import rad2hmsdms
 import astropy.io.fits as pyfits
 import pyrap.images
