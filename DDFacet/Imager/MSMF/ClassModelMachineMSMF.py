@@ -241,8 +241,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         at the same position, but different fluxes, alphas etc.
 
         """
-        DicoComp = self.DicoSMStacked.get("Comp", self.DicoSMStacked[b"Comp"])
-        ref_freq = self.DicoSMStacked.get("RefFreq", self.DicoSMStacked[b"RefFreq"])
+        DicoComp = self.DicoSMStacked.get("Comp", self.DicoSMStacked.get(b"Comp", None))
+        ref_freq = self.DicoSMStacked.get("RefFreq", self.DicoSMStacked.get(b"RefFreq", None))
         if FreqIn is None:
            FreqIn=np.array([ref_freq], dtype=np.float32)
            
@@ -260,7 +260,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             returns a tuple with the following information
             (ModelType, coordinate, vector of STOKES solutions per basis function, alpha, shape data)
             """
-            sa = component.get("SolsArray", component[b"SolsArray"])
+            sa = component.get("SolsArray", component.get(b"SolsArray", None))
             # starmap to unpack the returned tuple
             def safe_encode(s): 
                 import six
