@@ -195,7 +195,10 @@ class ClassImagerDeconv():
         if DoSub:
             print(ModColor.Str("Initialise sky model using %s"%SubstractModel,col="blue"), file=log)
             ModelMachine = self.ModConstructor.GiveInitialisedMMFromFile(SubstractModel)
-            modeltype = ModelMachine.DicoSMStacked["Type"]
+            def safe_encode(s): 
+                import six
+                return s.decode() if isinstance(s, bytes) and six.PY3 else s
+            modeltype = safe_encode(ModelMachine.DicoSMStacked.get("Type", ModelMachine.DicoSMStacked[b"Type"]))
             if modeltype == "GA":
                 modeltype = "SSD"
             elif modeltype == "MSMF":
