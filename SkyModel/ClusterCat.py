@@ -5,9 +5,9 @@ if "PYTHONPATH_FIRST" in os.environ.keys() and int(os.environ["PYTHONPATH_FIRST"
 
 
 import numpy as np
-np.random.seed(1)
+np.random.seed(2)
 import random
-random.seed(1)
+random.seed(2)
 from DDFacet.Other import logger
 from DDFacet.Other import MyPickle
 log=logger.getLogger("ClusterImage")
