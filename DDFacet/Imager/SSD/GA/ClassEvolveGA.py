@@ -103,9 +103,8 @@ class ClassEvolveGA():
         toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.2, p0=0.5, pMove=0.2, pScale=0.2, pOffset=0.2)
 
         toolbox.register("select", tools.selTournament, tournsize=3)
-        #toolbox.register("select", Select.selTolTournament, tournsize=3, Tol=4)
-
-        #toolbox.register("select", tools.selRoulette)
+        # toolbox.register("select", Select.selTolTournament, tournsize=3, Tol=4)
+        # toolbox.register("select", tools.selRoulette)
 
         self.toolbox=toolbox
 
