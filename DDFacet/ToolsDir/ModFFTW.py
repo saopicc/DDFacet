@@ -454,7 +454,11 @@ class FFTW_Manager(object):
         """
         import os
         import cpuinfo
-        import cPickle
+        import six
+        if six.PY3:
+            import pickle as cPickle
+        else:
+            import cPickle
         from os.path import expanduser
         self.wisdom_cache_path = self.GD["Cache"]["DirWisdomFFTW"]
         cpuname = cpuinfo.get_cpu_info()["brand"].replace(" ", "")
@@ -471,7 +475,7 @@ class FFTW_Manager(object):
 
         if os.path.isfile(self.wisdom_cache_file):
             print("Loading wisdom file %s" % (self.wisdom_cache_file), file=log)
-            DictWisdom = cPickle.load(file(self.wisdom_cache_file))
+            DictWisdom = cPickle.load(open(self.wisdom_cache_file, 'rb'))
             pyfftw.import_wisdom(DictWisdom["Wisdom"])
             self.WisdomTypes = DictWisdom["WisdomTypes"]
         else:
@@ -483,7 +487,10 @@ class FFTW_Manager(object):
         """
         Set fft wisdom
         """
-        import cPickle
+        try:
+            import cPickle
+        except:
+            import pickle as cPickle
         # set wisdom for image size FFTs
         TypeKey = (self.nchan, self.NpixPadded, np.complex64)
         if TypeKey not in self.WisdomTypes:
@@ -516,7 +523,7 @@ class FFTW_Manager(object):
 
         if self.HasTouchedWisdomFile:
             print("Saving wisdom file to %s" % self.wisdom_cache_file, file=log)
-            cPickle.dump(DictWisdom, file(self.wisdom_cache_file, "wb"))
+            cPickle.dump(DictWisdom, open(self.wisdom_cache_file, "wb"))
 
 
 # FFTW version of the FFT engine

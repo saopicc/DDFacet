@@ -79,7 +79,7 @@ from DDFacet.report_version import report_version
 log = None
 
 import numpy as np
-
+import warnings
 
 # # ##############################
 # # Catch numpy warning
@@ -379,6 +379,7 @@ def main(OP=None, messages=[]):
     #             img, col="yellow")
 
 if __name__ == "__main__":
+    warnings.filterwarnings("default", category=DeprecationWarning)
     #os.system('clear')
     #logo.print_logo()
 
@@ -392,6 +393,19 @@ if __name__ == "__main__":
     # parset should have been read in by now
     OP = read_options()
     args = OP.GiveArguments()
+    
+    DicoConfig = OP.DicoConfig
+    if DicoConfig["Misc"]["IgnoreDeprecationMarking"]:
+        warnings.filterwarnings("always", category=DeprecationWarning, module=r"DDFacet[.\w]*|__main__|SkyModel[.\w]*")
+        warnings.filterwarnings("always", category=DeprecationWarning, module=r"DDFacet[.\w]*|__main__|SkyModel[.\w]*")
+    else:
+        warnings.filterwarnings("error", category=DeprecationWarning, module=r"DDFacet[.\w]*|__main__|SkyModel[.\w]*")
+        warnings.filterwarnings("error", category=DeprecationWarning, module=r"DDFacet[.\w]*|__main__|SkyModel[.\w]*")
+    if six.PY2:
+        warnings.warn("Python 2 has reached end of life and is no longer supported. "
+                    "You can continue running the software in Python 2 (along with other deprecated modes) by setting "
+                    "--Misc-IgnoreDeprecationMarking in your parset. No further Python 2 related bug fixes or support is available.",
+                    DeprecationWarning)
 
     # collect messages in a list here because I don't want to log them until the logging system
     # is set up in main()
