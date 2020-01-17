@@ -81,10 +81,10 @@ def setup():
         )
     for control in CONTROLS:
         # Set the control escape sequence
-        setattr(MODULE, control, curses.tigetstr(CONTROLS[control]).decode() or '')
+        setattr(MODULE, control, (curses.tigetstr(CONTROLS[control]) or '').decode() or '')
     for value in VALUES:
         # Set terminal related values
-        setattr(MODULE, value, curses.tigetnum(VALUES[value]).decode())
+        setattr(MODULE, value, curses.tigetnum(VALUES[value]))
  
 def render(text):
     """Helper function to render text easily
