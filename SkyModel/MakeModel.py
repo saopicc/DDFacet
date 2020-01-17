@@ -7,10 +7,7 @@ import numpy as np
 from SkyModel.Other import MyLogger
 log=MyLogger.getLogger("MakeModel")
 from SkyModel.Sky import ClassSM
-try:
-    from DDFacet.Imager.ModModelMachine import GiveModelMachine
-except:
-    from DDFacet.Imager.ModModelMachine import ClassModModelMachine
+from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 from DDFacet.Imager import ClassCasaImage
 from pyrap.images import image
 
