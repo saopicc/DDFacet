@@ -647,7 +647,7 @@ class ClassVisServer():
         
     def getMaxUV(self):
         """Returns the max UV value. Since this is estimated as part of weights computation, 
-        wait for that to finish firest"""
+        wait for that to finish first"""
         self.awaitWeights()
         return self.VisWeights["uvmax"]
 
@@ -1133,4 +1133,3 @@ class ClassVisServer():
         for ims, ms in enumerate(self.ListMS):
             for ichunk, (row0, row1) in enumerate(ms.getChunkRow0Row1()):
                 ms.getChunkCache(row0, row1).saveCache("ImagingWeights.npy")
-

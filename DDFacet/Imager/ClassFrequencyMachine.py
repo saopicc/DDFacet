@@ -321,7 +321,7 @@ class ClassFrequencyMachine(object):
             return np.dot(self.Xdes, coeffs)
         elif np.array_equal(Freqsp, self.Freqsp):
             return np.dot(self.Xdesp, coeffs)
-        elif np.all(Freqsp == self.ref_freq):
+        elif Freqsp.size == 1 and Freqsp == self.ref_freq:
             return np.dot(self.Xdes_ref, coeffs)
         else:
             # Here we do

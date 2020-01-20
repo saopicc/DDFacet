@@ -81,7 +81,7 @@ def setup():
         )
     for control in CONTROLS:
         # Set the control escape sequence
-        setattr(MODULE, control, (curses.tigetstr(CONTROLS[control]) or '').decode() or '')
+        setattr(MODULE, control, (curses.tigetstr(CONTROLS[control]) or b'').decode() or '')
     for value in VALUES:
         # Set terminal related values
         setattr(MODULE, value, curses.tigetnum(VALUES[value]))
