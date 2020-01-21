@@ -634,7 +634,7 @@ class ClassFacetMachine():
                 pyfftw.import_wisdom(DictWisdom["Wisdom"])
                 WisdomTypes=DictWisdom["WisdomTypes"]
             except:
-                print("Exception while reading wisdom... will remake")
+                log.print("Exception while reading wisdom... will remake")
                 WisdomTypes=[]
         else:
             WisdomTypes=[]
