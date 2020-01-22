@@ -193,6 +193,9 @@ class ClassCompareFITSImage(unittest.TestCase):
             abs_ms = cls._inputDir+ms
             cls.setParsetOption("Data", "MS", abs_ms)
 
+        if p.DicoPars["Mask"]["External"]:
+            cls.setParsetOption("Mask", "External", cls._inputDir+p.DicoPars["Mask"]["External"])
+
         fOutputParset = open(cls._outputParsetFilename,mode='w')
         cls._defaultParset.write(fOutputParset)
         fOutputParset.close()
