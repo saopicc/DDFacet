@@ -400,7 +400,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         else:
             return alphamap[None, None], alphastdmap[None, None]
 
-    def SubStep(self, (xc, yc), LocalSM, Residual):
+    def SubStep(self, xc, yc, LocalSM, Residual):
         """
         Sub-minor loop subtraction
         """
@@ -568,7 +568,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             # append component to dico
             self.AppendComponentToDictStacked((xscale, yscale), self.Coeffs, self.CurrentScale, self.CurrentGain)
             # Subtract fitted component from residual cube
-            self.SubStep((xscale, yscale), self.ConvPSF * Fpol[:, None, None, None] * self.CurrentGain, Dirty.view())
+            self.SubStep(xscale, yscale, self.ConvPSF * Fpol[:, None, None, None] * self.CurrentGain, Dirty.view())
             # subtract component from convolved dirty image
             A = substep(A, self.Conv2PSFmean[0, 0], float(ConvMaxDirty * self.CurrentGain), Ip, Iq, pq, self.NpixPSF)
 

@@ -1,6 +1,6 @@
-from __future__ import division
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import division, absolute_import, print_function
+
+
 import numpy as np
 from scipy.spatial import Voronoi
 from . import ModVoronoi
@@ -154,7 +154,7 @@ class ClassClusterKMean():
                 regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor)
                 for region in regions:
                     polygon = vertices[region]
-                    pylab.fill(*zip(*polygon), alpha=0.4)
+                    pylab.fill(*list(zip(*polygon)), alpha=0.4)
                     #pylab.plot(xy[:,0], xy[:,1], 'ko')
                     #pylab.xlim(vor.min_bound[0] - 0.1, vor.max_bound[0] + 0.1)
                     #pylab.ylim(vor.min_bound[1] - 0.1, vor.max_bound[1] + 0.1)

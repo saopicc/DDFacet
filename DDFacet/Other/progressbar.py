@@ -173,7 +173,7 @@ class ProgressBar(object):
         # print DicoData
         # print data
         # stop
-        sys.stdout.write(data)
+        sys.stdout.write(str(data))
         sys.stdout.flush()
         # The number of lines printed
         self.lines = len(data.splitlines())
@@ -182,5 +182,5 @@ class ProgressBar(object):
         """Clear all printed lines"""
 
         sys.stdout.write(
-            self.lines * (terminal.UP + terminal.BOL + terminal.CLEAR_EOL)
+            str(self.lines * (terminal.UP + terminal.BOL + terminal.CLEAR_EOL))
         )

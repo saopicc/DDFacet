@@ -644,6 +644,12 @@ class ClassVisServer():
         wait for that to finish firest"""
         self.awaitWeights()
         return self.VisWeights["wmax"]
+        
+    def getMaxUV(self):
+        """Returns the max UV value. Since this is estimated as part of weights computation, 
+        wait for that to finish first"""
+        self.awaitWeights()
+        return self.VisWeights["uvmax"]
 
     def awaitWeights(self):
         if self.VisWeights is None:
@@ -992,9 +998,9 @@ class ClassVisServer():
         wmax_path, wmax_valid = self.maincache.checkCache("wmax", cache_keys)
         uvmax_path, uvmax_valid = self.maincache.checkCache("uvmax", cache_keys)
         if wmax_valid:
-            self._weight_dict["wmax"] = cPickle.load(open(wmax_path))
+            self._weight_dict["wmax"] = cPickle.load(open(wmax_path, "rb"))
         if uvmax_valid:
-            self._weight_dict["uvmax"] = cPickle.load(open(uvmax_path))
+            self._weight_dict["uvmax"] = cPickle.load(open(uvmax_path, "rb"))
         # check cache first
         have_all_weights = wmax_valid and uvmax_valid
         for iMS, MS in enumerate(self.ListMS):
@@ -1127,4 +1133,3 @@ class ClassVisServer():
         for ims, ms in enumerate(self.ListMS):
             for ichunk, (row0, row1) in enumerate(ms.getChunkRow0Row1()):
                 ms.getChunkCache(row0, row1).saveCache("ImagingWeights.npy")
-

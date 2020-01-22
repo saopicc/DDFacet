@@ -235,7 +235,7 @@ class ClassParamMachine():
 
         ArrayPix=self.SquareGrids[TypeIn]["ArrayPix"]
 
-        Ain=Ain.reshape((NSlice,Ain.size/NSlice))
+        Ain=Ain.reshape((NSlice,Ain.size//NSlice))
 
         x,y=ArrayPix.T
         #print "=============",TypeInOut,A.shape,Ain.shape

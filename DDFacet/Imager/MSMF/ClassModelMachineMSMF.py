@@ -93,9 +93,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def FromDico(self,DicoSMStacked):
         self.DicoSMStacked=DicoSMStacked
-        self.RefFreq=self.DicoSMStacked["RefFreq"]
-        self.ListScales=self.DicoSMStacked["ListScales"]
-        self.ModelShape=self.DicoSMStacked["ModelShape"]
+        self.RefFreq=self.DicoSMStacked.get("RefFreq", self.DicoSMStacked.get(b"RefFreq", None))
+        self.ListScales=self.DicoSMStacked.get("ListScales", self.DicoSMStacked.get(b"ListScales", None))
+        self.ModelShape=self.DicoSMStacked.get("ModelShape", self.DicoSMStacked.get(b"ModelShape", None))
 
 
 
@@ -241,8 +241,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         at the same position, but different fluxes, alphas etc.
 
         """
-        DicoComp = self.DicoSMStacked["Comp"]
-        ref_freq = self.DicoSMStacked["RefFreq"]
+        DicoComp = self.DicoSMStacked.get("Comp", self.DicoSMStacked.get(b"Comp", None))
+        ref_freq = self.DicoSMStacked.get("RefFreq", self.DicoSMStacked.get(b"RefFreq", None))
         if FreqIn is None:
            FreqIn=np.array([ref_freq], dtype=np.float32)
            
@@ -260,14 +260,17 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             returns a tuple with the following information
             (ModelType, coordinate, vector of STOKES solutions per basis function, alpha, shape data)
             """
-            sa = component["SolsArray"]
+            sa = component.get("SolsArray", component.get(b"SolsArray", None))
             # starmap to unpack the returned tuple
-            return itertools.starmap(lambda i, sol, ls: (ls["ModelType"],                                      # type
+            def safe_encode(s): 
+                import six
+                return s.decode() if isinstance(s, bytes) and six.PY3 else s
+            return itertools.starmap(lambda i, sol, ls: (safe_encode(ls.get("ModelType", ls.get(b"ModelType", "Delta"))),       # type
                                                          coord,                                                # coordinate
-                                                         sol[0] * (FreqIn / ref_freq) ** ls.get("Alpha", 0.0), # only stokes I
+                                                         sol[0] * (FreqIn / ref_freq) ** ls.get("Alpha", ls.get(b"Alpha", 0.0)), # only stokes I
                                                          ref_freq,                                             # reference frequency
-                                                         ls.get("Alpha", 0.0),                                 # alpha
-                                                         ls.get("ModelParams", None)),                         # shape
+                                                         ls.get("Alpha", ls.get(b"Alpha", 0.0)),      # alpha
+                                                         ls.get("ModelParams", ls.get(b"ModelParams", None))), # shape
                                                         map(lambda i: (i, sa[i], self.ListScales[i]), range(sa.size)))
 
         # Lazily iterate through DicoComp entries and associated ListScales and SolsArrays,
@@ -292,7 +295,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             f_apply=np.abs
         else:
             f_apply=lambda x:x
-        RefFreq=self.DicoSMStacked["RefFreq"]
+        RefFreq=self.DicoSMStacked.get("RefFreq", self.DicoSMStacked.get(b"RefFreq", None))
+
         if FreqIn is None:
             FreqIn=np.array([RefFreq])
 

@@ -1,11 +1,11 @@
-from __future__ import division
+from __future__ import division, absolute_import, print_function
 
 import numpy as np
 import time
 from SkyModel.Other import ModColor
 import scipy.ndimage
 from SkyModel.Other.progressbar import ProgressBar
-import findrms
+from . import findrms
 from DDFacet.Other import logger
 log=logger.getLogger("ClassIsland")
 
@@ -56,7 +56,7 @@ class ClassIslands():
     def fillNoise(self):
         return
         A=self.A
-        print ModColor.Str("Fill blanks with noise...")
+        print(ModColor.Str("Fill blanks with noise..."))
         Avec=A.reshape((A.shape[1]*A.shape[0],))
         ind=np.where(np.abs(Avec)>1e-8)[0]
         Avec=Avec[ind]
@@ -64,8 +64,8 @@ class ClassIslands():
         imnoise=np.random.randn(A.shape[0],A.shape[1])*rms
         ind=np.where(np.abs(A)<1e-8)
         A[ind]=imnoise[ind]
-        print ModColor.Str("  rms in the image: %6.2f mJy"%(rms*1000.),col="green",Bold=False)
-        print ModColor.Str("  done ...")
+        print(ModColor.Str("  rms in the image: %6.2f mJy"%(rms*1000.),col="green",Bold=False))
+        print(ModColor.Str("  done ..."))
    
     def GiveVal(self,A,xin,yin):
         x,y=round(xin),round(yin)
@@ -136,7 +136,7 @@ class ClassIslands():
         pylab.show()
         
     def ComputeNoiseMap(self):
-        print ModColor.Str("Compute noise map...")
+        print(ModColor.Str("Compute noise map..."))
         Boost=self.Boost
         Acopy=self.A[0::Boost,0::Boost].copy()
         SBox=(self.box[0]//Boost,self.box[1]//Boost)
@@ -148,7 +148,7 @@ class ClassIslands():
                 s10,s11=self.Noise[i::Boost,j::Boost].shape
                 s0,s1=min(s00,s10),min(s10,s11)
                 self.Noise[i::Boost,j::Boost][0:s0,0:s1]=Noise[:,:][0:s0,0:s1]
-        print ModColor.Str(" ... done")
+        print(ModColor.Str(" ... done"))
         ind=np.where(self.Noise==0.)
         self.Noise[ind]=1e-10
 
@@ -205,13 +205,13 @@ class ClassIslands():
 
         import scipy.ndimage
 
-        print>>log,"  Labeling islands"
+        print("  Labeling islands", file=log)
         self.ImIsland,NIslands=scipy.ndimage.label(self.MaskImage)
         ImIsland=self.ImIsland
         #NIslands+=1
         nx,_=ImIsland.shape
 
-        print>>log,"  Found %i islands"%NIslands
+        print("  Found %i islands"%NIslands, file=log)
         
 
         NMaxPix=500**2
@@ -219,7 +219,7 @@ class ClassIslands():
         #Island=np.zeros((NIslands,NMaxPix,2),np.int32)
         NIslandNonZero=np.zeros((NIslands,),np.int32)
 
-        print>>log,"  Extractinng pixels in islands"
+        print("  Extractinng pixels in islands", file=log)
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Extracting ", HeaderSize=10,TitleSize=13)
         comment=''
 
@@ -239,7 +239,7 @@ class ClassIslands():
         Label=self.ImIsland[indx,indy]
         nx=indx.size
 
-        print>>log,"  Listing pixels in islands"
+        print("  Listing pixels in islands", file=log)
         LIslands=[]
         for iIsland in range(1,NIslands+1):
             ind,=np.where(Label==iIsland)
@@ -267,7 +267,7 @@ class ClassIslands():
         # ##############################
 
         
-        print>>log,"  Selecting pixels in islands"
+        print("  Selecting pixels in islands", file=log)
         for i in LIslands:
             condMinPix=(len(i)>self.MinPerIsland)
             xpos=[i[ii][0] for ii in range(len(i))]
@@ -301,7 +301,7 @@ class ClassIslands():
                 self.ListS.append(S)
                 inum+=1
 
-        print>>log,"  Final number of islands: %i"%len(self.ListX)
+        print("  Final number of islands: %i"%len(self.ListX), file=log)
         self.ImIsland=ImIsland
         self.LIslands=LIslandsOut
     
@@ -353,11 +353,11 @@ def init():
     a[1,5]=1
     a[1,1]=1
         #a[1,2]=1
-    print a
+    print(a)
     return a
     l=[]
     FindIsland(a,l,1,1)
-    print l
+    print(l)
     
 def init2():
     a=np.zeros((7,7),dtype=bool)
@@ -371,7 +371,7 @@ def init2():
     l=[]
     A=np.zeros((a.shape),dtype=np.float)
     A[a]=10
-    print A
+    print(A)
     FindAllIslands(A,1.)
     
     

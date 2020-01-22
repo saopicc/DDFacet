@@ -1,24 +1,24 @@
 #!/usr/bin/env python
-from __future__ import division
+from __future__ import division, absolute_import, print_function
 
 import numpy as np
-from PSourceExtract import Gaussian
+from .PSourceExtract import Gaussian
 import pylab
 import scipy.optimize
 import time
-from PSourceExtract import ClassIslands
-from Other import ModColor
+from .PSourceExtract import ClassIslands
+from .Other import ModColor
 import pickle
 import optparse
 #from PSourceExtract.ClassPointFit2 import ClassPointFit as ClassFit
 #import ClassPointFit as ClassPointFit
-from PSourceExtract import ClassFitIslands
+from .PSourceExtract import ClassFitIslands
 
 from pyrap.images import image
-from Other.progressbar import ProgressBar
-from Other import reformat
-from Sky import ClassSM
-from Other import rad2hmsdms
+from SkyModel.Other.progressbar import ProgressBar
+from SkyModel.Other import reformat
+from SkyModel.Sky import ClassSM
+from SkyModel.Other import rad2hmsdms
 
 from DDFacet.Other import logger
 log=logger.getLogger("Gaussify")
@@ -72,7 +72,7 @@ def main(options=None):
     if Osm=="":
         Osm=reformat.reformat(imname,LastSlash=False)
 
-    print>>log, "Fitting sources in %s"%(imname)
+    print("Fitting sources in %s"%(imname), file=log)
 
     im=image(imname)
     PMaj=None
@@ -83,7 +83,7 @@ def main(options=None):
         PMaj*=Pfact
         PMin*=Pfact
     except:
-        print>>log, ModColor.Str("   No psf seen in header")
+        print(ModColor.Str("   No psf seen in header"), file=log)
         pass
 
     if options.PSF!="":
@@ -94,10 +94,10 @@ def main(options=None):
 
 
     if PMaj!=None:
-        print>>log, "Using psf (maj,min,pa)=(%6.2f, %6.2f, %6.2f) (mult. fact.=%6.2f)"%(PMaj,PMin,PPA,Pfact)
+        print("Using psf (maj,min,pa)=(%6.2f, %6.2f, %6.2f) (mult. fact.=%6.2f)"%(PMaj,PMin,PPA,Pfact), file=log)
     else:
-        print>>log, ModColor.Str("No psf info could be gotten from anywhere")
-        print>>log, ModColor.Str("  use PSF keyword to tell what the psf is or is not")
+        print(ModColor.Str("No psf info could be gotten from anywhere"), file=log)
+        print(ModColor.Str("  use PSF keyword to tell what the psf is or is not"), file=log)
         exit()
 
 
@@ -113,7 +113,7 @@ def main(options=None):
     #b=b[3000:4000,3000:4000]#[120:170,300:370]
     c=im.coordinates()
     incr=np.abs(c.dict()["direction0"]["cdelt"][0])
-    print>>log, "Psf Size Sigma_(Maj,Min) = (%5.1f,%5.1f) pixels"%(PMaj/incr,PMin/incr)
+    print("Psf Size Sigma_(Maj,Min) = (%5.1f,%5.1f) pixels"%(PMaj/incr,PMin/incr), file=log)
     
     nx,_=b.shape
     Nr=10000

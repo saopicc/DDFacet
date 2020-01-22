@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-from __future__ import division
+from __future__ import division, absolute_import, print_function
 import sys,os
-if "PYTHONPATH_FIRST" in os.environ.keys() and int(os.environ["PYTHONPATH_FIRST"]):
+if "PYTHONPATH_FIRST" in list(os.environ.keys()) and int(os.environ["PYTHONPATH_FIRST"]):
     sys.path = os.environ["PYTHONPATH"].split(":") + sys.path
 import numpy as np
 from DDFacet.Other import logger
@@ -49,7 +49,7 @@ def main(options=None):
 
 class MakeCatalog():
     def __init__(self,**kwargs):
-        for key, value in kwargs.items(): setattr(self, key, value)
+        for key, value in list(kwargs.items()): setattr(self, key, value)
         
 
         if self.NCPU==0:
@@ -60,11 +60,11 @@ class MakeCatalog():
         for f in Files:
             if not os.path.isfile(f):
                 raise ValueError("File %s does not exist"%f)
-            print>>log,ModColor.Str("File %s exist"%f,col="green")
+            print(ModColor.Str("File %s exist"%f,col="green"), file=log)
 
     def Exec(self,ss):
-        print>>log,ModColor.Str("Executing:")
-        print>>log,ModColor.Str("   %s"%ss)
+        print(ModColor.Str("Executing:"), file=log)
+        print(ModColor.Str("   %s"%ss), file=log)
         os.system(ss)
 
     def MakeCatalog(self):
@@ -73,8 +73,8 @@ class MakeCatalog():
     def RunBDSM(self,filename,rmsmean_map_filename=None,WriteNoise=True,Ratio=None):
         CatName=filename[:-5]+".pybdsm.gaul.fits"
         if os.path.isfile(CatName):
-            print>>log,ModColor.Str("File %s exists"%CatName,col="green")
-            print>>log,ModColor.Str("   Skipping...",col="green")
+            print(ModColor.Str("File %s exists"%CatName,col="green"), file=log)
+            print(ModColor.Str("   Skipping...",col="green"), file=log)
             return
 
         rmsmean_map_filename=[]
@@ -98,7 +98,7 @@ class MakeCatalog():
 
 
     def killWorkers(self):
-        print>>log, "Killing workers"
+        print("Killing workers", file=log)
         APP.terminate()
         APP.shutdown()
         Multiprocessing.cleanupShm()

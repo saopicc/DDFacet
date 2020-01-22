@@ -1,5 +1,5 @@
 #!/usr/bin/python
-from __future__ import division
+from __future__ import division, absolute_import, print_function
 
 import os
 import sys
@@ -27,5 +27,5 @@ if __name__=="__main__":
     S=" ".join(S)
 
     ss="ds9 -cmap bb -scalelims %f %f %s -lock frame wcs -lock scale yes -match scalelimits -match scale -match colorbar -lock colorbar yes -view vertical"%(vmin,vmax,S)
-    print ss
+    print(ss)
     os.system(ss)

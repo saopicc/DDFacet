@@ -14,7 +14,7 @@ from DDFacet.Other import logger
 log=logger.getLogger("ClassArrayMethodSSD")
 import multiprocessing
 
-import ClassConvMachine
+from DDFacet.Imager.SSD import ClassConvMachine
 import time
 from scipy.stats import chi2
 
@@ -440,7 +440,7 @@ class ClassArrayMethodSSD():
             if result_queue.qsize()!=0:
                 try:
                     DicoResult=result_queue.get_nowait()
-                except Exception,e:
+                except Exception as e:
                     #print "Exception: %s"%(str(e))
                     pass
                 
@@ -532,7 +532,7 @@ class ClassArrayMethodSSD():
             if result_queue.qsize()!=0:
                 try:
                     DicoResult=result_queue.get_nowait()
-                except Exception,e:
+                except Exception as e:
                     #print "Exception: %s"%(str(e))
                     pass
                 
@@ -595,7 +595,7 @@ class ClassArrayMethodSSD():
             if result_queue.qsize()!=0:
                 try:
                     DicoResult=result_queue.get_nowait()
-                except Exception,e:
+                except Exception as e:
                     #print "Exception: %s"%(str(e))
                     pass
                 

@@ -316,12 +316,12 @@ class ClassFrequencyMachine(object):
         Returns:
             The polynomial evaluated at Freqs
         """
-        if np.all(Freqsp == self.Freqs):
+        if np.array_equal(Freqsp, self.Freqs):
             # Here we don't need to reset the design matrix
             return np.dot(self.Xdes, coeffs)
-        elif np.all(Freqsp == self.Freqsp):
+        elif np.array_equal(Freqsp, self.Freqsp):
             return np.dot(self.Xdesp, coeffs)
-        elif np.all(Freqsp == self.ref_freq):
+        elif Freqsp.size == 1 and Freqsp == self.ref_freq:
             return np.dot(self.Xdes_ref, coeffs)
         else:
             # Here we do

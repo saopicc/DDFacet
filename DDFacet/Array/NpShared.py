@@ -75,22 +75,22 @@ def SizeShm():
 
 def CreateShared(Name, shape, dtype):
     try:
-        a = SharedArray.create(Name, shape, dtype=dtype)
+        a = SharedArray.create(str(Name), shape, dtype=dtype)
     except OSError:
         print(ModColor.Str("File %s exists, deleting" % Name), file=log)
-        DelArray(Name)
-        a = SharedArray.create(Name, shape, dtype=dtype)
+        DelArray(str(Name))
+        a = SharedArray.create(str(Name), shape, dtype=dtype)
     return a
 
 def ToShared(Name, A):
 
-    a = CreateShared(Name, A.shape, A.dtype)
+    a = CreateShared(str(Name), A.shape, A.dtype)
     np.copyto(a,A)
     return a
 
 def DelArray(Name):
     try:
-        SharedArray.delete(Name)
+        SharedArray.delete(str(Name))
     except:
         pass
 
@@ -117,17 +117,17 @@ def Unlock (array):
 
 def ListNames():
     ll = list(SharedArray.list())
-    return [AR.name for AR in ll]
+    return [str(AR.name) for AR in ll]
 
 
 def DelAll(key=None):
     ll = ListNames()
     for name in ll:
         if key is not None:
-            if key in name:
-                DelArray(name)
+            if str(key) in str(name):
+                DelArray(str(name))
         else:
-            DelArray(name)
+            DelArray(str(name))
 
 
 def GiveArray(Name):
@@ -148,6 +148,7 @@ def GiveArray(Name):
 
 
 def Exists(Name):
+    Name = str(Name)
     if Name.startswith("file://"):
         return os.path.exists(Name[7:])
     if Name.startswith("shm://"):
@@ -204,6 +205,7 @@ def SharedToDico(Prefix):
 
 
 def PackListArray(Name, LArray):
+    Name = str(Name)
     DimName = Name+'.dimensions'
     DatName = Name+'.data'
 
@@ -245,6 +247,7 @@ def PackListArray(Name, LArray):
 
 
 def UnPackListArray(Name):
+    Name = str(Name)
     DimName = Name+'.dimensions'
     DatName = Name+'.data'
     Dim = GiveArray(DimName)
@@ -283,7 +286,7 @@ def UnPackListArray(Name):
 
 
 def PackListSquareMatrix(shared_dict, Name, LArray):
-
+    Name = str(Name)
     NArray = len(LArray)
     dtype = LArray[0].dtype
     TotSize = 0

@@ -1,11 +1,11 @@
-from __future__ import division
 
+from __future__ import division, absolute_import, print_function
 import numpy as np
-import Gaussian
+from . import Gaussian
 import pylab
 import scipy.optimize
 import time
-import ClassIslands
+from . import ClassIslands
 import ModColor
 from progressbar import ProgressBar
 from pyrap.images import image

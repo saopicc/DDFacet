@@ -268,7 +268,7 @@ class ClassImageDeconvMachine():
         self.WeightsChansImages = np.mean(np.float32(self.DicoDirty["WeightChansImages"]), axis=1)[:, None, None, None]
 
 
-    def SubStep(self,(dx,dy),LocalSM):
+    def SubStep(self,dx,dy,LocalSM):
         """
         This is where subtraction in the image domain happens
         """

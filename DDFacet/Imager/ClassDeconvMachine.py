@@ -195,7 +195,10 @@ class ClassImagerDeconv():
         if DoSub:
             print(ModColor.Str("Initialise sky model using %s"%SubstractModel,col="blue"), file=log)
             ModelMachine = self.ModConstructor.GiveInitialisedMMFromFile(SubstractModel)
-            modeltype = ModelMachine.DicoSMStacked["Type"]
+            def safe_encode(s): 
+                import six
+                return s.decode() if isinstance(s, bytes) and six.PY3 else s
+            modeltype = safe_encode(ModelMachine.DicoSMStacked.get("Type", ModelMachine.DicoSMStacked.get(b"Type", None)))
             if modeltype == "GA":
                 modeltype = "SSD"
             elif modeltype == "MSMF":
@@ -1164,7 +1167,7 @@ class ClassImagerDeconv():
                 self.DeconvMachine.Init(PSFVar=self.DicoImagesPSF, PSFAve=self.PSFSidelobesAvg,
                                         approx=(sparsify > approximate_psf_above), cache=False if sparsify else None,
                                         GridFreqs=self.VS.FreqBandCenters, DegridFreqs=self.VS.FreqBandChannelsDegrid,
-                                        RefFreq=self.VS.RefFreq, MaxBaseline=self.VS.VisWeights['uvmax'],
+                                        RefFreq=self.VS.RefFreq, MaxBaseline=self.VS.getMaxUV(),
                                         FacetMachine=self.FacetMachine, BaseName=self.BaseName)
                 deconvmachine_init = True
 

@@ -858,6 +858,8 @@ class ClassJones():
 
             # self.DtBeamDeg = GD["Beam"]["FITSParAngleIncrement"]
             # print>>log, "  Estimating FITS beam model every %5.1f min."%DtBeamMin
+        else:
+            raise ValueError("Unknown keyword for Beam-Model. Only accepts 'FITS' or 'LOFAR'")
 
     def GiveBeam(self, times, quiet=False,RaDec=None):
         GD = self.GD

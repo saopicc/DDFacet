@@ -126,7 +126,7 @@ def requirements():
                     ("pyephem >= 3.7.6.0", "pyephem >= 3.7.6.0"),
                     ("numexpr >= 2.6.2", "numexpr >= 2.6.2"),
                     ("matplotlib >= 2.0.0", "matplotlib >= 2.0.0"),
-                    ("scipy >= 0.16.0", "scipy >= 0.16.0"),
+                    ("scipy <= 1.3.3", "scipy >= 0.16.0"),
                     ("astLib >= 0.8.0", "astLib >= 0.8.0"),
                     ("psutil >= 5.2.2", "psutil >= 5.2.2"),
                     ("py-cpuinfo >= 3.2.0", "py-cpuinfo >= 3.2.0"),
@@ -141,7 +141,7 @@ def requirements():
                     ("six >= 1.12.0", "six >= 1.12.0"),
                     ("pybind11 >= 2.2.2", "pybind11 >= 2.2.2"),
                     ("codex-africanus[dask] <= 0.1.8", "codex-africanus[dask] <= 0.1.8"),
-                    ("", "bdsf<=1.8.15") # SkyModel / kms dependency
+                    ("bdsf > 1.8.15", "bdsf<=1.8.15") # SkyModel / kms dependency
                     ] 
 
     py3_requirements, py2_requirements = zip(*requirements)

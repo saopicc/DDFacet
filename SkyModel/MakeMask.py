@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-from __future__ import division
+from __future__ import division, absolute_import, print_function
 import sys,os
-if "PYTHONPATH_FIRST" in os.environ.keys() and int(os.environ["PYTHONPATH_FIRST"]):
+if "PYTHONPATH_FIRST" in list(os.environ.keys()) and int(os.environ["PYTHONPATH_FIRST"]):
     sys.path = os.environ["PYTHONPATH"].split(":") + sys.path
 import os
 import sys
@@ -91,7 +91,7 @@ class ClassMakeMask():
         self.CasaIm=image(self.FitsFile)
         self.Restored=self.CasaIm.getdata()
         if options.RevertInput:
-            print>>log, "Reverting the image..."
+            print("Reverting the image...", file=log)
             self.Restored*=-1
         self.UseIslands=UseIslands
         self.OutName=OutName
@@ -127,7 +127,7 @@ class ClassMakeMask():
             self.BeamMin_pix=SixMin_pix*(2.*np.sqrt(2.*np.log(2)))
             self.BeamMaj_pix=SixMaj_pix*(2.*np.sqrt(2.*np.log(2)))
             self.RBeam_pix=SixMaj_pix
-            print>>log, "Restoring Beam size of (%3.3f, %3.3f) pixels"%(self.BeamMin_pix, self.BeamMaj_pix)
+            print("Restoring Beam size of (%3.3f, %3.3f) pixels"%(self.BeamMin_pix, self.BeamMaj_pix), file=log)
         
         
         
@@ -164,7 +164,7 @@ class ClassMakeMask():
 
 
     def giveBrightFaintMask(self):
-        print>>log,"Build facetted bright/faint mask..."
+        print("Build facetted bright/faint mask...", file=log)
         GD=None
         Mask=self.ImMask
         nx=Mask.shape[-1]
@@ -201,17 +201,17 @@ class ClassMakeMask():
 
         #LSol=[D[iFacet]["iSol"][0] for iFacet in D.keys()]
         DicoDir={}
-        for iFacet in D.keys():
+        for iFacet in list(D.keys()):
             iSol=D[iFacet]["iSol"][0]
-            if not iSol in DicoDir.keys():
+            if not iSol in list(DicoDir.keys()):
                 DicoDir[iSol]=[iFacet]
             else:
                 DicoDir[iSol].append(iFacet)
             
         MaskBright=np.zeros((nx,nx),np.float32)
         MaskFaint=np.zeros((nx,nx),np.float32)
-        for iSol in DicoDir.keys():
-            print>>log,"===================== Processing direction %2.2i/%2.2i ====================="%(iSol,len(DicoDir))
+        for iSol in list(DicoDir.keys()):
+            print("===================== Processing direction %2.2i/%2.2i ====================="%(iSol,len(DicoDir)), file=log)
             ThisFacetMask=np.zeros_like(Mask)-1
             for iFacet in DicoDir[iSol]:
                 PolyGon=D[iFacet]["Polygon"]
@@ -280,7 +280,7 @@ class ClassMakeMask():
 
     
     def ComputeNoiseMap(self):
-        print>>log, "Compute noise map..."
+        print("Compute noise map...", file=log)
         Boost=self.Boost
         Acopy=self.Restored[0,0,0::Boost,0::Boost].copy()
         SBox=(self.box[0]//Boost,self.box[1]//Boost)
@@ -361,7 +361,7 @@ class ClassMakeMask():
                 ListPolygonsRADEC.append(np.array(ThisPolygon))
 
             FName="%s.pickle"%OutMaskExtended
-            print>>log,"Saving %s"%FName
+            print("Saving %s"%FName, file=log)
             MyPickle.Save(ListPolygonsRADEC,FName)
 
             REGName="%s.reg"%OutMaskExtended
@@ -392,7 +392,7 @@ class ClassMakeMask():
                 if x.size<=10: continue
                 MaskOut[0,0,x,y]=1
                 N+=1
-            print>>log,"Number of large enough islands %i"%N
+            print("Number of large enough islands %i"%N, file=log)
             MaskExtended=MaskOut
             os.system("rm -rf %s"%OutMaskExtended)
             os.system("rm -rf %s.fits"%OutMaskExtended)
@@ -404,7 +404,7 @@ class ClassMakeMask():
         nx=self.Noise.shape[-1]
 
         if self.options.ConvNoise:
-            print>>log,"Convolve..."
+            print("Convolve...", file=log)
             NoiseMap,G=ModFFTW.ConvolveGaussianWrapper(self.Noise.reshape((1,1,nx,nx)),Sig=4*SBox[0])
             NoiseMap/=np.sum(G)
             self.Noise=NoiseMap[0,0]
@@ -454,7 +454,7 @@ class ClassMakeMask():
 
     def MaskSelectedDS9(self):
         ds9Mask=self.ds9Mask
-        print>>log,"Reading ds9 region file: %s"%ds9Mask
+        print("Reading ds9 region file: %s"%ds9Mask, file=log)
         R=ModRegFile.RegToNp(ds9Mask)
         R.Read()
         
@@ -462,7 +462,7 @@ class ClassMakeMask():
         
         ExcludeCat=R.CatExclude
         
-        print>>log,"  Excluding pixels"
+        print("  Excluding pixels", file=log)
         for iRegExclude in range(R.CatExclude.shape[0]):
             
             rac,decc,Radius=R.CatExclude.ra[iRegExclude],R.CatExclude.dec[iRegExclude],R.CatExclude.Radius[iRegExclude]
@@ -487,7 +487,7 @@ class ClassMakeMask():
         
 
         #self.ImMask.fill(0)
-        print>>log,"  Including pixels"
+        print("  Including pixels", file=log)
         for iRegInclude in range(IncludeCat.shape[0]):
             rac,decc,Radius=IncludeCat.ra[iRegInclude],IncludeCat.dec[iRegInclude],IncludeCat.Radius[iRegInclude]
             RadiusPix=(1.1*Radius/self.incr_rad)
@@ -523,19 +523,19 @@ class ClassMakeMask():
     def BuildIslandList(self):
         import scipy.ndimage
 
-        print>>log,"  Labeling islands"
+        print("  Labeling islands", file=log)
         self.ImIsland,NIslands=scipy.ndimage.label(self.ImMask)
         ImIsland=self.ImIsland
         NIslands+=1
         nx,_=ImIsland.shape
 
-        print>>log,"  Found %i islands"%NIslands
+        print("  Found %i islands"%NIslands, file=log)
         
         NMaxPix=100000
         Island=np.zeros((NIslands,NMaxPix,2),np.int32)
         NIslandNonZero=np.zeros((NIslands,),np.int32)
 
-        print>>log,"  Extracting pixels in islands"
+        print("  Extracting pixels in islands", file=log)
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Extracting ", HeaderSize=10, TitleSize=13)
         comment=''
 
@@ -552,7 +552,7 @@ class ClassMakeMask():
                     Island[iIsland,NThis,1]=jpix
                     NIslandNonZero[iIsland]+=1
 
-        print>>log,"  Listing pixels in islands"
+        print("  Listing pixels in islands", file=log)
 
         NMinPixIsland=5
         DicoIslands=collections.OrderedDict()
@@ -569,20 +569,20 @@ class ClassMakeMask():
                 Comps[ipix,2]=s
             DicoIslands[iIsland]=Comps
 
-        print>>log,"  Final number of islands: %i"%len(DicoIslands)
+        print("  Final number of islands: %i"%len(DicoIslands), file=log)
         self.DicoIslands=DicoIslands
         
 
     def FilterIslands(self):
         DicoIslands=self.DicoIslands
         NIslands=len(self.DicoIslands)
-        print>>log, "  Filter each individual islands"
+        print("  Filter each individual islands", file=log)
         #pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Filter ", HeaderSize=10,TitleSize=13)
         #comment=''
 
         NormHist=True
 
-        for iIsland in DicoIslands.keys():
+        for iIsland in list(DicoIslands.keys()):
             #pBAR.render(int(100*iIsland / float(len(DicoIslands.keys())-1)), comment)
             x,y,s=DicoIslands[iIsland].T
             #Im=self.GiveIm(x,y,s)
@@ -732,10 +732,10 @@ class ClassMakeMask():
         self.ImMask.fill(0)
         DicoIslands=self.DicoIslands
         NIslands=len(self.DicoIslands)
-        print>>log, "  Building mask image from filtered islands"
+        print("  Building mask image from filtered islands", file=log)
         #pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Building ", HeaderSize=10,TitleSize=13)
         #comment=''
-        for iIsland in DicoIslands.keys():
+        for iIsland in list(DicoIslands.keys()):
             #pBAR.render(int(100*iIsland / float(len(DicoIslands.keys())-1)), comment)
             x,y,s=DicoIslands[iIsland].T
             self.ImMask[np.int32(x),np.int32(y)]=1
@@ -746,7 +746,7 @@ class ClassMakeMask():
         dy=np.int32(y-y.min())
         nx=dx.max()+1
         ny=dy.max()+1
-        print nx,ny
+        print(nx,ny)
         Im=np.zeros((nx,ny),np.float32)
         Im[dx,dy]=s
         return Im
@@ -762,7 +762,7 @@ class ClassMakeMask():
         if ExternalAndMask is not None and ExternalAndMask is not "":
             from DDFacet.Imager import ClassCasaImage
             CleanMaskImageName=ExternalAndMask
-            print>>log,"Use mask image %s"%CleanMaskImageName
+            print("Use mask image %s"%CleanMaskImageName, file=log)
             CleanMaskImage = np.bool8(ClassCasaImage.FileToArray(CleanMaskImageName,False))[0,0]
             self.ImMask=(self.ImMask & CleanMaskImage)
 

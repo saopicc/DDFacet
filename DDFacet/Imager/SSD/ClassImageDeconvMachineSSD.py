@@ -95,14 +95,14 @@ class ClassImageDeconvMachine():
         self.DeconvMode="GAClean"
 
         if self.GD["GAClean"]["InitType"] == "HMP":
-            import ClassInitSSDModelHMP
+            from . import ClassInitSSDModelHMP
             self.InitMachine = ClassInitSSDModelHMP.ClassInitSSDModelParallel(self.GD,
                                                                          NFreqBands,RefFreq,
                                                                          MainCache=self.maincache,
                                                                          IdSharedMem=self.IdSharedMem)
         elif self.GD["GAClean"]["InitType"] == "MORESANE":
 
-            import ClassInitSSDModelMoresane
+            from . import ClassInitSSDModelMoresane
             self. InitMachine = ClassInitSSDModelMoresane.ClassInitSSDModelParallel(self.GD,
                                                                                     NFreqBands, RefFreq,
                                                                                     NCPU=self.NCPU,
@@ -199,7 +199,7 @@ class ClassImageDeconvMachine():
     def SearchIslands(self,Threshold):
 
         if self.MaskMachine.CurrentNegMask is None:
-            raise RuntimeError("A mask image should be constructible with SSD")
+            raise RuntimeError("SSD requires either a user supplied FITS mask or automasking to be enabled. Check your options.")
 
         IslandDistanceMachine=ClassIslandDistanceMachine.ClassIslandDistanceMachine(self.GD,
                                                                                     self.MaskMachine.CurrentNegMask,
@@ -657,7 +657,7 @@ class ClassImageDeconvMachine():
         return Aedge,Bedge
 
 
-    def SubStep(self,(dx,dy),LocalSM):
+    def SubStep(self,dx,dy,LocalSM):
         npol,_,_=self.Dirty.shape
         x0,x1,y0,y1=self.DirtyExtent
         xc,yc=dx,dy
@@ -755,7 +755,7 @@ class WorkerDeconvIsland(multiprocessing.Process):
             #gc.enable()
             try:
                 iIsland,FacetID,JonesNorm,PixVariance,shdict_path = self.work_queue.get(True,2)
-            except Exception,e:
+            except Exception as e:
                 #print "Exception worker: %s"%str(e)
                 break
 

@@ -296,7 +296,7 @@ class ClassCompareFITSImage(unittest.TestCase):
                         assert out_hdu.data.shape == ref_hdu.data.shape, "ref_hdu data shape doesn't match out_hdu"
                     assert np.all((ref_hdu.data - out_hdu.data)**2 <= cls._maxSqErr[imgI]), "FITS data not the same for %s" % \
                                                                                             imgIdentity
-                except AssertionError, e:
+                except AssertionError as e:
                     list_except.append(str(e))
                     continue
         if len(list_except) != 0:
@@ -316,7 +316,7 @@ class ClassCompareFITSImage(unittest.TestCase):
                             assert out_hdu.data.shape == ref_hdu.data.shape, "ref_hdu data shape doesn't match out_hdu"
                         assert np.mean((ref_hdu.data - out_hdu.data)**2) <= cls._thresholdMSE[imgI], "MSE of FITS data not the same for %s" % \
                                                              imgIdentity
-                    except AssertionError, e:
+                    except AssertionError as e:
                         list_except.append(str(e))
                     continue
         if len(list_except) != 0:

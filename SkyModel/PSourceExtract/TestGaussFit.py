@@ -1,14 +1,14 @@
-from __future__ import division
+from __future__ import division, absolute_import, print_function
 import numpy as np
-import Gaussian
+from . import Gaussian
 import pylab
 import scipy.optimize
 import time
-import ClassIslands
+from . import ClassIslands
 from SkyModel.Other import ModColor
 from SkyModel.Other.progressbar import ProgressBar
-from ClassGaussFit import ClassGaussFit
-from ModConvPSF import ClassConvPSF
+from .ClassGaussFit import ClassGaussFit
+from .ModConvPSF import ClassConvPSF
 
 def test():
     nn=101.

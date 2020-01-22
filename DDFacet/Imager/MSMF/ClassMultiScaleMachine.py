@@ -1072,7 +1072,8 @@ class ClassMultiScaleMachine():
                 if self._dump_cols:
                     columns += self._dump_cols
                 CleanSolutionsDump.init(self.GD["Output"]["Name"] + ".clean.solutions", *columns)
-                CleanSolutionsDump.write(*[ locals()[col] for col in columns ])
+                lv = locals()
+                CleanSolutionsDump.write(*[ lv[col] for col in columns ])
 
                     #print "Max abs model",np.max(np.abs(LocalSM))
             #print "Min Max model",LocalSM.min(),LocalSM.max()

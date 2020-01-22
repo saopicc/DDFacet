@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from __future__ import division
+from __future__ import division, absolute_import, print_function
 
 import optparse
 import pickle
@@ -58,7 +58,7 @@ def main(options=None):
 
     if "," in SkyModel:
         SMList=SkyModel.split(",")
-        print>>log, "Concatenating SkyModels %s"%(str(SMList))
+        print("Concatenating SkyModels %s"%(str(SMList)), file=log)
         ThisCat=np.load(SMList[0])
         ThisCat=ThisCat.view(np.recarray)
         ThisNDir=len(list(set(ThisCat.Cluster.tolist())))
@@ -74,7 +74,7 @@ def main(options=None):
         cat=np.concatenate(CatList)
         cat=cat.view(np.recarray)
         OutSkyModel=options.OutSkyModel
-        print>>log, "Saving in %s"%(OutSkyModel)
+        print("Saving in %s"%(OutSkyModel), file=log)
         np.save(OutSkyModel,cat)
         SM=ClassSM.ClassSM(OutSkyModel+".npy",
                            ReName=True,
@@ -143,12 +143,12 @@ def main(options=None):
         # CasaImage.close()
 
     if options.RemoveNegComp==1:
-        print "Removing negative component"
+        print("Removing negative component")
         Cat=np.load(SkyModel)
-        print Cat.shape
+        print(Cat.shape)
         Cat=Cat.view(np.recarray)
         Cat=Cat[Cat.I>0]
-        print Cat.shape
+        print(Cat.shape)
         np.save(SkyModel,Cat)
         
 
@@ -168,7 +168,7 @@ def main(options=None):
                        SelSource=DoSelect,ClusterMethod=CMethod)
 
     if True:
-        print>>log, "Removing fake gaussians"
+        print("Removing fake gaussians", file=log)
         Cat=SM.SourceCat
         
         indG=np.where(Cat["Gmaj"]>0)[0]
@@ -192,7 +192,7 @@ def main(options=None):
         SM.SourceCat["Type"][indN]=0.
         #print SM.SourceCat[indG][ind]
         #np.save(SkyModel,Cat)
-        print>>log, "  done"
+        print("  done", file=log)
 
     PreCluster=options.ds9PreClusterFile
     SM.Cluster(NCluster=NCluster,DoPlot=DoPlot,PreCluster=PreCluster,FromClusterCat=options.FromClusterCat)

@@ -1,5 +1,5 @@
-from __future__ import division
 
+from __future__ import division, absolute_import, print_function
 from pyrap.images import image
 import os
 from SkyModel.Other import MyPickle
@@ -137,7 +137,7 @@ class ClassCasaimage():
     def ToFits(self):
         FileOut=self.ImageName+".fits"
         os.system("rm -rf %s"%FileOut)
-        print>>log, "  ----> Save data in casa image as FITS file %s"%FileOut
+        print("  ----> Save data in casa image as FITS file %s"%FileOut, file=log)
         self.im.tofits(FileOut)
 
     def setBeam(self,beam):

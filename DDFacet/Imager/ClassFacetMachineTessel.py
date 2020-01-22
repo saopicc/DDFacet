@@ -127,7 +127,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             lFacet, mFacet = self.CoordMachine.radec2lm(raNode, decNode)
         elif SolsFile is not None and ".h5" in  SolsFile:
             h5file, apply_solsets, apply_map = _parse_solsfile(SolsFile)
-            print >> log, "Taking facet directions from H5parm: {}, solsets: {}".format(h5file, apply_solsets)
+            log.print("Taking facet directions from H5parm: {}, solsets: {}".format(h5file, apply_solsets))
             with tables.open_open(h5file) as H:
                 lm, radec = [], []
                 for solset in apply_solsets:
@@ -395,8 +395,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                         iFacetClosest = iFacetOther
                         HasClosest = True
                 if (HasClosest):
-                    print >>log, "Merging facet #%i to #%i" % (
-                        iFacet, iFacetClosest)
+                    log.print("Merging facet #%i to #%i" % (
+                        iFacet, iFacetClosest))
                     P0 = Polygon.Polygon(DicoPolygon[iFacet]["poly"])
                     P1 = Polygon.Polygon(DicoPolygon[iFacetClosest]["poly"])
                     P2 = (P0 | P1)

@@ -205,8 +205,10 @@ class CacheManager (object):
             # check for stored hash
             if not reset:
                 try:
-                    storedhash = cPickle.load(open(hashpath))
-                except:
+                    storedhash = cPickle.load(open(hashpath, 'rb'))
+                except Exception as e:
+                    import traceback
+                    traceback.print_exc()
                     print("cache hash %s invalid, will re-make" % hashpath, file=log)
                     reset = True
             # check for hash match

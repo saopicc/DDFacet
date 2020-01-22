@@ -26,21 +26,21 @@ ENV DEB_SETUP_DEPENDENCIES \
     subversion
 
 ENV DEB_DEPENCENDIES \
-    python-pip \
+    python3-pip \
     libfftw3-dev \
-    python-numpy \
+    python3-numpy \
     libfreetype6 \
     libfreetype6-dev \
     libpng-dev \
     pkg-config \
-    python2.7-dev \
+    python3-dev \
     libboost-all-dev \
     libcfitsio-dev \
     libhdf5-dev \
     wcslib-dev \
     libatlas-base-dev \
     liblapack-dev \
-    python-tk \
+    python3-tk \
     libreadline6-dev \
     subversion \
     liblog4cplus-dev \
@@ -78,19 +78,18 @@ RUN wget https://github.com/casacore/casacore/archive/v3.1.1.tar.gz
 RUN tar xvf v3.1.1.tar.gz
 RUN mkdir casacore-3.1.1/build
 WORKDIR /src/casacore-3.1.1/build
-RUN cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DBUILD_DEPRECATED=ON -DBUILD_PYTHON=ON -DBUILD_PYTHON3=ON ../
+RUN cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DBUILD_DEPRECATED=ON -DBUILD_PYTHON=OFF -DBUILD_PYTHON3=ON ../
 RUN make -j 4
 RUN make install
 RUN ldconfig
-#RUN pip install -U --user --force-reinstall --install-option="--prefix=/usr"  pip setuptools wheel
 WORKDIR /src
 RUN rm v3.1.1.tar.gz
 RUN wget https://github.com/casacore/python-casacore/archive/v3.1.1.tar.gz
 RUN tar xvf v3.1.1.tar.gz
 WORKDIR /src/python-casacore-3.1.1
-RUN pip install .
+RUN pip3 install .
 WORKDIR /
-RUN python -c "from pyrap.tables import table as tbl"
+RUN python3 -c "from pyrap.tables import table as tbl"
 
 #####################################################################
 ## Get CASACORE ephem data
@@ -128,7 +127,7 @@ WORKDIR /src/casarest
 RUN mkdir -p build
 WORKDIR /src/casarest/build
 RUN cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release ../
-RUN make -j 32
+RUN make -j 4
 RUN make install
 RUN ldconfig
 
@@ -140,21 +139,21 @@ WORKDIR /src
 RUN wget https://github.com/ska-sa/owlcat/archive/v1.6.0.tar.gz
 RUN tar -xvf v1.6.0.tar.gz
 WORKDIR /src/owlcat-1.6.0
-RUN pip install .
+RUN pip3 install .
 
 # kittens
 WORKDIR /src
-RUN wget https://github.com/ska-sa/kittens/archive/1.4.3.tar.gz
-RUN tar -xvf 1.4.3.tar.gz
+RUN wget https://github.com/ska-sa/kittens/archive/v1.4.3.tar.gz
+RUN tar -xvf v1.4.3.tar.gz
 WORKDIR /src/kittens-1.4.3
-RUN pip install .
+RUN pip3 install .
 
 # purr
 WORKDIR /src
 RUN wget https://github.com/ska-sa/purr/archive/v1.5.0.tar.gz
 RUN tar -xvf v1.5.0.tar.gz
 WORKDIR /src/purr-1.5.0
-RUN pip install .
+RUN pip3 install .
 
 # tigger-lsm
 WORKDIR /src
@@ -162,14 +161,14 @@ RUN rm v1.6.0.tar.gz
 RUN wget https://github.com/ska-sa/tigger-lsm/archive/v1.6.0.tar.gz
 RUN tar -xvf v1.6.0.tar.gz
 WORKDIR /src/tigger-lsm-1.6.0
-RUN pip install .
+RUN pip3 install .
 
 # Cattery
 WORKDIR /src
 RUN wget https://github.com/ska-sa/meqtrees-cattery/archive/v1.7.0.tar.gz
 RUN tar -xvf v1.7.0.tar.gz
 WORKDIR /src/meqtrees-cattery-1.7.0
-RUN pip install .
+RUN pip3 install .
 
 # blitz
 WORKDIR /src
@@ -188,7 +187,7 @@ RUN wget https://github.com/ska-sa/meqtrees-timba/archive/v1.7.0.tar.gz
 RUN tar -xvf v1.7.0.tar.gz.1
 RUN mkdir /src/meqtrees-timba-1.7.0/build
 WORKDIR /src/meqtrees-timba-1.7.0/build
-RUN cmake -DCMAKE_BUILD_TYPE=Debug -DENABLE_PYTHON_3=OFF ..
+RUN cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_PYTHON_3=ON ..
 RUN make -j4
 RUN make install
 RUN ldconfig
@@ -199,40 +198,33 @@ RUN rm v1.7.0.tar.gz
 RUN wget https://github.com/ska-sa/pyxis/archive/v1.7.0.tar.gz
 RUN tar -xvf v1.7.0.tar.gz
 WORKDIR /src/pyxis-1.7.0
-RUN pip install .
-RUN cp -r /src/pyxis-1.7.0/Pyxis/recipies /usr/local/lib/python2.7/dist-packages/Pyxis/recipies
+RUN pip3 install .
+RUN cp -r /src/pyxis-1.7.0/Pyxis/recipies /usr/local/lib/python3.6/dist-packages/Pyxis/
 
 # run test when built
-RUN apt-get install -y python-qt4
-RUN pip install nose
-WORKDIR /usr/local/lib/python2.7/dist-packages/Pyxis/recipies/meqtrees-batch-test
-RUN python2.7 -m "nose"
+RUN apt-get install -y python3-pyqt4
+RUN pip3 install nose
+WORKDIR /usr/local/lib/python3.6/dist-packages/Pyxis/recipies/meqtrees-batch-test
+RUN python3 -m "nose"
 
 #####################################################################
 ## BUILD LOFAR FROM SOURCE
 #####################################################################
 WORKDIR /src
-RUN git clone https://github.com/lofar-astron/LOFARBeam.git
+RUN git clone -c 'remote.origin.fetch=+refs/remotes/origin/c48f5a86109c753ec7f3cd0f66a60fc48c80a2ef' https://github.com/lofar-astron/LOFARBeam.git
 WORKDIR LOFARBeam
-RUN git checkout db8d082b34c203417b01d20b6f3bf0df17728ee8
-#RUN svn co --non-interactive --no-auth-cache --username lofar-guest --password lofar-guest https://svn.astron.nl/LOFAR/tags/LOFAR-Release-4_0_9
-#WORKDIR LOFAR-Release-4_0_9
-#RUN wget https://codeload.github.com/lofar-astron/LOFARBeam/tar.gz/v4.0
-#RUN tar xvf v4.0
 RUN mkdir -p build/gnucxx11_opt
 WORKDIR build/gnucxx11_opt
-RUN cmake -DBUILD_PACKAGES="pystationresponse" -DCMAKE_INSTALL_PREFIX=/usr ../../
+RUN cmake -DCMAKE_INSTALL_PREFIX=/usr -DPYTHON_EXECUTABLE=$(which python3) ../../
 RUN make -j16
 RUN make install
 WORKDIR /
-RUN touch /usr/lib/python2.7/site-packages/lofar/__init__.py
-ENV PYTHONPATH "/usr/lib/python2.7/site-packages:$PYTHONPATH"
-RUN python -c "import lofar.stationresponse as lsr"
+RUN touch /usr/lib/python3.6/site-packages/lofar/__init__.py
+ENV PYTHONPATH "/usr/lib/python3.6/site-packages:$PYTHONPATH"
+RUN python3 -c "import lofar.stationresponse as lsr"
 
 RUN apt-get update
 RUN apt-get install -y gfortran
-RUN pip install "bdsf<=1.8.15"
-RUN python -c "import bdsf"
 
 #####################################################################
 ## BUILD DDF FROM SOURCE
@@ -252,17 +244,16 @@ ADD .gitmodules /src/DDFacet/.gitmodules
 RUN cd /src/DDFacet/ && git submodule update --init --recursive && cd /
 # Finally install DDFacet
 RUN rm -rf /src/DDFacet/DDFacet/cbuild
-RUN pip install -U pip setuptools wheel
-RUN python2.7 -m pip install pybind11
-RUN python2.7 -m pip install -U "/src/DDFacet/[dft-support,moresane-support,testing-requirements,fits-beam-support]"
-RUN cd /src/DDFacet/ && python2.7 setup.py build && cd /
+RUN pip3 install -U pip setuptools wheel
+RUN python3 -m pip install pybind11
+RUN python3 -m pip install -U "/src/DDFacet/[dft-support,moresane-support,testing-requirements,fits-beam-support]"
+RUN cd /src/DDFacet/ && python3 setup.py build && cd /
 # Set MeqTrees Cattery path to installation directory
-ENV MEQTREES_CATTERY_PATH /usr/local/lib/python2.7/dist-packages/Cattery/
+ENV MEQTREES_CATTERY_PATH /usr/local/lib/python3.6/dist-packages/Cattery/
 ENV PYTHONPATH $MEQTREES_CATTERY_PATH:$PYTHONPATH
 
-RUN pip install -U astropy==2.0.10 # temporary py2 kludge to work around a WCS segfault
-
-RUN python2.7 -c "import Siamese"
+RUN python3 -c "import Siamese"
+RUN python3 -c "import bdsf"
 
 # perform some basic tests
 RUN DDF.py --help
