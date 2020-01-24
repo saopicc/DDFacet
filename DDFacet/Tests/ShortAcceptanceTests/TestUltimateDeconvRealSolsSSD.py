@@ -41,17 +41,17 @@ class TestUltimateDeconvRealSolsSSD(DDFacet.Tests.ShortAcceptanceTests.ClassComp
     @classmethod
     def defineImageList(cls):
         return ['dirty', 'psf', 'NormFacets', 'Norm',
-                'app.residual', 'app.model', 'app.convmodel', 'app.restored']
+                'app.restored']
 
     @classmethod
     def defineMaxSquaredError(cls):
         return [1e-5, 1e-5, 1e-5, 1e-5,
-                1e-3, 1e-3, 1e-3, 1e-3]  # epsilons per image pair, as listed in defineImageList
+                1e-3]  # epsilons per image pair, as listed in defineImageList
 
     @classmethod
     def defMeanSquaredErrorLevel(cls):
         return [1e-5, 1e-5, 1e-5, 1e-5,
-                1e-5, 1e-5, 1e-5, 1e-5]  # epsilons per image pair, as listed in defineImageList
+                1e-5]  # epsilons per image pair, as listed in defineImageList
 
 if __name__ == '__main__':
     unittest.main()
