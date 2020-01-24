@@ -29,7 +29,7 @@ import unittest
 import DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage
 
 
-class TestUltimateDeconvReslSolsSSD(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCompareFITSImage):
+class TestUltimateDeconvRealSolsSSD(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCompareFITSImage):
 
     @classmethod
     def defExecutionTime(cls):
