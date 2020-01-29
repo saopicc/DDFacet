@@ -18,40 +18,40 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 # '''
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-from DDFacet.compatibility import range
-
-import unittest
-
-import DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage
-
-
-class TestUltimateDeconvRealSolsSSD(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCompareFITSImage):
-
-    @classmethod
-    def defExecutionTime(cls):
-        """
-        Relative tolerance for total execution time in comparison with reference runs
-        """
-        return 1.0  # Longer for shorter tests 100%
-
-    @classmethod
-    def defineImageList(cls):
-        return ['dirty', 'psf', 'NormFacets', 'Norm',
-                'app.restored']
-
-    @classmethod
-    def defineMaxSquaredError(cls):
-        return [1e-5, 1e-5, 1e-5, 1e-5,
-                1e-0]  # epsilons per image pair, as listed in defineImageList
-
-    @classmethod
-    def defMeanSquaredErrorLevel(cls):
-        return [1e-5, 1e-5, 1e-5, 1e-5,
-                1e-0]  # epsilons per image pair, as listed in defineImageList
-
-if __name__ == '__main__':
-    unittest.main()
+#from __future__ import absolute_import
+#from __future__ import division
+#from __future__ import print_function
+#
+#from DDFacet.compatibility import range
+#
+#import unittest
+#
+#import DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage
+#
+#
+#class TestUltimateDeconvRealSolsSSD(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCompareFITSImage):#
+#
+#    @classmethod
+#    def defExecutionTime(cls):
+#        """
+#        Relative tolerance for total execution time in comparison with reference runs
+#        """
+#        return 1.0  # Longer for shorter tests 100%
+#
+#    @classmethod
+#    def defineImageList(cls):
+#        return ['dirty', 'psf', 'NormFacets', 'Norm',
+#                'app.restored']
+#
+#    @classmethod
+#    def defineMaxSquaredError(cls):
+#        return [1e-5, 1e-5, 1e-5, 1e-5,
+#                1e-0]  # epsilons per image pair, as listed in defineImageList
+#
+#    @classmethod
+#    def defMeanSquaredErrorLevel(cls):
+#        return [1e-5, 1e-5, 1e-5, 1e-5,
+#                1e-0]  # epsilons per image pair, as listed in defineImageList
+#
+#if __name__ == '__main__':
+#    unittest.main()
