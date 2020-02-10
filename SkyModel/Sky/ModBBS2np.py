@@ -19,7 +19,7 @@ def ReadBBSModel(infile,infile_cluster=""):
     
     
 def ReadBBSModelNew(infile,infile_cluster=""):
-    ifile  = open(infile, "rb")
+    ifile  = open(infile, "r")
     reader = csv.reader(ifile)
     F = next(reader)
     F[0]=F[0].lower().replace(" ","").strip()
@@ -75,6 +75,7 @@ def ReadBBSModelNew(infile,infile_cluster=""):
         donekey=np.zeros((len(F),),dtype=np.bool)
         #print L
         for i in range(len(L)):
+            if len(L[0])==0: break
             if L[0][0]=="#": break
             ok=1
             donekey[i]=True
@@ -83,7 +84,7 @@ def ReadBBSModelNew(infile,infile_cluster=""):
             #print "%3i, %30s, %s"%(icat,F[i],L[i])
             if F[i]=="name":
                 SName=L[i]
-                Cat.Name[icat]=L[i]
+                Cat.Name[icat]=(L[i]).decode("ascii")
                 continue
             if F[i]=="ra":
                 SRa=L[i]
@@ -170,6 +171,8 @@ def ReadBBSModelNew(infile,infile_cluster=""):
 #MajorAxis, MinorAxis, Orientation
 
         if (len(L)==0): continue
+        if (len(L[0])==0): continue
+        
         if (L[0][0]=="#")|(L[0][0]==" "): continue
         for i in range(donekey.shape[0]):
             if donekey[i]==False:

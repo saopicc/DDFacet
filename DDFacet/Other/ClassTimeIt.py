@@ -48,6 +48,7 @@ class ClassTimeIt():
     def timestr(self, hms=False):
         t1 = timemod.time()
         dt = t1-self.t0
+        self.dt=dt
         self.t0 = t1
         if not hms:
             return "%7.5fs" % dt
@@ -80,6 +81,7 @@ class ClassTimeIt():
             print(Sout, file=log)
         else:
             print(Sout)
+        return self.dt
 
     def disable(self):
         self.IsEnable = False

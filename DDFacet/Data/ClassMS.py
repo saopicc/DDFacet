@@ -99,6 +99,7 @@ class ClassMS():
 
         self.AverageSteps=AverageTimeFreq
         self.MSName = MSName = reformat.reformat(os.path.abspath(MSname), LastSlash=False)
+        
         self.ColName=Col
         self.ChanSlice = ChanSlice or slice(None)
         self.zero_flag=zero_flag
@@ -121,7 +122,7 @@ class ClassMS():
         # once.
         self._reset_cache = ResetCache
         self._chunk_caches = {}
-        self.maincache = CacheManager(MSname+".F%d.D%d.ddfcache"%(self.Field, self.DDID), reset=ResetCache, cachedir=self.GD["Cache"]["Dir"], nfswarn=True)
+        self.maincache = CacheManager(MSName+".F%d.D%d.ddfcache"%(self.Field, self.DDID), reset=ResetCache, cachedir=self.GD["Cache"]["Dir"], nfswarn=True)
 
         self.ReadMSInfo(first_ms=first_ms,DoPrint=DoPrint)
         self.LFlaggedStations=[]
@@ -1205,7 +1206,7 @@ class ClassMS():
 
         if self.DicoSelectOptions["UVRangeKm"]:
             d0, d1 = self.DicoSelectOptions["UVRangeKm"]
-            print("  flagging uv data outside uv distance of [%5.1f~%5.1f] km" % (d0, d1), file=log)
+            print("  flagging uv data outside uv distance of [%5.2f~%5.2f] km" % (d0, d1), file=log)
             d0 = d0**2*1e6
             d1 = d1**2*1e6
             duv = (uvw[:,:2]**2).sum(1)  # u^2+v^2... and we already squared d0 and d1
