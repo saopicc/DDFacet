@@ -31,7 +31,7 @@ import sys
 
 pkg='DDFacet'
 skymodel_pkg='SkyModel'
-__version__ = "0.5.1.0"
+__version__ = "0.5.2.0"
 build_root=os.path.dirname(__file__)
 
 try:
