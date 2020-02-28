@@ -35,7 +35,7 @@ from scipy.interpolate import interp1d
 import casacore.tables as pt
 
 def _which_solsfile(sol_files, req_times, solset, apply_map):
-    central_time = np.mean(req_times)
+    central_time = np.mean(np.unique(req_times))
     sol_times = []
     for sol_file in sol_files:
         with tables.open_file(sol_file) as H:
@@ -46,7 +46,7 @@ def _which_solsfile(sol_files, req_times, solset, apply_map):
                 _soltab = getattr(_solset, soltab)
                 sol_times.append(np.mean(_soltab.time[:]))
                 break
-    closest = np.argmin(np.abs(np.subtract(central_time, sol_times)))
+    closest = np.argmin(np.abs(np.subtract(central_time, np.array(sol_times))))
     return sol_files[closest]
 
 def _parse_solsfile(SolsFile):
@@ -545,7 +545,7 @@ class ClassJones():
         h5file, apply_solsets, apply_map = _parse_solsfile(SolsFile)
         print >> log, "Parsing h5file pattern {}".format(h5file)
         h5files = glob.glob(h5file)
-        with pt.table(self.MSName) as t:
+        with pt.table(self.MS.MSName) as t:
             req_times = np.unique(t.getcol('TIME'))
         h5file = _which_solsfile(h5files, req_times, apply_solsets[0], apply_map)
         print >> log, "  Applying {} solset {} soltabs {}".format(h5file, apply_solsets, apply_map)
