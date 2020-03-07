@@ -21,7 +21,7 @@ from __future__ import division
 
 import logging
 import os
-import ModColor
+import DDFacet.Other.ModColor
 
 class LoggerWriter:
     def __init__(self, logger, level):
@@ -165,7 +165,7 @@ M=MyLogger()
 getLogger=M.getLogger
 
 itsLog=getLogger("MyLogger")
-import ModColor
+
 def setSilent(Lname):
     # print>>itsLog, ModColor.Str("Set silent: %s" % Lname, col="red")
     if type(Lname)==str:
