@@ -25,8 +25,8 @@ from scipy.spatial import Voronoi, ConvexHull
 from scipy.spatial import Voronoi
 from SkyModel.Sky import ModVoronoi
 from DDFacet.Other import reformat
-from DDFacet.Data.ClassJones import _parse_solsfile
-import os
+from DDFacet.Data.ClassJones import _parse_solsfile, _which_solsfile
+import os, glob
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 import tables
 
@@ -121,7 +121,10 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             decNode = ClusterNodes.dec
             lFacet, mFacet = self.CoordMachine.radec2lm(raNode, decNode)
         elif SolsFile is not None and ".h5" in  SolsFile:
-            h5file, apply_solsets, apply_map = _parse_solsfile(SolsFile)
+
+            h5files, apply_solsets, apply_map = _parse_solsfile(SolsFile)
+            print >> log, "Parsing h5file pattern {}".format(h5files)
+            h5file = glob.glob(h5files)[0]
             print >> log, "Taking facet directions from H5parm: {}, solsets: {}".format(h5file, apply_solsets)
             with tables.open_file(h5file) as H:
                 lm, radec = [], []
