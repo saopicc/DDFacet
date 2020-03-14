@@ -197,7 +197,7 @@ def main(OP=None, messages=[]):
     try:
         output = subprocess.check_output(["/sbin/sysctl", "vm.max_map_count"],universal_newlines=True)
     except Exception:
-        log.print( ModColor.Str("""WARNING: /sbin/sysctl vm.max_map_count failed. Unable to check this setting."""))
+        print( ModColor.Str("""WARNING: /sbin/sysctl vm.max_map_count failed. Unable to check this setting."""))
         max_map_count = None
     else:
         max_map_count = int(output.strip().rsplit(" ", 1)[-1])
