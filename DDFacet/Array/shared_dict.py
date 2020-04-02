@@ -142,7 +142,12 @@ class SharedDict (collections.OrderedDict):
         collections.OrderedDict.clear(self)
         if os.path.exists(self.path):
             os.system("rm -fr %s" % self.path)
-        os.mkdir(self.path)
+        try:
+            os.mkdir(self.path)
+        except FileNotFoundError:
+            # suppress error message that can only occur if
+            # parent directory has already been deleted
+            pass
 
     def clear(self):
         if self._delete_items:
