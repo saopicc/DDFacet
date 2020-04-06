@@ -531,6 +531,16 @@ class ClassVisServer():
         # get weights
         weights = self.GetVisWeights(iMS, iChunk)
         DATA["Weights"] = weights
+        
+        if self.GD["Weight"]["OutColName"]:
+            ms.PutVisColumn(self.GD["Weight"]["OutColName"],
+                            DATA["Weights"],
+                            DATA["ROW0"],
+                            DATA["ROW1"],
+                            likecol="IMAGING_WEIGHT",
+                            sort_index=DATA["sort_index"])
+
+        
         if weights is None:
             print(ModColor.Str("This chunk is all flagged or has zero weight."), file=log)
             return

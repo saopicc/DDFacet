@@ -1307,7 +1307,7 @@ class ClassMS():
         self.AddCol(colname, LikeCol=likecol, quiet=True)
         nrow = row1 - row0
         if self._reverse_channel_order:
-            vis = vis[:,::-1,:]
+            vis = vis[:,::-1,...]
         print("writing column %s rows %d:%d"%(colname,row0,row1), file=log)
         t = self.GiveMainTable(readonly=False, ack=False)
 
@@ -1325,17 +1325,23 @@ class ClassMS():
                 vis0 = t.getcol(colname, row0, nrow)
             except RuntimeError:
                 vis0 = t.getcol("DATA", row0, nrow)
-            vis0[:, self.ChanSlice, :] = vis[reverse_index, :, :]
+            vis0[:, self.ChanSlice, ...] = vis[reverse_index, :, ...]
             t.putcol(colname, vis0, row0, nrow)
         else:
             if sort_index is None:
                 vis0 = vis
             else:
-                vis0 = np.zeros((nrow,vis.shape[1],vis.shape[2]),vis.dtype)
+                if len(vis.shape)==3:
+                    vis0 = np.zeros((nrow,vis.shape[1],vis.shape[2]),vis.dtype)
+                elif len(vis.shape)==2:
+                    vis0 = np.zeros((nrow,vis.shape[1]),vis.dtype)
+                    
                 vis0[sort_index,...] = vis
             t.putcol(colname, vis0, row0, nrow)
         t.close()
 
+
+        
     def SaveVis(self,vis=None,Col="CORRECTED_DATA",spw=0,DoPrint=True):
         if vis is None:
             vis=self.data
