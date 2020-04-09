@@ -93,15 +93,6 @@ class ClassImageDeconvMachine():
             self.ModelMachine = ModelMachine
         self.GiveEdges = GiveEdges.GiveEdges
         self._niter = 0
-        if CleanMaskImage is not None:
-            print("Reading mask image: %s"%CleanMaskImage, file=log)
-            MaskArray=image(CleanMaskImage).getdata()
-            nch,npol,_,_=MaskArray.shape
-            self._MaskArray=np.zeros(MaskArray.shape,np.bool8)
-            for ch in range(nch):
-                for pol in range(npol):
-                    self._MaskArray[ch,pol,:,:]=np.bool8(1-MaskArray[ch,pol].T[::-1].copy())[:,:]
-            self.MaskArray=self._MaskArray[0]
         self._peakMode = "normal"
 
         self.CurrentNegMask = None
@@ -131,7 +122,16 @@ class ClassImageDeconvMachine():
 
     def setMaskMachine(self,MaskMachine):
         self.MaskMachine=MaskMachine
-
+        if self.MaskMachine.ExternalMask is not None:
+            print("Applying external mask", file=log)
+            MaskArray=self.MaskMachine.ExternalMask
+            nch,npol,_,_=MaskArray.shape
+            self._MaskArray=np.zeros(MaskArray.shape,np.bool8)
+            for ch in range(nch):
+                for pol in range(npol):
+                    self._MaskArray[ch,pol,:,:]=np.bool8(1-MaskArray[ch,pol].copy())[:,:]
+            self._MaskArray = np.ascontiguousarray(self._MaskArray)
+            self.MaskArray = np.ascontiguousarray(self._MaskArray[0])
 
     def SetModelRefFreq(self, RefFreq):
         """

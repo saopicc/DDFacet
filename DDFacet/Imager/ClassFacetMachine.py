@@ -174,7 +174,9 @@ class ClassFacetMachine():
 
     def __del__(self):
         self.releaseGrids()
-        if self._delete_cf_in_destructor:
+        # suppress harmless error message which occurs when
+        # the Init routine that sets this attribute was not called
+        if hasattr(self,"_delete_cf_in_destructor") and self._delete_cf_in_destructor:
             self.releaseCFs()
 
     def releaseGrids(self):
