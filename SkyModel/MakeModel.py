@@ -62,7 +62,7 @@ def main(options=None):
         ClusterCat=np.zeros((NDir,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),("Cluster",int)])
         ClusterCat=ClusterCat.view(np.recarray)
         ClusterCat.ra[:]=Cat.ra[:]
-        ClusterCat.dec[:]=Cat.ra[:]
+        ClusterCat.dec[:]=Cat.dec[:]
         ClusterCat.SumI[:]=1.
         ClusterCat.Cluster=np.arange(NDir)
         ClusterCat.Name[:]=["%i"%i for i in range(NDir)]
