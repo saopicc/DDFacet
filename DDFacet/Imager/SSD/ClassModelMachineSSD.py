@@ -401,7 +401,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def FilterNegComponants(self,box=20,sig=3,RemoveNeg=True):
         print("Cleaning model dictionary from negative components with (box, sig) = (%i, %i)"%(box,sig), file=log)
         
-        print("  Number of componants before filtering: %i"%len(self.DicoSMStacked["Comp"]), file=log)
+        print("  Number of components before filtering: %i"%len(self.DicoSMStacked["Comp"]), file=log)
         ModelImage=self.GiveModelImage(self.DicoSMStacked["RefFreq"])[0,0]
         
         Min=scipy.ndimage.filters.minimum_filter(ModelImage,(box,box))
@@ -420,22 +420,24 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 del(self.DicoSMStacked["Comp"][key])
             except:
                 print("  Component at (%i, %i) not in dict "%key, file=log)
-        print("  Number of componants after filtering: %i"%len(self.DicoSMStacked["Comp"]), file=log)
+        print("  Number of components after filtering: %i"%len(self.DicoSMStacked["Comp"]), file=log)
 
 
 
     def CleanMaskedComponants(self,MaskName,InvertMask=False):
-        print("Cleaning model dictionary from masked components using %s [%i componants]"%(MaskName,len(self.DicoSMStacked["Comp"])), file=log)
+        print("Cleaning model dictionary from masked components using %s [%i components]"%(MaskName,len(self.DicoSMStacked["Comp"])), file=log)
 
         im=image(MaskName)
         MaskArray=im.getdata()[0,0].T[::-1]
         if InvertMask:
             print("  Inverting the mask", file=log)
             MaskArray=1-MaskArray
-        for (x,y) in self.DicoSMStacked["Comp"].keys():
+        # copy keys to avoid py3 error
+        iterkeys=list(self.DicoSMStacked["Comp"].keys())
+        for (x,y) in iterkeys:
             if MaskArray[x,y]==0:
                 del(self.DicoSMStacked["Comp"][(x,y)])
-        print("  There are %i componants left"%len(self.DicoSMStacked["Comp"]), file=log)
+        print("  There are %i components left"%len(self.DicoSMStacked["Comp"]), file=log)
 
                 
     def ToNPYModel(self,FitsFile,SkyModel,BeamImage=None):
