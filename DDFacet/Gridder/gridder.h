@@ -43,37 +43,37 @@ namespace DDF {
       using ReadCorrType = void (*) (const fcmplx*, dcMat &);
       inline void Read_4Corr(const fcmplx *visPtrMeas, dcMat &VisMeas)
         {
-	  			for (auto i=0; i<4; ++i)
-	    			VisMeas[i]=visPtrMeas[i];
+	  for (auto i=0; i<4; ++i)
+	    VisMeas[i]=visPtrMeas[i];
         }
       inline void Read_2Corr_Pad(const fcmplx *visPtrMeas, dcMat &VisMeas)
         {
-	  			VisMeas[0]=visPtrMeas[0];
-	  			VisMeas[1]=VisMeas[2]=0;
-	  			VisMeas[3]=visPtrMeas[1];
+	  VisMeas[0]=visPtrMeas[0];
+	  VisMeas[1]=VisMeas[2]=0;
+	  VisMeas[3]=visPtrMeas[1];
         }
-			inline void Read_1Corr_Pad(const fcmplx *visPtrMeas, dcMat &VisMeas)
+      inline void Read_1Corr_Pad(const fcmplx *visPtrMeas, dcMat &VisMeas)
         {
-	  			VisMeas[0]=visPtrMeas[0];
-	  			VisMeas[1]=VisMeas[2]=0;
-	  			VisMeas[3]=visPtrMeas[0];
+	  VisMeas[0]=visPtrMeas[0];
+	  VisMeas[1]=VisMeas[2]=0;
+	  VisMeas[3]=visPtrMeas[0];
         }
 
       using MulaccumType = void (*) (const dcMat &, dcmplx, dcMat &);
       inline void Mulaccum_4Corr(const dcMat &VisMeas, dcmplx Weight, dcMat &Vis)
-			{
-	  		for (auto i=0; i<4; ++i)
-	    		Vis[i] += VisMeas[i]*Weight;
-			}
+	{
+	  for (auto i=0; i<4; ++i)
+	    Vis[i] += VisMeas[i]*Weight;
+	}
       inline void Mulaccum_2Corr_Unpad(const dcMat &VisMeas, dcmplx Weight, dcMat &Vis)
-			{
-	  		Vis[0] += VisMeas[0]*Weight;
-	  		Vis[3] += VisMeas[3]*Weight;
-			}
-			inline void Mulaccum_1Corr_Unpad(const dcMat &VisMeas, dcmplx Weight, dcMat &Vis)
-			{
-	  		Vis[0] += VisMeas[0]*Weight;
-			}
+	{
+	  Vis[0] += VisMeas[0]*Weight;
+	  Vis[3] += VisMeas[3]*Weight;
+	}
+      inline void Mulaccum_1Corr_Unpad(const dcMat &VisMeas, dcmplx Weight, dcMat &Vis)
+	{
+	  Vis[0] += VisMeas[0]*Weight;
+	}
     }
     template<policies::ReadCorrType readcorr, policies::MulaccumType mulaccum, policies::StokesGridType stokesgrid>
     void gridder(py::array_t<std::complex<float>, py::array::c_style>& grid,
