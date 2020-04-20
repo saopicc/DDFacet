@@ -46,7 +46,7 @@ function(build_be PYVER)
     set(PYREQ_VER 3.0)
     set(PYABI .cpython-30)
     find_package(PythonInterp ${PYREQ_VER} REQUIRED)    
-    find_package(PythonLibs ${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR} EXACT REQUIRED) #must match
+    find_package(PythonLibs ${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR} REQUIRED) #must match
   else ("${PYVER}" EQUAL "27")
     message(FATAL_ERROR "Version switch ${PYVER} not understood")
   endif("${PYVER}" EQUAL "27")
