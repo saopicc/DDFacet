@@ -74,19 +74,19 @@ RUN ln -s /usr/bin/gfortran-$GNUCOMPILER /usr/bin/gfortran
 #####################################################################
 RUN mkdir /src
 WORKDIR /src
-RUN wget https://github.com/casacore/casacore/archive/v3.1.1.tar.gz
-RUN tar xvf v3.1.1.tar.gz
-RUN mkdir casacore-3.1.1/build
-WORKDIR /src/casacore-3.1.1/build
+RUN wget https://github.com/casacore/casacore/archive/v3.3.0.tar.gz
+RUN tar xvf v3.3.0.tar.gz
+RUN mkdir casacore-3.3.0/build
+WORKDIR /src/casacore-3.3.0/build
 RUN cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DBUILD_DEPRECATED=ON -DBUILD_PYTHON=OFF -DBUILD_PYTHON3=ON ../
 RUN make -j 4
 RUN make install
 RUN ldconfig
 WORKDIR /src
-RUN rm v3.1.1.tar.gz
-RUN wget https://github.com/casacore/python-casacore/archive/v3.1.1.tar.gz
-RUN tar xvf v3.1.1.tar.gz
-WORKDIR /src/python-casacore-3.1.1
+RUN rm v3.3.0.tar.gz
+RUN wget https://github.com/casacore/python-casacore/archive/v3.3.0.tar.gz
+RUN tar xvf v3.3.0.tar.gz
+WORKDIR /src/python-casacore-3.3.0
 RUN pip3 install .
 WORKDIR /
 RUN python3 -c "from pyrap.tables import table as tbl"

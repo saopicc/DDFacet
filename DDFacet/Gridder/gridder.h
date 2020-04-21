@@ -52,6 +52,12 @@ namespace DDF {
 	  VisMeas[1]=VisMeas[2]=0;
 	  VisMeas[3]=visPtrMeas[1];
         }
+      inline void Read_1Corr_Pad(const fcmplx *visPtrMeas, dcMat &VisMeas)
+        {
+	  VisMeas[0]=visPtrMeas[0];
+	  VisMeas[1]=VisMeas[2]=0;
+	  VisMeas[3]=visPtrMeas[0];
+        }
 
       using MulaccumType = void (*) (const dcMat &, dcmplx, dcMat &);
       inline void Mulaccum_4Corr(const dcMat &VisMeas, dcmplx Weight, dcMat &Vis)
@@ -63,6 +69,10 @@ namespace DDF {
 	{
 	  Vis[0] += VisMeas[0]*Weight;
 	  Vis[3] += VisMeas[3]*Weight;
+	}
+      inline void Mulaccum_1Corr_Unpad(const dcMat &VisMeas, dcmplx Weight, dcMat &Vis)
+	{
+	  Vis[0] += VisMeas[0]*Weight;
 	}
     }
     template<policies::ReadCorrType readcorr, policies::MulaccumType mulaccum, policies::StokesGridType stokesgrid>
