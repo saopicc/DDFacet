@@ -29,6 +29,7 @@ from DDFacet.Other.progressbar import ProgressBar
 import ClassLOFARBeam
 import ClassFITSBeam
 import ClassGMRTBeam
+import ClassATCABeam
 # import ClassSmoothJones is not used anywhere, should be able to remove it
 import tables
 from scipy.interpolate import interp1d
@@ -852,7 +853,10 @@ class ClassJones():
         elif GD["Beam"]["Model"] == "GMRT":
             self.BeamMachine = ClassGMRTBeam.ClassGMRTBeam(self.MS, GD["Beam"])
             self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam
-
+        elif GD["Beam"]["Model"] == "ATCA":
+            self.BeamMachine = ClassATCABeam.ClassATCABeam(self.MS,GD["Beam"])
+            self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam
+        
             # self.DtBeamDeg = GD["Beam"]["FITSParAngleIncrement"]
             # print>>log, "  Estimating FITS beam model every %5.1f min."%DtBeamMin
 
