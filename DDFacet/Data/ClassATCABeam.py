@@ -128,6 +128,21 @@ class ClassATCABeam():
         DicoCoefs[13]={"Name":"ATCA-16-13", "f0":2.868e9, "f1":3.500e9,
                       "C":np.array([1,0,-1.081e-03,0,+4.769e-07,0,-1.045e-10,0,
 	                            +1.222e-14,0,-7.325e-19,0,+1.768e-23])}
+        # coefficients for C and X bands of ATCA, as found in a PBMath.cc file
+        # provided by Chris Riseley. C band is C-RI, comment reads:
+        # "Remy Indebetouw measured the PB through the second sidelobe 20111020"
+        DicoCoefs[14]={"Name":"ATCA-C-RI", "f0":4.50e9, "f1":6.5e9,
+                      "C":np.array([1.00000, 0.98132, 0.96365, 0.87195, 0.75109,\
+                                    0.62176, 0.48793, 0.34985, 0.21586, 0.10546,\
+                                    0.03669,-0.03556,-0.08266,-0.12810,-0.15440,\
+                                   -0.16090,-0.15360,-0.13566,-0.10666,-0.06847,\
+                                   -0.03136,-0.00854])}
+        DicoCoefs[15]={"Name":"ATCA-X-upper", "f0":6.50e9, "f1":11e9,
+                      "C":np.array([1.0,1.04e-3,8.36e-7,-4.68e-10,5.50e-13])}
+
+        
+        DicoCoefs[15]={"Name":"ATCA-C-RI-1", "f0":2.868e9, "f1":3.500e9,
+                      "C":np.array([ ])}
         NBand=len(DicoCoefs)
 
         nu0=ChanFreqs[0]
