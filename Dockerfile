@@ -246,6 +246,7 @@ RUN cd /src/DDFacet/ && git submodule update --init --recursive && cd /
 RUN rm -rf /src/DDFacet/DDFacet/cbuild
 RUN pip3 install -U pip setuptools wheel
 RUN python3 -m pip install pybind11
+RUN python3 -m pip install tensorflow==1.8.0
 RUN python3 -m pip install -U "/src/DDFacet/[dft-support,moresane-support,testing-requirements,fits-beam-support]"
 RUN cd /src/DDFacet/ && python3 setup.py build && cd /
 # Set MeqTrees Cattery path to installation directory
