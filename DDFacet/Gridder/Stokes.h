@@ -31,6 +31,8 @@ namespace DDF {
   #define U_FROM_RRRLLRLL -(Vis[1]-Vis[2])*.5i
   #define V_FROM_RRRLLRLL (Vis[0]-Vis[3])*.5
 
+  #define I_FROM_I (Vis[0])
+
   #define BUILD1(C0, SRC)\
   inline dcMat C0##_from_##SRC(const dcMat &Vis)\
     { return dcMat(C0##_FROM_##SRC,0,0,0); }
@@ -43,6 +45,8 @@ namespace DDF {
   namespace gridder {
     namespace policies {
       using StokesGridType = dcMat (*) (const dcMat &Vis);
+      BUILD1(I,I)
+      
       BUILD1(I,RRLL)
       BUILD2(I,V,RRLL)
 
@@ -76,6 +80,8 @@ namespace DDF {
   //--------------------------------------------
   #define XXYY_FROM_I\
     return dcMat(stokes_vis[0],0,0,stokes_vis[0]);
+  #define I_FROM_I\
+    return dcMat(stokes_vis[0],0,0,stokes_vis[0]);
   #define XXXYYXYY_FROM_I\
     return dcMat(stokes_vis[0],0,0,stokes_vis[0]);
   #define RRLL_FROM_I\
@@ -91,6 +97,7 @@ namespace DDF {
   namespace degridder {
     namespace policies {
       using StokesDegridType = dcMat (*)(const dcMat &stokes_vis);
+      PUT1(gmode_corr_I_from_I, I_FROM_I)
       PUT1(gmode_corr_XXYY_from_I, XXYY_FROM_I)
       PUT1(gmode_corr_XXXYYXYY_from_I, XXXYYXYY_FROM_I)
       PUT1(gmode_corr_RRLL_from_I, RRLL_FROM_I)
