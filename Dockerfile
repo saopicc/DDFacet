@@ -211,7 +211,7 @@ RUN python3 -m "nose"
 ## BUILD LOFAR FROM SOURCE
 #####################################################################
 WORKDIR /src
-RUN git clone -c 'remote.origin.fetch=+refs/remotes/origin/c48f5a86109c753ec7f3cd0f66a60fc48c80a2ef' https://github.com/lofar-astron/LOFARBeam.git
+RUN git clone -b 'v4.1.1' https://github.com/lofar-astron/LOFARBeam.git
 WORKDIR LOFARBeam
 RUN mkdir -p build/gnucxx11_opt
 WORKDIR build/gnucxx11_opt
