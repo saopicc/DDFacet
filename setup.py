@@ -140,8 +140,8 @@ def requirements():
                     ("pylru >= 1.1.0", "pylru >= 1.1.0"),
                     ("six >= 1.12.0", "six >= 1.12.0"),
                     ("pybind11 >= 2.2.2", "pybind11 >= 2.2.2"),
-                    ("dask[array] >= 1.1.0", "dask[array] >= 1.1.0"),
-                    ("codex-africanus[dask] <= 0.1.8", "codex-africanus[dask] <= 0.1.8"),
+                    ("dask[array] >= 1.1.0", "dask[array] == 2.11.0"),
+                    ("codex-africanus[dask] <= 0.1.8", "codex-africanus[dask]"),
                     ("bdsf > 1.8.15", "bdsf<=1.8.15") # SkyModel / kms dependency
                     ] 
 

@@ -281,6 +281,12 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         if not nthreads:
             import multiprocessing
             nthreads = multiprocessing.cpu_count()
+        else:
+            from multiprocessing.pool import ThreadPool
+            import dask
+
+            dask.config.set(pool=ThreadPool(nthreads))
+
         FFT = lambda x: pyfftw.interfaces.numpy_fft.fft2(x, axes=(-2, -1), planner_effort='FFTW_ESTIMATE', threads=nthreads) #, norm='ortho')
         iFFT = lambda x: pyfftw.interfaces.numpy_fft.ifft2(x, axes=(-2, -1), planner_effort='FFTW_ESTIMATE', threads=nthreads) #, norm='ortho')
 
@@ -333,19 +339,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         try:
             import traceback
             from africanus.model.spi.dask import fit_spi_components
-            NCPU = self.GD["Parallel"]["NCPU"]
-            if NCPU:
-                from multiprocessing.pool import ThreadPool
-                import dask
-
-                dask.config.set(pool=ThreadPool(NCPU))
-            else:
-                import multiprocessing
-                NCPU = multiprocessing.cpu_count()
-
             import dask.array as da
             _, ncomps = FitCube.shape
-            FitCubeDask = da.from_array(FitCube.T.astype(np.float64), chunks=(ncomps//NCPU, self.Nchan))
+            FitCubeDask = da.from_array(FitCube.T.astype(np.float64), chunks=(ncomps//nthreads, self.Nchan))
             weightsDask = da.from_array(weights.astype(np.float64), chunks=(self.Nchan))
             freqsDask = da.from_array(np.array(self.GridFreqs).astype(np.float64), chunks=(self.Nchan))
 
@@ -353,10 +349,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                                                                 freqsDask, self.RefFreq,
                                                                 dtype=np.float64).compute()
         except Exception as e:
-            traceback_str = traceback.format_exc(e)
+            raise(e)
             print("Warning - Failed at importing africanus spi fitter. This could be an issue with the dask " \
-                        "version. Falling back to (slow) scipy version", file=log)
-            print("Original traceback - ", traceback_str, file=log)
+                        "version. Falling back to scipy version", file=log)
+            print("Original traceback - ", e, file=log)
             alpha, varalpha, Iref, varIref = self.FreqMachine.FitSPIComponents(FitCube, self.GridFreqs, self.RefFreq)
 
         _, _, nx, ny = ModelImage.shape
