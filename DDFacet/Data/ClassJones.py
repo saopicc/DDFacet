@@ -546,6 +546,30 @@ class ClassJones():
             solution spec of `sol000/tec000`.
         """
 
+        def reorderAxes( a, oldAxes, newAxes ):
+            """
+            Reorder axis of an array to match a new name pattern.
+        
+            Parameters
+            ----------
+            a : np array
+                The array to transpose.
+            oldAxes : list of str
+                A list like ['time','freq','pol'].
+                It can contain more axes than the new list, those are ignored.
+                This is to pass to oldAxis the soltab.getAxesNames() directly even on an array from getValuesIter()
+            newAxes : list of str
+                A list like ['time','pol','freq'].
+        
+            Returns
+            -------
+            np array
+                With axis transposed to match the newAxes list.
+            """
+            oldAxes = [ax for ax in oldAxes if ax in newAxes]
+            idx = [ oldAxes.index(ax) for ax in newAxes ]
+            return np.transpose(a, idx)
+
         self.ApplyCal = True
 
         h5file, apply_solsets, apply_map = _parse_solsfile(SolsFile)
@@ -582,7 +606,10 @@ class ClassJones():
                     times = _soltab.time[:]
                     # Npols, Nd, Na, (Nf), Nt
                     val = _soltab.val[:]
+                    # check axes order and reshape
+                    axes_order = _soltab.val.attrs['AXES'].decode().split(',')
                     if soltab == 'tec000':
+                        val = reorderAxes( val, axes_order, ['pol', 'dir', 'ant', 'time'] )
                         _, Nd, Na, Nt = val.shape
                         # Nd, Na, Nt, Nf
                         phase = tec_conv * val[0, ..., None]
@@ -590,7 +617,9 @@ class ClassJones():
                         phase = phase.transpose((2, 0, 1, 3))
                         solset_gains.append(np.exp(1j * phase))
                     if soltab == 'phase000':
+                        val = reorderAxes( val, axes_order, ['pol', 'dir', 'ant', 'freq', 'time'] )
                         _, Nd, Na, _, Nt = val.shape
+                        print (val.shape)
                         _freqs = _soltab.freq[:]
                         # Nd, Na, Nf, Nt
                         phase = interp1d(_freqs, val[0, ...], axis=-2, kind='nearest', bounds_error=False,
@@ -599,6 +628,7 @@ class ClassJones():
                         phase = phase.transpose((3, 0, 1, 2))
                         solset_gains.append(np.exp(1j * phase))
                     if soltab == 'amplitude000':
+                        val = reorderAxes( val, axes_order, ['pol', 'dir', 'ant', 'freq', 'time'] )
                         _, Nd, Na, _, Nt = val.shape
                         _freqs = _soltab.freq[:]
                         # Nd, Na, Nf, Nt
