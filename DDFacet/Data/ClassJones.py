@@ -130,7 +130,7 @@ def _parse_solsfile(SolsFile):
         raise ValueError('No solsets provided')
     if apply_map['tec000'] and apply_map['phase000']:
         raise ValueError("Cannot apply both phase and tec")
-    if ~np.any(np.array(apply_map.values())):
+    if ~np.any(np.array(list(apply_map.values()))):
         raise ValueError("No valid soltabs specified")
     return h5file, apply_solsets, apply_map
 
