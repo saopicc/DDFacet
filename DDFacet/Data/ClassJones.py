@@ -65,7 +65,7 @@ def _parse_solsfile(SolsFile):
 
             Everything before the `:` is the h5parm path.
             The h5parm file must follow the format defined by losoto>=2.0
-            The axis ordering for all soltabs is:
+            The axis ordering for all soltabs is internally converted to:
                 [pol, dir, ant, freq, time] for soltabs with frequency dependence
                 [pol, dir, ant, time] for soltabs without frequency dependence
 
@@ -575,7 +575,7 @@ class ClassJones():
         h5file, apply_solsets, apply_map = _parse_solsfile(SolsFile)
         print("Parsing h5file pattern {}".format(h5file), file=log)
         h5files = glob.glob(h5file)
-        with pt.table(self.MS.MSName) as t:
+        with pt.table(self.MS.MSName, ack=False) as t:
             req_times = np.unique(t.getcol('TIME'))
         h5file = _which_solsfile(h5files, req_times, apply_solsets[0], apply_map)
         print( "  Applying {} solset {} soltabs {}".format(h5file, apply_solsets, apply_map), file=log)
@@ -669,7 +669,9 @@ class ClassJones():
         self.ClusterCat = ClusterCat
 
         dts = np.diff(times)
+        print('dts',dts)
         dt = np.median(dts)
+        print('dt',dt)
         # undo killms2h5parm times = (t0+t1)/2.
         t0 = times - dt / 2.
         t1 = times + dt / 2.
