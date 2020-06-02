@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 def remove_field_name(a, name):
     names = list(a.dtype.names)
     if name in names:
@@ -41,4 +47,4 @@ def Print(CatIn,RemoveFieldName='ChanFreq',HideList=None):
     x = PrettyTable(Cat.dtype.names)
     for row in Cat: 
         x.add_row(row)
-    print x
+    print(x)

@@ -1,3 +1,9 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import os
 import subprocess
 
@@ -9,7 +15,7 @@ def report_version():
     path = os.path.dirname(os.path.abspath(__file__))
     try:
         # work round possible unavailability of git -C
-        result = subprocess.check_output('cd %s; git describe --tags' % path, shell=True, stderr=subprocess.STDOUT).rstrip()
+        result = str(subprocess.check_output('cd %s; git describe --tags' % path, shell=True, stderr=subprocess.STDOUT,universal_newlines=True).rstrip())
     except subprocess.CalledProcessError:
         result = None
     if result is not None and 'fatal' not in result:
@@ -18,7 +24,7 @@ def report_version():
     else:
         # perhaps we are in a github without tags? Cook something up if so
         try:
-            result = subprocess.check_output('cd %s; git rev-parse --short HEAD' % path, shell=True, stderr=subprocess.STDOUT).rstrip()
+            result = str(subprocess.check_output('cd %s; git rev-parse --short HEAD' % path, shell=True, stderr=subprocess.STDOUT,universal_newlines=True).rstrip())
         except subprocess.CalledProcessError:
             result = None
         if result is not None and 'fatal' not in result:

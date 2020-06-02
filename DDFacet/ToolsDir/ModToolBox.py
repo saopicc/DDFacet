@@ -18,10 +18,16 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import scipy.fftpack
 import scipy.ndimage
 
-import ModTaper
+from DDFacet.ToolsDir import ModTaper
 import numpy as np
 
 F=scipy.fftpack.fft
@@ -100,11 +106,11 @@ def testConvolve():
     A=numpy.random.randn(1014, 1014)
     B=numpy.random.randn(11,11)
     F=FFTW_Convolve(A,B)
-    print>>log, "first"
+    print("first", file=log)
     C=F.convolve(A,B)
-    print>>log, "sec"
+    print("sec", file=log)
     C=F.convolve(A,B)
-    print>>log, "done"
+    print("done", file=log)
     stop
 
 
@@ -188,8 +194,8 @@ def testFFTW2D():
     n=1024
     A=np.zeros((1,1,n,n),np.complex128)
     
-    A[0,0,n/2+1,n/2+1]=1+0.5*1j
-    #A[n/2,n/2]=1#+0.5*1j
+    A[0,0,n//2+1,n//2+1]=1+0.5*1j
+    #A[n//2,n//2]=1#+0.5*1j
     #A=np.random.randn(6,6)+1j*np.random.randn(6,6)
 
     import ModFFTW
@@ -214,10 +220,10 @@ def testFFTW2D():
         f2=FM2.fft(A)
         if2=FM2.ifft(A)
     T.timeit("newnp")
-    print np.std(f0-f1)
-    print np.std(if0-if1)
-    print np.std(f0-f2)
-    print np.std(if0-if2)
+    print(np.std(f0-f1))
+    print(np.std(if0-if1))
+    print(np.std(f0-f2))
+    print(np.std(if0-if2))
     stop
 
     # f0=FM.fft(A)
@@ -274,8 +280,8 @@ def GiveFFTFastSizes(Odd=True,NLim=100000):
     """
     sizes = np.array([1])
     for base, powers in [
-             (2,[0] if Odd else xrange(1,20)),
-             (3,xrange(15)), (5,xrange(15)), (7,xrange(15)) ]:
+             (2,[0] if Odd else range(1,20)),
+             (3,range(15)), (5,range(15)), (7,range(15)) ]:
         sizes = (sizes[np.newaxis,:] * base**np.array(powers)[:,np.newaxis]).ravel()
     sizes = sizes[np.newaxis,:] * np.array([1,11,13])[:,np.newaxis]
 
@@ -307,9 +313,9 @@ def ZeroPad(A,outshape=1001):
 #    B=np.zeros((nx*zp,nx*zp),dtype=A.dtype)
     B=np.zeros((outshape,),dtype=A.dtype)
     if (outshape%2)==0:
-        off=(B.shape[0]-A.shape[0])/2+1
+        off=(B.shape[0]-A.shape[0])//2+1
     else:
-        off=(B.shape[0]-A.shape[0])/2#+1
+        off=(B.shape[0]-A.shape[0])//2#+1
     B[off:off+nx]=A
     return B   
  

@@ -17,6 +17,13 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 from DDFacet.Other import logger
 from DDFacet.Other import ClassTimeIt
@@ -53,7 +60,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # self.DicoSMStacked["Comp"]={}
         if self.GD is not None:
             self.SolveParam = self.GD["SSDClean"]["SSDSolvePars"]
-            print>>log,"Solved parameters: %s"%(str(self.SolveParam))
+            print("Solved parameters: %s"%(str(self.SolveParam)), file=log)
             self.NParam=len(self.SolveParam)
         self.RefFreq=None
         self.DicoSMStacked={}
@@ -61,7 +68,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def setRefFreq(self,RefFreq,Force=False):#,AllFreqs):
         if self.RefFreq is not None and not Force:
-            print>>log,ModColor.Str("Reference frequency already set to %f MHz"%(self.RefFreq/1e6))
+            print(ModColor.Str("Reference frequency already set to %f MHz"%(self.RefFreq/1e6)), file=log)
             return
         self.RefFreq=RefFreq
         self.DicoSMStacked["RefFreq"]=RefFreq
@@ -70,7 +77,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
 
     def ToFile(self,FileName,DicoIn=None):
-        print>>log, "Saving dico model to %s"%FileName
+        print("Saving dico model to %s"%FileName, file=log)
         if DicoIn is None:
             D=self.DicoSMStacked
         else:
@@ -116,13 +123,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         return D
 
     def FromFile(self,FileName):
-        print>>log, "Reading dico model from file %s"%FileName
+        print("Reading dico model from file %s"%FileName, file=log)
         self.DicoSMStacked=MyPickle.Load(FileName)
         self.FromDico(self.DicoSMStacked)
 
 
     def FromDico(self,DicoSMStacked):
-        print>>log, "Reading dico model from dico with %i components"%len(DicoSMStacked["Comp"])
+        print("Reading dico model from dico with %i components"%len(DicoSMStacked["Comp"]), file=log)
         #self.PM=self.DicoSMStacked["PM"]
         self.DicoSMStacked=DicoSMStacked
         self.RefFreq=self.DicoSMStacked["RefFreq"]
@@ -139,7 +146,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def GiveConvertedSolveParamDico(self,SolveParam1):
         SolveParam0=self.DicoSMStacked["SolveParam"]
-        print>>log,"Converting SSD model %s into %s..."%(str(SolveParam0),str(SolveParam1))
+        print("Converting SSD model %s into %s..."%(str(SolveParam0),str(SolveParam1)), file=log)
         DicoOut=copy.deepcopy(self.DicoSMStacked)
         DicoOut["SolveParam"]=SolveParam1
         del(DicoOut["Comp"])
@@ -195,7 +202,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def AppendIsland(self,ListPixParms,V,JonesNorm=None):
         ListPix=ListPixParms
-        Vr=V.reshape((self.NParam,V.size/self.NParam))
+        Vr=V.reshape((self.NParam,V.size//self.NParam))
         NPixListParms=len(ListPixParms)
 
         
@@ -211,7 +218,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         if JonesNorm is not None:
             Vr[iS,:]/=np.sqrt(JonesNorm).flat[0]
 
-            print "NORM!!!!!!!!!!!!!!!!!!!!!!!!!!!",np.sqrt(JonesNorm)
+            print("NORM!!!!!!!!!!!!!!!!!!!!!!!!!!!",np.sqrt(JonesNorm))
 
         for (x,y),iComp in zip(ListPix,range(NPixListParms)):
             #if S[iComp]==0: continue
@@ -387,7 +394,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     
         # mask out pixels above threshold
         mask=(M1<minmod)|(M0<minmod)
-        print>>log,"computing alpha map for model pixels above %.1e Jy (based on max DR setting of %g)"%(minmod,MaxDR)
+        print("computing alpha map for model pixels above %.1e Jy (based on max DR setting of %g)"%(minmod,MaxDR), file=log)
         M0[mask]=minmod
         M1[mask]=minmod
         alpha = (np.log(M0)-np.log(M1))/(np.log(f0/f1))
@@ -403,7 +410,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         
     def RemoveNegComponants(self):
-        print>>log, "Cleaning model dictionary from negative components"
+        print("Cleaning model dictionary from negative components", file=log)
         ModelImage=self.GiveModelImage(self.DicoSMStacked["RefFreq"])[0,0]
         
         Lx,Ly=np.where(ModelImage<0)
@@ -413,12 +420,12 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             try:
                 del(self.DicoSMStacked["Comp"][key])
             except:
-                print>>log, "  Component at (%i, %i) not in dict "%key
+                print("  Component at (%i, %i) not in dict "%key, file=log)
 
     def FilterNegComponants(self,box=20,sig=3,RemoveNeg=True):
-        print>>log, "Cleaning model dictionary from negative components with (box, sig) = (%i, %i)"%(box,sig)
+        print("Cleaning model dictionary from negative components with (box, sig) = (%i, %i)"%(box,sig), file=log)
         
-        print>>log,"  Number of componants before filtering: %i"%len(self.DicoSMStacked["Comp"])
+        print("  Number of components before filtering: %i"%len(self.DicoSMStacked["Comp"]), file=log)
         ModelImage=self.GiveModelImage(self.DicoSMStacked["RefFreq"])[0,0]
         
         Min=scipy.ndimage.filters.minimum_filter(ModelImage,(box,box))
@@ -428,7 +435,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         if RemoveNeg==False:
             Lx,Ly=np.where((ModelImage<sig*Min)&(ModelImage!=0))
         else:
-            print>>log, "  Removing neg components too"
+            print("  Removing neg components too", file=log)
             Lx,Ly=np.where( ((ModelImage<sig*Min)&(ModelImage!=0)) | (ModelImage<0))
 
         for icomp in range(Lx.size):
@@ -436,23 +443,25 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             try:
                 del(self.DicoSMStacked["Comp"][key])
             except:
-                print>>log, "  Component at (%i, %i) not in dict "%key
-        print>>log,"  Number of componants after filtering: %i"%len(self.DicoSMStacked["Comp"])
+                print("  Component at (%i, %i) not in dict "%key, file=log)
+        print("  Number of components after filtering: %i"%len(self.DicoSMStacked["Comp"]), file=log)
 
 
 
     def CleanMaskedComponants(self,MaskName,InvertMask=False):
-        print>>log, "Cleaning model dictionary from masked components using %s [%i componants]"%(MaskName,len(self.DicoSMStacked["Comp"]))
+        print("Cleaning model dictionary from masked components using %s [%i components]"%(MaskName,len(self.DicoSMStacked["Comp"])), file=log)
 
         im=image(MaskName)
         MaskArray=im.getdata()[0,0].T[::-1]
         if InvertMask:
-            print>>log,"  Inverting the mask"
+            print("  Inverting the mask", file=log)
             MaskArray=1-MaskArray
-        for (x,y) in self.DicoSMStacked["Comp"].keys():
+        # copy keys to avoid py3 error
+        iterkeys=list(self.DicoSMStacked["Comp"].keys())
+        for (x,y) in iterkeys:
             if MaskArray[x,y]==0:
                 del(self.DicoSMStacked["Comp"][(x,y)])
-        print>>log,"  There are %i componants left"%len(self.DicoSMStacked["Comp"])
+        print("  There are %i components left"%len(self.DicoSMStacked["Comp"]), file=log)
 
                 
     def ToNPYModel(self,FitsFile,SkyModel,BeamImage=None):
@@ -539,7 +548,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         #RestoreDico=self.GD["Data"]["RestoreDico"]
         RestoreDico=DicoSolsFile["ModelName"][()][0:-4]+".DicoModel"
         
-        print>>log, "Adding previously subtracted components"
+        print("Adding previously subtracted components", file=log)
         ModelMachine0=ClassModelMachine(self.GD)
 
         

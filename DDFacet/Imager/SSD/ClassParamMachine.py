@@ -17,6 +17,13 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 from DDFacet.ToolsDir import ModFFTW
 import numpy as np
 import random
@@ -228,7 +235,7 @@ class ClassParamMachine():
 
         ArrayPix=self.SquareGrids[TypeIn]["ArrayPix"]
 
-        Ain=Ain.reshape((NSlice,Ain.size/NSlice))
+        Ain=Ain.reshape((NSlice,Ain.size//NSlice))
 
         x,y=ArrayPix.T
         #print "=============",TypeInOut,A.shape,Ain.shape
@@ -273,10 +280,10 @@ class ClassParamMachine():
         S=self.ArrayToSubArray(indiv,"S")
         for iPix in range(self.NPixListParms):
             if S[iPix]==0: continue
-            print "iPix = %i"%iPix
+            print("iPix = %i"%iPix)
             for ParamType in self.SolveParam:
                 Q=self.ArrayToSubArray(indiv,ParamType)
-                print "  %s = %f"%(ParamType,Q[iPix])
+                print("  %s = %f"%(ParamType,Q[iPix]))
 
 
     def GiveModelArray(self,A):

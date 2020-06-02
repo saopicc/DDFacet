@@ -1,3 +1,4 @@
+from __future__ import division, absolute_import, print_function
 
 import numpy as np
 
@@ -13,7 +14,7 @@ def ReadFromNp(Cat0):
     Cat.ra[0:ns]=Cat0.ra
     Cat.dec[0:ns]=Cat0.dec
     Cat.I[0:ns]=Cat0.I
-    if "Gmin" in Cat0.dtype.fields.keys():
+    if "Gmin" in list(Cat0.dtype.fields.keys()):
         Cat.Gmin[0:ns]=Cat0.Gmin
         Cat.Gmaj[0:ns]=Cat0.Gmaj
         Cat.Gangle[0:ns]=Cat0.Gangle

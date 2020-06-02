@@ -1,3 +1,4 @@
+from __future__ import division, absolute_import, print_function
 import numpy as np
 
 def ReadTiggerModel(infile,header=["name", "ra_d", "dec_d", "i", "emaj_d", "emin_d", "pa_d"]):

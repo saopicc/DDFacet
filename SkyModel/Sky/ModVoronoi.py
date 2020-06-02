@@ -1,3 +1,4 @@
+from __future__ import division, absolute_import, print_function
 import numpy as np
 from scipy.spatial import Voronoi
 import SkyModel.Tools.PolygonTools as PT
@@ -53,7 +54,7 @@ def voronoi_finite_polygons_2d(vor, radius=None):
 
 
         # reconstruct a non-finite region
-        if p1 not in all_ridges.keys():
+        if p1 not in list(all_ridges.keys()):
             new_regions.append(vertices)
             continue
         ridges = all_ridges[p1]
@@ -146,10 +147,10 @@ def test():
     
     # plot
     regions, vertices = voronoi_finite_polygons_2d(vor)
-    print "--"
-    print regions
-    print "--"
-    print vertices
+    print("--")
+    print(regions)
+    print("--")
+    print(vertices)
     Plot(points,regions, vertices)
     # colorize
 
@@ -158,7 +159,7 @@ def Plot(points,regions, vertices):
     pylab.clf()
     for region in regions:
         polygon = vertices[region]
-        pylab.fill(*zip(*polygon), alpha=0.4)
+        pylab.fill(*list(zip(*polygon)), alpha=0.4)
 
     
     pylab.plot(points[:,0], points[:,1], 'ko')

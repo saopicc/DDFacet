@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import itertools
 
 import numpy as np
@@ -60,14 +66,14 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def setRefFreq(self,RefFreq,Force=False):#,AllFreqs):
         if self.RefFreq is not None and not Force:
-            print>>log,ModColor.Str("Reference frequency already set to %f MHz"%(self.RefFreq/1e6))
+            print(ModColor.Str("Reference frequency already set to %f MHz"%(self.RefFreq/1e6)), file=log)
             return
 
         self.RefFreq=RefFreq
         self.DicoSMStacked["RefFreq"]=RefFreq
 
     def ToFile(self,FileName,DicoIn=None):
-        print>>log, "Saving dico model to %s"%FileName
+        print("Saving dico model to %s"%FileName, file=log)
         if DicoIn is None:
             D=self.DicoSMStacked
         else:
@@ -80,16 +86,16 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         MyPickle.Save(D,FileName)
 
     def FromFile(self,FileName):
-        print>>log, "Reading dico model from %s"%FileName
+        print("Reading dico model from %s"%FileName, file=log)
         self.DicoSMStacked=MyPickle.Load(FileName)
         self.FromDico(self.DicoSMStacked)
 
 
     def FromDico(self,DicoSMStacked):
         self.DicoSMStacked=DicoSMStacked
-        self.RefFreq=self.DicoSMStacked["RefFreq"]
-        self.ListScales=self.DicoSMStacked["ListScales"]
-        self.ModelShape=self.DicoSMStacked["ModelShape"]
+        self.RefFreq=self.DicoSMStacked.get("RefFreq", self.DicoSMStacked.get(b"RefFreq", None))
+        self.ListScales=self.DicoSMStacked.get("ListScales", self.DicoSMStacked.get(b"ListScales", None))
+        self.ModelShape=self.DicoSMStacked.get("ModelShape", self.DicoSMStacked.get(b"ModelShape", None))
 
 
 
@@ -197,7 +203,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     
         # mask out pixels above threshold
         mask=(M1<minmod)|(M0<minmod)
-        print>>log,"computing alpha map for model pixels above %.1e Jy (based on max DR setting of %g)"%(minmod,MaxDR)
+        print("computing alpha map for model pixels above %.1e Jy (based on max DR setting of %g)"%(minmod,MaxDR), file=log)
         M0[mask]=minmod
         M1[mask]=minmod
         #with np.errstate(invalid='ignore'):
@@ -215,7 +221,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         mask = alpha<-MaxSpi
         alpha[mask] = -MaxSpi
         if masked or mask.any():
-            print>>log,ModColor.Str("WARNING: some alpha pixels outside +/-%g. Masking them."%MaxSpi,col="red")
+            print(ModColor.Str("WARNING: some alpha pixels outside +/-%g. Masking them."%MaxSpi,col="red"), file=log)
         return alpha
 
     def GiveModelList(self, FreqIn=None):
@@ -235,8 +241,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         at the same position, but different fluxes, alphas etc.
 
         """
-        DicoComp = self.DicoSMStacked["Comp"]
-        ref_freq = self.DicoSMStacked["RefFreq"]
+        DicoComp = self.DicoSMStacked.get("Comp", self.DicoSMStacked.get(b"Comp", None))
+        ref_freq = self.DicoSMStacked.get("RefFreq", self.DicoSMStacked.get(b"RefFreq", None))
         if FreqIn is None:
            FreqIn=np.array([ref_freq], dtype=np.float32)
            
@@ -254,20 +260,23 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             returns a tuple with the following information
             (ModelType, coordinate, vector of STOKES solutions per basis function, alpha, shape data)
             """
-            sa = component["SolsArray"]
-
-            return map(lambda (i, sol, ls): (ls["ModelType"],                                      # type
-                                             coord,                                                # coordinate
-                                             sol[0] * (FreqIn / ref_freq) ** ls.get("Alpha", 0.0), # only stokes I
-                                             ref_freq,                                             # reference frequency
-                                             ls.get("Alpha", 0.0),                                 # alpha
-                                             ls.get("ModelParams", None)),                         # shape
-               map(lambda i: (i, sa[i], self.ListScales[i]), range(sa.size)))
+            sa = component.get("SolsArray", component.get(b"SolsArray", None))
+            # starmap to unpack the returned tuple
+            def safe_encode(s): 
+                import six
+                return s.decode() if isinstance(s, bytes) and six.PY3 else s
+            return itertools.starmap(lambda i, sol, ls: (safe_encode(ls.get("ModelType", ls.get(b"ModelType", "Delta"))),       # type
+                                                         coord,                                                # coordinate
+                                                         sol[0] * (FreqIn / ref_freq) ** ls.get("Alpha", ls.get(b"Alpha", 0.0)), # only stokes I
+                                                         ref_freq,                                             # reference frequency
+                                                         ls.get("Alpha", ls.get(b"Alpha", 0.0)),      # alpha
+                                                         ls.get("ModelParams", ls.get(b"ModelParams", None))), # shape
+                                                        map(lambda i: (i, sa[i], self.ListScales[i]), range(sa.size)))
 
         # Lazily iterate through DicoComp entries and associated ListScales and SolsArrays,
         # assigning values to arrays
         source_iter = itertools.chain.from_iterable(_model_map(coord, comp)
-            for coord, comp in DicoComp.iteritems())
+            for coord, comp in getattr(DicoComp, "iteritems", DicoComp.items)())
 
         # Create list with iterator results
         return [s for s in source_iter]
@@ -286,7 +295,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             f_apply=np.abs
         else:
             f_apply=lambda x:x
-        RefFreq=self.DicoSMStacked["RefFreq"]
+        RefFreq=self.DicoSMStacked.get("RefFreq", self.DicoSMStacked.get(b"RefFreq", None))
+
         if FreqIn is None:
             FreqIn=np.array([RefFreq])
 
@@ -333,11 +343,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                         elif ThisComp["ModelType"]=="Gaussian":
                             Gauss=ThisComp["Model"]
                             Sup,_=Gauss.shape
-                            x0,x1=x-Sup/2,x+Sup/2+1
-                            y0,y1=y-Sup/2,y+Sup/2+1
+                            x0,x1=x-Sup//2,x+Sup//2+1
+                            y0,y1=y-Sup//2,y+Sup//2+1
 
 
-                            Aedge,Bedge=GiveEdgesDissymetric((x,y),(N0x,N0y),(Sup/2,Sup/2),(Sup,Sup))
+                            Aedge,Bedge=GiveEdgesDissymetric(x,y,N0x,N0y,Sup//2,Sup//2,Sup,Sup)
                             x0d,x1d,y0d,y1d=Aedge
                             x0p,x1p,y0p,y1p=Bedge
 
@@ -364,7 +374,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         return ModelImage
 
     def CleanNegComponants(self,box=20,sig=3,RemoveNeg=True):
-        print>>log, "Cleaning model dictionary from negative components with (box, sig) = (%i, %i)"%(box,sig)
+        print("Cleaning model dictionary from negative components with (box, sig) = (%i, %i)"%(box,sig), file=log)
         ModelImage=self.GiveModelImage(self.DicoSMStacked["RefFreq"])[0,0]
 
         Min=scipy.ndimage.filters.minimum_filter(ModelImage,(box,box))
@@ -374,7 +384,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         if RemoveNeg==False:
             Lx,Ly=np.where((ModelImage<sig*Min)&(ModelImage!=0))
         else:
-            print>>log, "  Removing neg components too"
+            print("  Removing neg components too", file=log)
             Lx,Ly=np.where( ((ModelImage<sig*Min)&(ModelImage!=0)) | (ModelImage<0))
 
         for icomp in range(Lx.size):
@@ -382,10 +392,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             try:
                 del(self.DicoSMStacked["Comp"][key])
             except:
-                print>>log, "  Component at (%i, %i) not in dict "%key
+                print("  Component at (%i, %i) not in dict "%key, file=log)
 
     def CleanMaskedComponants(self,MaskName):
-        print>>log, "Cleaning model dictionary from masked components using %s"%(MaskName)
+        print("Cleaning model dictionary from masked components using %s"%(MaskName), file=log)
         im=image(MaskName)
         MaskArray=im.getdata()[0,0].T[::-1]
         for (x,y) in self.DicoSMStacked["Comp"].keys():
@@ -475,7 +485,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         #RestoreDico=self.GD["Data"]["RestoreDico"]
         RestoreDico=DicoSolsFile["ModelName"][()][0:-4]+".DicoModel"
 
-        print>>log, "Adding previously subtracted components"
+        print("Adding previously subtracted components", file=log)
         ModelMachine0=ClassModelMachine(self.GD)
 
 

@@ -1,14 +1,15 @@
+from __future__ import division, absolute_import, print_function
 import numpy as np
 import Polygon
 from scipy.spatial import Voronoi
 from deap import algorithms
-import DeapAlgo as algorithms
+from . import DeapAlgo as algorithms
 from deap import base
 from deap import creator
 from deap import tools
 #import pylab
 from scipy.spatial import Voronoi
-import ModVoronoi
+from . import ModVoronoi
 from DDFacet.Other import logger
 log=logger.getLogger("ClusterDEAP")
 from DDFacet.Other import ClassTimeIt
@@ -39,7 +40,7 @@ def giveSizeRatio(P):
     return a.max()/a.min()
 
 def IndivToPolygon(indiv,PolyCut):
-    N=indiv.size/2
+    N=indiv.size//2
     xc,yc=indiv.reshape((2,N))
     
     xc,yc=indiv.reshape((2,N))
@@ -93,7 +94,7 @@ class ClassMetricDEAP():
                  Indiv,x=None,y=None,S=None,
                  Polygons=None,PolyCut=None,BigPolygon=None):
         
-        nNode=Indiv.size/2
+        nNode=Indiv.size//2
         xc,yc=Indiv.reshape((2,nNode))
         self.xc=xc
         self.yc=yc

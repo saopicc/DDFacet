@@ -1,9 +1,12 @@
+from __future__ import division, absolute_import, print_function
+
+
 
 
 from SkyModel.Other import ModCoord
 import numpy as np
 from scipy.spatial import Voronoi
-import ModVoronoi
+from . import ModVoronoi
 from SkyModel.Other import MyLogger
 from SkyModel.Other import ModColor
 log=MyLogger.getLogger("VoronoiToReg")
@@ -91,7 +94,7 @@ class VoronoiToReg():
         f.close()
 
     def PolygonToReg(self,regFile,LPolygon,radius=0.1,Col="red",labels=None):
-        print>>log, "Writing voronoi in: %s"%ModColor.Str(regFile,col="blue")
+        print("Writing voronoi in: %s"%ModColor.Str(regFile,col="blue"), file=log)
 
         f=open(regFile,"w")
         f.write("# Region file format: DS9 version 4.1\n")
@@ -104,7 +107,7 @@ class VoronoiToReg():
         CoordMachine=self.CoordMachine
         
         
-        for iFacet,polygon0 in zip(range(len(LPolygon)),LPolygon):
+        for iFacet,polygon0 in zip(list(range(len(LPolygon))),LPolygon):
             #polygon0 = vertices[region]
             P=polygon0.tolist()
             if len(polygon0)==0: continue

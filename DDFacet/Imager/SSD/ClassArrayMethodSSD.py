@@ -1,3 +1,9 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import collections
 import random
 
@@ -8,7 +14,7 @@ from DDFacet.Other import logger
 log=logger.getLogger("ClassArrayMethodSSD")
 import multiprocessing
 
-import ClassConvMachine
+from DDFacet.Imager.SSD import ClassConvMachine
 import time
 from scipy.stats import chi2
 
@@ -17,9 +23,9 @@ from deap import tools
 log= logger.getLogger("ClassArrayMethodSSD")
 
 
-from ClassParamMachine import ClassParamMachine
+from DDFacet.Imager.SSD.ClassParamMachine import ClassParamMachine
 from DDFacet.ToolsDir.GeneDist import ClassDistMachine
-import ClassMutate
+from DDFacet.Imager.SSD import ClassMutate
 
 class ClassArrayMethodSSD():
     def __init__(self,Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,GD=None,
@@ -112,7 +118,7 @@ class ClassArrayMethodSSD():
             self._island_dict.delete_item("Population")
 
     def SetDirtyArrays(self,Dirty):
-        print>>log,"SetConvMatrix"
+        print("SetConvMatrix", file=log)
         PSF=self.PSF
         NPixPSF=PSF.shape[-1]
         if self.ListPixData is None:
@@ -123,7 +129,7 @@ class ClassArrayMethodSSD():
             self.ListPixParms=np.array([x.ravel().tolist(),y.ravel().tolist()]).T.tolist()
 
         self.DirtyArray=np.zeros((self.NFreqBands,1,self.NPixListData),np.float32)
-        xc=yc=NPixPSF/2
+        xc=yc=NPixPSF//2
 
         x0,y0=np.array(self.ListPixData).T
         for iBand in range(self.NFreqBands):
@@ -212,8 +218,8 @@ class ClassArrayMethodSSD():
             _,_,NPixPSF,_=PSF.shape
             PSFMean=np.mean(PSF,axis=0).reshape((NPixPSF,NPixPSF))
             ArrayMode="Image"
-            xcPSF=NPixPSF/2
-            xcDirty=NPix/2
+            xcPSF=NPixPSF//2
+            xcDirty=NPix//2
             SModelArray=np.zeros_like(A)
 
         MaxA=np.max(A)
@@ -276,13 +282,13 @@ class ClassArrayMethodSSD():
                 dx=iPix-xcDirty
                 dy=jPix-xcDirty
                 ThisPSF=np.roll(np.roll(PSFMean,dx,axis=0),dy,axis=1)
-                ThisPSFCut=ThisPSF[xcPSF-NPixPSF/2:xcPSF+NPixPSF/2+1,xcPSF-NPixPSF/2:xcPSF+NPixPSF/2+1]
+                ThisPSFCut=ThisPSF[xcPSF-NPixPSF//2:xcPSF+NPixPSF//2+1,xcPSF-NPixPSF//2:xcPSF+NPixPSF//2+1]
 
                 NMin=np.min([A.shape[-1],ThisPSFCut.shape[-1]])
-                xc0=A.shape[-1]/2
-                xc1=ThisPSFCut.shape[-1]/2
+                xc0=A.shape[-1]//2
+                xc1=ThisPSFCut.shape[-1]//2
                 #pylab.subplot(1,3,2); pylab.imshow(ThisPSFCut,interpolation="nearest")
-                A[xc0-NMin/2:xc0+NMin/2+1,xc0-NMin/2:xc0+NMin/2+1]-=gain*f*ThisPSFCut[xc1-NMin/2:xc1+NMin/2+1,xc1-NMin/2:xc1+NMin/2+1]
+                A[xc0-NMin//2:xc0+NMin//2+1,xc0-NMin//2:xc0+NMin//2+1]-=gain*f*ThisPSFCut[xc1-NMin//2:xc1+NMin//2+1,xc1-NMin//2:xc1+NMin//2+1]
                 A[Mask]=0
                 #pylab.subplot(1,3,3); pylab.imshow(A,interpolation="nearest")
                 #pylab.draw()
@@ -376,11 +382,11 @@ class ClassArrayMethodSSD():
             for j,jIndiv in enumerate(pop):
                 D[i,j]=D[j,i]=np.count_nonzero(iIndiv-jIndiv)
                 
-        print D
+        print(D)
         from tsp_solver.greedy import solve_tsp
         path = solve_tsp( D )
         for i in path[1::]:
-            print D[i,path[i-1]]/float(len(iIndiv))
+            print(D[i,path[i-1]]/float(len(iIndiv)))
 
     def _fill_pop_array(self, pop):
         """Creates "Population" cube inside the island dict, iof not already created, or if the wrong shape."""
@@ -434,7 +440,7 @@ class ClassArrayMethodSSD():
             if result_queue.qsize()!=0:
                 try:
                     DicoResult=result_queue.get_nowait()
-                except Exception,e:
+                except Exception as e:
                     #print "Exception: %s"%(str(e))
                     pass
                 
@@ -526,7 +532,7 @@ class ClassArrayMethodSSD():
             if result_queue.qsize()!=0:
                 try:
                     DicoResult=result_queue.get_nowait()
-                except Exception,e:
+                except Exception as e:
                     #print "Exception: %s"%(str(e))
                     pass
                 
@@ -589,7 +595,7 @@ class ClassArrayMethodSSD():
             if result_queue.qsize()!=0:
                 try:
                     DicoResult=result_queue.get_nowait()
-                except Exception,e:
+                except Exception as e:
                     #print "Exception: %s"%(str(e))
                     pass
                 
@@ -988,7 +994,7 @@ class WorkerFitness(multiprocessing.Process):
             if FuncType=="MEM":
                 chi2=np.sum((Resid)**2)/(self.PixVariance)
                 if self.EntropyMinMax is None:
-                    print "Not computing entropy"
+                    print("Not computing entropy")
                     ContinuousFitNess.append(-chi2)
                     continue
                 aS=np.abs(self.ModelA)

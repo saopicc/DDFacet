@@ -18,21 +18,36 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
-import math, os, cPickle, traceback
+import six
+if six.PY3:
+    import pickle as cPickle
+else:
+    import cPickle
+import math, os, traceback
 
 
-import ClassMS
+from DDFacet.Data import ClassMS
 from DDFacet.Data.ClassStokes import ClassStokes
 from DDFacet.Other import ModColor
 from DDFacet.Other import logger
 from functools import reduce
 logger.setSilent(["NpShared"])
-import ClassSmearMapping
-import ClassJones
+from DDFacet.Data import ClassSmearMapping
+from DDFacet.Data import ClassJones
 from DDFacet.Array import shared_dict
 from DDFacet.Other.AsyncProcessPool import APP
-import DDFacet.cbuild.Gridder._pyGridderSmearPols as _pyGridderSmearPols
+import six
+if six.PY3:
+    from DDFacet.cbuild.Gridder import _pyGridderSmearPols3x as _pyGridderSmearPols
+else:
+    from DDFacet.cbuild.Gridder import _pyGridderSmearPols27 as _pyGridderSmearPols
 import copy
 
 log = logger.getLogger("ClassVisServer")
@@ -150,12 +165,12 @@ class ClassVisServer():
                                      for a, b in zip(self._chunk_shape, shape)]
 
         size = reduce(lambda x, y: x * y, self._chunk_shape)
-        print >>log, "shape of data/flag buffer will be %s (%.2f Gel)" % (
-            self._chunk_shape, size / float(2 ** 30))
+        print("shape of data/flag buffer will be %s (%.2f Gel)" % (
+            self._chunk_shape, size / float(2 ** 30)), file=log)
 
         if not self.ListMS:
-            print>>log, ModColor.Str("--Data-MS does not specify any valid Measurement Set(s)")
-            raise RuntimeError,"--Data-MS does not specify any valid Measurement Set(s)"
+            print(ModColor.Str("--Data-MS does not specify any valid Measurement Set(s)"), file=log)
+            raise RuntimeError("--Data-MS does not specify any valid Measurement Set(s)")
 
         self.obs_detail = self.ListMS[0].get_obs_details()
 
@@ -168,7 +183,7 @@ class ClassVisServer():
             # main cache is initialized from main cache of first MS
             self.maincache = self.cache = self.ListMS[0].maincache
 
-        print>>log,"Main caching directory is %s"%self.maincache.dirname
+        print("Main caching directory is %s"%self.maincache.dirname, file=log)
 
 
 
@@ -192,8 +207,8 @@ class ClassVisServer():
 
 
         bandwidth = max_freq - min_freq
-        print>>log, "Total bandwidth is %g MHz (%g to %g MHz), with %d channels" % (
-            bandwidth*1e-6, min_freq*1e-6, max_freq*1e-6, len(global_freqs))
+        print("Total bandwidth is %g MHz (%g to %g MHz), with %d channels" % (
+            bandwidth*1e-6, min_freq*1e-6, max_freq*1e-6, len(global_freqs)), file=log)
 
         # print>>log,"GlobalFreqs: %d: %s"%(len(self.GlobalFreqs),repr(self.GlobalFreqs))
 
@@ -214,9 +229,9 @@ class ClassVisServer():
         self.NFreqBands = NFreqBands
         self.MultiFreqMode = NFreqBands > 1
         if self.MultiFreqMode:
-            print>>log, ModColor.Str(
+            print(ModColor.Str(
                 "MultiFrequency Mode: ON, %dx%g MHz bands" %
-                (NFreqBands, grid_bw*1e-6))
+                (NFreqBands, grid_bw*1e-6)), file=log)
 
             if not ("Alpha" in self.GD["SSDClean"]["SSDSolvePars"]):
                 self.GD["SSDClean"]["SSDSolvePars"].append("Alpha")
@@ -227,7 +242,7 @@ class ClassVisServer():
             if "Alpha" in self.GD["SSDClean"]["SSDSolvePars"]:
                 self.GD["SSDClean"]["SSDSolvePars"].remove("Alpha")
 
-            print>>log, ModColor.Str("MultiFrequency Mode: OFF")
+            print(ModColor.Str("MultiFrequency Mode: OFF"), file=log)
 
         # Divide the global frequencies into frequency bands.
         # Somewhat of an open question how best to do it (equal bandwidth, or equal number of channels?), this is where
@@ -247,26 +262,23 @@ class ClassVisServer():
         freq_to_grid_band = dict(zip(self.GlobalFreqs, grid_band))
         # print>>log,sorted(freq_to_grid_band.items())
 
-### not sure why linspace is here and not arange?
-# <<<<<<< HEAD
-        self.FreqBandCenters = np.linspace(min_freq+grid_bw/2, max_freq-grid_bw/2,self.NFreqBands)
-# =======
-#        self.FreqBandCenters = min_freq+grid_bw/2 + np.arange(0, self.NFreqBands)*grid_bw
-#>>>>>>> master
+        self.FreqBandCenters = min_freq+grid_bw/2 + np.arange(0, self.NFreqBands)*grid_bw
 
         self.FreqBandChannels = []
         # freq_to_grid_band_chan: mapping from frequency to channel number
         # within its grid band
         freq_to_grid_band_chan = {}
-        for iBand in xrange(self.NFreqBands):
+        for iBand in range(self.NFreqBands):
             freqlist = sorted([freq for freq, band
-                               in freq_to_grid_band.iteritems()
+                               in getattr(freq_to_grid_band, 
+                                          "iteritems", 
+                                          freq_to_grid_band.items)()
                                if band == iBand])
             self.FreqBandChannels.append(freqlist)
             freq_to_grid_band_chan.update(
                 dict([(freq, chan) for chan, freq in enumerate(freqlist)]))
-            print>>log, "Image band %d: %g to %g MHz contains %d MS channels from %g to %g MHz" % (iBand, (self.FreqBandCenters[iBand]-grid_bw/2)*1e-6, (
-                self.FreqBandCenters[iBand]+grid_bw/2)*1e-6, len(freqlist), len(freqlist) and freqlist[0]*1e-6, len(freqlist) and freqlist[-1]*1e-6)
+            print("Image band %d: %g to %g MHz contains %d MS channels from %g to %g MHz" % (iBand, (self.FreqBandCenters[iBand]-grid_bw/2)*1e-6, (
+                self.FreqBandCenters[iBand]+grid_bw/2)*1e-6, len(freqlist), len(freqlist) and freqlist[0]*1e-6, len(freqlist) and freqlist[-1]*1e-6), file=log)
 
         self.FreqBandChannelsDegrid = {}
         self.DicoMSChanMapping = {}
@@ -322,18 +334,18 @@ class ClassVisServer():
             edges = np.arange(min_freq, max_freq+degrid_bw, degrid_bw)
             self.FreqBandChannelsDegrid[iMS] = (edges[:-1] + edges[1:])/2
 
-            print>>log, "%s   Bandwidth is %g MHz (%g to %g MHz), gridding bands are %s" % (
-                MS, bw*1e-6, min_freq*1e-6, max_freq*1e-6, ", ".join(map(str, set(bands))))
-            print>>log, "Grid band mapping: %s" % (" ".join(map(str, bands)))
-            print >>log, "Grid chan mapping: %s" % (
-                " ".join(map(str, self.DicoMSChanMappingChan[iMS])))
-            print >>log, "Degrid chan mapping: %s" % (
-                " ".join(map(str, self.DicoMSChanMappingDegridding[iMS])))
-            print >>log, "Degrid frequencies: %s" % (" ".join(
+            print("%s   Bandwidth is %g MHz (%g to %g MHz), gridding bands are %s" % (
+                MS, bw*1e-6, min_freq*1e-6, max_freq*1e-6, ", ".join(map(str, set(bands)))), file=log)
+            print("Grid band mapping: %s" % (" ".join(map(str, bands))), file=log)
+            print("Grid chan mapping: %s" % (
+                " ".join(map(str, self.DicoMSChanMappingChan[iMS]))), file=log)
+            print("Degrid chan mapping: %s" % (
+                " ".join(map(str, self.DicoMSChanMappingDegridding[iMS]))), file=log)
+            print("Degrid frequencies: %s" % (" ".join(
                                                          ["%.2f" %
                                                           (x * 1e-6)
                                                           for x in self.FreqBandChannelsDegrid
-                                                          [iMS]]))
+                                                          [iMS]])), file=log)
 
 #            print>>log,MS
 
@@ -418,10 +430,10 @@ class ClassVisServer():
             if not self._ignore_vis_weights and not last_cycle:
                 self.awaitWeights()
                 if self.VisWeights[self.iCurrentMS][self.iCurrentChunk]["null"]:
-                    print>>log, ModColor.Str("chunk %s is null, skipping"%self._next_chunk_label)
+                    print(ModColor.Str("chunk %s is null, skipping"%self._next_chunk_label), file=log)
                     continue
             # ok, now we're good to load
-            print>>log, "scheduling loading of chunk %s" % self._next_chunk_label
+            print("scheduling loading of chunk %s" % self._next_chunk_label, file=log)
             # in single-chunk mode, DATA may already be loaded, in which case we do nothing
             if self.nTotalChunks > 1 or self.DATA is None:
                 # tell the IO thread to start loading the chunk
@@ -477,7 +489,7 @@ class ClassVisServer():
         DATA["iChunk"] = iChunk
         ms = self.ListMS[iMS]
 
-        print>> log, ModColor.Str("loading ms %d of %d, chunk %d of %d" % (iMS+1, self.nMS, iChunk+1, ms.numChunks()), col="green")
+        print(ModColor.Str("loading ms %d of %d, chunk %d of %d" % (iMS+1, self.nMS, iChunk+1, ms.numChunks()), col="green"), file=log)
 
         ms.GiveChunk(DATA, iChunk, use_cache=self._use_data_cache,
                      read_data=bool(self.ColName), sort_by_baseline=self.GD["Data"]["Sort"])
@@ -502,8 +514,8 @@ class ClassVisServer():
         DATA["ChanMappingDegrid"] = self.DicoMSChanMappingDegridding[iMS]
         DATA["FreqMappingDegrid"] = self.FreqBandChannelsDegrid[iMS]
 
-        print>>log, "  channel Mapping Gridding  : %s" % str(DATA["ChanMapping"])
-        print>>log, "  channel Mapping DeGridding: %s" % str(DATA["ChanMappingDegrid"])
+        print("  channel Mapping Gridding  : %s" % str(DATA["ChanMapping"]), file=log)
+        print("  channel Mapping DeGridding: %s" % str(DATA["ChanMappingDegrid"]), file=log)
 
         if freqs.size > 1:
             DATA["freqs"] = np.float64(freqs)
@@ -520,7 +532,7 @@ class ClassVisServer():
         weights = self.GetVisWeights(iMS, iChunk)
         DATA["Weights"] = weights
         if weights is None:
-            print>> log, ModColor.Str("This chunk is all flagged or has zero weight.")
+            print(ModColor.Str("This chunk is all flagged or has zero weight."), file=log)
             return
         if DATA["sort_index"] is not None and DATA["Weights"] is not 1:
             DATA["Weights"] = DATA["Weights"][DATA["sort_index"]]
@@ -555,14 +567,14 @@ class ClassVisServer():
         """Called in I/O thread. Waits for BDA computation to complete (if any), then populates dict"""
         if "BDA.Grid" not in DATA:
             FinalMapping, fact = self._smm_grid.collectSmearMapping(DATA, "BDA.Grid")
-            print>> log, ModColor.Str("  Effective compression [grid]  :   %.2f%%" % fact, col="green")
-            np.save(file(self._bda_grid_cachename, 'w'), FinalMapping)
+            print(ModColor.Str("  Effective compression [grid]  :   %.2f%%" % fact, col="green"), file=log)
+            np.save(open(self._bda_grid_cachename, 'wb'), FinalMapping)
             self.cache.saveCache("BDA.Grid")
         if "BDA.Degrid" not in DATA:
             FinalMapping, fact = self._smm_degrid.collectSmearMapping(DATA, "BDA.Degrid")
-            print>> log, ModColor.Str("  Effective compression [degrid]:   %.2f%%" % fact, col="green")
+            print(ModColor.Str("  Effective compression [degrid]:   %.2f%%" % fact, col="green"), file=log)
             DATA["BDA.Degrid"] = FinalMapping
-            np.save(file(self._bda_degrid_cachename, 'w'), FinalMapping)
+            np.save(open(self._bda_degrid_cachename, 'wb'), FinalMapping)
             self.cache.saveCache("BDA.Degrid")
 
     def computeBDAInBackground(self, base_job_id, ms, DATA, ChanMappingGridding=None, ChanMappingDeGridding=None):
@@ -579,7 +591,7 @@ class ClassVisServer():
         if True: # always True for now, non-BDA gridder is not maintained # if self.GD["Comp"]["CompGridMode"]:
             self._bda_grid_cachename, valid = self.cache.checkCache("BDA.Grid",CriticalCacheParms)
             if valid:
-                print>> log, "  using cached BDA mapping %s" % self._bda_grid_cachename
+                print("  using cached BDA mapping %s" % self._bda_grid_cachename, file=log)
                 DATA["BDA.Grid"] = np.load(self._bda_grid_cachename)
             else:
                 if self.GD["Comp"]["GridFoV"] == "Facet":
@@ -596,7 +608,7 @@ class ClassVisServer():
             self._bda_degrid_cachename, valid = self.cache.checkCache("BDA.Degrid",CriticalCacheParms)
 
             if valid:
-                print>> log, "  using cached BDA mapping %s" % self._bda_degrid_cachename
+                print("  using cached BDA mapping %s" % self._bda_degrid_cachename, file=log)
                 DATA["BDA.Degrid"] = np.load(self._bda_degrid_cachename)
             else:
                 if self.GD["Comp"]["DegridFoV"] == "Facet":
@@ -625,13 +637,19 @@ class ClassVisServer():
         path = self.VisWeights[iMS][iChunk]["cachepath"]
         if not os.path.getsize(path):
             return None
-        return np.load(file(path))
+        return np.load(open(path, "rb"))
 
     def getMaxW(self):
         """Returns the max W value. Since this is estimated as part of weights computation, 
         wait for that to finish firest"""
         self.awaitWeights()
         return self.VisWeights["wmax"]
+        
+    def getMaxUV(self):
+        """Returns the max UV value. Since this is estimated as part of weights computation, 
+        wait for that to finish first"""
+        self.awaitWeights()
+        return self.VisWeights["uvmax"]
 
     def awaitWeights(self):
         if self.VisWeights is None:
@@ -641,11 +659,11 @@ class ClassVisServer():
             self.VisWeights = shared_dict.attach("VisWeights")
             # check for errors
             for iMS, MS in enumerate(self.ListMS):
-                for ichunk in xrange(len(MS.getChunkRow0Row1())):
+                for ichunk in range(len(MS.getChunkRow0Row1())):
                     msw = self.VisWeights[iMS][ichunk]
                     if "error" in msw:
-                        print>>log,ModColor.Str("error computing weights for %s"%MS.MSName)
-                        print>>log,ModColor.Str(msw["error"])
+                        print(ModColor.Str("error computing weights for %s"%MS.MSName), file=log)
+                        print(ModColor.Str(msw["error"]), file=log)
                         raise msw["error"]
 
     def IgnoreWeights(self):
@@ -654,7 +672,7 @@ class ClassVisServer():
         Note that the background CalcWeights job is still run in this case, but just to get the wmax
         value from the MSs
         """
-        print>>log,"visibility weights will not be computed"
+        print("visibility weights will not be computed", file=log)
         self._ignore_vis_weights = True
 
     def CalcWeightsBackground(self):
@@ -674,9 +692,9 @@ class ClassVisServer():
         wmax_path, wmax_valid = self.maincache.checkCache("wmax", cache_keys)
         uvmax_path, uvmax_valid = self.maincache.checkCache("uvmax", cache_keys)
         if wmax_valid:
-            self._weight_dict["wmax"] = cPickle.load(open(wmax_path))
+            self._weight_dict["wmax"] = cPickle.load(open(wmax_path,'rb'))
         if uvmax_valid:
-            self._weight_dict["uvmax"] = cPickle.load(open(uvmax_path))
+            self._weight_dict["uvmax"] = cPickle.load(open(uvmax_path,'rb'))
         # check cache first
         have_all_weights = wmax_valid and uvmax_valid
         for iMS, MS in enumerate(self.ListMS):
@@ -691,12 +709,12 @@ class ClassVisServer():
 
         # if every weight is in cache, then we're done here
         if have_all_weights:
-            print>> log, "all imaging weights, wmax, and uvmax are available in cache"
+            print("all imaging weights, wmax, and uvmax are available in cache", file=log)
             return
         # spawn parallel jobs to load weights
         for ims,ms in enumerate(self.ListMS):
             msweights = self._weight_dict[ims]
-            for ichunk in xrange(len(ms.getChunkRow0Row1())):
+            for ichunk in range(len(ms.getChunkRow0Row1())):
                 msw = msweights[ichunk]
                 APP.runJob("LoadWeights:%d:%d"%(ims,ichunk), self._loadWeights_handler,
                            args=(msw.writeonly(), ims, ichunk, self._ignore_vis_weights),
@@ -709,7 +727,7 @@ class ClassVisServer():
         # now work out weight grid sizes, etc.
         for ims, ms in enumerate(self.ListMS):
             msweights = self._weight_dict[ims]
-            for ichunk in xrange(len(ms.getChunkRow0Row1())):
+            for ichunk in range(len(ms.getChunkRow0Row1())):
                 msw = msweights[ichunk]
                 if "error" in msw:
                     raise msw["error"]
@@ -718,11 +736,11 @@ class ClassVisServer():
                     wmax = max(wmax, msw["wmax"])
                     self._uvmax = max(self._uvmax, msw["uvmax_wavelengths"])
         # save wmax to cache
-        cPickle.dump(wmax,open(wmax_path, "w"))
+        cPickle.dump(wmax,open(wmax_path, "wb"))
         self.maincache.saveCache("wmax")
         self._weight_dict["wmax"] = wmax
         # LB - Need to cache this to set scales in ScaleMachine
-        cPickle.dump(self._uvmax, open(uvmax_path, "w"))
+        cPickle.dump(self._uvmax, open(uvmax_path, "wb"))
         self.maincache.saveCache("uvmax")
         self._weight_dict["uvmax"] = self._uvmax
         if self._ignore_vis_weights:
@@ -740,21 +758,21 @@ class ClassVisServer():
             cell = 1. / (self.Super * FOV)
             if self.MFSWeighting or self.NFreqBands < 2:
                 nbands = 1
-                print>> log, "initializing weighting grid for single band (or MFS weighting)"
+                print("initializing weighting grid for single band (or MFS weighting)", file=log)
             else:
-                print>> log, "initializing weighting grids for %d bands" % nbands
+                print("initializing weighting grids for %d bands" % nbands, file=log)
             # find max grid extent by considering _unflagged_ UVs
             xymax = int(math.floor(self._uvmax / cell)) + 1
             # grid will be from [-xymax,xymax] in U and [0,xymax] in V
             npixx = xymax * 2 + 1
             npixy = xymax + 1
             npix = npixx * npixy
-            print>> log, "Calculating imaging weights on an [%i,%i]x%i grid with cellsize %g" % (npixx, npixy, nbands, cell)
+            print("Calculating imaging weights on an [%i,%i]x%i grid with cellsize %g" % (npixx, npixy, nbands, cell), file=log)
             grid0 = self._weight_grid.addSharedArray("grid", (nbands, npix), np.float64)
             # now run parallel jobs to accumulate weights
             parallel = num_valid_chunks > 1
             for ims, ms in enumerate(self.ListMS):
-                for ichunk in xrange(len(ms.getChunkRow0Row1())):
+                for ichunk in range(len(ms.getChunkRow0Row1())):
                     if "weight" in self._weight_dict[ims][ichunk]:
                         APP.runJob("AccumWeights:%d:%d" % (ims, ichunk), self._accumulateWeights_handler,
                                    args=(self._weight_grid.readonly(),
@@ -773,7 +791,7 @@ class ClassVisServer():
                     grid1[...] = 1 + grid1 * sSq
         # launch jobs to finalize weights and save them to the cache
         for ims, ms in enumerate(self.ListMS):
-            for ichunk in xrange(len(ms.getChunkRow0Row1())):
+            for ichunk in range(len(ms.getChunkRow0Row1())):
                 APP.runJob("FinalizeWeights:%d:%d" % (ims, ichunk), self._finalizeWeights_handler,
                            args=(self._weight_grid.readonly(),
                                  self._weight_dict[ims][ichunk].readwrite(),
@@ -878,10 +896,10 @@ class ClassVisServer():
                 msw.delete_item("flags")
             else:
                 msw["bandmap"] = self.DicoMSChanMapping[ims]
-        except Exception,exc:
-            print>> log, ModColor.Str("Error loading weights from %s:"%msname)
+        except Exception as exc:
+            print(ModColor.Str("Error loading weights from %s:"%msname), file=log)
             for line in traceback.format_exc().split("\n"):
-                print>>log,ModColor.Str("  "+line)
+                print(ModColor.Str("  "+line), file=log)
             msw["error"] = exc
             msw.delete_item("weight")
             msw.delete_item("uv")
@@ -922,10 +940,10 @@ class ClassVisServer():
                 _pyGridderSmearPols.pyAccumulateWeightsOntoGrid(wg["grid"], weights.ravel(), index.ravel())
             else:
                 _pyGridderSmearPols.pyAccumulateWeightsOntoGridNoSem(wg["grid"], weights.ravel(), index.ravel())
-        except Exception,exc:
-            print>> log, ModColor.Str("Error accumulating weights from %s:"%msname)
+        except Exception as exc:
+            print(ModColor.Str("Error accumulating weights from %s:"%msname), file=log)
             for line in traceback.format_exc().split("\n"):
-                print>>log,ModColor.Str("  "+line)
+                print(ModColor.Str("  "+line), file=log)
             msw["error"] = exc
             os.unlink(msw["cachepath"])
             msw.delete_item("weight")
@@ -963,11 +981,11 @@ class ClassVisServer():
                 os.unlink(msw["cachepath"])
             else:
                 msw["null"] = True
-                file(msw["cachepath"], 'w').truncate(0)
-        except Exception,exc:
-            print>> log, ModColor.Str("Error accumulating weights from %s:"%msname)
+                open(msw["cachepath"], 'w').truncate(0)
+        except Exception as exc:
+            print(ModColor.Str("Error accumulating weights from %s:"%msname), file=log)
             for line in traceback.format_exc().split("\n"):
-                print>>log,ModColor.Str("  "+line)
+                print(ModColor.Str("  "+line), file=log)
             msw["error"] = exc
             msw["success"] = False
             os.unlink(msw["cachepath"])
@@ -980,9 +998,9 @@ class ClassVisServer():
         wmax_path, wmax_valid = self.maincache.checkCache("wmax", cache_keys)
         uvmax_path, uvmax_valid = self.maincache.checkCache("uvmax", cache_keys)
         if wmax_valid:
-            self._weight_dict["wmax"] = cPickle.load(open(wmax_path))
+            self._weight_dict["wmax"] = cPickle.load(open(wmax_path, "rb"))
         if uvmax_valid:
-            self._weight_dict["uvmax"] = cPickle.load(open(uvmax_path))
+            self._weight_dict["uvmax"] = cPickle.load(open(uvmax_path, "rb"))
         # check cache first
         have_all_weights = wmax_valid and uvmax_valid
         for iMS, MS in enumerate(self.ListMS):
@@ -997,7 +1015,7 @@ class ClassVisServer():
 
         # if every weight is in cache, then we're done here
         if have_all_weights:
-            print>> log, "all imaging weights, wmax, and uvmax are available in cache"
+            print("all imaging weights, wmax, and uvmax are available in cache", file=log)
             return
 
         wmax = self._uvmax = 0
@@ -1005,8 +1023,8 @@ class ClassVisServer():
         for ims, ms in enumerate(self.ListMS):
             ms = self.ListMS[ims]
             max_freq = ms.ChanFreq.max()
-            for ichunk in xrange(len(ms.getChunkRow0Row1())):
-                print>> log, "scanning UVWs %d.%d" % (ims, ichunk)
+            for ichunk in range(len(ms.getChunkRow0Row1())):
+                print("scanning UVWs %d.%d" % (ims, ichunk), file=log)
                 row0, row1 = ms.getChunkRow0Row1()[ichunk]
                 nrows = row1 - row0
                 if not nrows:
@@ -1029,24 +1047,24 @@ class ClassVisServer():
             cell = 1. / (self.Super * FOV)
             if self.MFSWeighting or self.NFreqBands < 2:
                 nbands = 1
-                print>> log, "initializing weighting grid for single band (or MFS weighting)"
+                print("initializing weighting grid for single band (or MFS weighting)", file=log)
             else:
-                print>> log, "initializing weighting grids for %d bands" % nbands
+                print("initializing weighting grids for %d bands" % nbands, file=log)
             # find max grid extent by considering _unflagged_ UVs
             xymax = int(math.floor(self._uvmax / cell)) + 1
             # grid will be from [-xymax,xymax] in U and [0,xymax] in V
             npixx = xymax * 2 + 1
             npixy = xymax + 1
             npix = npixx * npixy
-            print>> log, "Calculating imaging weights on an [%i,%i]x%i grid with cellsize %g" % (npixx, npixy, nbands, cell)
+            print("Calculating imaging weights on an [%i,%i]x%i grid with cellsize %g" % (npixx, npixy, nbands, cell), file=log)
             self._weight_grid.addSharedArray("grid", (nbands, npix), np.float64)
 
         # scan through MSs one by one
         for ims, ms in enumerate(self.ListMS):
             msweights = self._weight_dict[ims]
-            for ichunk in xrange(len(ms.getChunkRow0Row1())):
+            for ichunk in range(len(ms.getChunkRow0Row1())):
                 msw = msweights[ichunk]
-                print>>log,"loading weights %d.%d"%(ims, ichunk)
+                print("loading weights %d.%d"%(ims, ichunk), file=log)
                 self._loadWeights_handler(msw, ims, ichunk, self._ignore_vis_weights)
 
                 # if nothing in MS, handler will not return a "weight" field. Mark this chunk as null then, and truncate the cache
@@ -1054,7 +1072,7 @@ class ClassVisServer():
                 if "error" in msw:
                     raise RuntimeError("weights computation failed for one or more MSs")
                 if "weight" not in msw:
-                    file(msw["cachepath"], 'w').truncate(0)
+                    open(msw["cachepath"], 'wb').truncate(0)
                     continue
 
                 # in Natural mode, we're done: dump weights out
@@ -1070,14 +1088,14 @@ class ClassVisServer():
                             msw.delete_item(field)
                             
         # save wmax to cache
-        cPickle.dump(wmax, open(wmax_path, "w"))
+        cPickle.dump(wmax, open(wmax_path, "wb"))
         self.maincache.saveCache("wmax")
         self._weight_dict["wmax"] = wmax
         # LB - Need to cache this to set scales in ScaleMachine
-        cPickle.dump(self._uvmax, open(uvmax_path, "w"))
+        cPickle.dump(self._uvmax, open(uvmax_path, "wb"))
         self.maincache.saveCache("uvmax")
         self._weight_dict["uvmax"] = self._uvmax
-        print>>log,"overall max W is %.2f meters"%wmax
+        print("overall max W is %.2f meters"%wmax, file=log)
         if self._ignore_vis_weights:
             return
         if not self._uvmax:
@@ -1097,13 +1115,13 @@ class ClassVisServer():
             # rescan through MSs one by one to re-adjust the weights
             for ims, ms in enumerate(self.ListMS):
                 msweights = self._weight_dict[ims]
-                for ichunk in xrange(len(ms.getChunkRow0Row1())):
+                for ichunk in range(len(ms.getChunkRow0Row1())):
                     msw = msweights[ichunk]
                     if msw["null"]:
-                        print>> log, "skipping weights %d.%d (null)" % (ims, ichunk)
-                        file(msw["cachepath"], 'w').truncate(0)
+                        print("skipping weights %d.%d (null)" % (ims, ichunk), file=log)
+                        open(msw["cachepath"], 'w').truncate(0)
                         continue
-                    print>> log, "reloading weights %d.%d" % (ims, ichunk)
+                    print("reloading weights %d.%d" % (ims, ichunk), file=log)
                     self._loadWeights_handler(msw, ims, ichunk, self._ignore_vis_weights)
                     self._finalizeWeights_handler(self._weight_grid, msw,
                                                       ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax)
@@ -1115,4 +1133,3 @@ class ClassVisServer():
         for ims, ms in enumerate(self.ListMS):
             for ichunk, (row0, row1) in enumerate(ms.getChunkRow0Row1()):
                 ms.getChunkCache(row0, row1).saveCache("ImagingWeights.npy")
-

@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import itertools
 import numpy as np
 from DDFacet.Other import logger
@@ -41,7 +47,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def setRefFreq(self, RefFreq, Force=False):
         if self.RefFreq is not None and not Force:
-            print>>log, ModColor.Str("Reference frequency already set to %f MHz" % (self.RefFreq/1e6))
+            print(ModColor.Str("Reference frequency already set to %f MHz" % (self.RefFreq/1e6)), file=log)
             return
 
         self.RefFreq = RefFreq
@@ -76,15 +82,15 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.Npol = 1
 
     def ToFile(self, FileName, DicoIn=None):
-        print>> log, "Saving dico model to %s" % FileName
+        print("Saving dico model to %s" % FileName, file=log)
         if DicoIn is None:
             D = self.DicoSMStacked
         else:
             D = DicoIn
 
         if self.GD is None:
-            print>>log, "Warning - You have not initialised self.GD in ModelMachine so " \
-                        "we can't write it to the DicoModel"
+            print("Warning - You have not initialised self.GD in ModelMachine so " \
+                        "we can't write it to the DicoModel", file=log)
 
         D["GD"] = self.GD
         D["Type"] = "Hogbom"
@@ -93,7 +99,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         MyPickle.Save(D, FileName)
 
     def FromFile(self, FileName):
-        print>> log, "Reading dico model from %s" % FileName
+        print("Reading dico model from %s" % FileName, file=log)
         self.DicoSMStacked = MyPickle.Load(FileName)
         self.FromDico(self.DicoSMStacked)
 
@@ -187,7 +193,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # Lazily iterate through DicoComp entries and associated ListScales and SolsArrays,
         # assigning values to arrays
         source_iter = itertools.chain.from_iterable(_model_map(coord, comp)
-            for coord, comp in DicoComp.iteritems())
+            for coord, comp in getattr(DicoComp, "iteritems", DicoComp.items)())
 
         # Create list with iterator results
         return [s for s in source_iter]
@@ -239,23 +245,15 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         ex, ey, pa = GaussPars
         ex *= np.pi/180/np.sqrt(2)/2
         ey *= np.pi/180/np.sqrt(2)/2
-        # pa -= 180.0
-        pa *= np.pi/180/np.sqrt(2)/2
+        epar = (ex + ey)/2.0
+        pa = 0.0
 
         # get in terms of number of cells
         CellSizeRad = self.GD['Image']['Cell'] * np.pi / 648000
-        # ex /= self.GD['Image']['Cell'] * np.pi / 648000
-        # ey /= self.GD['Image']['Cell'] * np.pi / 648000
 
         # get Gaussian kernel
-        GaussKern = ModFFTW.GiveGauss(self.Npix, CellSizeRad=CellSizeRad, GaussPars=(ex, ey, pa), parallel=False)
+        GaussKern = ModFFTW.GiveGauss(self.Npix, CellSizeRad=CellSizeRad, GaussPars=(epar, epar, pa), parallel=False)
 
-        # import matplotlib.pyplot as plt
-        # plt.imshow(GaussKern)
-        # plt.show()
-
-        # normalise
-        # GaussKern /= np.sum(GaussKern.flatten())
         # take FT
         Fs = np.fft.fftshift
         iFs = np.fft.ifftshift
@@ -273,7 +271,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         ModelImagehat = np.zeros((self.Nchan, FTshape, FTshape), dtype=np.complex128)
         ConvModelImage = np.zeros((self.Nchan, self.Npix, self.Npix), dtype=np.float64)
         I = slice(self.Npad, -self.Npad)
-        for i in xrange(self.Nchan):
+        for i in range(self.Nchan):
             tmp_array = np.pad(ModelImage[i, 0], self.Npad, mode='constant')
             ModelImagehat[i] = FT.fft2(iFs(tmp_array)) * GaussKernhat
             ConvModelImage[i] = Fs(FT.ifft2(ModelImagehat[i]))[I, I].real
@@ -283,7 +281,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             RMS = np.std(ResidCube.flatten())
             Threshold = self.GD["SPIMaps"]["AlphaThreshold"] * RMS
         else:
-            RMS = np.abs(np.min(ModelImage.flatten())) # base cutoff on smallest value in model
+            AbsModel = np.abs(ModelImage).squeeze()
+            MinAbsImage = np.amin(AbsModel, axis=0)
+            RMS = np.min(np.abs(MinAbsImage.flatten())) # base cutoff on smallest value in model
             Threshold = self.GD["SPIMaps"]["AlphaThreshold"] * RMS
 
         # get minimum along any freq axis
@@ -325,9 +325,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                                                                 dtype=np.float64).compute()
         except Exception as e:
             traceback_str = traceback.format_exc(e)
-            print>>log, "Warning - Failed at importing africanus spi fitter. This could be an issue with the dask " \
-                        "version. Falling back to (slow) scipy version"
-            print>>log, "Original traceback - ", traceback_str
+            print("Warning - Failed at importing africanus spi fitter. This could be an issue with the dask " \
+                        "version. Falling back to (slow) scipy version", file=log)
+            print("Original traceback - ", traceback_str, file=log)
             alpha, varalpha, Iref, varIref = self.FreqMachine.FitSPIComponents(FitCube, self.GridFreqs, self.RefFreq)
 
         _, _, nx, ny = ModelImage.shape
@@ -360,7 +360,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # RestoreDico=self.GD["Data"]["RestoreDico"]
         RestoreDico = DicoSolsFile["ModelName"][()][0:-4] + ".DicoModel"
 
-        print>> log, "Adding previously subtracted components"
+        print("Adding previously subtracted components", file=log)
         ModelMachine0 = ClassModelMachine(self.GD)
 
         ModelMachine0.FromFile(RestoreDico)
@@ -439,11 +439,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             SourceCat.X[iSource]=(nx-1)-X[iSource]
             SourceCat.Y[iSource]=Y[iSource]
 
-            #print self.DicoSMStacked["Comp"][(SourceCat.X[iSource],SourceCat.Y[iSource])]
-            # SourceCat.Cluster[IndSource]=iCluster
             Flux=ModelMap[0,0,x_iSource,y_iSource]
             Alpha=AlphaMap[0,0,x_iSource,y_iSource]
-            # print iSource,"/",X.shape[0],":",x_iSource,y_iSource,Flux,Alpha
             SourceCat.I[iSource]=Flux
             SourceCat.alpha[iSource]=Alpha
 

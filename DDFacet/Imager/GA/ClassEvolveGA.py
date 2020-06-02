@@ -17,6 +17,13 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import random
 
 #from deap import base
@@ -24,11 +31,11 @@ from deap import base
 from deap import creator
 from deap import tools
 import numpy
-import algorithms
+from DDFacet.Imager.SSD.GA import algorithms
 import numpy as np
 
 
-import ClassArrayMethodGA
+from DDFacet.Imager.GA import ClassArrayMethodGA
 
 def FilterIslandsPix(ListIn,Npix):
     ListOut=[]

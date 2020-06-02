@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import scipy
 
 import numpy as np
@@ -34,7 +40,7 @@ except ImportError:
     pass # not strictly necessary because it imports the backend
 from DDFacet.Array import shared_dict
 from DDFacet.Other import logger
-import ModToolBox
+from DDFacet.ToolsDir import ModToolBox
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 from DDFacet.ToolsDir import Gaussian
 
@@ -215,7 +221,7 @@ class FFTW_Scale_Manager(object):
         self._iworkers['Image'] = {}
         facet_shape = [1, self.npol, self.npix_padded_facet, self.npix_padded_facet]
         image_shape = [1, self.npol, self.npix_padded, self.npix_padded]
-        for i in xrange(self.nslices):
+        for i in range(self.nslices):
             self._workers['Facet'][i] = pyfftw.FFTW(self._PaddedFacetArray[i].reshape(facet_shape),
                                                     self._PaddedFacetArray[i].reshape(facet_shape), axes=(2,3),
                                                     direction='FFTW_FORWARD', threads=1)
@@ -268,13 +274,13 @@ class FFTW_Scale_Manager(object):
             npad = self.psf_npad
         elif mode=='Image':
             npad = self.npad
-        for iSlice in xrange(nslices):
+        for iSlice in range(nslices):
             APP.runJob("fft2:%s" % iSlice, self._fft_worker_new,
                        args=(iSlice, self.shared_dict.readonly(), mode, data, npad))
         APP.awaitJobResults("fft2:*")
 
     def iFFT_new(self, nslices, unpad=True, mode='Facet'):
-        for iSlice in xrange(nslices):
+        for iSlice in range(nslices):
             APP.runJob("ifft2:%s" % iSlice, self._ifft_worker_new,
                        args=(iSlice, self.shared_dict.readonly(), mode))
         APP.awaitJobResults("ifft2:*")
@@ -298,7 +304,7 @@ class FFTW_Scale_Manager(object):
         """
         nslices, npol, nx, ny = data.shape
         if mode=='Facet':
-            for iSlice in xrange(nslices):
+            for iSlice in range(nslices):
                 APP.runJob("fft:%s" % iSlice, self._fft_worker,
                            args=(iSlice, self.shared_dict.readonly(), mode, data,
                                  self.psf_npad))
@@ -313,7 +319,7 @@ class FFTW_Scale_Manager(object):
             # note we will drop the first axis if nslices==1
             # return np.ascontiguousarray(self._PaddedFacetArray[0:nslices])
         elif mode=='Image':
-            for iSlice in xrange(nslices):
+            for iSlice in range(nslices):
                 APP.runJob("fft:%s" % iSlice, self._fft_worker,
                            args=(iSlice, self.shared_dict.readonly(), mode, data,
                                  self.npad))
@@ -331,7 +337,7 @@ class FFTW_Scale_Manager(object):
         the facet. Assumes FFT() was called before and populated the relevant array
         """
         if mode=='Facet':
-            for iSlice in xrange(nslices):
+            for iSlice in range(nslices):
                 APP.runJob("ifft:%s" % iSlice, self._ifft_worker,
                            args=(iSlice, self.shared_dict.readonly(), mode))
             APP.awaitJobResults("ifft:*")
@@ -341,7 +347,7 @@ class FFTW_Scale_Manager(object):
             else:
                 return np.ascontiguousarray(self._PaddedFacetArray[0:nslices, :])
         elif mode=='Image':
-            for iSlice in xrange(nslices):
+            for iSlice in range(nslices):
                 APP.runJob("ifft:%s" % iSlice, self._ifft_worker,
                            args=(iSlice, self.shared_dict.readonly(), mode))
             APP.awaitJobResults("ifft:*")
@@ -448,7 +454,11 @@ class FFTW_Manager(object):
         """
         import os
         import cpuinfo
-        import cPickle
+        import six
+        if six.PY3:
+            import pickle as cPickle
+        else:
+            import cPickle
         from os.path import expanduser
         self.wisdom_cache_path = self.GD["Cache"]["DirWisdomFFTW"]
         cpuname = cpuinfo.get_cpu_info()["brand"].replace(" ", "")
@@ -460,12 +470,12 @@ class FFTW_Manager(object):
 
 
         if not os.path.isdir(self.wisdom_cache_path_host):
-            print>> log, "Wisdom file %s does not exist, create it" % (self.wisdom_cache_path_host)
+            print("Wisdom file %s does not exist, create it" % (self.wisdom_cache_path_host), file=log)
             os.makedirs(self.wisdom_cache_path_host)
 
         if os.path.isfile(self.wisdom_cache_file):
-            print>> log, "Loading wisdom file %s" % (self.wisdom_cache_file)
-            DictWisdom = cPickle.load(file(self.wisdom_cache_file))
+            print("Loading wisdom file %s" % (self.wisdom_cache_file), file=log)
+            DictWisdom = cPickle.load(open(self.wisdom_cache_file, 'rb'))
             pyfftw.import_wisdom(DictWisdom["Wisdom"])
             self.WisdomTypes = DictWisdom["WisdomTypes"]
         else:
@@ -477,7 +487,10 @@ class FFTW_Manager(object):
         """
         Set fft wisdom
         """
-        import cPickle
+        try:
+            import cPickle
+        except:
+            import pickle as cPickle
         # set wisdom for image size FFTs
         TypeKey = (self.nchan, self.NpixPadded, np.complex64)
         if TypeKey not in self.WisdomTypes:
@@ -509,8 +522,8 @@ class FFTW_Manager(object):
                       "WisdomTypes": self.WisdomTypes}
 
         if self.HasTouchedWisdomFile:
-            print>> log, "Saving wisdom file to %s" % self.wisdom_cache_file
-            cPickle.dump(DictWisdom, file(self.wisdom_cache_file, "w"))
+            print("Saving wisdom file to %s" % self.wisdom_cache_file, file=log)
+            cPickle.dump(DictWisdom, open(self.wisdom_cache_file, "wb"))
 
 
 # FFTW version of the FFT engine
@@ -675,7 +688,7 @@ def ConvolveGaussianScipy(Ain0,Sig=1.,GaussPar=None):
   #              DeprecationWarning)
   Npix=int(2*8*Sig)
   if Npix%2==0: Npix+=1
-  x0=Npix/2
+  x0=Npix//2
   x,y=np.mgrid[-x0:x0:Npix*1j,-x0:x0:Npix*1j]
   #in2=np.exp(-(x**2+y**2)/(2.*Sig**2))
   if GaussPar is None:
@@ -729,7 +742,7 @@ def ConvolveGaussianSimpleWrapper(Ain0, CellSizeRad=1.0, Sig=1.0, GaussPars=None
 
 def learnFFTWWisdom(npix,dtype=np.float32):
     """Learns FFTW wisdom for real 2D FFT of npix x npix images"""
-    print>>log, "  Computing fftw wisdom FFTs for shape [%i x %i] and dtype %s" % (npix,npix,dtype.__name__)
+    print("  Computing fftw wisdom FFTs for shape [%i x %i] and dtype %s" % (npix,npix,dtype.__name__), file=log)
     test = np.zeros((npix, npix), dtype)
     if "float" in dtype.__name__:
         a = pyfftw.interfaces.numpy_fft.rfft2(test, overwrite_input=True, threads=1)
@@ -806,7 +819,6 @@ def _convolveSingleGaussianFFTW(shareddict,
     npol, npix_y, npix_x = Ain.shape
     pad_edge = max(int(np.ceil((ModToolBox.EstimateNpix(npix_x)[1] - npix_x) /
                                2.0) * 2),0)
-
     T.timeit("givegauss %d"%ch)
     fPSF = pyfftw.interfaces.numpy_fft.rfft2(iFs(PSF),
                                              overwrite_input=True,
@@ -979,12 +991,12 @@ if APP:
 #       N=self.N
 #       zA=np.zeros((zN,zN),dtype=A.dtype)
 #       if N%2:
-#           zA[zN/2-N/2:zN/2+N/2+1,zN/2-N/2:zN/2+N/2+1]=A[:,:]
+#           zA[zN//2-N//2:zN//2+N//2+1,zN//2-N//2:zN//2+N//2+1]=A[:,:]
 #           #nx,ny=A.shape
-#           #zA[:nx/2+1,0:ny]=A[:nx/2+1,:]
-#           #zA[-nx/2+1:,0:ny]=A[-nx/2+1:,:]
+#           #zA[:nx//2+1,0:ny]=A[:nx//2+1,:]
+#           #zA[-nx//2+1:,0:ny]=A[-nx//2+1:,:]
 #       else:
-#           zA[zN/2-N/2:zN/2+N/2,zN/2-N/2:zN/2+N/2]=A[:,:]
+#           zA[zN//2-N//2:zN//2+N//2,zN//2-N//2:zN//2+N//2]=A[:,:]
 #           
 #       # import pylab
 #       # pylab.subplot(1,2,1)
@@ -1002,9 +1014,9 @@ if APP:
 #       N=self.N
 #       A=np.zeros((N,N),dtype=zA.dtype)
 #       if N%2:
-#           A[:,:]=zA[zN/2-N/2:zN/2+N/2+1,zN/2-N/2:zN/2+N/2+1]
+#           A[:,:]=zA[zN//2-N//2:zN//2+N//2+1,zN//2-N//2:zN//2+N//2+1]
 #       else:
-#           A[:,:]=zA[zN/2-N/2:zN/2+N/2,zN/2-N/2:zN/2+N/2]
+#           A[:,:]=zA[zN//2-N//2:zN//2+N//2,zN//2-N//2:zN//2+N//2]
 
 #       return A
 

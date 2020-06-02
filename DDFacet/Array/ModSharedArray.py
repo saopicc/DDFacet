@@ -18,12 +18,18 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 from multiprocessing import sharedctypes
 import numpy as np
 import numpy
 import multiprocessing
 import ctypes
-import ClassTimeIt
+from DDFacet.Other import ClassTimeIt
 from numpy import ctypeslib
 
 
@@ -42,23 +48,23 @@ def NumpyToShared(lA):
 def SharedToNumpy(lA):
     Aout=[]
     for obj in lA:
-        print
-        print obj
+        print()
+        print(obj)
         if hasattr(obj,"IS_SHARED_ARRAY"):
             B=SingleSharedToNumpy(obj)
-            print "ARRAY"
-            print B
+            print("ARRAY")
+            print(B)
         elif (type(obj)==np.ndarray):
             B=obj
         elif (type(obj)==tuple)|(type(obj)==list):
             A0,A1=obj
             B=[SingleSharedToNumpy(A0),SingleSharedToNumpy(A1)]
-            print "TUPLE"
-            print B
+            print("TUPLE")
+            print(B)
         elif obj is None:
             B=None
-            print "None"
-            print B
+            print("None")
+            print(B)
         Aout.append(B)
 
     return Aout
@@ -128,4 +134,4 @@ def testComplex():
         A=dtype(At)
         As=NumpyToShared(A)
         npAs=SharedToNumpy(As)
-        print A-npAs
+        print(A-npAs)

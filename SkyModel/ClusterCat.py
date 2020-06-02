@@ -1,6 +1,7 @@
 #!/usr/bin/env python
+from __future__ import division, absolute_import, print_function
 import sys,os
-if "PYTHONPATH_FIRST" in os.environ.keys() and int(os.environ["PYTHONPATH_FIRST"]):
+if "PYTHONPATH_FIRST" in list(os.environ.keys()) and int(os.environ["PYTHONPATH_FIRST"]):
     sys.path = os.environ["PYTHONPATH"].split(":") + sys.path
 
 
@@ -21,7 +22,7 @@ import Polygon
 SaveFile="ClusterImage.last"
 from SkyModel.Sky import ModVoronoiToReg
 from SkyModel import Sky
-import MakeCatalog
+from SkyModel import MakeCatalog
 
 import os
 
@@ -67,8 +68,8 @@ def read_options():
 
 class ClusterImage():
     def __init__(self,**kwargs):
-        for key, value in kwargs.items(): setattr(self, key, value)
-        print>>log,"Reading %s"%self.SourceCat
+        for key, value in list(kwargs.items()): setattr(self, key, value)
+        print("Reading %s"%self.SourceCat, file=log)
         f=fits.open(self.SourceCat)
         # fix up comments
         keywords=[('CRVAL1',float),('CRVAL2',float),('CDELT1',float),('NAXIS1',int)]
@@ -77,7 +78,7 @@ class ClusterImage():
             for k,ty in keywords:
                 if k in l:
                     bits=l.split()
-                    print >>log,"Warning: getting keyword %s from comments" % k
+                    print("Warning: getting keyword %s from comments" % k, file=log)
                     f[1].header['I_'+k]=ty(bits[2])
                     
         decc,rac=f[1].header["I_CRVAL1"],f[1].header["I_CRVAL2"]
@@ -88,12 +89,12 @@ class ClusterImage():
         decc*=np.pi/180
         sRA =rad2hmsdms(rac,Type="ra").replace(" ",":")
         sDEC=rad2hmsdms(decc,Type="dec").replace(" ",":")
-        print>>log,"Image center: %s %s"%(sRA,sDEC)
+        print("Image center: %s %s"%(sRA,sDEC), file=log)
         self.rarad=rac
         self.decrad=decc
         self.CoordMachine = ModCoord.ClassCoordConv(self.rarad, self.decrad)
 
-        lmax=self.NPix/2*self.dPix*np.pi/180
+        lmax=self.NPix//2*self.dPix*np.pi/180
         self.PolyCut=np.array([[-lmax,-lmax],[-lmax,lmax],[lmax,lmax],[lmax,-lmax]])
 
         self.setCatName(self.SourceCat)
@@ -104,7 +105,7 @@ class ClusterImage():
         return l,m
         
     def setCatName(self,CatName):
-        print>>log,"Reading source catalog %s"%CatName
+        print("Reading source catalog %s"%CatName, file=log)
         self.CatName=CatName
         self.c=fits.open(CatName)[1]
         self.c.data.RA*=np.pi/180.
@@ -133,13 +134,13 @@ class ClusterImage():
             s=self.Cat.S.size
             ind=np.where(self.Cat.S>self.FluxMin)[0]
             self.Cat=self.Cat[ind]
-            print>>log,"  Seleted %i sources [out of %i] with flux density > %f Jy"%(ind.size,s,self.FluxMin)
+            print("  Seleted %i sources [out of %i] with flux density > %f Jy"%(ind.size,s,self.FluxMin), file=log)
 
         if self.ExtentMax>0.:
             s=self.Cat.S.size
             ind=np.where(self.Cat.Maj<self.ExtentMax)[0]
             self.Cat=self.Cat[ind]
-            print>>log,"  Seleted %i sources [out of %i] with extent < %f"%(ind.size,s,self.Cat.Maj)
+            print("  Seleted %i sources [out of %i] with extent < %f"%(ind.size,s,self.Cat.Maj), file=log)
             
         
     def GroupSources(self,RadiusArcmin=2.):
@@ -148,7 +149,7 @@ class ClusterImage():
         self.DicoPos={}
         
         Ns=c.data.RA.size
-        print>>log,"Merging sources..."
+        print("Merging sources...", file=log)
         for iS in range(Ns):
             self.DicoPos[iS]={}
             self.DicoPos[iS]["RA"]=c.data.RA[iS]
@@ -174,7 +175,7 @@ class ClusterImage():
                 continue
 
             HasAssociatedThis=False
-            for iSc in self.DicoAssoc.keys():
+            for iSc in list(self.DicoAssoc.keys()):
                 ra,dec=np.array(self.DicoAssoc[iSc]["RA"]),np.array(self.DicoAssoc[iSc]["DEC"])
                 dra,ddec=RA-ra,DEC-dec
                 d=angDist(ra,RA,dec,DEC)#np.sqrt((dra)**2+(ddec)**2)
@@ -198,7 +199,7 @@ class ClusterImage():
         decOut=[]
         SOut=[]
         MajOut=[]
-        for iS in self.DicoAssoc.keys():
+        for iS in list(self.DicoAssoc.keys()):
             ra=self.DicoAssoc[iS]["RA"]
             dec=self.DicoAssoc[iS]["DEC"]
             S=self.DicoAssoc[iS]["S"]
@@ -218,7 +219,7 @@ class ClusterImage():
         Cat.S=SOut
         Cat.Maj=MajOut
         self.Cat=Cat
-        print>>log,"Have merged %i -> %s"%(Ns,Cat.ra.size)
+        print("Have merged %i -> %s"%(Ns,Cat.ra.size), file=log)
 
     
     def Cluster(self):
@@ -229,7 +230,7 @@ class ClusterImage():
         self.BigPolygon=[]
         PolyList=[]
         if self.AvoidPolygons!="":
-            print>>log,"Reading polygon file: %s"%self.AvoidPolygons
+            print("Reading polygon file: %s"%self.AvoidPolygons, file=log)
             PolyList+=MyPickle.Load(self.AvoidPolygons)
 
             
@@ -251,10 +252,10 @@ class ClusterImage():
             # l=l[inside==0]
             # m=m[inside==0]
             # S=S[inside==0]
-            print>>log,"There are %i big polygons"%len(self.BigPolygon)
+            print("There are %i big polygons"%len(self.BigPolygon), file=log)
             
         if self.CentralRadius>0:
-            print>>log,"Create central polygon with radius %f degrees"%self.CentralRadius
+            print("Create central polygon with radius %f degrees"%self.CentralRadius, file=log)
             Rad=self.CentralRadius*np.pi/180
             th=np.arange(0,2.*np.pi,2.*np.pi/100)
             lp=np.cos(th)*Rad
@@ -274,7 +275,7 @@ class ClusterImage():
         CC.setAvoidPolygon(PolyList)
             
         xyNodes,self.LPolygon=CC.Cluster()
-        nNodes=xyNodes.size/2
+        nNodes=xyNodes.size//2
         xc,yc=xyNodes.reshape((2,nNodes))
         self.xcyc=xc,yc
         
@@ -297,13 +298,13 @@ class ClusterImage():
         else:
             fOut=self.OutClusterCat
 
-        print>>log,"Saving %s"%fOut
+        print("Saving %s"%fOut, file=log)
         np.save(fOut,ClusterCat)
         self.WriteTessel()
         
     def WriteTessel(self):
         regFile="%s.tessel.reg"%self.SourceCat
-        lmax=self.NPix/2*self.dPix*np.pi/180
+        lmax=self.NPix//2*self.dPix*np.pi/180
         Poly=np.array([[-lmax,-lmax],[-lmax,lmax],[lmax,lmax],[lmax,-lmax]])
 
         POut=Polygon.Polygon(Poly)

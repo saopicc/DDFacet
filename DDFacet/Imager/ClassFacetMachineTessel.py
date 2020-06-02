@@ -18,11 +18,16 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 from DDFacet.Imager import ClassFacetMachine
 from DDFacet.Other import MyPickle
 from scipy.spatial import Voronoi, ConvexHull
-from scipy.spatial import Voronoi
 from SkyModel.Sky import ModVoronoi
 from DDFacet.Other import reformat
 from DDFacet.Data.ClassJones import _parse_solsfile, _which_solsfile
@@ -107,14 +112,14 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 #        if "CatNodes" in self.GD.keys():
         regular_grid = False
         if self.GD["Facets"]["CatNodes"] is not None:
-            print>> log, "Taking facet directions from Nodes catalog: %s" % self.GD["Facets"]["CatNodes"]
+            print("Taking facet directions from Nodes catalog: %s" % self.GD["Facets"]["CatNodes"], file=log)
             ClusterNodes = np.load(self.GD["Facets"]["CatNodes"])
             ClusterNodes = ClusterNodes.view(np.recarray)
             raNode = ClusterNodes.ra
             decNode = ClusterNodes.dec
             lFacet, mFacet = self.CoordMachine.radec2lm(raNode, decNode)
         elif SolsFile is not None and ".npz" in SolsFile:
-            print>> log, "Taking facet directions from solutions file: %s" % SolsFile
+            print("Taking facet directions from solutions file: %s" % SolsFile, file=log)
             ClusterNodes = np.load(SolsFile)["ClusterCat"]
             ClusterNodes = ClusterNodes.view(np.recarray)
             raNode = ClusterNodes.ra
@@ -123,9 +128,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         elif SolsFile is not None and ".h5" in  SolsFile:
 
             h5files, apply_solsets, apply_map = _parse_solsfile(SolsFile)
-            print >> log, "Parsing h5file pattern {}".format(h5files)
+            print("Parsing h5file pattern {}".format(h5files), file=log)
             h5file = glob.glob(h5files)[0]
-            print >> log, "Taking facet directions from H5parm: {}, solsets: {}".format(h5file, apply_solsets)
+            print( "Taking facet directions from H5parm: {}, solsets: {}".format(h5file, apply_solsets), file=log)
             with tables.open_file(h5file) as H:
                 lm, radec = [], []
                 for solset in apply_solsets:
@@ -140,13 +145,13 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             lFacet, mFacet = lm[:, 0], lm[:, 1]
             raNode, decNode = radec[:, 0], radec[:, 1]
         else:
-            print>> log, "Taking facet directions from regular grid"
+            print("Taking facet directions from regular grid", file=log)
             regular_grid = True
             CellSizeRad = (self.GD["Image"][
                            "Cell"] / 3600.) * np.pi / 180
             lrad = Npix * CellSizeRad * 0.5
 
-            NpixFacet = Npix / NFacets
+            NpixFacet = Npix // NFacets
             lfacet = NpixFacet * CellSizeRad * 0.5
             lcenter_max = lrad - lfacet
 
@@ -155,7 +160,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 lcenter_max: lcenter_max: (NFacets) * 1j]
             lFacet = lFacet.flatten()
             mFacet = mFacet.flatten()
-        print>> log, "  There are %i Jones-directions" % lFacet.size
+        print("  There are %i Jones-directions" % lFacet.size, file=log)
 
 
         self.lmSols = lFacet.copy(), mFacet.copy()
@@ -205,11 +210,26 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             LPolygon=[]
             ListNode=[]
             for region,iNode in zip(regions,range(NodesCat.shape[0])):
-                ThisP = np.array(PP & Polygon.Polygon(np.array(vertices[region])))
+                PP1=Polygon.Polygon(np.array(vertices[region]))
+                ThisP = np.array(PP & PP1)
+                # x,y=np.array(PP1).T
+                # xp,yp=np.array(PP).T
+                # stop
+                # import pylab
+                # pylab.clf()
+                # #pylab.plot(x,y)
+                # pylab.plot(xp,yp)
+                # pylab.draw()
+                # pylab.show()
+                # #pylab.pause(0.1)
+
                 if ThisP.size>0:
                     LPolygon.append(ThisP[0])
                     ListNode.append(iNode)
             NodesCat=NodesCat[np.array(ListNode)].copy()
+
+
+
 # =======
 #             LPolygon = [
 #                 np.array(PP & Polygon.Polygon(np.array(vertices[region])))[0]
@@ -222,7 +242,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         # VM.ToReg(regFile,lFacet,mFacet,radius=.1)
 
         NodeFile = "%s.NodesCat.npy" % self.GD["Output"]["Name"]
-        print>> log, "Saving Nodes catalog in %s" % NodeFile
+        print("Saving Nodes catalog in %s" % NodeFile, file=log)
         np.save(NodeFile, NodesCat)
 
         for iFacet, polygon0 in zip(range(len(LPolygon)), LPolygon):
@@ -334,7 +354,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         LPolygonNew = []
 
-        for iFacet in xrange(len(LPolygon)):
+        for iFacet in range(len(LPolygon)):
             polygon = LPolygon[iFacet]
             ThisDiamMax = DiamMax
             SubReg = GiveSubDivideRegions(polygon, ThisDiamMax)
@@ -345,7 +365,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         # VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green",labels=[str(i) for i in range(len(LPolygonNew))])
 
         DicoPolygon = {}
-        for iFacet in xrange(len(LPolygonNew)):
+        for iFacet in range(len(LPolygonNew)):
             DicoPolygon[iFacet] = {}
             poly = LPolygonNew[iFacet]
             DicoPolygon[iFacet]["poly"] = poly
@@ -378,13 +398,13 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                         iFacetClosest = iFacetOther
                         HasClosest = True
                 if (HasClosest):
-                    print >>log, "Merging facet #%i to #%i" % (
-                        iFacet, iFacetClosest)
+                    log.print("Merging facet #%i to #%i" % (
+                        iFacet, iFacetClosest))
                     P0 = Polygon.Polygon(DicoPolygon[iFacet]["poly"])
                     P1 = Polygon.Polygon(DicoPolygon[iFacetClosest]["poly"])
                     P2 = (P0 | P1)
                     POut = []
-                    for iP in xrange(len(P2)):
+                    for iP in range(len(P2)):
                         POut += P2[iP]
 
                     poly = np.array(POut)
@@ -460,9 +480,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.JonesDirCat.m=NodesCat.m
         self.JonesDirCat.Cluster = range(NJonesDir)
 
-        print>> log, "Sizes (%i facets):" % (self.JonesDirCat.shape[0])
-        print >>log, "   - Main field :   [%i x %i] pix" % (
-            self.Npix, self.Npix)
+        print("Sizes (%i facets):" % (self.JonesDirCat.shape[0]), file=log)
+        print("   - Main field :   [%i x %i] pix" % (self.Npix, self.Npix), file=log)
 
 
         l_m_Diam = np.zeros((NFacets, 4), np.float32)
@@ -470,7 +489,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         Np = 10000
         D = {}
-        for iFacet in xrange(NFacets):
+        for iFacet in range(NFacets):
             D[iFacet] = {}
             polygon = LPolygonNew[iFacet]
             D[iFacet]["Polygon"] = polygon
@@ -520,7 +539,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             indDiam = np.argsort(l_m_Diam[:, 2])[::-1]
             l_m_Diam = l_m_Diam[indDiam]
 
-        for iFacet in xrange(l_m_Diam.shape[0]):
+        for iFacet in range(l_m_Diam.shape[0]):
             self.DicoImager[iFacet] = {}
             self.DicoImager[iFacet]["Polygon"] = D[
                 l_m_Diam[iFacet, 3]]["Polygon"]
@@ -550,7 +569,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.FacetShape = (1, 1, NpixMax, NpixMax)
 
         dmin = 1
-        for iFacet in xrange(len(self.DicoImager)):
+        for iFacet in range(len(self.DicoImager)):
             l, m = self.DicoImager[iFacet]["l0m0"]
             d = np.sqrt(l ** 2 + m ** 2)
             if d < dmin:
@@ -563,7 +582,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             (self.DicoImager[i]["lmShift"][0],
              self.DicoImager[i]["lmShift"][1],
              "[F%i_S%i]" % (i, self.DicoImager[i]["iSol"]))
-            for i in xrange(len(LPolygonNew))]
+            for i in range(len(LPolygonNew))]
         VM.PolygonToReg(
             regFile,
             LPolygonNew,
@@ -583,7 +602,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             #Create smoothned facet tessel mask:
             Npix = self.DicoImager[iFacet]["NpixFacetPadded"]
             l0, l1, m0, m1 = self.DicoImager[iFacet]["lmExtentPadded"]
-            X, Y = np.mgrid[l0:l1:Npix/10 * 1j, m0:m1:Npix/10 * 1j]
+            X, Y = np.mgrid[l0:l1:Npix//10 * 1j, m0:m1:Npix//10 * 1j]
             XY = np.dstack((X, Y))
             XY_flat = XY.reshape((-1, 2))
             vertices = self.DicoImager[iFacet]["Polygon"]
@@ -622,15 +641,15 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             self.FacetDirCat.m[iFacet]=m
             self.FacetDirCat.Cluster[iFacet] = iFacet
 
-        print>> log, "Saving DicoImager in %s" % DicoName
+        print("Saving DicoImager in %s" % DicoName, file=log)
         MyPickle.Save(self.DicoImager, DicoName)
 
     def WriteCoordFacetFile(self):
         FacetCoordFile = "%s.facetCoord.%stxt" % (self.GD["Output"]["Name"], "psf." if self.DoPSF else "")
-        print>>log, "Writing facet coordinates in %s" % FacetCoordFile
+        print("Writing facet coordinates in %s" % FacetCoordFile, file=log)
         f = open(FacetCoordFile, 'w')
         ss = "# (Name, Type, Ra, Dec, I, Q, U, V, ReferenceFrequency='7.38000e+07', SpectralIndex='[]', MajorAxis, MinorAxis, Orientation) = format"
-        for iFacet in xrange(len(self.DicoImager)):
+        for iFacet in range(len(self.DicoImager)):
             ra, dec = self.DicoImager[iFacet]["RaDec"]
             sra = rad2hmsdms.rad2hmsdms(ra, Type="ra").replace(" ", ":")
             sdec = rad2hmsdms.rad2hmsdms(dec).replace(" ", ".")

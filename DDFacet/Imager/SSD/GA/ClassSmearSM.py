@@ -1,7 +1,12 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
 
 import numpy as np
 import scipy.signal
-import ClassConvMachine
+from DDFacet.Imager.SSD import ClassConvMachine
 from DDFacet.Other import logger
 log=logger.getLogger("ClassSmearSM")
 import multiprocessing
@@ -31,7 +36,7 @@ class ClassSmearSM():
         self.DicoConvMachine={}
 
         N=self.NImGauss
-        dx,dy=np.mgrid[-(N/2):N/2:1j*N,-(N/2):N/2:1j*N]
+        dx,dy=np.mgrid[-(N//2):N//2:1j*N,-(N//2):N//2:1j*N]
 
         ListPixParms=[(int(dx.ravel()[i]),int(dy.ravel()[i])) for i in range(dx.size)]
         ListPixData=ListPixParms
@@ -53,7 +58,7 @@ class ClassSmearSM():
         self.GSig=GSig
         ListGauss=[]
         One=np.zeros_like(d)
-        One[N/2,N/2]=1.
+        One[N//2,N//2]=1.
         ListGauss.append(One)
         for sig in GSig[1::]:
             v=np.exp(-d**2/(2.*sig**2))
@@ -63,7 +68,7 @@ class ClassSmearSM():
 
         self.ListGauss=ListGauss
         
-        print>>log, "Declare convolution machines"
+        print("Declare convolution machines", file=log)
         NJobs=self.PSFServer.NFacets
         pBAR= ProgressBar(Title=" Declare      ")
         #pBAR.disable()
@@ -72,7 +77,7 @@ class ClassSmearSM():
             #print iFacet,"/",self.PSFServer.NFacets
             PSF=self.PSFServer.DicoVariablePSF['CubeMeanVariablePSF'][iFacet]#[0,0]
             _,_,NPixPSF,_=PSF.shape
-            PSF=PSF[:,:,NPixPSF/2-N:NPixPSF/2+N+1,NPixPSF/2-N:NPixPSF/2+N+1]
+            PSF=PSF[:,:,NPixPSF//2-N:NPixPSF//2+N+1,NPixPSF//2-N:NPixPSF//2+N+1]
             #print PSF.shape
             #sig=1
             #PSF=(np.exp(-self.dist**2/(2.*sig**2))).reshape(1,1,N,N)
@@ -104,15 +109,15 @@ class ClassSmearSM():
         ConvMachine=self.CurrentConvMachine=self.ConvMachineMeanPSF
         N=self.NImGauss
         Dirty=np.zeros((N,N),dtype=np.float32)
-        Dirty[N/2,N/2]=1.
+        Dirty[N//2,N//2]=1.
         Dirty=self.CurrentConvMachine.Convolve(Dirty.reshape(1,Dirty.size)).reshape((N,N))
         InvCov=ConvMachine.GiveInvertCov(1.)
         Sol=np.dot(InvCov,Dirty.reshape((Dirty.size,1))).reshape((N,N))
-        Profile=(Sol[N/2,:]+Sol[:,N/2])[N/2:]
+        Profile=(Sol[N//2,:]+Sol[:,N//2])[N//2:]
         
-        xp=np.arange(N/2+1)
+        xp=np.arange(N//2+1)
         Val=np.max(Profile)/2.
-        xx=np.linspace(0,N/2,1000)
+        xx=np.linspace(0,N//2,1000)
         a=np.interp(xx,xp,Profile-Val)
         ind=np.where(np.abs(a)==np.min(np.abs(a)))[0]
         FWHM=a[ind[0]]*2
@@ -128,7 +133,7 @@ class ClassSmearSM():
             v=scipy.signal.fftconvolve(Func, RestoringBeam, mode='same')
             ListRestoredGauss.append(v)
         self.ListRestoredGauss=ListRestoredGauss
-        print>>log, "Support for restoring beam: %5.2f pixels (sigma = %5.2f pixels)"%(FWHM,self.SigMin)
+        print("Support for restoring beam: %5.2f pixels (sigma = %5.2f pixels)"%(FWHM,self.SigMin), file=log)
         
         # import pylab
         # pylab.clf()
@@ -152,7 +157,7 @@ class ClassSmearSM():
         else:
             NCPU=1
         StopWhenQueueEmpty=True
-        print>>log, "Building queue"
+        print("Building queue", file=log)
         self.ModelOut=np.zeros_like(self.MeanModelImage)
         indx,indy=np.where(self.MeanModelImage[0,0]!=0)
         #indx,indy=np.where(self.MeanModelImage==np.max(self.MeanModelImage))
@@ -243,7 +248,7 @@ class ClassSmearSM():
                 for iJob in range(Queue.shape[0]):
                     x0,y0,iGauss=Queue[iJob]
                     SMax=self.MeanModelImage[0,0,x0,y0]
-                    SubModelOut=self.ModelOut[0,0][x0-N/2:x0+N/2+1,y0-N/2:y0+N/2+1]
+                    SubModelOut=self.ModelOut[0,0][x0-N//2:x0+N//2+1,y0-N//2:y0+N//2+1]
                     SubModelOut+=self.ListRestoredGauss[iGauss]*SMax
                     #iGauss=0
                     #print
@@ -335,17 +340,17 @@ class WorkerSmear(multiprocessing.Process):
         FacetID=self.CurrentFacetID
         PSF=self.CubeMeanVariablePSF[FacetID][0,0]
         N=self.NImGauss
-        SubResid=self.MeanResidual[0,0][x0-N/2:x0+N/2+1,y0-N/2:y0+N/2+1]
-        SubModelOrig=self.MeanModelImage[0,0][x0-N/2:x0+N/2+1,y0-N/2:y0+N/2+1].copy()
-        xc=yc=N/2
+        SubResid=self.MeanResidual[0,0][x0-N//2:x0+N//2+1,y0-N//2:y0+N//2+1]
+        SubModelOrig=self.MeanModelImage[0,0][x0-N//2:x0+N//2+1,y0-N//2:y0+N//2+1].copy()
+        xc=yc=N//2
 
         NPSF,_=PSF.shape
         
-        xcPSF=ycPSF=NPSF/2
-        SubPSF=PSF[xcPSF-N/2:xcPSF+N/2+1,ycPSF-N/2:ycPSF+N/2+1]
+        xcPSF=ycPSF=NPSF//2
+        SubPSF=PSF[xcPSF-N//2:xcPSF+N//2+1,ycPSF-N//2:ycPSF+N//2+1]
         #SubModelOrig.fill(0)
-        #SubModelOrig[N/2,N/2]=1
-        #SubModelOrig[N/2+10,N/2+10]=10
+        #SubModelOrig[N//2,N//2]=1
+        #SubModelOrig[N//2+10,N//2+10]=10
         #ConvModel=self.CurrentConvMachine.Convolve(SubModelOrig.reshape(1,SubModelOrig.size)).reshape((N,N))
         #ConvModel1=scipy.signal.fftconvolve(SubModelOrig, SubPSF, mode='same')
         ConvModel=self.GiveConv(SubModelOrig)

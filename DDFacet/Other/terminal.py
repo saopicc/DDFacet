@@ -1,5 +1,9 @@
 # Copyright: 2008 Nadia Alramli
 # License: BSD
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
  
 """Terminal controller module
 Example of usage:
@@ -7,7 +11,10 @@ Example of usage:
     print BLUE + UNDERLINE + 'Blue underlined text' + NORMAL
     print BLUE + BG_YELLOW + BOLD + 'text' + NORMAL
 """
- 
+
+
+from DDFacet.compatibility import range
+
 import sys
  
 # The current module
@@ -67,14 +74,14 @@ def setup():
         # Get the color index from curses
         colorIndex = getattr(curses, 'COLOR_%s' % color)
         # Set the color escape sequence after filling the template with index
-        setattr(MODULE, color, curses.tparm(fgColorSeq, colorIndex))
+        setattr(MODULE, color, curses.tparm(fgColorSeq, colorIndex).decode())
         # Set background escape sequence
         setattr(
             MODULE, 'BG_%s' % color, curses.tparm(bgColorSeq, colorIndex)
         )
     for control in CONTROLS:
         # Set the control escape sequence
-        setattr(MODULE, control, curses.tigetstr(CONTROLS[control]) or '')
+        setattr(MODULE, control, (curses.tigetstr(CONTROLS[control]) or b'').decode() or '')
     for value in VALUES:
         # Set terminal related values
         setattr(MODULE, value, curses.tigetnum(VALUES[value]))
@@ -89,7 +96,7 @@ def render(text):
 try:
     import curses
     setup()
-except Exception, e:
+except Exception as e:
     # There is a failure; set all attributes to default
-    print 'Warning: %s' % e
+    print('Warning: %s' % e)
     default()

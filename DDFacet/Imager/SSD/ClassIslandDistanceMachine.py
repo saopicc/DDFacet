@@ -1,3 +1,9 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import time
 import numpy as np
 from DDFacet.Other import logger
@@ -70,7 +76,7 @@ class ClassIslandDistanceMachine():
         self.IdSharedMem=IdSharedMem
 
     def SearchIslands(self,Threshold,Image=None):
-        print>>log,"Searching Islands"
+        print("Searching Islands", file=log)
         if Image is not None:
             Dirty=Image
         else:
@@ -89,11 +95,11 @@ class ClassIslandDistanceMachine():
 
         ListIslands=Islands.LIslands
 
-        print>>log,"  found %i islands"%len(ListIslands)
+        print("  found %i islands"%len(ListIslands), file=log)
         if self.GD is not None:
             dx=self.GD["SSDClean"]["NEnlargePars"]
             if dx>0:
-                print>>log,"  increase their sizes by %i pixels"%dx
+                print("  increase their sizes by %i pixels"%dx, file=log)
                 IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
                 for iIsland in range(len(ListIslands)):#self.NIslands):
                     ListIslands[iIsland]=IncreaseIslandMachine.IncreaseIsland(ListIslands[iIsland],dx=dx)
@@ -102,7 +108,7 @@ class ClassIslandDistanceMachine():
         return ListIslands
 
     def CalcLabelImage(self,ListIslands):
-        print>>log,"  calculating label image"
+        print("  calculating label image", file=log)
         _,_,nx,_=self._MaskArray.shape
         Labels=np.zeros((nx,nx),dtype=np.float32)
 
@@ -112,12 +118,12 @@ class ClassIslandDistanceMachine():
         return Labels.reshape((1,1,nx,nx))
 
     def CalcCrossIslandPSF(self,ListIslands):
-        print>>log,"  calculating global islands cross-contamination"
+        print("  calculating global islands cross-contamination", file=log)
         PSF=np.mean(np.abs(self.PSFServer.DicoVariablePSF["MeanFacetPSF"][:,0]),axis=0)#self.PSFServer.DicoVariablePSF["MeanFacetPSF"][0,0]
         
         
         nPSF,_=PSF.shape
-        xcPSF,ycPSF=nPSF/2,nPSF/2
+        xcPSF,ycPSF=nPSF//2,nPSF//2
 
         IN=lambda x: ((x>=0)&(x<nPSF))
 
@@ -211,7 +217,7 @@ class ClassIslandDistanceMachine():
         if self.PSFCross is None:
             self.CalcCrossIslandPSF(ListIslands)
         NIslands=len(ListIslands)
-        print>>log,"  grouping cross contaminating islands..."
+        print("  grouping cross contaminating islands...", file=log)
 
         MaxIslandFlux=np.zeros((NIslands,),np.float32)
         DicoIsland={}
@@ -258,7 +264,7 @@ class ClassIslandDistanceMachine():
                 ThisIsland+=DicoIsland[iIsland]
             ListIslands.append(ThisIsland)
 
-        print>>log,"    have grouped %i --> %i islands"%(NIslands, len(ListIslands))
+        print("    have grouped %i --> %i islands"%(NIslands, len(ListIslands)), file=log)
 
         return ListIslands
 
@@ -307,7 +313,7 @@ class ClassIslandDistanceMachine():
             pBAR.render(NDone,NJobs)
 
     def giveEdgesIslands(self,ListIslands):
-        print>>log,"  extracting Island edges"
+        print("  extracting Island edges", file=log)
         ListEdgesIslands=[]
         _,_,nx,_=self._MaskArray.shape
         #Ed=np.zeros_like(self._MaskArray)
@@ -316,7 +322,7 @@ class ClassIslandDistanceMachine():
             EdgesIsland=[]
             for iPix in range(x.size):
                 xc,yc=x[iPix],y[iPix]
-                Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(nx,nx),(1,1),(3,3))
+                Aedge,Bedge=GiveEdgesDissymetric(xc,yc,nx,nx,1,1,3,3)
                 x0d,x1d,y0d,y1d=Aedge
                 m=self._MaskArray[0,0][x0d:x1d,y0d:y1d]
                 if 1 in m:
@@ -335,7 +341,7 @@ class ClassIslandDistanceMachine():
         return ListEdgesIslands
 
     def ConvexifyIsland(self,ListIslands):#,PolygonFile=None):
-        print>>log,"  Convexify islands"
+        print("  Convexify islands", file=log)
         ListConvexIslands=[]
         ListPolygons=[]
         for Island in ListIslands:
@@ -387,14 +393,14 @@ class ClassIslandDistanceMachine():
                 ListConvexIslands.append(Island)
 
         # if PolygonFile is not None:
-        #     print>>log,"  ----> Saving polygons as %s"%PolygonFile
+        #     print("  ----> Saving polygons as %s"%PolygonFile, file=log)
         #     MyPickle.Save(ListPolygons,PolygonFile)
         self.ListPolygons=ListPolygons
         
         return ListConvexIslands
 
     def MergeIslands(self,ListIslands):
-        print>>log,"  Merge intersecting islands"
+        print("  Merge intersecting islands", file=log)
         Islands=[Island(i) for i in ListIslands]
 
         i=0
@@ -411,7 +417,7 @@ class ClassIslandDistanceMachine():
             if not(merged):
                 i+=1
         result=[i.ilist for i in Islands if not i.merged]
-        print>>log,"  %i islands remaining after merge" % len(result)
+        print("  %i islands remaining after merge" % len(result), file=log)
         return result
 
     def calcDistanceMatrixMinParallel(self,ListIslands,Parallel=True):

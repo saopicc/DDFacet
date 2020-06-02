@@ -18,8 +18,14 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
-import ClassModelMachine
-import ClassGainMachine
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
+from DDFacet.Imager import ClassModelMachine
+from DDFacet.Imager import ClassGainMachine
 from DDFacet.Other import MyPickle
 from DDFacet.Other import logger
 from DDFacet.Other import ModColor
@@ -78,12 +84,16 @@ class ClassModModelMachine():
         Input:
             DicoSMStacked   = Dictionary to instantiate ModelMachine with
         """
-        if DicoSMStacked["Type"]=="GA": 
-            print>>log,ModColor.Str("Model is of deprecated type GA, overwriting with type SSD")
+        def safe_encode(s): 
+                import six
+                return s.decode() if isinstance(s, bytes) and six.PY3 else s
+        Type = safe_encode(DicoSMStacked.get("Type", DicoSMStacked.get(b"Type", None)))
+        if Type=="GA": 
+            print(ModColor.Str("Model is of deprecated type GA, overwriting with type SSD"), file=log)
             DicoSMStacked["Type"]="SSD"
 
         if DicoSMStacked is not None: # If the Dict is provided use it to initialise a model machine
-            Type = DicoSMStacked["Type"]
+            Type = safe_encode(DicoSMStacked.get("Type", DicoSMStacked.get(b"Type", None)))
             # backwards compatibility
             if Type == "GA":
                 Type = "SSD"
@@ -96,55 +106,55 @@ class ClassModModelMachine():
     def GiveMM(self,Mode=None):
         if Mode == "SSD":
             if self.SSDMM is None:
-                print>> log, "Initialising SSD model machine"
+                print("Initialising SSD model machine", file=log)
                 from DDFacet.Imager.SSD import ClassModelMachineSSD
                 self.SSDMM = ClassModelMachineSSD.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.get_instance())
             else:
-                print>> log, "SSD model machine already initialised"
+                print("SSD model machine already initialised", file=log)
             return self.SSDMM
         elif Mode == "HMP":
             if self.MSMFMM is None:
-                print>> log, "Initialising HMP model machine"
+                print("Initialising HMP model machine", file=log)
                 from DDFacet.Imager.MSMF import ClassModelMachineMSMF
                 self.MSMFMM = ClassModelMachineMSMF.ClassModelMachine(
                     self.GD,
                     GainMachine= ClassGainMachine.get_instance())
             else:
-                print>> log, "HMP model machine already initialised"
+                print("HMP model machine already initialised", file=log)
             return self.MSMFMM
         elif Mode == "MORESANE":
             if self.MORSANEMM is None:
-                print>> log, "Initialising MORESANE model machine"
+                print("Initialising MORESANE model machine", file=log)
                 from DDFacet.Imager.MORESANE import ClassModelMachineMORESANE
                 self.MORESANEMM = ClassModelMachineMORESANE.ClassModelMachine(
                     self.GD,
                     GainMachine= ClassGainMachine.ClassGainMachine.get_instance())
             else:
-                print>> log, "MORSANE model machine already initialised"
+                print("MORSANE model machine already initialised", file=log)
             return self.MORESANEMM
         elif Mode == "MUFFIN":
             if self.MUFFINMM is None:
-                print>> log, "Initialising MUFFIN model machine"
+                print("Initialising MUFFIN model machine", file=log)
                 from DDFacet.Imager.MUFFIN import ClassModelMachineMUFFIN
                 self.MUFFINMM = ClassModelMachineMUFFIN.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.get_instance())
             else:
-                print>> log, "MUFFIN model machine already initialised"
+                print("MUFFIN model machine already initialised", file=log)
             return self.MUFFINMM
         elif Mode == "Hogbom":
             if self.HOGBOMMM is None:
-                print>> log, "Initialising HOGBOM model machine"
+                print("Initialising HOGBOM model machine", file=log)
                 from DDFacet.Imager.HOGBOM import ClassModelMachineHogbom
                 self.HOGBOMMM = ClassModelMachineHogbom.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.get_instance())
             else:
-                print>> log, "HOGBOM model machine already initialised"
+                print("HOGBOM model machine already initialised", file=log)
             return self.HOGBOMMM
         elif Mode == "WSCMS":
             if self.WSCMSMM is None:
-                print>> log, "Initialising WSCMS model machine"
+                print("Initialising WSCMS model machine", file=log)
                 from DDFacet.Imager.WSCMS import ClassModelMachineWSCMS
                 self.WSCMSMM = ClassModelMachineWSCMS.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.get_instance())
             else:
-                print>> log, "WSCMS model machine already initialised"
+                print("WSCMS model machine already initialised", file=log)
             return self.WSCMSMM
         else:
             raise NotImplementedError("Unknown model type '%s'"%Mode)

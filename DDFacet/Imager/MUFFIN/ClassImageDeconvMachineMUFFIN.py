@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import os
 import numpy as np
 from DDFacet.Other import logger
@@ -137,7 +143,7 @@ class ClassImageDeconvMachine():
             xc0=yc0=N0/2
             N1=Nout
             xc1=yc1=N1/2
-            Aedge,Bedge=GiveEdges((xc0,yc0),N0,(xc1,yc1),N1)
+            Aedge,Bedge=GiveEdges(xc0,yc0,N0,xc1,yc1,N1)
             x0d,x1d,y0d,y1d=Aedge
             x0p,x1p,y0p,y1p=Bedge
             B=A[...,x0d:x1d,y0d:y1d]
@@ -208,7 +214,7 @@ class ClassImageDeconvMachine():
 
 
         nxModel=dirty_MUFFIN.shape[0]
-        Aedge,Bedge=GiveEdges((nxModel/2,nxModel/2),nxModel,(nxDirty/2,nxDirty/2),nxDirty)
+        Aedge,Bedge=GiveEdges(nxModel//2,nxModel//2,nxModel,nxDirty//2,nxDirty//2,nxDirty)
         x0,x1,y0,y1=Bedge
 
         Model=np.zeros((nxDirty,nxDirty,nch))

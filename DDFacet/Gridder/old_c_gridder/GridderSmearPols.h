@@ -31,7 +31,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #include <time.h>
 
-
+#if PY_MAJOR_VERSION >= 3
+  typedef long int;
+  #define p_int32 p_int64
+#endif
 
 
 
@@ -55,14 +58,16 @@ int nint(double n){
   return floor(n+0.5);};
 
 /* .... Python callable Matrix functions ..................*/
-
+#if PY_MAJOR_VERSION >= 3
+  #define PyString_AsString(x) PyBytes_AsString(PyUnicode_AsASCIIString(x))
+  #define p_int32 p_int64
+#else
+  int *p_int32(PyArrayObject *arrayin)  {
+    return (int *) arrayin->data;  /* pointer to arrayin data as double */
+  }
+#endif
 int *I_ptr(PyArrayObject *arrayin)  {
 	return (int *) arrayin->data;
-}
-
-
-int *p_int32(PyArrayObject *arrayin)  {
-  return (int *) arrayin->data;  /* pointer to arrayin data as double */
 }
 
 long int *p_int64(PyArrayObject *arrayin)  {

@@ -1,10 +1,11 @@
 
+from __future__ import division, absolute_import, print_function
 import numpy as np
-import Gaussian
+from . import Gaussian
 import pylab
 import scipy.optimize
 import time
-import ClassIslands
+from . import ClassIslands
 import ModColor
 from progressbar import ProgressBar
 from pyrap.images import image
@@ -105,7 +106,7 @@ class ClassPointFit():
 
 
     def GetPars(self,pars):
-        ns=pars.shape[0]/3
+        ns=pars.shape[0]//3
         l,m,s=pars[0:ns],pars[ns:2*ns],pars[2*ns::]
         s=np.abs(s)
         return l,m,s

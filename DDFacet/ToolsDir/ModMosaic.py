@@ -19,6 +19,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 from pyrap.images import image
 import glob
 import numpy
@@ -42,8 +48,8 @@ def MakeEmpty():
     # llPB=llPB[0:2]
     # ############################"
 
-    print "Files In: ", ll
-    print "FilesPB In: ", llPB
+    print("Files In: ", ll)
+    print("FilesPB In: ", llPB)
 
     ############################"
     # That was meant to compute the average of RA and DEC
@@ -69,7 +75,7 @@ def MakeEmpty():
     Npix=img.getdata().shape[2]
     ############################"
     # That's if you want to change the astrometry of the OutPut image
-    #cMain.set_referencepixel([0.0, np.array([ 0.]), np.array([ Npix/2,Npix/2])])
+    #cMain.set_referencepixel([0.0, np.array([ 0.]), np.array([ Npix//2,Npix//2])])
     #cMain.set_referencevalue([0.0, np.array([ 0.]), np.array([ ramean,decmean])])
     #incr=cMain.get_increment()
     #incr[2]=[incrx,incry]
@@ -86,7 +92,7 @@ def MakeEmpty():
     
 
     for i in range(len(ll)):
-        print "Read %s"%ll[i]
+        print("Read %s"%ll[i])
         FileTemp="_temp_%3.3i"%i
         FileTempPB="_tempPB_%3.3i"%i
         #os.system("rm -Rf %s"%FileTemp)
@@ -96,7 +102,7 @@ def MakeEmpty():
         img.saveas(FileTemp)
         img=image(FileTemp)
         DataImg=img.getdata()
-        dx=DataImg.shape[2]/2
+        dx=DataImg.shape[2]//2
 
         ImPB=image(llPB[i])
         ImPB.saveas(FileTempPB)
@@ -105,7 +111,7 @@ def MakeEmpty():
         #ImPB=ImPB.regrid( [2,3], img.coordinates(), outshape=DataImg.shape)
 
         PB[PB<0.7]=0.
-        Center2=PB.shape[2]/2
+        Center2=PB.shape[2]//2
         PB=PB[:,:,Center2-dx:Center2+dx,Center2-dx:Center2+dx]
         # pylab.figure(0)
         # pylab.clf()
@@ -148,6 +154,6 @@ def MakeEmpty():
 
     PBStack[PBStack<0.1]=1.
     imOut.putdata(Stack/PBStack)
-    print "Saving mosaic in file: %s"%OutFile
+    print("Saving mosaic in file: %s"%OutFile)
     imOut.saveas(OutFile)
     #os.system("rm -Rf %s* %s*"%(FileTemp,FileTempPB))

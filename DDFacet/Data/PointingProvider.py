@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np 
 from scipy.interpolate import interp1d
 import pandas as pd
@@ -94,18 +100,18 @@ class PointingProvider(object):
                                      self._raw_offsets["POL"] != self._ptcorr_labels[1])):
                 raise InvalidPointingSolutions("%s feed in measurement set, but found pointing error solutions for another feed type" % self._feed_type)
             
-            print>> log, "Read pointing error solutions from %s" % pointing_errs_file
+            print("Read pointing error solutions from %s" % pointing_errs_file, file=log)
 
     def _init_interpolator(self):
         """ Initializes dictionary keyed on antenna, correlation and RA, DEC with solution interpolators """
         self._interp_offsets = {}
         mjd2utc = lambda x: datetime.datetime.utcfromtimestamp(qa.quantity(str(x)+'s').to_unix_time())
         if self.sols_filename == "" or not self.sols_filename:
-            print>>log, "Initializing pointing solutions to 0.0, 0.0 for stations %s" % ",".join(set(self._raw_offsets["#ANT"]))
+            print("Initializing pointing solutions to 0.0, 0.0 for stations %s" % ",".join(set(self._raw_offsets["#ANT"])), file=log)
         else:
-            print>>log, "Pointing solutions span %s to %s UTC" % (mjd2utc(self._raw_offsets.min()["TIME"]),
-                                                                  mjd2utc(self._raw_offsets.max()["TIME"]))
-            print>>log, "Pointing solutions contain solutions for stations %s" % ",".join(set(self._raw_offsets["#ANT"]))
+            print("Pointing solutions span %s to %s UTC" % (mjd2utc(self._raw_offsets.min()["TIME"]),
+                                                                  mjd2utc(self._raw_offsets.max()["TIME"])), file=log)
+            print("Pointing solutions contain solutions for stations %s" % ",".join(set(self._raw_offsets["#ANT"])), file=log)
         for a in set(self._raw_offsets["#ANT"]):
             self._interp_offsets[a] = {c: {} for c in self._ptcorr_labels}
             self._min_time_ant[a] = self._raw_offsets.where(self._raw_offsets["#ANT"] == a).min()["TIME"]
@@ -126,9 +132,9 @@ class PointingProvider(object):
                                                              bounds_error=False,
                                                              fill_value=(sel_sorted["DEC_ERR(deg)"].iloc[0], sel_sorted["DEC_ERR(deg)"].iloc[-1]))
                 
-                print>> log, "Station %s feed %s has interquartile pointing spread of (%.2f, %.2f) deg in RA and (%.2f, %.2f) deg in DECL" % \
+                print("Station %s feed %s has interquartile pointing spread of (%.2f, %.2f) deg in RA and (%.2f, %.2f) deg in DECL" % \
                      (a, f, sel.quantile(.25)["RA_ERR(deg)"], sel.quantile(.75)["RA_ERR(deg)"], 
-                      sel.quantile(.25)["DEC_ERR(deg)"], sel.quantile(.75)["DEC_ERR(deg)"])
+                      sel.quantile(.25)["DEC_ERR(deg)"], sel.quantile(.75)["DEC_ERR(deg)"]), file=log)
     
     @property
     def sols_filename(self):
@@ -158,14 +164,14 @@ class PointingProvider(object):
         corr: XX, YY or RR, LL depending on feed type of measurement
         """
         if antenna_name not in self._interp_offsets.keys():
-            print>>log, "No pointing solutions for station %s, assuming 0.0" % antenna_name
+            print("No pointing solutions for station %s, assuming 0.0" % antenna_name, file=log)
             return np.array([np.zeros_like(time), np.zeros_like(time)])
         num_extrap = np.sum(np.logical_or(time < self._min_time_ant[antenna_name],
                                           time > self._max_time_ant[antenna_name]))
 
         if num_extrap > 0:
-            print>>log, "Warning: extrapolating %.2f%% pointing errors for antenna %s." % \
-                    ((num_extrap / float(time.size) * 100.0), antenna_name)
+            print("Warning: extrapolating %.2f%% pointing errors for antenna %s." % \
+                    ((num_extrap / float(time.size) * 100.0), antenna_name), file=log)
         if corr not in self._interp_offsets[antenna_name].keys():
             raise KeyError("No interpolated solutions for correlation %s. This is a bug." % corr)
         ra = self._interp_offsets[antenna_name][corr]["RA"](time)

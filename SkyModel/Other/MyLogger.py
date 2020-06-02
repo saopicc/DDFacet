@@ -1,3 +1,4 @@
+from __future__ import division, absolute_import, print_function
 import logging
 import sys
 
@@ -10,7 +11,7 @@ class LoggerWriter:
         if message != '\n':
             self.logger.log(self.level, message)
 
-import ModColor
+from . import ModColor
 
 
 class MyLogger():
@@ -25,7 +26,7 @@ class MyLogger():
 
     def getLogger(self,name,disable=False):
 
-        if not(name in self.Dico.keys()):
+        if not(name in list(self.Dico.keys())):
             logger = logging.getLogger(name)
             fp = LoggerWriter(logger, logging.INFO)
             self.Dico[name]=fp
@@ -52,9 +53,9 @@ M=MyLogger()
 getLogger=M.getLogger
 
 itsLog=getLogger("MyLogger")
-import ModColor
+from . import ModColor
 def setSilent(Lname):
-    print>>itsLog, ModColor.Str("Set silent: %s"%Lname,col="red")
+    print(ModColor.Str("Set silent: %s"%Lname,col="red"), file=itsLog)
     if type(Lname)==str:
         log=getLogger(Lname)
         log.logger.setLevel(logging.CRITICAL)
@@ -65,7 +66,7 @@ def setSilent(Lname):
 
 
 def setLoud(Lname):
-    print>>itsLog, ModColor.Str("Set loud: %s"%Lname,col="green")
+    print(ModColor.Str("Set loud: %s"%Lname,col="green"), file=itsLog)
     if type(Lname)==str:
         log=getLogger(Lname)
         log.logger.setLevel(logging.DEBUG)
@@ -77,4 +78,4 @@ def setLoud(Lname):
 
 if __name__=="__main__":
     log=getLogger("a.x")
-    print>>log, "a.x"
+    print("a.x", file=log)

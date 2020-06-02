@@ -18,12 +18,19 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <fcntl.h>           /* For O_* constants */
 #include <semaphore.h>
 
+#if PY_MAJOR_VERSION >= 3
+  typedef long int;
+  #define p_int32 p_int64
+  #define PyString_AsString(x) PyBytes_AsString(PyUnicode_AsASCIIString(x))
+#endif
+
 PyObject *LSemaphoreNames;
 size_t NSemaphores;
 sem_t **Tab_SEM;
 
 const char *GiveSemaphoreName(int iS){
-  char*  SemaphoreName=PyString_AsString(PyList_GetItem(LSemaphoreNames, iS));
+  PyObject * name = PyList_GetItem(LSemaphoreNames, iS);
+  char*  SemaphoreName=PyString_AsString(name);
   return SemaphoreName;
 }
 

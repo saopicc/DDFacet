@@ -18,17 +18,33 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
-import DDFacet.cbuild.Gridder._pyGridderSmearPols as _pyGridderSmear
-import DDFacet.cbuild.Gridder._pyGridderSmearPolsClassic as _pyGridderSmearClassic
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
+import six
+if six.PY3:
+    from DDFacet.cbuild.Gridder import _pyGridderSmearPols3x as _pyGridderSmear
+else:
+    from DDFacet.cbuild.Gridder import _pyGridderSmearPols27 as _pyGridderSmear
+if six.PY3:
+    import DDFacet.cbuild.Gridder._pyGridderSmearPolsClassic3x as _pyGridderSmearClassic
+else:
+    import DDFacet.cbuild.Gridder._pyGridderSmearPolsClassic27 as _pyGridderSmearClassic
 # import DDFacet.cbuild.Gridder._pyGridderSmearPolsFaster as _pyGridderSmearFaster
 ##########################################################"
 # Please do not remove this import again - Needed for killMS
-import DDFacet.cbuild.Gridder._pyGridder as _pyGridder
+if six.PY3:
+    import DDFacet.cbuild.Gridder._pyGridder3x as _pyGridder
+else:
+    import DDFacet.cbuild.Gridder._pyGridder27 as _pyGridder
 ##########################################################"
 
 import numpy as np
 import os
-import ModCF
+from DDFacet.Imager import ModCF
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Parset import ReadCFG
@@ -55,7 +71,7 @@ def testGrid():
     npix = 2025
     Cell = 1.5
     # Cell=.5
-    offy, offx = 3465/2-1030, 3465/2-1303
+    offy, offx = 3465//2-1030, 3465//2-1303
     offx = offx
     offy = -offy
     CellRad = (Cell/3600.)*np.pi/180
@@ -218,7 +234,7 @@ def testGrid():
 
     # Grid.fill(0)
     _, _, n, n = Grid.shape
-    Grid[:, :, n/2+offx, n/2+offy] = 10.
+    Grid[:, :, n//2+offx, n//2+offy] = 10.
 
     data.fill(0)
 
@@ -390,7 +406,7 @@ class ClassDDEGridMachine():
 
         self.GridShape = (self.NFreqBands, self.npol, self.Npix, self.Npix)
 
-        x0 = (self.Npix-self.NonPaddedNpix)/2  # +1
+        x0 = (self.Npix-self.NonPaddedNpix)//2  # +1
         self.PaddingInnerCoord = (x0, x0+self.NonPaddedNpix)
 
         T.timeit("1")
@@ -1146,8 +1162,8 @@ class ClassDDEGridMachine():
         ModelImCorr = ModelIm*(self.WTerm.OverS*self.Padding)**2
 
         nchan, npol, _, _ = ModelImCorr.shape
-        for ichan in xrange(nchan):
-            for ipol in xrange(npol):
+        for ichan in range(nchan):
+            for ipol in range(npol):
                 ModelImCorr[
                     ichan, ipol][
                     :, :] = ModelImCorr[

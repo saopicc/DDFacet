@@ -1,3 +1,9 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 import copy
 import time
@@ -9,7 +15,7 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import logger
 log=logger.getLogger("ClassInitSSDModel")
 from DDFacet.Other import ModColor
-from ClassConvMachine import ClassConvMachineImages
+from DDFacet.Imager.SSD.ClassConvMachine import ClassConvMachineImages
 from DDFacet.Imager import ClassMaskMachine
 from DDFacet.Array import shared_dict
 import psutil
@@ -28,7 +34,7 @@ class ClassInitSSDModelParallel():
         self.GridFreqs=GridFreqs
         self.DegridFreqs=DegridFreqs
 
-        print>>log,"Initialise HMP machine"
+        print("Initialise HMP machine", file=log)
         self.InitMachine.Init(DicoVariablePSF, GridFreqs, DegridFreqs)
 
     def Reset(self):
@@ -50,9 +56,9 @@ class ClassInitSSDModelParallel():
         except:
             if not self.GD["GAClean"]["ParallelInitHMP"]:
                 raise
-            print>>log, traceback.format_exc()
+            print(traceback.format_exc(), file=log)
             FileOut = "errIsland_%6.6i.npy" % iIsland
-            print>>log, ModColor.Str("...... error on island %i, saving to file %s" % (iIsland, FileOut))
+            print(ModColor.Str("...... error on island %i, saving to file %s" % (iIsland, FileOut)), file=log)
             np.save(FileOut, np.array(Island))
             self.InitMachine.Reset()
             return
@@ -111,24 +117,37 @@ class ClassInitSSDModelParallel():
 #         DicoInitIndiv.reload()
 
 
-        print>>log,"Initialise islands (parallelised over islands)"
+        print("Initialise islands (parallelised over islands)", file=log)
+        if self.InitMachine.DeconvMachine.facetcache is None:
+            print("HMP bases not initialized. Will re-initialize now.", file=log)
         if not self.GD["GAClean"]["ParallelInitHMP"]:
           pBAR = ProgressBar(Title="  Init islands")
           for iIsland,Island in enumerate(ListIslands):
             if not ListDoIsland or ListDoIsland[iIsland]:
                 subdict = DicoInitIndiv.addSubdict(iIsland)
-                self._initIsland_worker(subdict, iIsland, Island,
-                                        self.DicoVariablePSF, DicoDirty,
-                                        ParmDict, self.InitMachine.DeconvMachine.facetcache,1)
+                self._initIsland_worker(subdict, 
+                                        iIsland, 
+                                        Island,
+                                        self.DicoVariablePSF, 
+                                        DicoDirty,
+                                        ParmDict, 
+                                        self.InitMachine.DeconvMachine.facetcache,
+                                        1)
             pBAR.render(iIsland, len(ListIslands))
         else:
           for iIsland,Island in enumerate(ListIslands):
             if not ListDoIsland or ListDoIsland[iIsland]:
                 subdict = DicoInitIndiv.addSubdict(iIsland)
                 APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
-                           args=(subdict.writeonly(), iIsland, Island,
-                                 self.DicoVariablePSF.readonly(), DicoDirty.readonly(),
-                                 ParmDict.readonly(), self.InitMachine.DeconvMachine.facetcache.readonly(),1))
+                           args=(subdict.writeonly(), 
+                                 iIsland, 
+                                 Island,
+                                 self.DicoVariablePSF.readonly(), 
+                                 DicoDirty.readonly(),
+                                 ParmDict.readonly(), 
+                                 self.InitMachine.DeconvMachine.facetcache.readonly() 
+                                    if self.InitMachine.DeconvMachine.facetcache is not None else None,
+                                 1))
           APP.awaitJobResults("InitIsland:*", progress="Init islands")
           DicoInitIndiv.reload()
         
@@ -254,8 +273,8 @@ class ClassInitSSDModel():
         self.DeconvMachine.PSFServer.setLocation(*self.xy0)
 
         N1=Size
-        xc1=yc1=N1/2
-        Aedge,Bedge=GiveEdges((xc0,yc0),N0,(xc1,yc1),N1)
+        xc1=yc1=N1//2
+        Aedge,Bedge=GiveEdges(xc0,yc0,N0,xc1,yc1,N1)
         x0d,x1d,y0d,y1d=Aedge
         x0p,x1p,y0p,y1p=Bedge
         self.SubDirty=self.Dirty[:,:,x0d:x1d,y0d:y1d].copy()
@@ -277,9 +296,9 @@ class ClassInitSSDModel():
 
         T.timeit("1")
         # ModelImage=np.zeros_like(self.Dirty)
-        # ModelImage[:,:,N0/2,N0/2]=10
-        # ModelImage[:,:,N0/2+3,N0/2]=10
-        # ModelImage[:,:,N0/2-2,N0/2-1]=10
+        # ModelImage[:,:,N0//2,N0//2]=10
+        # ModelImage[:,:,N0//2+3,N0//2]=10
+        # ModelImage[:,:,N0//2-2,N0//2-1]=10
         # self.setSSDModelImage(ModelImage)
 
         # Mask=np.zeros((nx,ny),np.bool8)
@@ -299,11 +318,11 @@ class ClassInitSSDModel():
         # ax=pylab.subplot(1,3,1)
         # N=self.DicoSubDirty["MeanImage"].shape[-1]
         # pylab.imshow(self.DicoSubDirty["MeanImage"][0,0],
-        #              interpolation="nearest",extent=(-N/2.,N/2.,-N/2.,N/2.),vmin=-0.1,vmax=1.)
+        #              interpolation="nearest",extent=(-N//2.,N//2.,-N//2.,N//2.),vmin=-0.1,vmax=1.)
         # pylab.colorbar()
         # pylab.subplot(1,3,2,sharex=ax,sharey=ax)
         # N=MeanPSF.shape[-1]
-        # pylab.imshow(MeanPSF[0,0],interpolation="nearest",extent=(-N/2.,N/2.,-N/2.,N/2.),vmin=-0.1,vmax=1.)
+        # pylab.imshow(MeanPSF[0,0],interpolation="nearest",extent=(-N//2.,N//2.,-N//2.,N//2.),vmin=-0.1,vmax=1.)
         # pylab.colorbar()
         # pylab.draw()
         # pylab.show()
@@ -327,12 +346,12 @@ class ClassInitSSDModel():
         # ConvModel=np.zeros_like(SubModelImage)
         # nch,_,N0x,N0y=ConvModel.shape
         # indx,indy=np.where(SubModelImage[0,0]!=0)
-        # xc,yc=N0x/2,N0y/2
+        # xc,yc=N0x//2,N0y//2
         # N1=PSF.shape[-1]
         # #T.timeit("0")
         # for i,j in zip(indx.tolist(),indy.tolist()):
         #     ThisPSF=np.roll(np.roll(PSF,i-xc,axis=-2),j-yc,axis=-1)
-        #     Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1/2,N1/2),(N1,N1))
+        #     Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1//2,N1//2),(N1,N1))
         #     x0d,x1d,y0d,y1d=Aedge
         #     x0p,x1p,y0p,y1p=Bedge
         #     ConvModel[...,x0d:x1d,y0d:y1d]+=ThisPSF[...,x0p:x1p,y0p:y1p]*SubModelImage[...,i,j].reshape((-1,1,1,1))

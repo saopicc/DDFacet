@@ -6,10 +6,11 @@ Usage:
     p = ProgressBar("blue")
     p.render(percentage, message)
 """
- 
+
+from __future__ import division, absolute_import, print_function
 import sys
 import time as timemod
-import ModColor
+from . import ModColor
 
 def disableBars():
     ProgressBar.silent = 1
@@ -43,7 +44,7 @@ class ProgressBar(object):
         
         if self.silent==1: return
 
-        import terminal
+        from . import terminal
         if color:
             self.color = getattr(terminal, color.upper())
         else:
@@ -138,7 +139,8 @@ class ProgressBar(object):
         # Check if render is called for the first time
         if self.progress != None:
             self.clear()
-        self.progress = (bar_width * percent) / 100
+        
+        self.progress = (bar_width * percent) // 100
 
 
         DicoData={

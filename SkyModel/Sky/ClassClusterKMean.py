@@ -1,6 +1,9 @@
+from __future__ import division, absolute_import, print_function
+
+
 import numpy as np
 from scipy.spatial import Voronoi
-import ModVoronoi
+from . import ModVoronoi
 from SkyModel.Other import ModCoord
 
 def test():
@@ -91,7 +94,7 @@ class ClassClusterKMean():
 
             NIter+=1
             if NIter==NITerMax:
-                print "Has reached max iter of %i"%NITerMax
+                print("Has reached max iter of %i"%NITerMax)
             d=np.sqrt((x.reshape((ns,1))-xc.reshape((1,Nk)))**2+(y.reshape((ns,1))-yc.reshape((1,Nk)))**2)
             indk=np.argmin(d,axis=1)
             
@@ -151,7 +154,7 @@ class ClassClusterKMean():
                 regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor)
                 for region in regions:
                     polygon = vertices[region]
-                    pylab.fill(*zip(*polygon), alpha=0.4)
+                    pylab.fill(*list(zip(*polygon)), alpha=0.4)
                     #pylab.plot(xy[:,0], xy[:,1], 'ko')
                     #pylab.xlim(vor.min_bound[0] - 0.1, vor.max_bound[0] + 0.1)
                     #pylab.ylim(vor.min_bound[1] - 0.1, vor.max_bound[1] + 0.1)

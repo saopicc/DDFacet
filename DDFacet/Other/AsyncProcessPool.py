@@ -18,10 +18,20 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import psutil
 import os
 import fnmatch
-import Queue
+import six
+if six.PY3:
+    import queue as Queue
+else:
+    import Queue
 import multiprocessing
 import numpy as np
 import traceback
@@ -39,7 +49,11 @@ from DDFacet.Other import ModColor
 from DDFacet.Other import Exceptions
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Array import shared_dict
-import DDFacet.cbuild.Gridder._pyArrays as _pyArrays
+import six
+if six.PY3:
+    from DDFacet.cbuild.Gridder import _pyArrays3x as _pyArrays
+else:
+    from DDFacet.cbuild.Gridder import _pyArrays27 as _pyArrays
 
 log = logger.getLogger("AsyncProcessPool")
 
@@ -133,7 +147,7 @@ class JobCounterPool(object):
     def _register(self, counter):
         cid = id(counter)
         if cid in self._counters:
-            raise RuntimeError,"job counter %s already exists. This is a bug."%cid
+            raise RuntimeError("job counter %s already exists. This is a bug."%cid)
         if os.getpid() != parent_pid:
             raise RuntimeError("This method can only be called in the parent process. This is a bug.")
         if self._counters_array is not None:
@@ -178,7 +192,7 @@ class AsyncProcessPool (object):
 
         if isinstance(self.affinity, int):
             self.cpustep = abs(self.affinity) or 1
-            maxcpu = psutil.cpu_count() / self.cpustep
+            maxcpu = psutil.cpu_count() // self.cpustep
             self.ncpu = ncpu or maxcpu
             self.parent_affinity = parent_affinity
         elif isinstance(self.affinity, list):
@@ -189,15 +203,15 @@ class AsyncProcessPool (object):
                                    "higher than this. Check parset." % psutil.cpu_count())
             self.ncpu = ncpu or len(self.affinity)
             if self.ncpu != len(self.affinity):
-                print>> log, ModColor.Str("Warning: NCPU does not match affinity list length. Falling back to "
-                                          "NCPU=%d" % len(self.affinity))
+                print(ModColor.Str("Warning: NCPU does not match affinity list length. Falling back to "
+                                          "NCPU=%d" % len(self.affinity)), file=log)
             self.ncpu = self.ncpu if self.ncpu == len(self.affinity) else len(self.affinity)
             maxcpu = max(self.affinity) + 1  # zero indexed list
             self.parent_affinity = parent_affinity
         elif isinstance(self.affinity, str) and str(self.affinity) == "enable_ht":
             self.affinity = 1
             self.cpustep = 1
-            maxcpu = psutil.cpu_count() / self.cpustep
+            maxcpu = psutil.cpu_count() // self.cpustep
             self.ncpu = ncpu or maxcpu
             self.parent_affinity = parent_affinity
         elif isinstance(self.affinity, str) and str(self.affinity) == "disable_ht":
@@ -235,14 +249,14 @@ class AsyncProcessPool (object):
             self.affinity = list(left_set)  # only consider 1 thread per core
             self.ncpu = ncpu or len(self.affinity)
             if self.ncpu > len(self.affinity):
-                print>> log, ModColor.Str("Warning: NCPU is more than the number of physical cores on "
-                                          "the system. I will only use %d cores." % len(self.affinity))
+                print(ModColor.Str("Warning: NCPU is more than the number of physical cores on "
+                                          "the system. I will only use %d cores." % len(self.affinity)), file=log)
             self.ncpu = self.ncpu if self.ncpu <= len(self.affinity) else len(self.affinity)
             maxcpu = max(self.affinity) + 1  # zero indexed list
 
-            unused = [x for x in xrange(psutil.cpu_count()) if x not in self.affinity]
+            unused = [x for x in range(psutil.cpu_count()) if x not in self.affinity]
             if len(unused) == 0:
-                print>> log, ModColor.Str("No unassigned vthreads to use as parent IO thread, I will use thread 0")
+                print(ModColor.Str("No unassigned vthreads to use as parent IO thread, I will use thread 0"), file=log)
                 self.parent_affinity = 0 # none unused (HT is probably disabled BIOS level)
             else:
                 self.parent_affinity = unused[0] # grab the first unused vthread
@@ -256,21 +270,21 @@ class AsyncProcessPool (object):
             raise RuntimeError("Invalid option for Parallel.Affinity. Expected cpu step (int), list, "
                                "'enable_ht', 'disable_ht', 'disable'")
         if self.parent_affinity is None:
-            print>> log, "Parent and I/O affinities not specified, leaving unset"
+            print("Parent and I/O affinities not specified, leaving unset", file=log)
         else:
-            print>> log, ModColor.Str("Fixing parent process to vthread %d" % self.parent_affinity, col="green")
+            print(ModColor.Str("Fixing parent process to vthread %d" % self.parent_affinity, col="green"), file=log)
         psutil.Process().cpu_affinity(range(self.ncpu) if not self.parent_affinity else [self.parent_affinity])
 
         # if NCPU is 0, set to number of CPUs on system
         if not self.ncpu:
             self.ncpu = maxcpu
         elif self.ncpu > maxcpu:
-            print>>log,ModColor.Str("NCPU=%d is too high for this setup (%d cores, affinity %s)" %
+            print(ModColor.Str("NCPU=%d is too high for this setup (%d cores, affinity %s)" %
                                     (self.ncpu, psutil.cpu_count(),
                                      str(self.affinity) if isinstance(self.affinity, int)
                                      else ",".join(map(str, self.affinity)) if isinstance(self.affinity, list)
-                                     else "disabled"))
-            print>>log,ModColor.Str("Falling back to NCPU=%d" % (maxcpu))
+                                     else "disabled")), file=log)
+            print(ModColor.Str("Falling back to NCPU=%d" % (maxcpu)), file=log)
             self.ncpu = maxcpu
         self.procinfo = psutil.Process()  # this will be used to control CPU affinity
 
@@ -287,16 +301,16 @@ class AsyncProcessPool (object):
         elif not self.affinity:
             cores = range(self.ncpu)
         else:
-            raise ValueError, "unknown affinity setting"
+            raise ValueError("unknown affinity setting")
         if not self.affinity:
-            print>> log, "Worker affinities not specified, leaving unset"
+            print("Worker affinities not specified, leaving unset", file=log)
         else:
-            print>> log, ModColor.Str("Worker processes fixed to vthreads %s" % (','.join([str(x) for x in cores])),
-                                      col="green")
+            print(ModColor.Str("Worker processes fixed to vthreads %s" % (','.join([str(x) for x in cores])),
+                                      col="green"), file=log)
         self._compute_workers = []
         self._io_workers = []
         self._compute_queue   = multiprocessing.Queue()
-        self._io_queues       = [ multiprocessing.Queue() for x in xrange(num_io_processes) ]
+        self._io_queues       = [ multiprocessing.Queue() for x in range(num_io_processes) ]
         self._result_queue    = multiprocessing.Queue()
         self._termination_event = multiprocessing.Event()
         # this event is set when all workers have been started, an cleared when a restart is requested
@@ -311,7 +325,7 @@ class AsyncProcessPool (object):
         if self.ncpu > 1:
             self._taras_bulba = multiprocessing.Process(target=AsyncProcessPool._startBulba, name="TB", args=(self,))
             if pause_on_start:
-                print>>log,ModColor.Str("Please note that due to your debug settings, worker processes will be paused on startup. Send SIGCONT to all processes to continue.", col="blue")
+                print(ModColor.Str("Please note that due to your debug settings, worker processes will be paused on startup. Send SIGCONT to all processes to continue.", col="blue"), file=log)
         else:
             self._taras_bulba = None
 
@@ -375,34 +389,34 @@ class AsyncProcessPool (object):
         if self.ncpu > 1:
             if self._termination_event.is_set():
                 if self.verbose > 1:
-                    print>> log, "termination event spotted, exiting"
+                    print("termination event spotted, exiting", file=log)
                 raise WorkerProcessError()
             self._workers_started_event.clear()
             # place a poison pill onto every queue
             if self.verbose:
-                print>> log, "asking worker processes to restart"
+                print("asking worker processes to restart", file=log)
             for core in self._cores:
                 self._compute_queue.put("POISON-E")
             for queue in self._io_queues:
                 queue.put("POISON-E")
             if self.verbose:
-                print>> log, "poison pills enqueued"
+                print("poison pills enqueued", file=log)
             self._taras_restart_event.set()
             nres = self._checkResultQueue()
             if nres:
-                print>> log, "collected %d outstanding results from the queue"%nres
+                print("collected %d outstanding results from the queue"%nres, file=log)
 
     def awaitWorkerStart(self):
         if self.ncpu > 1:
             while not self._workers_started_event.is_set():
                 if self._termination_event.is_set():
                     if self.verbose > 1:
-                        print>> log, "termination event spotted, exiting"
+                        print("termination event spotted, exiting", file=log)
                     raise WorkerProcessError()
                 nres = self._checkResultQueue()
                 if nres:
-                    print>> log, "collected %d outstanding results from the queue" % nres
-                print>> log, "waiting for worker processes to start up"
+                    print("collected %d outstanding results from the queue" % nres, file=log)
+                print("waiting for worker processes to start up", file=log)
                 self._workers_started_event.wait(10)
 
     def _startBulba (self):
@@ -418,7 +432,7 @@ class AsyncProcessPool (object):
             # at this stage the workers are dead (or not started)
             while not self._taras_exit_event.is_set():
                 if self.verbose:
-                    print>>log, "(re)creating worker processes"
+                    print("(re)creating worker processes", file=log)
                 # create the workers
                 self._compute_workers = []
                 self._io_workers = []
@@ -436,7 +450,7 @@ class AsyncProcessPool (object):
 
                 # start the workers
                 if self.verbose:
-                    print>>log, "starting  worker processes"
+                    print("starting  worker processes", file=log)
                 worker_map = {}
                 for proc in self._compute_workers + self._io_workers:
                     proc.start()
@@ -449,50 +463,50 @@ class AsyncProcessPool (object):
                 # go to sleep until we're told to do the whole thing again
                 while not self._taras_restart_event.is_set():
                     if self.verbose:
-                        print>>log, "waiting for restart signal"
+                        print("waiting for restart signal", file=log)
                     try:
                         self._taras_restart_event.wait(5)
                         if self.verbose:
-                            print>>log, "wait done"
+                            print("wait done", file=log)
                     except KeyboardInterrupt:
-                        print>>log,ModColor.Str("Ctrl+C caught, exiting")
+                        print(ModColor.Str("Ctrl+C caught, exiting"), file=log)
                         self._termination_event.set()
                         self._taras_exit_event.set()
                     # check for dead children, unless workers_started event has been cleared by restartWorkers()
                     # (in which case they're already going to be exiting)
                     if self._workers_started_event.is_set():
-                        for pid, proc in worker_map.iteritems():
+                        for pid, proc in getattr(worker_map, "iteritems", worker_map.items)():
                             if not proc.is_alive():
                                 proc.join()
                                 dead_workers[proc.pid] = proc
                                 if proc.exitcode < 0:
-                                    print>>log,ModColor.Str("worker '%s' killed by signal %s" % (proc.name, SIGNALS_TO_NAMES_DICT[-proc.exitcode]))
+                                    print(ModColor.Str("worker '%s' killed by signal %s" % (proc.name, SIGNALS_TO_NAMES_DICT[-proc.exitcode])), file=log)
                                 else:
-                                    print>>log,ModColor.Str("worker '%s' died with exit code %d"%(proc.name, proc.exitcode))
+                                    print(ModColor.Str("worker '%s' died with exit code %d"%(proc.name, proc.exitcode)), file=log)
                         # if workers have died, initiate bailout
                         if dead_workers:
-                            print>>log,ModColor.Str("%d worker(s) have died. Initiating shutdown."%len(dead_workers))
+                            print(ModColor.Str("%d worker(s) have died. Initiating shutdown."%len(dead_workers)), file=log)
                             self._taras_restart_event.set()  # to break out of loop
                             self._termination_event.set()
                             self._taras_exit_event.set()
                 self._taras_restart_event.clear()
                 if self._termination_event.is_set():
                     if self.verbose:
-                        print>> log, "terminating workers, since termination event is set"
-                    for proc in worker_map.itervalues():
+                        print("terminating workers, since termination event is set", file=log)
+                    for proc in getattr(worker_map, "itervalues", worker_map.values)():
                         if proc.is_alive():
                             proc.terminate()
                 if self.verbose:
-                    print>> log, "reaping workers"
+                    print("reaping workers", file=log)
                 # join processes
-                for pid, proc in worker_map.iteritems():
+                for pid, proc in getattr(worker_map, "iteritems", worker_map.items)():
                     if self.verbose:
-                        print>> log, "reaping worker %d"%pid
+                        print("reaping worker %d"%pid, file=log)
                     proc.join()
                     if self.verbose:
-                        print>> log, "worker %d's immortal soul has been put to rest"%pid
+                        print("worker %d's immortal soul has been put to rest"%pid, file=log)
 
-                # for pid, proc in worker_map.iteritems():
+                # for pid, proc in getattr(worker_map, "iteritems", worker_map.items)():
                 #     if self.verbose:
                 #         print>> log, "joining worker '%s' (%d) %s %s"%(proc.name, pid, proc.is_alive(), proc.exitcode)
                 #     proc.join(5)
@@ -501,12 +515,12 @@ class AsyncProcessPool (object):
                 #         proc.terminate()
                 #         proc.join(5)
                 if self.verbose:
-                    print>> log, "all workers have been reaped"
+                    print("all workers have been reaped", file=log)
             if self.verbose:
-                print>>log, "exiting"
+                print("exiting", file=log)
         except:
-            print>>log,ModColor.Str("exception raised in Taras Bulba process, see below. This is a bug!")
-            print>>log,traceback.format_exc()
+            print(ModColor.Str("exception raised in Taras Bulba process, see below. This is a bug!"), file=log)
+            print(traceback.format_exc(), file=log)
             self._workers_started_event.set()
             self._termination_event.set()
             self._taras_exit_event.set()
@@ -548,11 +562,11 @@ class AsyncProcessPool (object):
             handler_desc  = "%s()" % handler.__name__
         # If this is a bound method, describe it by instance id, method_name
         elif inspect.ismethod(handler):
-            instance = handler.im_self
+            instance = getattr(handler, "im_self", handler.__self__)
             if instance is None:
                 raise RuntimeError("Job '%s': handler %s is not a bound method. This is a bug." % (job_id, handler))
             handler_id, method = id(instance), handler.__name__
-            handler_desc = "%s.%s()" % (handler.im_class.__name__, method)
+            handler_desc = "%s.%s()" % (getattr(handler, "im_class", handler.__class__).__name__, method)
         else:
             raise TypeError("'handler' argument must be a function or a bound method")
         if handler_id not in self._job_handlers:
@@ -569,7 +583,7 @@ class AsyncProcessPool (object):
         for iarg, arg in enumerate(args):
             if type(arg) is shared_dict.SharedDict:
                 raise TypeError("positional argument %d is a SharedDict. This is a bug! Use readonly()/readwrite()/writeonly()"%iarg)
-        for key, arg in kwargs.iteritems():
+        for key, arg in getattr(kwargs, "iteritems", kwargs.items)():
             if type(arg) is shared_dict.SharedDict:
                 raise TypeError("keyword %s is a SharedDict. This is a bug! Use readonly()/readwrite()/writeonly()"%key)
         # create the job item
@@ -584,7 +598,7 @@ class AsyncProcessPool (object):
         ## normal paralell mode, stick job on queue
         if self.ncpu > 1 and not serial:
             if self.verbose > 2:
-                print>>log, "enqueueing job %s: %s"%(job_id, handler_desc)
+                print("enqueueing job %s: %s"%(job_id, handler_desc), file=log)
             # place it on appropriate queue
             if io is None:
                 self._compute_queue.put(jobitem)
@@ -597,7 +611,7 @@ class AsyncProcessPool (object):
 
     def awaitJobCounter (self, counter, progress=None, total=None, timeout=10):
         if self.verbose > 2:
-            print>> log, "  %s is complete" % counter.name
+            print("  %s is complete" % counter.name, file=log)
         if progress:
             current = counter.getValue()
             total = total or current or 1
@@ -609,16 +623,16 @@ class AsyncProcessPool (object):
                 pBAR.render(total - current, total)
                 if self._termination_event.is_set():
                     if self.verbose > 1:
-                        print>> log, "  termination event spotted, exiting"
+                        print("  termination event spotted, exiting", file=log)
                     raise WorkerProcessError()
         else:
             counter.awaitZero()
             if self._termination_event.is_set():
                 if self.verbose > 1:
-                    print>> log, "  termination event spotted, exiting"
+                    print("  termination event spotted, exiting", file=log)
                 raise WorkerProcessError()
             if self.verbose > 2:
-                print>> log, "  %s is complete" % counter.name
+                print("  %s is complete" % counter.name, file=log)
 
     def awaitEvents (self, *events):
         """
@@ -626,19 +640,19 @@ class AsyncProcessPool (object):
         from any of the background processes.
         """
         if self.verbose > 2:
-            print>>log, "checking for completion events on %s" % " ".join(events)
+            print("checking for completion events on %s" % " ".join(events), file=log)
         for event in events:
             name = self._events.get(id(event))
             while not event.is_set():
                 if self._termination_event.is_set():
                     if self.verbose > 1:
-                        print>> log, "  termination event spotted, exiting"
+                        print("  termination event spotted, exiting", file=log)
                     raise WorkerProcessError()
                 if self.verbose > 2:
-                    print>> log, "  %s not yet complete, waiting" % name
+                    print("  %s not yet complete, waiting" % name, file=log)
                 if event.wait(1):
                     if self.verbose > 2:
-                        print>> log, "  %s is complete" % name
+                        print("  %s is complete" % name, file=log)
                     break
 
     def awaitJobResults (self, jobspecs, progress=None, timing=None):
@@ -666,7 +680,7 @@ class AsyncProcessPool (object):
         job_results = OrderedDict()   # this maps jobspec to a list of results
         total_jobs = complete_jobs = 0
         for jobspec in jobspecs:
-            matching_jobs = [job_id for job_id in self._results_map.iterkeys() if fnmatch.fnmatch(job_id, jobspec)]
+            matching_jobs = [job_id for job_id in getattr(self._results_map, "iterkeys", self._results_map.keys)() if fnmatch.fnmatch(job_id, jobspec)]
             for job_id in matching_jobs:
                 awaiting_jobs.setdefault(job_id, set()).add(jobspec)
             if not matching_jobs:
@@ -675,21 +689,27 @@ class AsyncProcessPool (object):
             job_results[jobspec] = len(matching_jobs), []
         # check dict of already returned results (perhaps from previous calls to awaitJobs). Remove
         # matching results, and assign them to appropriate jobspec lists
+        delmap = []
+        deljobs = []
         for job_id, job in self._results_map.items():
             if job_id in awaiting_jobs and job.complete:
                 for jobspec in awaiting_jobs[job_id]:
                     job_results[jobspec][1].append(job.result)
                     complete_jobs += 1
                 if not job.singleton:
-                    del self._results_map[job_id]
-                del awaiting_jobs[job_id]
+                    delmap.append(job_id)            
+                deljobs.append(job_id)
+        for job_id in delmap:
+            del self._results_map[job_id]
+        for job_id in deljobs:
+            del awaiting_jobs[job_id]
         if progress:
             pBAR = ProgressBar(Title="  "+progress)
             pBAR.render(complete_jobs,(total_jobs or 1))
         if self.verbose > 1:
-            print>>log, "checking job results: %s (%d still pending)"%(
-                ", ".join(["%s %d/%d"%(jobspec, len(results), njobs) for jobspec, (njobs, results) in job_results.iteritems()]),
-                len(awaiting_jobs))
+            print("checking job results: %s (%d still pending)"%(
+                ", ".join(["%s %d/%d"%(jobspec, len(results), njobs) for jobspec, (njobs, results) in getattr(job_results, "iteritems", job_results.items)()]),
+                len(awaiting_jobs)), file=log)
         # sit here while any pending jobs remain
         while awaiting_jobs and not self._termination_event.is_set():
             try:
@@ -717,31 +737,31 @@ class AsyncProcessPool (object):
                     pBAR.render(complete_jobs,(total_jobs or 1))
             # print status update
             if self.verbose > 1:
-                print>>log,"received job results %s" % " ".join(["%s:%d"%(jobspec, len(results)) for jobspec, (_, results)
-                                                             in job_results.iteritems()])
+                print("received job results %s" % " ".join(["%s:%d"%(jobspec, len(results)) for jobspec, (_, results)
+                                                             in getattr(job_results, "iteritems", job_results.items)()]), file=log)
         # render complete
         if progress:
             pBAR.render(complete_jobs,(total_jobs or 1))
 
         if self._termination_event.is_set():
             if self.verbose > 1:
-                print>> log, "  termination event spotted, exiting"
+                print("  termination event spotted, exiting", file=log)
             raise WorkerProcessError()
 
         # process list of results for each jobspec to check for errors
-        for jobspec, (njobs, results) in job_results.iteritems():
+        for jobspec, (njobs, results) in getattr(job_results, "iteritems", job_results.items)():
             times = np.array([ res['time'] for res in results ])
             num_errors = len([res for res in results if not res['success']])
             if timing or progress:
-                print>> log, "%s: %d jobs complete, average single-core time %.2fs per job" % (timing or progress, len(results), times.mean())
+                print("%s: %d jobs complete, average single-core time %.2fs per job" % (timing or progress, len(results), times.mean()), file=log)
             elif self.verbose > 0:
-                print>> log, "%s: %d jobs complete, average single-core time %.2fs per job" % (jobspec, len(results), times.mean())
+                print("%s: %d jobs complete, average single-core time %.2fs per job" % (jobspec, len(results), times.mean()), file=log)
             if num_errors:
-                print>>log, ModColor.Str("%s: %d jobs returned an error. Aborting."%(jobspec, num_errors), col="red")
+                print(ModColor.Str("%s: %d jobs returned an error. Aborting."%(jobspec, num_errors), col="red"), file=log)
                 raise RuntimeError("some distributed jobs have failed")
         # return list of results
         result_values = []
-        for jobspec, (_, results) in job_results.iteritems():
+        for jobspec, (_, results) in getattr(job_results, "iteritems", job_results.items)():
             resvals = [resitem["result"] if resitem["success"] else resitem["error"] for resitem in results]
             if '*' not in jobspec:
                 resvals = resvals[0]
@@ -761,26 +781,26 @@ class AsyncProcessPool (object):
             return
         if not self._termination_event.is_set():
             if self.verbose > 1:
-                print>>log,"shutdown: asking TB to stop workers"
+                print("shutdown: asking TB to stop workers", file=log)
             self._started = False
             self._taras_exit_event.set()
             self.restartWorkers()
         if self._taras_bulba:
 #            if self._taras_bulba.is_alive():
                 if self.verbose > 1:
-                    print>> log, "shutdown: waiting for TB to exit"
+                    print("shutdown: waiting for TB to exit", file=log)
                 self._taras_bulba.join()
 #            else:
 #                print>> log, "shutdown: TB is already dead"
         if self.verbose > 1:
-            print>> log, "shutdown: closing queues"
+            print("shutdown: closing queues", file=log)
         # join and close queues
         self._result_queue.close()
         self._compute_queue.close()
         for queue in self._io_queues:
             queue.close()
         if self.verbose > 1:
-            print>> log, "shutdown complete"
+            print("shutdown complete", file=log)
 
     @staticmethod
     def _start_worker (object, proc_id, affinity, worker_queue, pause_on_start=False):
@@ -808,7 +828,7 @@ class AsyncProcessPool (object):
             psutil.Process().cpu_affinity(affinity)
         object._run_worker(worker_queue)
         if object.verbose:
-            print>>log,ModColor.Str("exiting worker pid %d"%os.getpid())
+            print(ModColor.Str("exiting worker pid %d"%os.getpid()), file=log)
 
 
     def _dispatch_job(self, jobitem, reraise=False):
@@ -819,7 +839,7 @@ class AsyncProcessPool (object):
         event = counter = None
         try:
             job_id, event_id, counter_id, args, kwargs = [jobitem.get(attr) for attr in
-                                                        "job_id", "event", "counter", "args", "kwargs"]
+                                                         ["job_id", "event", "counter", "args", "kwargs"]]
             handler_id, method, handler_desc = jobitem["handler"]
             handler = self._job_handlers.get(handler_id)
             if handler is None:
@@ -839,7 +859,7 @@ class AsyncProcessPool (object):
 #            timer.timeit('instantiated '+job_id)
             # call the job
             if self.verbose > 1:
-                print>> log, "job %s: calling %s" % (job_id, handler_desc)
+                print("job %s: calling %s" % (job_id, handler_desc), file=log)
             if method is None:
                 # call object directly
                 result = handler(*args, **kwargs)
@@ -849,21 +869,21 @@ class AsyncProcessPool (object):
                     raise KeyError("Job %s: unknown method '%s' for handler %s" % (job_id, method, handler_desc))
                 result = call(*args, **kwargs)
             if self.verbose > 3:
-                print>> log, "job %s: %s returns %s" % (job_id, handler_desc, result)
+                print("job %s: %s returns %s" % (job_id, handler_desc, result), file=log)
             # Send result back
             if jobitem['collect_result']:
                 self._result_queue.put(
                     dict(job_id=job_id, proc_id=self.proc_id, success=True, result=result, time=timer.seconds()))
         except KeyboardInterrupt:
             raise
-        except Exception, exc:
+        except Exception as exc:
             
             if reraise:
                 raise
 
 
-            print>> log, ModColor.Str("process %s: exception raised processing job %s: %s" % (
-                AsyncProcessPool.proc_id, job_id, traceback.format_exc()))
+            print(ModColor.Str("process %s: exception raised processing job %s: %s" % (
+                AsyncProcessPool.proc_id, job_id, traceback.format_exc())), file=log)
             if jobitem['collect_result']:
                 self._result_queue.put(
                     dict(job_id=job_id, proc_id=self.proc_id, success=False, error=exc, time=timer.seconds()))
@@ -880,7 +900,7 @@ class AsyncProcessPool (object):
             calls them, and returns results in the work queue.
         """
         if self.verbose > 0:
-            print>>log,ModColor.Str("started worker pid %d"%os.getpid())
+            print(ModColor.Str("started worker pid %d"%os.getpid()), file=log)
         try:
             pill = True
             # While no poisoned pill has been given grab items from the queue.
@@ -894,13 +914,13 @@ class AsyncProcessPool (object):
                     continue
                 if jobitem == "POISON-E":
                     if self.verbose:
-                        print>>log,"got pill. Qin:{} Qout:{}".format(queue.qsize(), self._result_queue.qsize())
+                        print("got pill. Qin:{} Qout:{}".format(queue.qsize(), self._result_queue.qsize()), file=log)
                     break
                 elif jobitem is not None:
                     self._dispatch_job(jobitem)
 
         except KeyboardInterrupt:
-            print>>log, ModColor.Str("Ctrl+C caught, exiting", col="red")
+            print(ModColor.Str("Ctrl+C caught, exiting", col="red"), file=log)
             return
     # CPU id. This will be None in the parent process, and a unique number in each worker process
     proc_id = None

@@ -1,5 +1,6 @@
 # DDfacet cbuild binary directory
 DDFacet/cbuild/*
+pip-wheel-metadata/* 
 
 #kdevelop files
 DDFacet/.kdev4/*

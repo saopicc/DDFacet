@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 import math
 import itertools
@@ -63,8 +69,8 @@ class SmearMappingMachine (object):
         blockdict = self._outdict.addSubdict("blocks")
         sizedict  = self._outdict.addSubdict("sizes")
         self._nbl = 0
-        for a0 in xrange(MS.na):
-            for a1 in xrange(MS.na):
+        for a0 in range(MS.na):
+            for a1 in range(MS.na):
                 if a0 != a1:
                     self._nbl += 1
                     APP.runJob("%s:%s:%d:%d" % (base_job_id, self.name, a0, a1), self._smearmapping_worker,
@@ -86,7 +92,7 @@ class SmearMappingMachine (object):
         NTotBlocks = 0
         NTotRows = 0
 
-        for key in sizedict.iterkeys():
+        for key in getattr(sizedict, "iterkeys", sizedict.keys)():
             bsz = sizedict[key]
             NTotBlocks += len(bsz)
             NTotRows += bsz.sum()
@@ -104,7 +110,7 @@ class SmearMappingMachine (object):
         jjj = 0
 
         # now go through each per-baseline mapping, sorted by baseline
-        for key in sorted(sizedict.iterkeys()):
+        for key in sorted(getattr(sizedict, "iterkeys", sizedict.keys)()):
             BlocksSizesBL = sizedict[key]
             BlocksRowsListBL = blockdict[key]
 
@@ -154,15 +160,15 @@ class ClassSmearMapping():
         for i in [3507]:  # range(Nb):
             ii = StartRow[i]
             MaxRow = np.max([MaxRow, np.max(Map[ii:ii+NRowInBlocks[i]])])
-            print "(iblock= %i , istart= %i), Nrow=%i" % \
-                  (i, StartRow[i], NRowInBlocks[i]), Map[ii:ii+NRowInBlocks[i]]
+            print("(iblock= %i , istart= %i), Nrow=%i" % \
+                  (i, StartRow[i], NRowInBlocks[i]), Map[ii:ii+NRowInBlocks[i]])
             #if MaxRow>=1080: stop
 
-        print MaxRow
+        print(MaxRow)
         # stop
 
     def BuildSmearMapping(self, DATA, GridChanMapping):
-        print>> log, "Build decorrelation mapping ..."
+        print("Build decorrelation mapping ...", file=log)
 
         na = self.MS.na
 
@@ -179,7 +185,7 @@ class ClassSmearMapping():
         InfoSmearMapping["l"] = l
         BlocksRowsList = []
 
-        joblist = [(a0, a1) for a0 in xrange(na) for a1 in xrange(na)]
+        joblist = [(a0, a1) for a0 in range(na) for a1 in range(na)]
 
         # process worker results
         # for each map (each array resturned from worker), BlockSizes[MapName] will
@@ -209,7 +215,7 @@ class ClassSmearMapping():
         jjj = 0
 
         # now go through each per-worker mapping
-        for baseline, (BlocksRowsListBL, BlocksSizesBL) in BlockListsSizes.iteritems():
+        for baseline, (BlocksRowsListBL, BlocksSizesBL) in getattr(BlockListsSizes, "iteritems", BlockListsSizes.items)():
             # FinalMapping=np.concatenate((FinalMapping,BlocksRowsListBLWorker))
 
             FinalMapping[iii:iii + len(BlocksRowsListBL)] = BlocksRowsListBL
@@ -247,7 +253,7 @@ class ClassSmearMapping():
 
 
     def BuildSmearMappingParallel(self, DATA, GridChanMapping):
-        print>>log, "Build decorrelation mapping ..."
+        print("Build decorrelation mapping ...", file=log)
 
         na = self.MS.na
 
@@ -264,7 +270,7 @@ class ClassSmearMapping():
         InfoSmearMapping["l"] = l
         BlocksRowsList = []
 
-        joblist = [ (a0, a1) for a0 in xrange(na) for a1 in xrange(na) if a0 != a1 ]
+        joblist = [ (a0, a1) for a0 in range(na) for a1 in range(na) if a0 != a1 ]
 
 
         WorkerMapName = Multiprocessing.getShmURL("SmearWorker.%d")
@@ -323,7 +329,7 @@ class ClassSmearMapping():
             BlockListSizes[jjj:jjj+BlocksSizesBL.size] = BlocksSizesBL[:]
             jjj += BlocksSizesBL.size
 
-        for MapName in worker_maps.iterkeys():
+        for MapName in getattr(worker_maps, "iterkeys", worker_maps.keys)():
             NpShared.DelArray(MapName)
 
         #print>>log, "  Put in shared mem"
@@ -414,9 +420,9 @@ def GiveBlocksRowsListBL(a0, a1, DATA, dPhi, l_max, GridChanMapping):
             # make list of rows slices for each time block. The where() statement above gives us a list of rows at
             # which the block index has changed, i.e. [0 N1 N2 Nrows]. Convert this into slice objects representing
             # [0,N1), [N1,N2), ..., [Nx,Nrows)
-            block_slices = [ slice(blockcut[i],blockcut[i+1]) for i in xrange(nblocks-1) ]
+            block_slices = [ slice(blockcut[i],blockcut[i+1]) for i in range(nblocks-1) ]
         else:
-            block_slices = [ slice(i,i+1) for i in xrange(nrows) ]
+            block_slices = [ slice(i,i+1) for i in range(nrows) ]
     else:   # slow-style, more like Cyril used to do it
         block_slices = []
         dphtot = row0 = 0
@@ -462,10 +468,10 @@ def GiveBlocksRowsListBL(a0, a1, DATA, dPhi, l_max, GridChanMapping):
     changes = (chanpairs != np.roll(chanpairs,1,axis=1)).any(axis=2)
 
     # list of lists: for each blocksize, lists channels where to cut for that blocksize
-    changes_where = [ np.where(changes[bs,:])[0] for bs in xrange(num_bs) ]
+    changes_where = [ np.where(changes[bs,:])[0] for bs in range(num_bs) ]
 
     # list of lists: for each blocksize, lists (ch0,ch1) pairs indicating the blocks
-    channel_cuts = [ [ (chwh[i], chwh[i+1]) for i in xrange(len(chwh)-1) ] for chwh in changes_where ]
+    channel_cuts = [ [ (chwh[i], chwh[i+1]) for i in range(len(chwh)-1) ] for chwh in changes_where ]
 
     # ok, now to form up the list in grand Cyril format: for each time block, for each channel block in that
     # time block, we need to make a list of [ch0,ch1,rows]
@@ -530,7 +536,7 @@ def GiveBlocksRowsListBL_old(a0, a1, DATA, dPhi, l, channel_mapping):
     NBlocksTotBL = 0
     blocklist = []
     # loop over all rows for this baseline
-    for iRowBL in xrange(ind.size):
+    for iRowBL in range(ind.size):
         CurrentRows.append(ind[iRowBL])   # add to list of rows
         # Frequency Block
         uv = np.sqrt(u[iRowBL]**2+v[iRowBL]**2+w[iRowBL]**2)   # uvw distance for this row
@@ -560,7 +566,7 @@ def GiveBlocksRowsListBL_old(a0, a1, DATA, dPhi, l, channel_mapping):
 
             # associate each channel with block number
             ChBlock_rampe = np.zeros((NChan, ), np.int32)
-            for iChBlock in xrange(ChBlock.size-1):
+            for iChBlock in range(ChBlock.size-1):
                 ch0 = ChBlock[iChBlock]
                 ch1 = ChBlock[iChBlock+1]
                 ChBlock_rampe[ch0:ch1] = iChBlock
@@ -569,7 +575,7 @@ def GiveBlocksRowsListBL_old(a0, a1, DATA, dPhi, l, channel_mapping):
             # find channels where (block_number, grid_number) changes
             # ChBlock_Cut_ChanGridMapping will be a list of channels at which to "cut"
             ChBlock_Cut_ChanGridMapping = []
-            for iCh in xrange(NChan):
+            for iCh in range(NChan):
                 CH0 = ChBlock_rampe[iCh]
                 CH1 = GridChanMapping[iCh]
                 CH_N = (CH0, CH1)
@@ -584,7 +590,7 @@ def GiveBlocksRowsListBL_old(a0, a1, DATA, dPhi, l, channel_mapping):
 
             ChBlock = np.array(ChBlock_Cut_ChanGridMapping, np.int32)
             # now go over cuts, and for each interval, add [ch0,ch1] to list of blocks
-            for iChBlock in xrange(ChBlock.size-1):
+            for iChBlock in range(ChBlock.size-1):
                 ch0 = ChBlock[iChBlock]
                 ch1 = ChBlock[iChBlock+1]
                 ThiDesc = [ch0, ch1]

@@ -1,6 +1,7 @@
+from __future__ import division, absolute_import, print_function
 def reformat(ssin,slash=True,LastSlash=True):
     ss=ssin.split("/")
-    ss=filter (lambda a: a != "", ss)
+    ss=[a for a in ss if a != ""]
     ss="/".join(ss)+"/"
     if ssin[0]=="/": ss="/"+ss
     if not(slash):

@@ -1,3 +1,4 @@
+from __future__ import division, absolute_import, print_function
 import numpy as np
 from SkyModel.Other.progressbar import ProgressBar
 from SkyModel.PSourceExtract.ClassGaussFit import ClassGaussFit as ClassFit

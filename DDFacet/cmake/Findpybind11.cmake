@@ -17,7 +17,7 @@ endif()
 
 if (PYTHON_EXECUTABLE)
   # We want to use the first python in the path if it is a virtualenv
-  find_program(PYTHONENV NAMES python2.7 PATHS ENV PATH)
+  find_program(PYTHONENV NAMES "${PYTHON_EXECUTABLE}" PATHS ENV PATH)
   if(NOT PYTHONENV)
     message(FATAL_ERROR "Could not find `python` in PATH")
   endif()

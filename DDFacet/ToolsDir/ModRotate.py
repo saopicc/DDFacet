@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 from pyrap.tables import table
 import numpy as np
 import os
@@ -26,10 +32,10 @@ import ephem
 import re
 import pyrap.quanta as qa
 import pyrap.measures as pm
-import rad2hmsdms
+from DDFacet.ToolsDir import rad2hmsdms
 
 
-def Rotate2((ra,dec),(ra1,dec1),uvw,data,wavelength,RotateType=["uvw","vis"]):
+def Rotate2(ra,dec,ra1,dec1,uvw,data,wavelength,RotateType=["uvw","vis"]):
     
 
     # preparing rotation matrices (ORIGINAL PHASE DIRECTION)

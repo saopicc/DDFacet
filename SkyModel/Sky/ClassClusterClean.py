@@ -1,7 +1,10 @@
+from __future__ import division, absolute_import, print_function
+
+
 import numpy as np
 from SkyModel.Other import ModColor
 from scipy.spatial import Voronoi
-import ModVoronoi
+import SkyModel.Sky.ModVoronoi
 from SkyModel.Other import ModCoord
 
 class ClassClusterClean():

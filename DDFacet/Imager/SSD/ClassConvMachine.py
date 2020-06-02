@@ -1,3 +1,9 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import logger
@@ -27,8 +33,8 @@ def test():
 
     Dirty=np.zeros_like(PSF)
     nx,_=Dirty.shape
-    Dirty[nx/2,nx/2+10]+=2.
-    Dirty[nx/2+10,nx/2+10]+=2.
+    Dirty[nx//2,nx//2+10]+=2.
+    Dirty[nx//2+10,nx//2+10]+=2.
     Dirty=np.random.randn(*(Dirty.shape))
     
     PSF=PSF.reshape((1,1,nx,nx))*np.ones((2,1,1,1))
@@ -36,7 +42,7 @@ def test():
     Dirty[1,:,:,:]=Dirty[0,:,:,:]*2
     x,y=np.mgrid[0:nx,0:nx]
     dx=10
-    nc=nx/2
+    nc=nx//2
     x=x[nc-dx:nc+dx,nc-dx:nc+dx].flatten()
     y=y[nc-dx:nc+dx,nc-dx:nc+dx].flatten()
     ListPixParms=[(x[i],y[i]) for i in range(x.size)]
@@ -98,8 +104,8 @@ def test():
         #print np.var(Array),np.var(ConvArray0)/Fact
 
     Fact=CC.NormData[0]
-    print np.median(np.std(ArrKeep0,axis=0)**2)
-    print np.median(np.std(ArrKeep1,axis=0)**2/Fact)
+    print(np.median(np.std(ArrKeep0,axis=0)**2))
+    print(np.median(np.std(ArrKeep1,axis=0)**2/Fact))
     return
     
     from scipy.stats import chi2
@@ -129,8 +135,8 @@ def test():
     # dx=xd[1]-xd[0]
     # yd/=np.sum(yd)
     # yd/=dx
-    print np.mean(Lchi1)/Fact
-    print np.mean(Lchi0)
+    print(np.mean(Lchi1)/Fact)
+    print(np.mean(Lchi0))
     # #pylab.xlim(0,800)
     # #pylab.hist(Lchi1,bins=100)
 
@@ -178,14 +184,14 @@ class ClassConvMachineImages():
         if Nin%2==0: Nin+=1
         
         SubModelImage=np.zeros((nch,1,Nin,Nin),dtype=SubModelImageIn.dtype)
-        Aedge,Bedge=GiveEdgesDissymetric((N0x_in/2,N0y_in/2),(N0x_in,N0y_in),(Nin/2,Nin/2),(Nin,Nin))
+        Aedge,Bedge=GiveEdgesDissymetric(N0x_in//2,N0y_in//2,N0x_in,N0y_in,Nin//2,Nin//2,Nin,Nin)
         x0d,x1d,y0d,y1d=Aedge
         x0f,x1f,y0f,y1f=Bedge
         SubModelImage[...,x0f:x1f,y0f:y1f]=SubModelImageIn[...,x0d:x1d,y0d:y1d]
 
         PSF=self.PSF
         nPSF=PSF.shape[-1]
-        AedgeP,BedgeP=GiveEdgesDissymetric((Nin/2,Nin/2),(Nin,Nin),(nPSF/2,nPSF/2),(nPSF,nPSF))
+        AedgeP,BedgeP=GiveEdgesDissymetric(Nin//2,Nin//2,Nin,Nin,nPSF//2,nPSF//2,nPSF,nPSF)
         x0dP,x1dP,y0dP,y1dP=AedgeP
         x0fP,x1fP,y0fP,y1fP=BedgeP
         SubPSF=PSF[...,x0fP:x1fP,y0fP:y1fP]
@@ -227,7 +233,7 @@ class ClassConvMachine():
 
         # _,_,nx,_=PSF.shape
         # dx=5
-        # PSF=PSF[...,nx/2-dx:nx/2+dx+1,nx/2-dx:nx/2+dx+1]
+        # PSF=PSF[...,nx//2-dx:nx//2+dx+1,nx//2-dx:nx//2+dx+1]
 
         self.PSF=PSF
         self.ListPixParms=ListPixParms
@@ -287,22 +293,22 @@ class ClassConvMachine():
         zN=2*N+1
         zN,_=EstimateNpix(float(zN))
         zAsq=np.zeros((NFreqBand,npol,zN,zN),dtype=Asq.dtype)
-        zAsq[:,:,zN/2-N/2:zN/2+N/2+1,zN/2-N/2:zN/2+N/2+1]=Asq[:,:,:,:]
+        zAsq[:,:,zN//2-N//2:zN//2+N//2+1,zN//2-N//2:zN//2+N//2+1]=Asq[:,:,:,:]
         T.timeit("1")
         if AddNoise is not None:
             zAsq+=np.random.randn(*zAsq.shape)*AddNoise
 
 
         N0x=zAsq.shape[-1]
-        xc0=N0x/2
+        xc0=N0x//2
         N1=self.PSF.shape[-1]
-        Aedge,Bedge=GiveEdgesDissymetric((xc0,xc0),(N0x,N0x),(N1/2,N1/2),(N1,N1))
+        Aedge,Bedge=GiveEdgesDissymetric(xc0,xc0,N0x,N0x,N1//2,N1//2,N1,N1)
         x0d,x1d,y0d,y1d=Aedge
         x0s,x1s,y0s,y1s=Bedge
         SubPSF=self.PSF[:,:,x0s:x1s,y0s:y1s]
 
 
-        #xc=self.PSF.shape[-1]/2
+        #xc=self.PSF.shape[-1]//2
         #SubPSF=self.PSF[:,:,xc-N:xc+N+1,xc-N:xc+N+1]
 
         Conv=np.zeros_like(zAsq)
@@ -314,17 +320,17 @@ class ClassConvMachine():
                 
                 # import pylab
                 # pylab.subplot(1,3,1)
-                # pylab.imshow(Conv[ich,ipol][zN/2-N/2:zN/2+N/2+1,zN/2-N/2:zN/2+N/2+1],interpolation="nearest")
+                # pylab.imshow(Conv[ich,ipol][zN//2-N//2:zN//2+N//2+1,zN//2-N//2:zN//2+N//2+1],interpolation="nearest")
                 # pylab.subplot(1,3,2)
-                # pylab.imshow(Conv1[ich,ipol][zN/2-N/2:zN/2+N/2+1,zN/2-N/2:zN/2+N/2+1],interpolation="nearest")
+                # pylab.imshow(Conv1[ich,ipol][zN//2-N//2:zN//2+N//2+1,zN//2-N//2:zN//2+N//2+1],interpolation="nearest")
                 # pylab.subplot(1,3,3)
-                # pylab.imshow((Conv-Conv1)[ich,ipol][zN/2-N/2:zN/2+N/2+1,zN/2-N/2:zN/2+N/2+1],interpolation="nearest")
+                # pylab.imshow((Conv-Conv1)[ich,ipol][zN//2-N//2:zN//2+N//2+1,zN//2-N//2:zN//2+N//2+1],interpolation="nearest")
                 # pylab.colorbar()
                 # pylab.draw()
                 # pylab.show()
 
         T.timeit("3 [%s]"%str(zAsq.shape))
-        A=self.PM.SquareArrayToModel(Conv[:,:,zN/2-N/2:zN/2+N/2+1,zN/2-N/2:zN/2+N/2+1],TypeInOut=(OutMode,OutMode))
+        A=self.PM.SquareArrayToModel(Conv[:,:,zN//2-N//2:zN//2+N//2+1,zN//2-N//2:zN//2+N//2+1],TypeInOut=(OutMode,OutMode))
         T.timeit("4")
 
 
@@ -417,7 +423,7 @@ class ClassConvMachine():
         T.disable()
         PSF=self.PSF
         NPixPSF=PSF.shape[-1]
-        xc=yc=NPixPSF/2
+        xc=yc=NPixPSF//2
         T.timeit("0")
         x1,y1=self.ArrayListPixParms[iPix:iPix+1].T
 
@@ -469,7 +475,7 @@ class ClassConvMachine():
 
 
         M=np.zeros((self.NFreqBands,1,self.NPixListData,self.NPixListParms),np.float32)
-        xc=yc=NPixPSF/2
+        xc=yc=NPixPSF//2
 
         x0,y0=np.array(self.ListPixData).T
         x1,y1=np.array(self.ListPixParms).T

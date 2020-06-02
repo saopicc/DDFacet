@@ -100,8 +100,8 @@ namespace DDF {
     for (size_t i=0; i<ncorr; ++i)
       {
       uint16_t corrid = LDataCorrFormat.data<uint16_t>(0)[i];
-      if (corrid<5 || corrid>12)
-	throw std::invalid_argument("Only accepts RR,RL,LR,LL,XX,XY,YX,YY as correlation input type");
+      if (!(corrid>=5 && corrid<=12 || corrid == 1))
+	throw std::invalid_argument("Only accepts I,RR,RL,LR,LL,XX,XY,YX,YY as correlation input type");
       inputcorr[i] = stokeslookup[corrid];
       }
     for (size_t i=0; i<npol; ++i)
@@ -174,6 +174,15 @@ namespace DDF {
       #undef readcorr
       #undef mulaccum
       }
+    else if (inputcorr==svec{"I"})
+      {
+      #define readcorr gridder::policies::Read_1Corr_Pad
+      #define mulaccum gridder::policies::Mulaccum_1Corr_Unpad
+      if (expstokes==svec{"I"})
+	callgridder(I_from_I, 1)
+      #undef readcorr
+      #undef mulaccum
+      }
     if (!done)
       throw std::invalid_argument("Cannot convert input correlations to desired output Stokes parameters.");
   }
@@ -209,8 +218,8 @@ namespace DDF {
     for (size_t i=0; i<ncorr; ++i)
       {
       const uint16_t corrid = LDataCorrFormat.data(0)[i];
-      if (corrid<5 || corrid>12)
-	throw std::invalid_argument("Only accepts RR,RL,LR,LL,XX,XY,YX,YY as correlation output types");
+      if (!(corrid>=5 && corrid<=12 || corrid==1))
+	throw std::invalid_argument("Only accepts I,RR,RL,LR,LL,XX,XY,YX,YY as correlation output types");
       inputcorr[i] = stokeslookup[corrid];
       }
     for (size_t i=0; i<npol; ++i)
@@ -237,13 +246,18 @@ namespace DDF {
 	CALL_DEGRIDDER(gmode_corr_RRRLLRLL_from_I, 1, 4)
       else if (inputcorr==svec{"RR", "LL"})
 	CALL_DEGRIDDER(gmode_corr_RRLL_from_I, 1, 2)
+      else if (inputcorr==svec{"I"})
+	CALL_DEGRIDDER(gmode_corr_I_from_I, 1, 1)
       }
     if (!done)
       throw std::invalid_argument("Cannot convert input Stokes parameter to desired output correlations.");
     return np_vis;
   }
-
-  PYBIND11_MODULE(_pyGridderSmearPols, m) {
+    #if PY_MAJOR_VERSION >= 3
+    PYBIND11_MODULE(_pyGridderSmearPols3x, m) {
+    #else
+    PYBIND11_MODULE(_pyGridderSmearPols27, m) {
+    #endif
     m.doc() = "DDFacet Directional Dependent BDA gridding module";
     m.def("pyAccumulateWeightsOntoGrid",
 	  &pyAccumulateWeightsOntoGrid);

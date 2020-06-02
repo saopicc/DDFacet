@@ -1,3 +1,4 @@
+from __future__ import division, absolute_import, print_function
 import numpy as np
 import pyfftw
 import multiprocessing
@@ -18,7 +19,7 @@ def test():
     
     test_array[11,11]=1
     #test_array.fill(1)
-    #test_array[size*3/8:size*5/8, size*3/8:size*5/8] = 1+1j # square aperture oversampling 2...
+    #test_array[size*3//8:size*5//8, size*3//8:size*5//8] = 1+1j # square aperture oversampling 2...
     A=test_array
     F=FFTWnp(A)
     
@@ -45,10 +46,10 @@ def test2():
     size=2048
     dtype=np.complex128
     test_array = np.zeros( (size,size), dtype=dtype)
-    test_array[size*3/8:size*5/8, size*3/8:size*5/8] = 1+1j # square aperture oversampling 2...
+    test_array[size*3//8:size*5//8, size*3//8:size*5//8] = 1+1j # square aperture oversampling 2...
     A=test_array
     for i in range(5):
-        print i
+        print(i)
         l.append(FFTW(A))
 
 

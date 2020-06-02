@@ -9,6 +9,12 @@ based on MATLAB's lsqnonneg function
 
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy
 
 def lsqnonneg(C, d, x0=None, tol=None, itmax_factor=3):
@@ -61,8 +67,8 @@ def lsqnonneg(C, d, x0=None, tol=None, itmax_factor=3):
         P[t-1]=t
         Z[t-1]=0
 
-        PP = numpy.where(P <> 0)[0]+1
-        ZZ = numpy.where(Z <> 0)[0]+1
+        PP = numpy.where(P != 0)[0]+1
+        ZZ = numpy.where(Z != 0)[0]+1
 
         CP = numpy.zeros(C.shape)
 
@@ -82,15 +88,15 @@ def lsqnonneg(C, d, x0=None, tol=None, itmax_factor=3):
                 raise Exception('Exiting: Iteration count (=%d) exceeded\n Try raising the \
                                  tolerance tol. (max_error=%d)' % (it, max_error))
 
-            QQ = numpy.where((z <= tol) & (P <> 0))[0]
+            QQ = numpy.where((z <= tol) & (P != 0))[0]
             alpha = min(x[QQ]/(x[QQ] - z[QQ]))
             x = x + alpha*(z-x)
 
-            ij = numpy.where((abs(x) < tol) & (P <> 0))[0]+1
+            ij = numpy.where((abs(x) < tol) & (P != 0))[0]+1
             Z[ij-1] = ij
             P[ij-1] = numpy.zeros(max(ij.shape))
-            PP = numpy.where(P <> 0)[0]+1
-            ZZ = numpy.where(Z <> 0)[0]+1
+            PP = numpy.where(P != 0)[0]+1
+            ZZ = numpy.where(Z != 0)[0]+1
 
             CP[:, PP-1] = C[:, PP-1]
             CP[:, ZZ-1] = numpy.zeros((m, msize(ZZ, 1)))
@@ -126,19 +132,19 @@ if __name__=='__main__':
 
     [x, resnorm, residual] = lsqnonneg(C, d)
     dres = abs(resnorm - 0.8315)          # compare with matlab result
-    print 'ok, diff:', dres
+    print('ok, diff:', dres)
     if dres > 0.001:
         raise Exeption('Error')
 
     [x, resnorm, residual] = lsqnonneg(C1, d)
     dres = abs(resnorm - 0.1477)          # compare with matlab result
-    print 'ok, diff:', dres
+    print('ok, diff:', dres)
     if dres > 0.01:
         raise Exeption('Error')
 
     [x, resnorm, residual] = lsqnonneg(C2, d)
     dres = abs(resnorm - 0.1027)          # compare with matlab result
-    print 'ok, diff:', dres
+    print('ok, diff:', dres)
     if dres > 0.01:
         raise Exeption('Error')
 
@@ -159,13 +165,13 @@ if __name__=='__main__':
 
     [x, resnorm, residual] = lsqnonneg(k, l)
     dres = abs(resnorm - 0.3695)          # compare with matlab result
-    print 'ok, diff:', dres
+    print('ok, diff:', dres)
     if dres > 0.01:
         raise Exeption('Error')
 
     [x, resnorm, residual] = lsqnonneg(k1, l)
     dres = abs(resnorm - 2.8639)          # compare with matlab result
-    print 'ok, diff:', dres
+    print('ok, diff:', dres)
     if dres > 0.01:
         raise Exeption('Error')
 
@@ -179,4 +185,4 @@ if __name__=='__main__':
 
     [x, resnorm, residual] = lsqnonneg(C, d)
 
-    print [x, resnorm, residual]
+    print([x, resnorm, residual])

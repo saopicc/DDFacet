@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 from DDFacet.Other import ClassTimeIt
 from DDFacet.ToolsDir import ModFFTW
@@ -100,10 +106,10 @@ class ClassImToGrid():
 
         xc,yc=DicoImager[iFacet]["pixCentral"]
         #x0,x1,y0,y1=DicoImager[iFacet]["pixExtent"]
-        #xc,yc=(x0+x1)/2,(y0+y1)/2
+        #xc,yc=(x0+x1)//2,(y0+y1)//2
 
-        Aedge,Bedge=GiveEdges((xc,yc),NPixOut,(N1/2,N1/2),N1)
-        #Bedge,Aedge=GiveEdges((N1/2,N1/2),N1,(yc,xc),NPixOut)
+        Aedge,Bedge=GiveEdges(xc,yc,NPixOut,N1//2,N1//2,N1)
+        #Bedge,Aedge=GiveEdges(N1//2,N1//2,N1,yc,xc,NPixOut)
         x0d,x1d,y0d,y1d=Aedge
         x0p,x1p,y0p,y1p=Bedge
         #print "xxA:",x0d,x1d
@@ -135,14 +141,14 @@ class ClassImToGrid():
 
         N1=DicoImager[iFacet]["NpixFacetPadded"]
         N1NonPadded=DicoImager[iFacet]["NpixFacetPadded"]
-        dx=(N1-N1NonPadded)/2
+        dx=(N1-N1NonPadded)//2
 
         xc,yc=DicoImager[iFacet]["pixCentral"]
         #x0,x1,y0,y1=DicoImager[iFacet]["pixExtent"]
-        #xc,yc=(x0+x1)/2,(y0+y1)/2
+        #xc,yc=(x0+x1)//2,(y0+y1)//2
 
-        Aedge,Bedge=GiveEdges((xc,yc),NPixOut,(N1/2,N1/2),N1)
-        #Bedge,Aedge=GiveEdges((N1/2,N1/2),N1,(yc,xc),NPixOut)
+        Aedge,Bedge=GiveEdges(xc,yc,NPixOut,N1//2,N1//2,N1)
+        #Bedge,Aedge=GiveEdges(N1//2,N1//2,N1,yc,xc,NPixOut)
         x0d,x1d,y0d,y1d=Aedge
         x0p,x1p,y0p,y1p=Bedge
         #print "xxA:",x0d,x1d

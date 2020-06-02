@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import subprocess
 import unittest
 import os
@@ -143,7 +149,7 @@ class TestFacetPredict(unittest.TestCase):
                 meqtrees = t.getcol("CORRECTED_DATA")
                 ddfacet = t.getcol("MODEL_DATA")
                 diff = np.abs(meqtrees) / np.abs(ddfacet)
-                for icorr in xrange(4):
+                for icorr in range(4):
                     gainsPlot = self._outputDir + \
                                 self.__class__.__name__ + \
                                 ".ms" + str(ms_i) + \
@@ -169,12 +175,12 @@ class TestFacetPredict(unittest.TestCase):
                         "Facet amplitude prediction != meqtrees for ms %s correlation %d" % (ms, 0)
                     assert np.max(np.abs(diff[:, :, 3] - 1.0)) <= TestFacetPredict.getAmpThreshold(), \
                         "Facet amplitude prediction != meqtrees for ms %s correlation %d" % (ms, 3)
-                except AssertionError, e:
+                except AssertionError as e:
                     list_except.append(str(e))
 
                 # next test phase
                 diff_rel = np.angle(meqtrees) - np.angle(ddfacet)
-                for icorr in xrange(4):
+                for icorr in range(4):
                     gainsPlot = self._outputDir + \
                                 self.__class__.__name__ + \
                                 ".ms" + str(ms_i) + \
@@ -199,7 +205,7 @@ class TestFacetPredict(unittest.TestCase):
                         "Facet phase prediction != meqtrees for ms %s correlation %d" % (ms, 0)
                     assert np.max(np.abs(diff_rel[:, :, 3] - 1.0)) <= TestFacetPredict.getPhaseThreshold(), \
                         "Facet phase prediction != meqtrees for ms %s correlation %d" % (ms, 3)
-                except AssertionError, e:
+                except AssertionError as e:
                     list_except.append(str(e))
 
         if len(list_except) != 0:
@@ -224,7 +230,7 @@ class TestFacetPredict(unittest.TestCase):
                 meqtrees = t.getcol("DATA")
                 ddfacet = t.getcol("MODEL_DATA")
                 diff = np.abs(meqtrees) / np.abs(ddfacet)
-                for icorr in xrange(4):
+                for icorr in range(4):
                     gainsPlot = self._outputDir + \
                                 self.__class__.__name__ + \
                                 ".ms" + str(ms_i) + \
@@ -250,12 +256,12 @@ class TestFacetPredict(unittest.TestCase):
                         "Facet amplitude prediction != meqtrees for ms %s correlation %d" % (ms, 0)
                     assert np.max(np.abs(diff[:, :, 3] - 1.0)) <= TestFacetPredict.getAmpThreshold(), \
                         "Facet amplitude prediction != meqtrees for ms %s correlation %d" % (ms, 3)
-                except AssertionError, e:
+                except AssertionError as e:
                     list_except.append(str(e))
 
                 # next test phase
                 diff_rel = np.angle(meqtrees) - np.angle(ddfacet)
-                for icorr in xrange(4):
+                for icorr in range(4):
                     gainsPlot = self._outputDir + \
                                 self.__class__.__name__ + \
                                 ".ms" + str(ms_i) + \
@@ -280,7 +286,7 @@ class TestFacetPredict(unittest.TestCase):
                         "Facet phase prediction != meqtrees for ms %s correlation %d" % (ms, 0)
                     assert np.max(np.abs(diff_rel[:, :, 3] - 1.0)) <= TestFacetPredict.getPhaseThreshold(), \
                         "Facet phase prediction != meqtrees for ms %s correlation %d" % (ms, 3)
-                except AssertionError, e:
+                except AssertionError as e:
                     list_except.append(str(e))
 
         if len(list_except) != 0:

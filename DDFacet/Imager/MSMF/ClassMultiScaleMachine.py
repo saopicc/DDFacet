@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 from DDFacet.Other import logger
 
@@ -33,7 +39,11 @@ import scipy.optimize
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 
 import pickle
-import cPickle
+import six
+if six.PY3:
+    import pickle as cPickle
+else:
+    import cPickle
 from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 import numexpr
 
@@ -128,7 +138,7 @@ class CleanSolutionsDump(object):
         """
         Initializes dump object for writing to the given filename
         """
-        fobj = open(filename, "w")
+        fobj = open(filename, "wb")
         cPickle.dump(self, fobj)  # dump self as first entry of file object
         self._fobj = fobj
 
@@ -143,7 +153,7 @@ class CleanSolutionsDump(object):
 
     def _write(self, *components):
         if len(components) != len(self._columns):
-            raise TypeError,"%d components given, but dump initialized with %d columns"%(len(components), len(self._columns))
+            raise TypeError("%d components given, but dump initialized with %d columns"%(len(components), len(self._columns)))
         cPickle.dump(components, self._fobj, 2)
 
     def read(self, fobj):
@@ -156,7 +166,7 @@ class CleanSolutionsDump(object):
                 self._complist.append(cPickle.load(fobj))
             except EOFError:
                 break
-        print "Loaded %dx%d component dump"%(len(self._complist), len(self._complist[0]))
+        print("Loaded %dx%d component dump"%(len(self._complist), len(self._complist[0])))
         for ent in self._columns:
             setattr(self, ent, [])
         for comp in self._complist:
@@ -165,7 +175,7 @@ class CleanSolutionsDump(object):
         for ent in self._columns:
             col = np.array([x for x in getattr(self, ent) if x is not None])
             setattr(self, ent, col)
-            print "%s: shape %s" % (ent, col.shape)
+            print("%s: shape %s" % (ent, col.shape))
 
 
 class ClassMultiScaleMachine():
@@ -219,7 +229,7 @@ class ClassMultiScaleMachine():
                 self._dump_xyr = tuple(dump_stamps)
             else:
                 self._dump_xyr = 0,0,0
-            print>>log,ModColor.Str("Dumping minor cycle postage stamps at %d,%d r=%dpix"%self._dump_xyr)
+            print(ModColor.Str("Dumping minor cycle postage stamps at %d,%d r=%dpix"%self._dump_xyr), file=log)
         else:
             self._dump_xyr = None
 
@@ -264,7 +274,7 @@ class ClassMultiScaleMachine():
         self._MeanDirty=self.DicoDirty["MeanImage"]
         _,_,NDirty,_=self._Dirty.shape
         NPSF=self.NPSF
-        off=(NPSF-NDirty)/2
+        off=(NPSF-NDirty)//2
         self.DirtyExtent=(off,off+NDirty,off,off+NDirty)
         
 
@@ -299,14 +309,14 @@ class ClassMultiScaleMachine():
             method = "explicit"
         else:
             if method == "frombox":
-                xtest = np.int64(np.linspace(NPSF / 2, NPSF, 100))
+                xtest = np.int64(np.linspace(NPSF // 2, NPSF, 100))
                 box = 100
                 itest = 0
                 while True:
                     X=xtest[itest]
-                    psf=PSF[0,0,X-box:X+box,NPSF/2-box:NPSF/2+box]
+                    psf=PSF[0,0,X-box:X+box,NPSF//2-box:NPSF//2+box]
                     std0=np.abs(psf.min()-psf.max())#np.std(psf)
-                    psf=PSF[0,0,NPSF/2-box:NPSF/2+box,X-box:X+box]
+                    psf=PSF[0,0,NPSF//2-box:NPSF//2+box,X-box:X+box]
                     std1=np.abs(psf.min()-psf.max())#np.std(psf)
                     std=np.max([std0,std1])
                     if std<1e-2:
@@ -314,32 +324,32 @@ class ClassMultiScaleMachine():
                     else:
                         itest+=1
                 x0=xtest[itest]
-                dx0=(x0-NPSF/2)
+                dx0=(x0-NPSF//2)
                 #print>>log, "PSF extends to [%i] from center, with rms=%.5f"%(dx0,std)
             elif method == "auto" or method == "sidelobe":
                 dx0=2*self.OffsetSideLobe
                 dx0=np.max([dx0,50])
                 #print>>log, "PSF extends to [%i] from center"%(dx0)
             elif method == "full":
-                dx0 = NPSF/2
+                dx0 = NPSF//2
             else:
-                raise ValueError,"unknown PSFBox setting %s" % method
+                raise ValueError("unknown PSFBox setting %s" % method)
 
             dx0=np.max([dx0,200])
-            dx0=np.min([dx0,NPSF/2])
+            dx0=np.min([dx0,NPSF//2])
             npix=2*dx0+1
             npix=ModToolBox.GiveClosestFastSize(npix,Odd=True)
 
-            self.PSFMargin=(NPSF-npix)/2
+            self.PSFMargin=(NPSF-npix)//2
 
-            dx=np.min([NPSF/2, npix/2])
+            dx=np.min([NPSF//2, npix//2])
 
-        self.PSFExtent = (NPSF/2-dx,NPSF/2+dx+1,NPSF/2-dx,NPSF/2+dx+1)
+        self.PSFExtent = (NPSF//2-dx,NPSF//2+dx+1,NPSF//2-dx,NPSF//2+dx+1)
         x0,x1,y0,y1 = self.PSFExtent
         self.SubPSF = self._PSF[:,:,x0:x1,y0:y1]
         #print "!!!!!!!!!!!!!!!!!!!!!!!!!!!",self.SubPSF.shape
         if verbose:
-            print>>log,"using %s PSF box of size %dx%d in minor cycle subtraction" % (method, dx*2+1, dx*2+1)
+            print("using %s PSF box of size %dx%d in minor cycle subtraction" % (method, dx*2+1, dx*2+1), file=log)
 
     def CopyListScales(self, other):
         """
@@ -450,7 +460,7 @@ class ClassMultiScaleMachine():
         self.ModelMachine.setListComponants(self.ListScales)
 
         if verbose:
-            print>>log,"%d scales and %d scale functions in list" % (len(self.ListScales), self._num_scales)
+            print("%d scales and %d scale functions in list" % (len(self.ListScales), self._num_scales), file=log)
 
     def MakeMultiScaleCube(self, verbose=False):
         if self.IsInit_MultiScaleCube: return
@@ -535,7 +545,7 @@ class ClassMultiScaleMachine():
                 ThisMFPSF *= FluxRatios
                 icube += 1
                 # cubes 1...N are cube 0, convolved with the appropriate scale function
-                for i in xrange(self._num_scales):
+                for i in range(self._num_scales):
                     ThisPSF = self.CubePSFScales[icube,...]
                     ModFFTW.ConvolveGaussianWrapper(ThisMFPSF.reshape((nch,1,nx,ny)),
                                                     Out=ThisPSF.reshape((nch,1,nx,ny)),
@@ -626,7 +636,7 @@ class ClassMultiScaleMachine():
         if self.SupWeightWidth%2==0: self.SupWeightWidth+=1
 
         if verbose:
-            print>>log,"  using HMP taper width %d, support size %d"%(self.WeightWidth, self.SupWeightWidth)
+            print("  using HMP taper width %d, support size %d"%(self.WeightWidth, self.SupWeightWidth), file=log)
 
         T.timeit("init2")
         if self.GlobalWeightFunction is None:
@@ -637,7 +647,7 @@ class ClassMultiScaleMachine():
             nch,npol,_,_=self._PSF.shape
 
             # N=self.SubPSF.shape[-1]
-            # dW=N/2
+            # dW=N//2
             # Wx,Wy=np.mgrid[-dW:dW:1j*N,-dW:dW:1j*N]
             # r=np.sqrt(Wx**2+Wy**2)
             # print r
@@ -661,12 +671,12 @@ class ClassMultiScaleMachine():
         # x0,x1=nxPSF//2-int(self.SupWeightWidth),nxPSF//2+int(self.SupWeightWidth)+1
         # y0,y1=nxPSF//2-int(self.SupWeightWidth),nxPSF//2+int(self.SupWeightWidth)+1
 
-        # Aedge,Bedge=GiveEdgesDissymetric((nxPSF/2,nxPSF/2),(nxPSF,nxPSF),(nxPSF/2,nxPSF/2),(int(self.SupWeightWidth),int(self.SupWeightWidth)))
+        # Aedge,Bedge=GiveEdgesDissymetric(nxPSF//2,nxPSF//2,nxPSF,nxPSF,nxPSF//2,nxPSF//2,(int(self.SupWeightWidth),int(self.SupWeightWidth)))
         # #x0d,x1d,y0d,y1d=Aedge
         # (x0,x1,y0,y1)=Bedge
 
         nxGWF,nyGWF=self.GlobalWeightFunction.shape[-2],self.GlobalWeightFunction.shape[-1]
-        Aedge,Bedge=GiveEdgesDissymetric((nxPSF/2,nxPSF/2),(nxPSF,nxPSF),(nxGWF/2,nyGWF/2),(nxGWF,nyGWF),WidthMax=(int(self.SupWeightWidth),int(self.SupWeightWidth)))
+        Aedge,Bedge=GiveEdgesDissymetric(nxPSF//2,nxPSF//2,nxPSF,nxPSF,nxGWF//2,nyGWF//2,nxGWF,nyGWF,WidthMax=(int(self.SupWeightWidth),int(self.SupWeightWidth)))
         x0d,x1d,y0d,y1d=Aedge
         (x0,x1,y0,y1)=Bedge
 
@@ -747,7 +757,7 @@ class ClassMultiScaleMachine():
             W=WeightFunction.reshape((1,nch,nx,ny))
             fCubePSF=np.float32(self.OPFT(self.FFTMachine.fft(np.complex64(CubePSF*W))))
             nch,npol,_,_=self._PSF.shape
-            u,v=np.mgrid[-nx/2+1:nx/2:1j*nx,-ny/2+1:ny/2:1j*ny]
+            u,v=np.mgrid[-nx//2+1:nx//2:1j*nx,-ny//2+1:ny//2:1j*ny]
 
             r=np.sqrt(u**2+v**2)
             r0=1.
@@ -760,7 +770,7 @@ class ClassMultiScaleMachine():
 
             UVTaper*=self.WeightMuellerSignal.reshape((nch,1,1,1))
 
-            # fCubePSF[:,:,nx/2,ny/2]=0
+            # fCubePSF[:,:,nx//2,ny//2]=0
             # import pylab
             # for iFunc in range(self.nFunc):
             #     Basis=fCubePSF[iFunc]
@@ -820,7 +830,7 @@ class ClassMultiScaleMachine():
         return np.array(y)
 
     #@profile
-    def GiveLocalSM(self,(x,y),Fpol):
+    def GiveLocalSM(self,x,y,Fpol):
         T= ClassTimeIt.ClassTimeIt("   GiveLocalSM")
         T.disable()
 
@@ -846,9 +856,9 @@ class ClassMultiScaleMachine():
         # print "JonesNorm",JonesNorm
         # FpolMean=np.mean(Fpol,axis=0).reshape((1,npol,1,1))
 
-        #Aedge,Bedge=GiveEdges((xc,yc),N0,(N1/2,N1/2),N1)
+        #Aedge,Bedge=GiveEdges(xc,yc,N0,N1//2,N1//2,N1)
         N0x,N0y=self._Dirty.shape[-2],self._Dirty.shape[-1]
-        Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1/2,N1/2),(N1,N1))
+        Aedge,Bedge=GiveEdgesDissymetric(xc,yc,N0x,N0y,N1//2,N1//2,N1,N1)
         x0d,x1d,y0d,y1d=Aedge
         x0s,x1s,y0s,y1s=Bedge
         nxs,nys=x1s-x0s,y1s-y0s
@@ -1034,8 +1044,8 @@ class ClassMultiScaleMachine():
             
             
             if abs(Sol).max() < self._stall_threshold:
-                print>>log,"Stalled CLEAN!"
-                print>>log,(self.iFacet, x, y, Fpol, FpolTrue, Sol, Sol0, SolReg, coef, coef1, coef2, MeanFluxTrue, self.WeightMuellerSignal)
+                print("Stalled CLEAN!", file=log)
+                print((self.iFacet, x, y, Fpol, FpolTrue, Sol, Sol0, SolReg, coef, coef1, coef2, MeanFluxTrue, self.WeightMuellerSignal), file=log)
                 raise RuntimeError("CLEAN has stalled. This is a bug!")
 
             # print "Sum, Sol",np.sum(Sol),Sol.ravel()
@@ -1062,7 +1072,8 @@ class ClassMultiScaleMachine():
                 if self._dump_cols:
                     columns += self._dump_cols
                 CleanSolutionsDump.init(self.GD["Output"]["Name"] + ".clean.solutions", *columns)
-                CleanSolutionsDump.write(*[ locals()[col] for col in columns ])
+                lv = locals()
+                CleanSolutionsDump.write(*[ lv[col] for col in columns ])
 
                     #print "Max abs model",np.max(np.abs(LocalSM))
             #print "Min Max model",LocalSM.min(),LocalSM.max()
@@ -1194,14 +1205,14 @@ class ClassMultiScaleMachine():
             #             #print "CondCentralPix %i"%iIter 
             #             break
             #         F=Resid[:,xc1[0],yc1[0]]
-            #         dx,dy=nxp/2-xc1[0],nyp/2-yc1[0]
+            #         dx,dy=nxp//2-xc1[0],nyp//2-yc1[0]
             #         _,_,nxPSF,nyPSF=self.SubPSF.shape
 
-            #         #xc2,yc2=nxPSF/2+dx,nyPSF/2+dy
-            #         #ThisPSF=self.SubPSF[:,0,xc2-nxp/2:xc2+nxp/2+1,yc2-nyp/2:yc2+nyp/2+1]
+            #         #xc2,yc2=nxPSF//2+dx,nyPSF//2+dy
+            #         #ThisPSF=self.SubPSF[:,0,xc2-nxp//2:xc2+nxp//2+1,yc2-nyp//2:yc2+nyp//2+1]
 
             #         N0x,N0y=d.shape[-2::]
-            #         Aedge,Bedge=GiveEdgesDissymetric((xc1[0],yc1[0]),(N0x,N0y),(nxPSF/2,nyPSF/2),(nxPSF,nyPSF))
+            #         Aedge,Bedge=GiveEdgesDissymetric((xc1[0],yc1[0]),(N0x,N0y),(nxPSF//2,nyPSF//2),(nxPSF,nyPSF))
             #         x0d,x1d,y0d,y1d=Aedge
             #         x0p,x1p,y0p,y1p=Bedge
             #         ThisPSF=self.SubPSF[:,0,x0p:x1p,y0p:y1p]

@@ -1,17 +1,18 @@
 #!/usr/bin/env python
+from __future__ import division, absolute_import, print_function
 
 from pyrap.tables import table
 from pyrap.images import image
-from Sky import ClassSM
+from SkyModel.Sky import ClassSM
 import optparse
 import numpy as np
 import glob
 import os
-from Other import reformat
+from SkyModel.Other import reformat
 SaveFile="last_MyCasapy2BBS.obj"
 import pickle
 import scipy.ndimage
-from Tools import ModFFTW
+from SkyModel.Tools import ModFFTW
 
 def read_options():
     desc=""" cyril.tasse@obspm.fr"""
@@ -72,7 +73,7 @@ class MyCasapy2BBS():
             self.MakeMask2()
 
     def setModelImage(self):
-        print "set model image"
+        print("set model image")
         self.im=image(self.Fits)
         im=self.im
         c=im.coordinates()
@@ -90,7 +91,7 @@ class MyCasapy2BBS():
 
         #self.Plot(self.Model)
         
-        print " done set model image"
+        print(" done set model image")
         
 
     # def setRestored(self):
@@ -133,7 +134,7 @@ class MyCasapy2BBS():
     def Plot(self,data,dx=None):
 
         import pylab
-        xc=data.shape[0]/2
+        xc=data.shape[0]//2
         pylab.clf()
         if dx!=None:
             pylab.imshow(data[xc-dx:xc+dx,xc-dx:xc+dx],interpolation="nearest",cmap="gray")
@@ -147,7 +148,7 @@ class MyCasapy2BBS():
     #     print "Compute noise map..."
     #     Boost=self.Boost
     #     Acopy=self.ImResidual[0::Boost,0::Boost].copy()
-    #     SBox=(self.box[0]/Boost,self.box[1]/Boost)
+    #     SBox=(self.box[0]//Boost,self.box[1]//Boost)
     #     #Noise=scipy.ndimage.filters.median_filter(Acopy**2,SBox)
     #     #Noise-=scipy.ndimage.filters.median_filter(Acopy,SBox)**2
 

@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import subprocess
 import unittest
 import os
@@ -187,6 +193,10 @@ class ClassCompareFITSImage(unittest.TestCase):
             abs_ms = cls._inputDir+ms
             cls.setParsetOption("Data", "MS", abs_ms)
 
+        mask_name = p.DicoPars.get("Mask", {}).get("External", None)
+        if mask_name:
+            cls.setParsetOption("Mask", "External", cls._inputDir+mask_name)
+
         fOutputParset = open(cls._outputParsetFilename,mode='w')
         cls._defaultParset.write(fOutputParset)
         fOutputParset.close()
@@ -290,7 +300,7 @@ class ClassCompareFITSImage(unittest.TestCase):
                         assert out_hdu.data.shape == ref_hdu.data.shape, "ref_hdu data shape doesn't match out_hdu"
                     assert np.all((ref_hdu.data - out_hdu.data)**2 <= cls._maxSqErr[imgI]), "FITS data not the same for %s" % \
                                                                                             imgIdentity
-                except AssertionError, e:
+                except AssertionError as e:
                     list_except.append(str(e))
                     continue
         if len(list_except) != 0:
@@ -310,7 +320,7 @@ class ClassCompareFITSImage(unittest.TestCase):
                             assert out_hdu.data.shape == ref_hdu.data.shape, "ref_hdu data shape doesn't match out_hdu"
                         assert np.mean((ref_hdu.data - out_hdu.data)**2) <= cls._thresholdMSE[imgI], "MSE of FITS data not the same for %s" % \
                                                              imgIdentity
-                    except AssertionError, e:
+                    except AssertionError as e:
                         list_except.append(str(e))
                     continue
         if len(list_except) != 0:

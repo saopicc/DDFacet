@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 """
 This minimal implementation of standard Hogbom CLEAN algorithm should serve
 as a minimal reference interface of how to incorporate new deconvolution
@@ -81,26 +87,19 @@ class ClassImageDeconvMachine():
         self.PeakFactor = PeakFactor
         self.GainMachine = ClassGainMachine.get_instance()
         if ModelMachine is None:
-            import ClassModelMachineHogbom as ClassModelMachine
+            from DDFacet.Imager.HOGBOM import ClassModelMachineHogbom as ClassModelMachine
             self.ModelMachine = ClassModelMachine.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
         else:
             self.ModelMachine = ModelMachine
         self.GiveEdges = GiveEdges.GiveEdges
         self._niter = 0
-        if CleanMaskImage is not None:
-            print>>log, "Reading mask image: %s"%CleanMaskImage
-            MaskArray=image(CleanMaskImage).getdata()
-            nch,npol,_,_=MaskArray.shape
-            self._MaskArray=np.zeros(MaskArray.shape,np.bool8)
-            for ch in range(nch):
-                for pol in range(npol):
-                    self._MaskArray[ch,pol,:,:]=np.bool8(1-MaskArray[ch,pol].T[::-1].copy())[:,:]
-            self.MaskArray=self._MaskArray[0]
         self._peakMode = "normal"
 
         self.CurrentNegMask = None
         self._NoiseMap = None
         self._PNRStop = None  # in _peakMode "sigma", provides addiitonal stopping criterion
+
+        numexpr.set_num_threads(self.NCPU)
 
 
     def Init(self, **kwargs):
@@ -123,7 +122,16 @@ class ClassImageDeconvMachine():
 
     def setMaskMachine(self,MaskMachine):
         self.MaskMachine=MaskMachine
-
+        if self.MaskMachine.ExternalMask is not None:
+            print("Applying external mask", file=log)
+            MaskArray=self.MaskMachine.ExternalMask
+            nch,npol,_,_=MaskArray.shape
+            self._MaskArray=np.zeros(MaskArray.shape,np.bool8)
+            for ch in range(nch):
+                for pol in range(npol):
+                    self._MaskArray[ch,pol,:,:]=np.bool8(1-MaskArray[ch,pol].copy())[:,:]
+            self._MaskArray = np.ascontiguousarray(self._MaskArray)
+            self.MaskArray = np.ascontiguousarray(self._MaskArray[0])
 
     def SetModelRefFreq(self, RefFreq):
         """
@@ -178,15 +186,15 @@ class ClassImageDeconvMachine():
         self.Nchan, self.Npol, self.Npix, _ = self._Dirty.shape
 
         # if self._peakMode is "sigma":
-        #     print>> log, "Will search for the peak in the SNR-weighted dirty map"
+        #     print("Will search for the peak in the SNR-weighted dirty map", file=log)
         #     a, b = self._MeanDirty, self._NoiseMap.reshape(self._MeanDirty.shape)
         #     self._PeakSearchImage = numexpr.evaluate("a/b")
         # # elif self._peakMode is "weighted":   ######## will need to get a PeakWeightImage from somewhere for this option
-        # #     print>> log, "Will search for the peak in the weighted dirty map"
+        # #     print("Will search for the peak in the weighted dirty map", file=log)
         # #     a, b = self._MeanDirty, self._peakWeightImage
         # #     self._PeakSearchImage = numexpr.evaluate("a*b")
         # else:
-        #     print>> log, "Will search for the peak in the unweighted dirty map"
+        #     print("Will search for the peak in the unweighted dirty map", file=log)
         #     self._PeakSearchImage = self._MeanDirty
 
         if self.ModelImage is None:
@@ -195,7 +203,7 @@ class ClassImageDeconvMachine():
             self._MaskArray=np.zeros(self._Dirty.shape,dtype=np.bool8)
 
 
-    def SubStep(self,(xc,yc),LocalSM):
+    def SubStep(self,xc,yc,LocalSM):
         """
         This is where subtraction in the image domain happens
         
@@ -207,19 +215,23 @@ class ClassImageDeconvMachine():
                   normalised to unity at the center.
         """
         #Get overlap indices where psf should be subtracted
-        Aedge,Bedge=self.GiveEdges((xc,yc), self.Npix, (self.NpixPSF//2,self.NpixPSF//2),self.NpixPSF)
+        Aedge,Bedge=self.GiveEdges(xc,yc, self.Npix, self.NpixPSF//2,self.NpixPSF//2,self.NpixPSF)
 
         x0d,x1d,y0d,y1d=Aedge
         x0p,x1p,y0p,y1p=Bedge
 
+        cube, sm = self._Dirty[:,:,x0d:x1d,y0d:y1d], LocalSM[:,:,x0p:x1p,y0p:y1p]
+        numexpr.evaluate('cube-sm',out=cube,casting="unsafe")
+
         #Subtract from each channel/band
-        self._Dirty[:,:,x0d:x1d,y0d:y1d]-=LocalSM[:,:,x0p:x1p,y0p:y1p]
+        # self._Dirty[:,:,x0d:x1d,y0d:y1d]-=LocalSM[:,:,x0p:x1p,y0p:y1p]
         # If multiple frequencies are present construct the weighted mean
+        meanimage = self._MeanDirty[:, :, x0d:x1d, y0d:y1d]
         if self.MultiFreqMode:
-            W = self.WeightsChansImages
-            self._MeanDirty[0] = np.sum(self._Dirty*W.reshape((W.size,1,1,1)),axis=0) #Sum over frequency
+            W = self.WeightsChansImages.reshape((self.Nchan,1,1,1))
+            meanimage[...] = (cube*W).sum(axis=0) #Sum over frequency
         else:
-            self._MeanDirty = self._Dirty
+            meanimage[0,...] = cube[0,...]
 
     def Deconvolve(self, **kwargs):
         """
@@ -241,7 +253,7 @@ class ClassImageDeconvMachine():
 
         #These options should probably be moved into MinorCycleConfig in parset
         DoAbs=int(self.GD["Deconv"]["AllowNegative"])
-        print>>log, "  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter, self.MaxMinorIter, DoAbs)
+        print("  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter, self.MaxMinorIter, DoAbs), file=log)
 
         ## Determine which stopping criterion to use for flux limit
         #Get RMS stopping criterion
@@ -270,12 +282,12 @@ class ClassImageDeconvMachine():
         # Choose whichever threshold is highest
         StopFlux = max(Fluxlimit_Peak, Fluxlimit_RMS, Fluxlimit_Sidelobe, self.FluxThreshold)
 
-        print>>log, "    Dirty image peak flux      = %10.6f Jy [(min, max) = (%.3g, %.3g) Jy]"%(MaxDirty,mm0,mm1)
-        print>>log, "      RMS-based threshold      = %10.6f Jy [rms = %.3g Jy; RMS factor %.1f]"%(Fluxlimit_RMS, RMS, self.RMSFactor)
-        print>>log, "      Sidelobe-based threshold = %10.6f Jy [sidelobe  = %.3f of peak; cycle factor %.1f]"%(Fluxlimit_Sidelobe,self.SideLobeLevel,self.CycleFactor)
-        print>>log, "      Peak-based threshold     = %10.6f Jy [%.3f of peak]"%(Fluxlimit_Peak,self.PeakFactor)
-        print>>log, "      Absolute threshold       = %10.6f Jy"%(self.FluxThreshold)
-        print>>log, "    Stopping flux              = %10.6f Jy [%.3f of peak ]"%(StopFlux,StopFlux/MaxDirty)
+        print("    Dirty image peak flux      = %10.6f Jy [(min, max) = (%.3g, %.3g) Jy]"%(MaxDirty,mm0,mm1), file=log)
+        print("      RMS-based threshold      = %10.6f Jy [rms = %.3g Jy; RMS factor %.1f]"%(Fluxlimit_RMS, RMS, self.RMSFactor), file=log)
+        print("      Sidelobe-based threshold = %10.6f Jy [sidelobe  = %.3f of peak; cycle factor %.1f]"%(Fluxlimit_Sidelobe,self.SideLobeLevel,self.CycleFactor), file=log)
+        print("      Peak-based threshold     = %10.6f Jy [%.3f of peak]"%(Fluxlimit_Peak,self.PeakFactor), file=log)
+        print("      Absolute threshold       = %10.6f Jy"%(self.FluxThreshold), file=log)
+        print("    Stopping flux              = %10.6f Jy [%.3f of peak ]"%(StopFlux,StopFlux/MaxDirty), file=log)
 
         T=ClassTimeIt.ClassTimeIt()
         T.disable()
@@ -283,7 +295,7 @@ class ClassImageDeconvMachine():
         ThisFlux=MaxDirty
 
         if ThisFlux < StopFlux:
-            print>>log, ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done CLEANing" % (ThisFlux),col="green" )
+            print(ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done CLEANing" % (ThisFlux),col="green" ), file=log)
             exit_msg = exit_msg + " " + "FluxThreshold"
             continue_deconvolution = False or continue_deconvolution
             update_model = False or update_model
@@ -302,10 +314,10 @@ class ClassImageDeconvMachine():
                 T.timeit("max0")
 
                 if ThisFlux <= StopFlux:
-                    print>>log, ModColor.Str("    CLEANing [iter=%i] peak of %.3g Jy lower than stopping flux" % (i,ThisFlux),col="green")
+                    print(ModColor.Str("    CLEANing [iter=%i] peak of %.3g Jy lower than stopping flux" % (i,ThisFlux),col="green"), file=log)
                     cont = ThisFlux > self.FluxThreshold
                     if not cont:
-                          print>>log, ModColor.Str("    CLEANing [iter=%i] absolute flux threshold of %.3g Jy has been reached" % (i,self.FluxThreshold),col="green",Bold=True)
+                          print(ModColor.Str("    CLEANing [iter=%i] absolute flux threshold of %.3g Jy has been reached" % (i,self.FluxThreshold),col="green",Bold=True), file=log)
                     exit_msg = exit_msg + " " + "MinFluxRms"
                     continue_deconvolution = cont or continue_deconvolution
                     update_model = True or update_model
@@ -321,7 +333,7 @@ class ClassImageDeconvMachine():
                 if i >= 10 and i % rounded_iter_step == 0:
                     # if self.GD["Debug"]["PrintMinorCycleRMS"]:
                     #rms = np.std(np.real(self._CubeDirty.ravel()[self.IndStats]))
-                    print>> log, "    [iter=%i] peak residual %.3g" % (i, ThisFlux)
+                    print("    [iter=%i] peak residual %.3g" % (i, ThisFlux), file=log)
 
                 # Find PSF corresponding to location (x,y)
                 self.PSFServer.setLocation(x, y)  # Selects the facet closest to (x,y)
@@ -347,21 +359,21 @@ class ClassImageDeconvMachine():
                 self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs)
 
                 # Subtract LocalSM*CurrentGain from dirty image
-                self.SubStep((x,y), PSF * Iapp[:, None, None, None] * self.GD["Deconv"]["Gain"])
+                self.SubStep(x, y, PSF * Iapp[:, None, None, None] * self.GD["Deconv"]["Gain"])
 
                 T.timeit("SubStep")
 
                 T.timeit("End")
 
         except KeyboardInterrupt:
-            print>>log, ModColor.Str("    CLEANing [iter=%i] minor cycle interrupted with Ctrl+C, peak flux %.3g" % (self._niter, ThisFlux))
+            print(ModColor.Str("    CLEANing [iter=%i] minor cycle interrupted with Ctrl+C, peak flux %.3g" % (self._niter, ThisFlux)), file=log)
             exit_msg = exit_msg + " " + "MaxIter"
             continue_deconvolution = False or continue_deconvolution
             update_model = True or update_model
             return exit_msg, continue_deconvolution, update_model
 
         if self._niter >= self.MaxMinorIter: #Reached maximum number of iterations:
-            print>> log, ModColor.Str("    CLEANing [iter=%i] Reached maximum number of iterations, peak flux %.3g" % (self._niter, ThisFlux))
+            print(ModColor.Str("    CLEANing [iter=%i] Reached maximum number of iterations, peak flux %.3g" % (self._niter, ThisFlux)), file=log)
             exit_msg = exit_msg + " " + "MaxIter"
             continue_deconvolution = False or continue_deconvolution
             update_model = True or update_model

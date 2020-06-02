@@ -18,7 +18,18 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
-import DDFacet.cbuild.Gridder._pyArrays as _pyArrays
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
+import six
+if six.PY3:
+    from DDFacet.cbuild.Gridder import _pyArrays3x as _pyArrays
+else:
+    from DDFacet.cbuild.Gridder import _pyArrays27 as _pyArrays
+
 from DDFacet.Other import ClassTimeIt
 import numpy as np
 import psutil
@@ -54,10 +65,10 @@ def A_add_B_prod_factor(
     Blocks = np.int32(np.linspace(Aedge[0], Aedge[1], NCPU+1))
 
     NX, NY = A.shape[-2], A.shape[-1]
-    nz = A.size/(NX*NY)
+    nz = A.size//(NX*NY)
     A = A.reshape((nz, NX, NY))
 
-    for iz in xrange(nz):
+    for iz in range(nz):
         ThisA = A[iz]
         _pyArrays.pyAddArray(ThisA, Aedge, B, Bedge, float(factor), Blocks)
 
@@ -68,7 +79,7 @@ def A_whereMax(A,NCPU=0,DoAbs=1,Mask=None):
     NCPU = NCPU or NCPU_global
     if NCPU==1:
         NX,NY=A.shape[-2],A.shape[-1]
-        nz=A.size/(NX*NY)
+        nz=A.size//(NX*NY)
         A=A.reshape((nz,NX,NY))
         if Mask is not None:
             Mask=Mask.reshape((nz,NX,NY))
@@ -112,7 +123,7 @@ def A_whereMaxParallel(A,NCPU=0,DoAbs=1,Mask=None):
     if A.dtype!=np.float32:
         raise TypeError("Expected input array dtype: float32")
     
-    nz=A.size/(NX*NY)
+    nz=A.size//(NX*NY)
     A=A.reshape((nz,NX,NY))
 
     Ans=np.zeros((nz,3),np.float32)
@@ -159,12 +170,12 @@ def A_whereMaxParallel(A,NCPU=0,DoAbs=1,Mask=None):
 #     if A.dtype != np.float32:
 #         raise TypeError("Expected input array dtype: float32")
 
-#     nz = A.size/(NX*NY)
+#     nz = A.size//(NX*NY)
 #     A = A.reshape((nz, NX, NY))
 
 #     Ans = np.zeros((nz, 3), np.float32)
 
-#     for iz in xrange(nz):
+#     for iz in range(nz):
 #         ThisA = A[iz]
 
 #         if Mask is None:
@@ -203,19 +214,19 @@ def testWhereMax():
     ind= np.where(f(A)==np.max(f(A)))
     T.timeit("2")
 
-    print ind,A[ind]
-    print "==========================="
-    print A_whereMax(A,NCPU=1,DoAbs=0,Mask=None)
-    print A_whereMax(A,NCPU=1,DoAbs=0,Mask=np.zeros(A.shape,np.bool8))
-    print "==========================="
-    print A_whereMax(A,NCPU=6,DoAbs=0,Mask=None)
-    print A_whereMax(A,NCPU=6,DoAbs=0,Mask=np.zeros(A.shape,np.bool8))
-    print "==========================="
-    print A_whereMax(A,NCPU=1,DoAbs=1,Mask=None)
-    print A_whereMax(A,NCPU=1,DoAbs=1,Mask=np.zeros(A.shape,np.bool8))
-    print "==========================="
-    print A_whereMax(A,NCPU=6,DoAbs=1,Mask=None)
-    print A_whereMax(A,NCPU=6,DoAbs=1,Mask=np.zeros(A.shape,np.bool8))
+    print(ind,A[ind])
+    print("===========================")
+    print(A_whereMax(A,NCPU=1,DoAbs=0,Mask=None))
+    print(A_whereMax(A,NCPU=1,DoAbs=0,Mask=np.zeros(A.shape,np.bool8)))
+    print("===========================")
+    print(A_whereMax(A,NCPU=6,DoAbs=0,Mask=None))
+    print(A_whereMax(A,NCPU=6,DoAbs=0,Mask=np.zeros(A.shape,np.bool8)))
+    print("===========================")
+    print(A_whereMax(A,NCPU=1,DoAbs=1,Mask=None))
+    print(A_whereMax(A,NCPU=1,DoAbs=1,Mask=np.zeros(A.shape,np.bool8)))
+    print("===========================")
+    print(A_whereMax(A,NCPU=6,DoAbs=1,Mask=None))
+    print(A_whereMax(A,NCPU=6,DoAbs=1,Mask=np.zeros(A.shape,np.bool8)))
 
 
 # testWhereMax()
@@ -244,7 +255,7 @@ def testAdd():
     NBlocks = 6
     factor = -1.
 
-    for i in xrange(N):
+    for i in range(N):
         # b=np.float32(np.random.randn(Np,Np))
         A_add_B_prod_factor(
             _a0,
@@ -272,8 +283,8 @@ def testAdd():
     # print _a1
 
     T.timeit("1")
-    for i in xrange(N):
-        for ch in xrange(nch):
+    for i in range(N):
+        for ch in range(nch):
             a0 = _a0[ch]
             a1 = _a1[ch]
             a_x0, a_x1, a_y0, a_y1 = Aedge

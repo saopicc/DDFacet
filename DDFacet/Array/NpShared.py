@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 #import sharedarray.SharedArray as SharedArray
 import SharedArray
 from DDFacet.Other import ModColor
@@ -69,22 +75,22 @@ def SizeShm():
 
 def CreateShared(Name, shape, dtype):
     try:
-        a = SharedArray.create(Name, shape, dtype=dtype)
+        a = SharedArray.create(str(Name), shape, dtype=dtype)
     except OSError:
-        print>> log, ModColor.Str("File %s exists, deleting" % Name)
-        DelArray(Name)
-        a = SharedArray.create(Name, shape, dtype=dtype)
+        print(ModColor.Str("File %s exists, deleting" % Name), file=log)
+        DelArray(str(Name))
+        a = SharedArray.create(str(Name), shape, dtype=dtype)
     return a
 
 def ToShared(Name, A):
 
-    a = CreateShared(Name, A.shape, A.dtype)
+    a = CreateShared(str(Name), A.shape, A.dtype)
     np.copyto(a,A)
     return a
 
 def DelArray(Name):
     try:
-        SharedArray.delete(Name)
+        SharedArray.delete(str(Name))
     except:
         pass
 
@@ -96,7 +102,7 @@ def Lock (array):
         try:
                 SharedArray.mlock(array)
         except:
-            print>> log, "Warning: Cannot lock memory. Try updating your kernel security settings."
+            print("Warning: Cannot lock memory. Try updating your kernel security settings.", file=log)
             _locking = False
 
 def Unlock (array):
@@ -105,23 +111,23 @@ def Unlock (array):
         try:
                 SharedArray.munlock(array)
         except:
-            print>> log, "Warning Cannot unlock memory. Try updating your kernel security settings."
+            print("Warning Cannot unlock memory. Try updating your kernel security settings.", file=log)
             _locking = False
 
 
 def ListNames():
     ll = list(SharedArray.list())
-    return [AR.name for AR in ll]
+    return [str(AR.name) for AR in ll]
 
 
 def DelAll(key=None):
     ll = ListNames()
     for name in ll:
         if key is not None:
-            if key in name:
-                DelArray(name)
+            if str(key) in str(name):
+                DelArray(str(name))
         else:
-            DelArray(name)
+            DelArray(str(name))
 
 
 def GiveArray(Name):
@@ -134,7 +140,7 @@ def GiveArray(Name):
         # print "Exception for key [%s]:"%Name
         # print "   %s"%(str(e))
         # print
-        print "Error loading",Name
+        print("Error loading",Name)
         # why are we not raising this serious error
         #traceback.print_exc()
         #return None
@@ -142,6 +148,7 @@ def GiveArray(Name):
 
 
 def Exists(Name):
+    Name = str(Name)
     if Name.startswith("file://"):
         return os.path.exists(Name[7:])
     if Name.startswith("shm://"):
@@ -151,13 +158,13 @@ def Exists(Name):
 
 def DicoToShared(Prefix, Dico, DelInput=False):
     DicoOut = {}
-    print>>log, ModColor.Str("DicoToShared: start [prefix = %s]" % Prefix)
+    print(ModColor.Str("DicoToShared: start [prefix = %s]" % Prefix), file=log)
     for key in Dico.keys():
         if not isinstance(Dico[key], np.ndarray):
             continue
         # print "%s.%s"%(Prefix,key)
         ThisKeyPrefix = "%s.%s" % (Prefix, key)
-        print>>log, ModColor.Str("  %s -> %s" % (key, ThisKeyPrefix))
+        print(ModColor.Str("  %s -> %s" % (key, ThisKeyPrefix)), file=log)
         ar = Dico[key]
         Shared = ToShared(ThisKeyPrefix, ar)
         DicoOut[key] = Shared
@@ -167,7 +174,7 @@ def DicoToShared(Prefix, Dico, DelInput=False):
     if DelInput:
         del(Dico)
 
-    print>>log, ModColor.Str("DicoToShared: done")
+    print(ModColor.Str("DicoToShared: done"), file=log)
     #print ModColor.Str("DicoToShared: done")
 
     return DicoOut
@@ -175,7 +182,7 @@ def DicoToShared(Prefix, Dico, DelInput=False):
 
 def SharedToDico(Prefix):
 
-    print>>log, ModColor.Str("SharedToDico: start [prefix = %s]" % Prefix)
+    print(ModColor.Str("SharedToDico: start [prefix = %s]" % Prefix), file=log)
     Lnames = ListNames()
     keys = [Name for Name in Lnames if Prefix in Name]
     if len(keys) == 0:
@@ -183,13 +190,13 @@ def SharedToDico(Prefix):
     DicoOut = {}
     for Sharedkey in keys:
         key = Sharedkey.split(".")[-1]
-        print>>log, ModColor.Str("  %s -> %s" % (Sharedkey, key))
+        print(ModColor.Str("  %s -> %s" % (Sharedkey, key)), file=log)
         Shared = GiveArray(Sharedkey)
         if isinstance(Shared, type(None)):
-            print>>log, ModColor.Str("      None existing key %s" % (key))
+            print(ModColor.Str("      None existing key %s" % (key)), file=log)
             return None
         DicoOut[key] = Shared
-    print>>log, ModColor.Str("SharedToDico: done")
+    print(ModColor.Str("SharedToDico: done"), file=log)
 
     return DicoOut
 
@@ -198,6 +205,7 @@ def SharedToDico(Prefix):
 
 
 def PackListArray(Name, LArray):
+    Name = str(Name)
     DimName = Name+'.dimensions'
     DatName = Name+'.data'
 
@@ -205,13 +213,13 @@ def PackListArray(Name, LArray):
     DelArray(DatName)
 
     NArray = len(LArray)
-    ListNDim = [len(LArray[i].shape) for i in xrange(len(LArray))]
+    ListNDim = [len(LArray[i].shape) for i in range(len(LArray))]
     NDimTot = np.sum(ListNDim)
     # [NArray,NDim0...NDimN,shape0...shapeN,Arr0...ArrN]
 
     dS = LArray[0].dtype
     TotSize = 0
-    for i in xrange(NArray):
+    for i in range(NArray):
         TotSize += LArray[i].size
 
     Dim = SharedArray.create(DimName, 1+NArray+NDimTot, dtype=np.int)
@@ -219,12 +227,12 @@ def PackListArray(Name, LArray):
     Dim[0] = NArray
     didx = 1
     # write ndims
-    for i in xrange(NArray):
+    for i in range(NArray):
         Dim[didx] = ListNDim[i]
         didx += 1
 
     # write shapes
-    for i in xrange(NArray):
+    for i in range(NArray):
         ndim = ListNDim[i]
         A = LArray[i]
         Dim[didx:didx+ndim] = A.shape
@@ -232,13 +240,14 @@ def PackListArray(Name, LArray):
 
     # write arrays
     idx = 0
-    for i in xrange(NArray):
+    for i in range(NArray):
         A = LArray[i]
         Dat[idx:idx+A.size] = A.ravel()
         idx += A.size
 
 
 def UnPackListArray(Name):
+    Name = str(Name)
     DimName = Name+'.dimensions'
     DatName = Name+'.data'
     Dim = GiveArray(DimName)
@@ -249,13 +258,13 @@ def UnPackListArray(Name):
 
     # read ndims
     ListNDim = []
-    for i in xrange(NArray):
+    for i in range(NArray):
         ListNDim.append(Dim[idx])
         idx += 1
 
     # read shapes
     ListShapes = []
-    for i in xrange(NArray):
+    for i in range(NArray):
         ndim = ListNDim[i]
         shape = Dim[idx:idx+ndim]
         ListShapes.append(shape)
@@ -264,7 +273,7 @@ def UnPackListArray(Name):
     idx = 0
     # read values
     ListArray = []
-    for i in xrange(NArray):
+    for i in range(NArray):
         shape = ListShapes[i]
         size = np.prod(shape)
         A = Dat[idx:idx+size].reshape(shape)
@@ -277,23 +286,23 @@ def UnPackListArray(Name):
 
 
 def PackListSquareMatrix(shared_dict, Name, LArray):
-
+    Name = str(Name)
     NArray = len(LArray)
     dtype = LArray[0].dtype
     TotSize = 0
-    for i in xrange(NArray):
+    for i in range(NArray):
         TotSize += LArray[i].size
 
     # [N,shape0...shapeN,Arr0...ArrN]
     S = shared_dict.addSharedArray(Name, (TotSize+NArray+1,), dtype=dtype)
     S[0] = NArray
     idx = 1
-    for i in xrange(NArray):
+    for i in range(NArray):
         A = LArray[i]
         S[idx] = A.shape[0]
         idx += 1
 
-    for i in xrange(NArray):
+    for i in range(NArray):
         A = LArray[i]
         S[idx:idx+A.size] = A.ravel()
         idx += A.size
@@ -307,13 +316,13 @@ def UnPackListSquareMatrix(Array):
     idx = 1
 
     ShapeArray = []
-    for i in xrange(NArray):
+    for i in range(NArray):
         ShapeArray.append(np.int32(S[idx].real))
         idx += 1
 
-    print>>log, ShapeArray
+    print(ShapeArray, file=log)
 
-    for i in xrange(NArray):
+    for i in range(NArray):
         shape = np.int32(ShapeArray[i].real)
         size = shape**2
         A = S[idx:idx+size].reshape((shape, shape))

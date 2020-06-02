@@ -1,3 +1,4 @@
+from __future__ import division, absolute_import, print_function
 import numpy as np
 import pylab
 
@@ -40,4 +41,4 @@ def test():
         pylab.draw()
         pylab.show(False)
         pylab.pause(0.1)
-        print "caca"
+        print("caca")

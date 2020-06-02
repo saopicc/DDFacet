@@ -18,6 +18,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from DDFacet.compatibility import range
+
 import numpy as np
 import rad2hmsdms
 from pyrap.images import image
@@ -30,6 +36,6 @@ def Print(ImageName="testImage.fits"):
 
     for x,y in zip(lx,ly):
         _,_,dec,ra=im.toworld([0,0,x,y])
-        print rad2hmsdms.rad2hmsdms(ra,Type="ra").replace(" ",":"),", ",rad2hmsdms.rad2hmsdms(dec,Type="dec").replace(" ",".")
+        print(rad2hmsdms.rad2hmsdms(ra,Type="ra").replace(" ",":"),", ",rad2hmsdms.rad2hmsdms(dec,Type="dec").replace(" ","."))
         
         

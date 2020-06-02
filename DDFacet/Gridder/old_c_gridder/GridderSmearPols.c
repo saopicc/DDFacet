@@ -80,11 +80,29 @@ static PyMethodDef _pyGridderSmearPols_testMethods[] = {
 
 /* ==== Initialize the C_test functions ====================== */
 // Module name must be _C_arraytest in compile and linked 
-void init_pyGridderSmearPolsClassic()  {
-  (void) Py_InitModule("_pyGridderSmearPolsClassic", _pyGridderSmearPols_testMethods);
-  import_array();  // Must be present for NumPy.  Called first after above line.
-}
-
+#if PY_MAJOR_VERSION >= 3
+static struct PyModuleDef _mod = {
+    PyModuleDef_HEAD_INIT,
+    "_pyGridderSmearPolsClassic3x",
+    "_pyGridderSmearPolsClassic3x",
+    -1,  
+    _pyGridderSmearPols_testMethods,
+    NULL,
+    NULL,
+    NULL,
+    NULL
+  };
+  PyMODINIT_FUNC PyInit__pyGridderSmearPolsClassic3x(void) {
+    PyObject* m = PyModule_Create(&_mod);
+    import_array();
+    return m;
+  }
+#else
+    void init_pyGridderSmearPolsClassic27()  {
+    (void) Py_InitModule("_pyGridderSmearPolsClassic27", _pyGridderSmearPols_testMethods);
+    import_array();  // Must be present for NumPy.  Called first after above line.
+    }
+#endif
 
 static PyObject *pyAccumulateWeightsOntoGrid(PyObject *self, PyObject *args)
 {
