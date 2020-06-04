@@ -383,7 +383,7 @@ class ClassJones():
         print("  Build Time Mapping", file=log)
         DicoJonesMatrices = DicoSols
         ind = np.zeros((times.size,), np.int32)
-        nt, na, nd, _, _, _ = DicoJonesMatrices["Jones"].shape
+        nt, na, nd, _, _, _ = DicoJonesMatrices["Jones"].shape # nt, nd, na... [is this correct?]
         ii = 0
         for it in range(nt):
             t0 = DicoJonesMatrices["t0"][it]
@@ -593,7 +593,6 @@ class ClassJones():
                 # freqs=self.FacetMachine.VS.GlobalFreqs.reshape((1,1,1,-1))
                 freqs = self.MS.ChanFreq.ravel()
                 Nf = freqs.size
-                tec_conv = -8.4479745e6 / freqs
 
                 solset_gains = []
                 for soltab, v in apply_map.items():
@@ -609,6 +608,7 @@ class ClassJones():
                     # check axes order and reshape
                     axes_order = _soltab.val.attrs['AXES'].decode().split(',')
                     if soltab == 'tec000':
+                        tec_conv = -8.4479745e6 / freqs
                         val = reorderAxes( val, axes_order, ['pol', 'dir', 'ant', 'time'] )
                         _, Nd, Na, Nt = val.shape
                         # Nd, Na, Nt, Nf
@@ -619,7 +619,6 @@ class ClassJones():
                     if soltab == 'phase000':
                         val = reorderAxes( val, axes_order, ['pol', 'dir', 'ant', 'freq', 'time'] )
                         _, Nd, Na, _, Nt = val.shape
-                        print (val.shape)
                         _freqs = _soltab.freq[:]
                         # Nd, Na, Nf, Nt
                         phase = interp1d(_freqs, val[0, ...], axis=-2, kind='nearest', bounds_error=False,
@@ -668,22 +667,28 @@ class ClassJones():
         ClusterCat.Cluster = DicoClusterDirs["Cluster"]
         self.ClusterCat = ClusterCat
 
-        dts = np.diff(times)
-        print('dts',dts)
-        dt = np.median(dts)
-        print('dt',dt)
+        #dts = np.diff(times)
+        #print('dts',dts)
+        #dt = np.median(dts)
+        #print('dt',dt)
         # undo killms2h5parm times = (t0+t1)/2.
-        t0 = times - dt / 2.
-        t1 = times + dt / 2.
+        #t0 = times - dt / 2.
+        #t1 = times + dt / 2.
+        t0 = times[1:] - np.diff(times)/2 # TEST
+        t1 = times[:-1] + np.diff(times)/2 # TEST
         DicoSols = {}
-        DicoSols["t0"] = t0
-        DicoSols["t1"] = t1
+        DicoSols["t0"] = np.insert(t0, 0, times[0])
+        DicoSols["t1"] = np.append(t1, times[-1])
         DicoSols["tm"] = times
+        #print(DicoSols["t0"])
+        #print(DicoSols["t1"])
+        #sys.exit()
 
         Nt, Nd, Na, Nf = gains.shape
 
         G = np.zeros((Nt, Nd, Na, Nf, 2, 2), np.complex64)
 
+        gains[np.isnan(gains)] = 1
         G[:, :, :, :, 0, 0] = gains
         G[:, :, :, :, 1, 1] = gains
 
@@ -841,9 +846,6 @@ class ClassJones():
                 gu=np.sqrt(np.mean(M))
                 G[:,iDir,:,:,0,0]=G[:,iDir,:,:,0,0]/gu
                 G[:,iDir,:,:,1,1]=G[:,iDir,:,:,1,1]/gu
-
-
-
 
 
         if not("A" in JonesMode):
