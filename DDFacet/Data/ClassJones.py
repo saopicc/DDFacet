@@ -585,7 +585,9 @@ class ClassJones():
             gains = []
             lm, radec = [], []
             for solset in apply_solsets:
+
                 _solset = getattr(H.root, solset)
+                dirnames_solset = _solset.source[:]['name'] # keep track to re-arrange order of solutions later
                 raNode, decNode = _solset.source[:]["dir"].T
                 lFacet, mFacet = self.FacetMachine.CoordMachine.radec2lm(raNode, decNode)
                 radec.append(np.stack([raNode, decNode], axis=1))
@@ -603,6 +605,7 @@ class ClassJones():
                         if ~np.all(np.isclose(_soltab.time[:], times)):
                             raise ValueError("Times not the same between solsets")
                     times = _soltab.time[:]
+                    dirnames_soltab = _soltab.dir[:]
                     # Npols, Nd, Na, (Nf), Nt
                     val = _soltab.val[:]
                     # check axes order and reshape
@@ -616,16 +619,20 @@ class ClassJones():
                         # Nt,Nd,Na,Nf
                         phase = phase.transpose((2, 0, 1, 3))
                         solset_gains.append(np.exp(1j * phase))
+
                     if soltab == 'phase000':
-                        val = reorderAxes( val, axes_order, ['pol', 'dir', 'ant', 'freq', 'time'] )
-                        _, Nd, Na, _, Nt = val.shape
+                        val = reorderAxes( val, axes_order, ['dir', 'ant', 'freq', 'time', 'pol'] )
+                        # reorder vals to match dirname_solset
+                        val = np.array( [val[i] for i in [list(dirnames_soltab).index(x) for x in dirnames_solset]] )
+                        Nd, Na, _, Nt, _  = val.shape
                         _freqs = _soltab.freq[:]
                         # Nd, Na, Nf, Nt
-                        phase = interp1d(_freqs, val[0, ...], axis=-2, kind='nearest', bounds_error=False,
+                        phase = interp1d(_freqs, val[..., 0], axis=2, kind='nearest', bounds_error=False,
                                          fill_value='extrapolate')(freqs)
-                        # Nt,Nd,Na,Nf
+                        # Nt, Nd, Na, Nf
                         phase = phase.transpose((3, 0, 1, 2))
                         solset_gains.append(np.exp(1j * phase))
+
                     if soltab == 'amplitude000':
                         val = reorderAxes( val, axes_order, ['pol', 'dir', 'ant', 'freq', 'time'] )
                         _, Nd, Na, _, Nt = val.shape
@@ -634,10 +641,11 @@ class ClassJones():
                         amplitude = np.abs(
                             interp1d(_freqs, val[0, ...], axis=-2, kind='nearest', bounds_error=False,
                                      fill_value='extrapolate')(freqs))
-                        amplitude = np.maximum(amplitude, 0.01)
+                        amplitude = np.maximum(amplitude, 0.01) # hard cut to remove very small solutions
                         # Nt,Nd,Na,Nf
                         amplitude = amplitude.transpose((3, 0, 1, 2))
                         solset_gains.append(amplitude)
+
                 # Nt,Nd,Na,Nf
                 gains.append(np.prod(solset_gains, axis=0))
             # Nt, (Nd+Nd+...), Na, Nf
@@ -677,8 +685,8 @@ class ClassJones():
         t0 = times[1:] - np.diff(times)/2 # TEST
         t1 = times[:-1] + np.diff(times)/2 # TEST
         DicoSols = {}
-        DicoSols["t0"] = np.insert(t0, 0, times[0])
-        DicoSols["t1"] = np.append(t1, times[-1])
+        DicoSols["t0"] = np.insert(t0, 0, times[0]-t0[0]/2.)
+        DicoSols["t1"] = np.append(t1, times[-1]+t1[-1]/2.)
         DicoSols["tm"] = times
         #print(DicoSols["t0"])
         #print(DicoSols["t1"])
@@ -688,7 +696,7 @@ class ClassJones():
 
         G = np.zeros((Nt, Nd, Na, Nf, 2, 2), np.complex64)
 
-        gains[np.isnan(gains)] = 1
+        gains[np.isnan(gains)] = 1.
         G[:, :, :, :, 0, 0] = gains
         G[:, :, :, :, 1, 1] = gains
 
@@ -729,7 +737,6 @@ class ClassJones():
         SolsFile,
         JonesMode="AP",
         GlobalMode=""):
-
 
         if not ".h5" in SolsFile:
             # if not(".npz" in SolsFile):
