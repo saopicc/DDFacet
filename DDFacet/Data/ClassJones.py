@@ -383,7 +383,7 @@ class ClassJones():
         print("  Build Time Mapping", file=log)
         DicoJonesMatrices = DicoSols
         ind = np.zeros((times.size,), np.int32)
-        nt, na, nd, _, _, _ = DicoJonesMatrices["Jones"].shape # nt, nd, na... [is this correct?]
+        nt, _, _, _, _, _ = DicoJonesMatrices["Jones"].shape
         ii = 0
         for it in range(nt):
             t0 = DicoJonesMatrices["t0"][it]
@@ -623,7 +623,10 @@ class ClassJones():
                     if soltab == 'phase000':
                         val = reorderAxes( val, axes_order, ['dir', 'ant', 'freq', 'time', 'pol'] )
                         # reorder vals to match dirname_solset
+                        print (dirnames_soltab)
+                        print (dirnames_solset)
                         val = np.array( [val[i] for i in [list(dirnames_soltab).index(x) for x in dirnames_solset]] )
+                        print ([list(dirnames_soltab).index(x) for x in dirnames_solset])
                         Nd, Na, _, Nt, _  = val.shape
                         _freqs = _soltab.freq[:]
                         # Nd, Na, Nf, Nt
@@ -634,14 +637,16 @@ class ClassJones():
                         solset_gains.append(np.exp(1j * phase))
 
                     if soltab == 'amplitude000':
-                        val = reorderAxes( val, axes_order, ['pol', 'dir', 'ant', 'freq', 'time'] )
-                        _, Nd, Na, _, Nt = val.shape
+                        val = reorderAxes( val, axes_order, ['dir', 'ant', 'freq', 'time', 'pol'] )
+                        # reorder vals to match dirname_solset
+                        val = np.array( [val[i] for i in [list(dirnames_soltab).index(x) for x in dirnames_solset]] )
+                        Nd, Na, _, Nt, _ = val.shape
                         _freqs = _soltab.freq[:]
                         # Nd, Na, Nf, Nt
                         amplitude = np.abs(
-                            interp1d(_freqs, val[0, ...], axis=-2, kind='nearest', bounds_error=False,
+                            interp1d(_freqs, val[..., 0], axis=2, kind='nearest', bounds_error=False,
                                      fill_value='extrapolate')(freqs))
-                        amplitude = np.maximum(amplitude, 0.01) # hard cut to remove very small solutions
+                        #amplitude = np.maximum(amplitude, 0.01) # hard cut to remove very small solutions
                         # Nt,Nd,Na,Nf
                         amplitude = amplitude.transpose((3, 0, 1, 2))
                         solset_gains.append(amplitude)
@@ -700,28 +705,30 @@ class ClassJones():
         G[:, :, :, :, 0, 0] = gains
         G[:, :, :, :, 1, 1] = gains
 
-        #        import pylab as plt
-        #        import os
-        #        output = os.path.abspath('./debug_figs')
-        #        if not os.path.exists(output):
-        #            os.makedirs(output)
-        #        eff_phase = np.angle(G)
-        #        eff_amp = np.abs(G)
-        #        print(freqs, _freqs)
-        #        for d in range(Nd):
-        #            for a in range(Na):
-        #                fig, axs = plt.subplots(4,1,figsize=(20,20))
-        #                img = axs[0].imshow(eff_amp[:,d,a,:,0,0].T, cmap='hsv', vmin = 0.8, vmax = 1.2,aspect='auto')
-        ##                plt.colorbar(img)
-        #                img=axs[1].imshow(eff_phase[:,d,a,:,0,0].T, cmap='hsv', vmin = - np.pi, vmax = np.pi,aspect='auto')
-        #                img = axs[2].plot(np.std(eff_amp[:,d,a,:,0,0],axis=1))
-        ##                plt.colorbar(img)
-        #                img=axs[3].plot(np.std(eff_phase[:,d,a,:,0,0],axis=1))
-        #
-        # #               plt.colorbar(img)
-        #                plt.savefig(os.path.join(output,'gains_{}_{}.png'.format(d,a)))
-        #                plt.close('all')
-        #        exit()
+        # DEBUG plot
+        if False:
+            import pylab as plt
+            import os
+            output = os.path.abspath('./debug_figs')
+            if not os.path.exists(output):
+                os.makedirs(output)
+            eff_phase = np.angle(G)
+            eff_amp = np.abs(G)
+            #print(freqs, _freqs)
+            for d in range(Nd):
+                for a in range(Na):
+                    fig, axs = plt.subplots(4,1,figsize=(20,20))
+                    img = axs[0].imshow(eff_amp[:,d,a,:,0,0].T, cmap='hsv', vmin = 0.8, vmax = 1.2,aspect='auto')
+                    #plt.colorbar(img)
+                    img=axs[1].imshow(eff_phase[:,d,a,:,0,0].T, vmin = - np.pi, vmax = np.pi,aspect='auto', cmap = plt.cm.jet)
+                    img = axs[2].plot(np.std(eff_amp[:,d,a,:,0,0],axis=1))
+                    #plt.colorbar(img)
+                    img=axs[3].plot(np.std(eff_phase[:,d,a,:,0,0],axis=1))
+            
+                    #plt.colorbar(img)
+                    plt.savefig(os.path.join(output,'gains_{}_{}.png'.format(d,a)))
+                    plt.close('all')
+            exit()
 
         VisToJonesChanMapping = np.int32(np.arange(self.MS.NSPWChan, ))
 
