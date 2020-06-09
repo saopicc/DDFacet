@@ -659,11 +659,9 @@ class ClassJones():
                         # Nd, Na, Nf, Nt
                         phase = interp1d(_freqs, val[..., 0], axis=2, kind='nearest', bounds_error=False,
                                     fill_value='extrapolate')(freqs)
-                        print('interp done')
                         # Nt, Nd, Na, Nf
                         phase = phase.transpose((3, 0, 1, 2))
                         solset_gains.append(np.exp(1j * phase))
-                        print('append done')
 
                     if soltab == 'amplitude000':
                         val = reorderAxes( val, axes_order, ['dir', 'ant', 'freq', 'time', 'pol'] )
