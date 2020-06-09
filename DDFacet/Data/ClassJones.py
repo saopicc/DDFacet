@@ -170,11 +170,35 @@ class ClassJones():
                 DicoSols, TimeMapping, DicoClusterDirs = self.MakeSols("killMS", DATA, quiet=quiet)
                 if self.CacheMode: self.MS.cache.saveCache("JonesNorm_killMS")
 
+            # DEBUG plot
+            #if True:
+            #    print('Debugging plots...')
+            #    import pylab as plt
+            #    import os
+            #    output = os.path.abspath('./debug_figs2')
+            #    if not os.path.exists(output):
+            #        os.makedirs(output)
+            #    Nt, Nd, Na, Nf, _, _ = DicoSols['Jones'].shape
+            #    eff_phase = np.angle(DicoSols['Jones'])
+            #    print('len time mapping:', len(TimeMapping))
+            #    for d in range(Nd):
+            #        print('d %i' % d)
+            #        for a in range(Na):
+            #            print('a %i' % a)
+            #            fig, axs = plt.subplots(1,1,figsize=(20,20))
+            #            #plt.colorbar(img)
+            #            img=axs.imshow(eff_phase[TimeMapping,d,a,:,0,0].T, vmin = - np.pi, vmax = np.pi,aspect='auto', cmap = plt.cm.jet)
+            #            print(eff_phase[TimeMapping,d,a,:,0,0].T.shape)
+            #    
+            #            #plt.colorbar(img)
+            #            plt.savefig(os.path.join(output,'gains_{}_{}.png'.format(d,a)))
+            #            plt.close('all')
+            #    exit()
+
             DATA["killMS"] =  dict(Jones=DicoSols, TimeMapping=TimeMapping, Dirs=DicoClusterDirs)
             self.DicoClusterDirs_kMS=DicoClusterDirs
 
             self.HasKillMSSols = True
-
 
         ApplyBeam=(GD["Beam"]["Model"] is not None) and (GD["Beam"]["Model"] is not "")
         if ApplyBeam:
@@ -384,7 +408,7 @@ class ClassJones():
         DicoJonesMatrices = DicoSols
         ind = np.zeros((times.size,), np.int32)
         nt, _, _, _, _, _ = DicoJonesMatrices["Jones"].shape
-        ii = 0
+        #ii = 0
         for it in range(nt):
             t0 = DicoJonesMatrices["t0"][it]
             t1 = DicoJonesMatrices["t1"][it]
@@ -577,6 +601,8 @@ class ClassJones():
         h5files = glob.glob(h5file)
         with pt.table(self.MS.MSName, ack=False) as t:
             req_times = np.unique(t.getcol('TIME'))
+        with pt.table(self.MS.MSName+'/ANTENNA', ack=False) as t:
+            req_ants = t.getcol('NAME')
         h5file = _which_solsfile(h5files, req_times, apply_solsets[0], apply_map)
         print( "  Applying {} solset {} soltabs {}".format(h5file, apply_solsets, apply_map), file=log)
 
@@ -587,6 +613,8 @@ class ClassJones():
             for solset in apply_solsets:
 
                 _solset = getattr(H.root, solset)
+                antnames_solset = _solset.antenna[:]['name']
+                ant_idx = [i for i, name in enumerate(antnames_solset) if name.decode() in req_ants] # find only antennas useful for this dataset
                 dirnames_solset = _solset.source[:]['name'] # keep track to re-arrange order of solutions later
                 raNode, decNode = _solset.source[:]["dir"].T
                 lFacet, mFacet = self.FacetMachine.CoordMachine.radec2lm(raNode, decNode)
@@ -613,6 +641,7 @@ class ClassJones():
                     if soltab == 'tec000':
                         tec_conv = -8.4479745e6 / freqs
                         val = reorderAxes( val, axes_order, ['pol', 'dir', 'ant', 'time'] )
+                        val = val[:,:,ant_idx,:]
                         _, Nd, Na, Nt = val.shape
                         # Nd, Na, Nt, Nf
                         phase = tec_conv * val[0, ..., None]
@@ -622,22 +651,23 @@ class ClassJones():
 
                     if soltab == 'phase000':
                         val = reorderAxes( val, axes_order, ['dir', 'ant', 'freq', 'time', 'pol'] )
+                        val = val[:,ant_idx,...]
                         # reorder vals to match dirname_solset
-                        print (dirnames_soltab)
-                        print (dirnames_solset)
                         val = np.array( [val[i] for i in [list(dirnames_soltab).index(x) for x in dirnames_solset]] )
-                        print ([list(dirnames_soltab).index(x) for x in dirnames_solset])
                         Nd, Na, _, Nt, _  = val.shape
                         _freqs = _soltab.freq[:]
                         # Nd, Na, Nf, Nt
                         phase = interp1d(_freqs, val[..., 0], axis=2, kind='nearest', bounds_error=False,
-                                         fill_value='extrapolate')(freqs)
+                                    fill_value='extrapolate')(freqs)
+                        print('interp done')
                         # Nt, Nd, Na, Nf
                         phase = phase.transpose((3, 0, 1, 2))
                         solset_gains.append(np.exp(1j * phase))
+                        print('append done')
 
                     if soltab == 'amplitude000':
                         val = reorderAxes( val, axes_order, ['dir', 'ant', 'freq', 'time', 'pol'] )
+                        val = val[:,ant_idx,...]
                         # reorder vals to match dirname_solset
                         val = np.array( [val[i] for i in [list(dirnames_soltab).index(x) for x in dirnames_solset]] )
                         Nd, Na, _, Nt, _ = val.shape
@@ -680,55 +710,49 @@ class ClassJones():
         ClusterCat.Cluster = DicoClusterDirs["Cluster"]
         self.ClusterCat = ClusterCat
 
-        #dts = np.diff(times)
-        #print('dts',dts)
-        #dt = np.median(dts)
-        #print('dt',dt)
-        # undo killms2h5parm times = (t0+t1)/2.
-        #t0 = times - dt / 2.
-        #t1 = times + dt / 2.
-        t0 = times[1:] - np.diff(times)/2 # TEST
-        t1 = times[:-1] + np.diff(times)/2 # TEST
+        # find time ranges of solutions
+        diff = np.diff(times)/2
+        t_mid = times[1:] - diff
         DicoSols = {}
-        DicoSols["t0"] = np.insert(t0, 0, times[0]-t0[0]/2.)
-        DicoSols["t1"] = np.append(t1, times[-1]+t1[-1]/2.)
+        DicoSols["t0"] = np.insert(t_mid, 0, times[0]-diff[0]/2.)
+        DicoSols["t1"] = np.append(t_mid, times[-1]+diff[-1]/2.)
         DicoSols["tm"] = times
-        #print(DicoSols["t0"])
-        #print(DicoSols["t1"])
-        #sys.exit()
+        #for i in range(10):
+        #    print ('%f,%f,%f' % (DicoSols['t0'][i],DicoSols['t1'][i],times[i]))
 
         Nt, Nd, Na, Nf = gains.shape
 
         G = np.zeros((Nt, Nd, Na, Nf, 2, 2), np.complex64)
+        print('shape G: ', G.shape)
 
         gains[np.isnan(gains)] = 1.
         G[:, :, :, :, 0, 0] = gains
         G[:, :, :, :, 1, 1] = gains
 
+
         # DEBUG plot
-        if False:
-            import pylab as plt
-            import os
-            output = os.path.abspath('./debug_figs')
-            if not os.path.exists(output):
-                os.makedirs(output)
-            eff_phase = np.angle(G)
-            eff_amp = np.abs(G)
-            #print(freqs, _freqs)
-            for d in range(Nd):
-                for a in range(Na):
-                    fig, axs = plt.subplots(4,1,figsize=(20,20))
-                    img = axs[0].imshow(eff_amp[:,d,a,:,0,0].T, cmap='hsv', vmin = 0.8, vmax = 1.2,aspect='auto')
-                    #plt.colorbar(img)
-                    img=axs[1].imshow(eff_phase[:,d,a,:,0,0].T, vmin = - np.pi, vmax = np.pi,aspect='auto', cmap = plt.cm.jet)
-                    img = axs[2].plot(np.std(eff_amp[:,d,a,:,0,0],axis=1))
-                    #plt.colorbar(img)
-                    img=axs[3].plot(np.std(eff_phase[:,d,a,:,0,0],axis=1))
-            
-                    #plt.colorbar(img)
-                    plt.savefig(os.path.join(output,'gains_{}_{}.png'.format(d,a)))
-                    plt.close('all')
-            exit()
+        #if True:
+        #    import pylab as plt
+        #    import os
+        #    output = os.path.abspath('./debug_figs')
+        #    if not os.path.exists(output):
+        #        os.makedirs(output)
+        #    eff_phase = np.angle(G)
+        #    eff_amp = np.abs(G)
+        #    #print(freqs, _freqs)
+        #    for d in range(Nd):
+        #        for a in range(23,Na):
+        #            fig, axs = plt.subplots(4,1,figsize=(20,20))
+        #            img = axs[0].imshow(eff_amp[:,d,a,:,0,0].T, cmap='hsv', vmin = 0.8, vmax = 1.2,aspect='auto')
+        #            #plt.colorbar(img)
+        #            img=axs[1].imshow(eff_phase[:,d,a,:,0,0].T, vmin = - np.pi, vmax = np.pi,aspect='auto', cmap = plt.cm.jet)
+        #            img = axs[2].plot(np.std(eff_amp[:,d,a,:,0,0],axis=1))
+        #            #plt.colorbar(img)
+        #            img=axs[3].plot(np.std(eff_phase[:,d,a,:,0,0],axis=1))
+        #    
+        #            #plt.colorbar(img)
+        #            plt.savefig(os.path.join(output,'gains_{}_{}.png'.format(d,a)))
+        #            plt.close('all')
 
         VisToJonesChanMapping = np.int32(np.arange(self.MS.NSPWChan, ))
 
