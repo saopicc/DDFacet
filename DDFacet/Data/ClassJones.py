@@ -721,7 +721,6 @@ class ClassJones():
         Nt, Nd, Na, Nf = gains.shape
 
         G = np.zeros((Nt, Nd, Na, Nf, 2, 2), np.complex64)
-        print('shape G: ', G.shape)
 
         gains[np.isnan(gains)] = 1.
         G[:, :, :, :, 0, 0] = gains
@@ -757,8 +756,6 @@ class ClassJones():
         # self.BeamTimes_kMS = DicoSolsFile["BeamTimes"]
 
         return VisToJonesChanMapping, DicoClusterDirs, DicoSols, G
-
-
 
 
     def GiveKillMSSols_SingleFile(
