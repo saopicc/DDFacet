@@ -634,19 +634,19 @@ class ClassJones():
                             raise ValueError("Times not the same between solsets")
                     times = _soltab.time[:]
                     dirnames_soltab = _soltab.dir[:]
-                    # Npols, Nd, Na, (Nf), Nt
+                    # Npols, Nd, Na, (Nf), Nt - arbitrary order
                     val = _soltab.val[:]
                     # check axes order and reshape
                     axes_order = _soltab.val.attrs['AXES'].decode().split(',')
                     if soltab == 'tec000':
                         tec_conv = -8.4479745e6 / freqs
-                        val = reorderAxes( val, axes_order, ['pol', 'dir', 'ant', 'time'] )
-                        val = val[:,:,ant_idx,:]
-                        _, Nd, Na, Nt = val.shape
-                        # Nd, Na, Nt, Nf
-                        phase = tec_conv * val[0, ..., None]
-                        # Nt,Nd,Na,Nf
-                        phase = phase.transpose((2, 0, 1, 3))
+                        val = reorderAxes( val, axes_order, ['dir', 'ant', 'time', 'pol'] )
+                        val = val[:,ant_idx,...]
+                        _, Nd, Na, Nt, _ = val.shape
+                        # Nd, Na, Nt, Np, Nf
+                        phase = tec_conv * val[..., None]
+                        # Nt, Nd, Na, Nf, Np
+                        phase = phase.transpose((2, 0, 1, 4, 3))
                         solset_gains.append(np.exp(1j * phase))
 
                     if soltab == 'phase000':
@@ -656,11 +656,11 @@ class ClassJones():
                         val = np.array( [val[i] for i in [list(dirnames_soltab).index(x) for x in dirnames_solset]] )
                         Nd, Na, _, Nt, _  = val.shape
                         _freqs = _soltab.freq[:]
-                        # Nd, Na, Nf, Nt
-                        phase = interp1d(_freqs, val[..., 0], axis=2, kind='nearest', bounds_error=False,
+                        # Nd, Na, Nf, Nt, Np
+                        phase = interp1d(_freqs, val, axis=2, kind='nearest', bounds_error=False,
                                     fill_value='extrapolate')(freqs)
-                        # Nt, Nd, Na, Nf
-                        phase = phase.transpose((3, 0, 1, 2))
+                        # Nt, Nd, Na, Nf, Np
+                        phase = phase.transpose((3, 0, 1, 2, 4))
                         solset_gains.append(np.exp(1j * phase))
 
                     if soltab == 'amplitude000':
@@ -670,18 +670,18 @@ class ClassJones():
                         val = np.array( [val[i] for i in [list(dirnames_soltab).index(x) for x in dirnames_solset]] )
                         Nd, Na, _, Nt, _ = val.shape
                         _freqs = _soltab.freq[:]
-                        # Nd, Na, Nf, Nt
+                        # Nd, Na, Nf, Nt, Np
                         amplitude = np.abs(
-                            interp1d(_freqs, val[..., 0], axis=2, kind='nearest', bounds_error=False,
+                            interp1d(_freqs, val, axis=2, kind='nearest', bounds_error=False,
                                      fill_value='extrapolate')(freqs))
                         #amplitude = np.maximum(amplitude, 0.01) # hard cut to remove very small solutions
-                        # Nt,Nd,Na,Nf
-                        amplitude = amplitude.transpose((3, 0, 1, 2))
+                        # Nt, Nd, Na, Nf, Np
+                        amplitude = amplitude.transpose((3, 0, 1, 2, 4))
                         solset_gains.append(amplitude)
 
-                # Nt,Nd,Na,Nf
+                # Nt,Nd,Na,Nf,Np
                 gains.append(np.prod(solset_gains, axis=0))
-            # Nt, (Nd+Nd+...), Na, Nf
+            # Nt, (Nd+Nd+...), Na, Nf, Np
             gains = np.concatenate(gains, axis=1)
             # Nd+Nd+...
             lm = np.concatenate(lm, axis=0)
@@ -718,14 +718,13 @@ class ClassJones():
         #for i in range(10):
         #    print ('%f,%f,%f' % (DicoSols['t0'][i],DicoSols['t1'][i],times[i]))
 
-        Nt, Nd, Na, Nf = gains.shape
+        Nt, Nd, Na, Nf, Np = gains.shape
 
         G = np.zeros((Nt, Nd, Na, Nf, 2, 2), np.complex64)
 
         gains[np.isnan(gains)] = 1.
-        G[:, :, :, :, 0, 0] = gains
-        G[:, :, :, :, 1, 1] = gains
-
+        G[:, :, :, :, 0, 0] = gains[...,0] # XX
+        G[:, :, :, :, 1, 1] = gains[...,1] # YY
 
         # DEBUG plot
         #if True:
