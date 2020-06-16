@@ -613,7 +613,12 @@ class ClassFacetMachine():
         if self.GD["RIME"]["FFTMachine"]!="FFTW": return
         self.wisdom_cache_path = self.GD["Cache"]["DirWisdomFFTW"]
         #hostname=socket.gethostname()
-        cpuname=cpuinfo.get_cpu_info()["brand"].replace(" ","")
+        #work round incompatible change in cpuinfo
+        cpudict=cpuinfo.get_cpu_info()
+        if 'brand' in cpudict:
+            cpuname=cpudict["brand"].replace(" ","")
+        else:
+            cpuname=cpudict["brand_raw"].replace(" ","")            
         if "~" in self.wisdom_cache_path:
             home = expanduser("~")        
             self.wisdom_cache_path=self.wisdom_cache_path.replace("~",home)
