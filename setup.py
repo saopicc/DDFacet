@@ -31,23 +31,32 @@ import sys
 
 pkg='DDFacet'
 skymodel_pkg='SkyModel'
-__version__ = "0.4.1.0"
+__version__ = "0.5.3.1"
 build_root=os.path.dirname(__file__)
 
 try:
     import six
-except ImportError, e:
+except ImportError as e:
     raise ImportError("Six not installed. Please install Python 2.x compatibility package six before running DDFacet install. "
-                        "You should not see this message unless you are not running pip install -- run pip install!")
+                        "You should not see this message unless you are not running pip install (19.x) -- run pip install!")
 try:
     import pybind11
-except ImportError, e:
+except ImportError as e:
     raise ImportError("Pybind11 not installed. Please install C++ binding package pybind11 before running DDFacet install. "
-                        "You should not see this message unless you are not running pip install -- run pip install!")
+                        "You should not see this message unless you are not running pip install (19.x) -- run pip install!")
 
 def backend(compile_options):
     if compile_options is not None:
-        print >> sys.stderr, "Compiling extension libraries with user defined options: '%s'"%compile_options
+        print("Compiling extension libraries with user defined options: '%s'"%compile_options)
+    else:
+        compile_options = ""
+    if six.PY3:
+        compile_options += " -DENABLE_PYTHON_2=OFF "
+        compile_options += " -DENABLE_PYTHON_3=ON "
+    elif six.PY2:
+        compile_options += " -DENABLE_PYTHON_2=ON "
+        compile_options += " -DENABLE_PYTHON_3=OFF "
+
     path = pjoin(build_root, pkg, 'cbuild')
     try:
         subprocess.check_call(["mkdir", path])
@@ -106,22 +115,22 @@ def requirements():
     requirements = [("nose >= 1.3.7", "nose >= 1.3.7"),
                     ("Cython >= 0.25.2", "Cython >= 0.25.2"),
                     ("numpy >= 1.15.1", "numpy >= 1.15.1"), #Ubuntu 18.04
-                    ("sharedarray @ git+https://gitlab.com/bennahugo/shared-array.git@master", "sharedarray @ git+https://gitlab.com/bennahugo/shared-array.git@master"),
-                    ("Polygon2 >= 2.0.8", "Polygon2 >= 2.0.8"),
+                    ("sharedarray >= 3.2.0", "sharedarray >= 3.2.0"),
+                    ("Polygon3 >= 3.0.8", "Polygon2 >= 2.0.8"),
                     ("pyFFTW >= 0.10.4", "pyFFTW >= 0.10.4"),
                     ("astropy >= 3.0", "astropy <= 2.0.11"),
                     ("deap >= 1.0.1", "deap >= 1.0.1"),
                     ("ptyprocess>=0.5", "ptyprocess<=0.5"), #workaround for ipdb on py2
                     ("ipdb >= 0.10.3", "ipdb <= 0.10.3"),
-                    ("python-casacore <= 3.0.0", "python-casacore <= 3.0.0"),
+                    ("python-casacore >= 3.0.0", "python-casacore >= 3.0.0"),
                     ("pyephem >= 3.7.6.0", "pyephem >= 3.7.6.0"),
                     ("numexpr >= 2.6.2", "numexpr >= 2.6.2"),
                     ("matplotlib >= 2.0.0", "matplotlib >= 2.0.0"),
-                    ("scipy >= 0.16.0", "scipy >= 0.16.0"),
+                    ("scipy >= 1.3.3", "scipy >= 0.16.0"),
                     ("astLib >= 0.8.0", "astLib >= 0.8.0"),
                     ("psutil >= 5.2.2", "psutil >= 5.2.2"),
                     ("py-cpuinfo >= 3.2.0", "py-cpuinfo >= 3.2.0"),
-                    ("tables >= 3.3.0", "tables >= 3.3.0"),
+                    ("tables >= 3.6.0", "tables < 3.6.0"),
                     ("prettytable >= 0.7.2", "prettytable >= 0.7.2"),
                     ("pybind11 >= 2.2.2", "pybind11 >= 2.2.2"),
                     ("pyfits >= 3.5", "pyfits >= 3.5"), #kittens dependency, do not remove
@@ -131,8 +140,8 @@ def requirements():
                     ("pylru >= 1.1.0", "pylru >= 1.1.0"),
                     ("six >= 1.12.0", "six >= 1.12.0"),
                     ("pybind11 >= 2.2.2", "pybind11 >= 2.2.2"),
-                    ("codex-africanus[dask]", "codex-africanus[dask]"),
-                    ("bdsf", "bdsf") # SkyModel / kms dependency
+                    ("codex-africanus[dask] <= 0.1.8", "codex-africanus[dask] <= 0.1.8"),
+                    ("bdsf > 1.8.15", "bdsf<=1.8.15") # SkyModel / kms dependency
                     ] 
 
     py3_requirements, py2_requirements = zip(*requirements)
@@ -160,7 +169,7 @@ setup(name=pkg,
                 'sdist': custom_sdist,
                 'build': custom_build
                },
-      python_requires='<3.0',
+      #python_requires='<3.0',
       packages=[pkg, skymodel_pkg],
       install_requires=requirements(),
       include_package_data=True,
@@ -168,7 +177,7 @@ setup(name=pkg,
       long_description_content_type='text/markdown',
       scripts=define_scripts(),
       extras_require={
-          'dft-support': ['montblanc @ git+https://github.com/ska-sa/montblanc.git@0.6.1'],
+          'dft-support': ['montblanc >= 0.6.1'],
           'moresane-support': ['pymoresane >= 0.3.0'],
           'testing-requirements': ['nose >= 1.3.7'],
           'fits-beam-support': ['meqtrees-cattery'],
