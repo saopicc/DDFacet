@@ -160,7 +160,7 @@ setup(name=pkg,
                 'sdist': custom_sdist,
                 'build': custom_build
                },
-      python_requires='<3.0',
+      #python_requires='<3.0',
       packages=[pkg, skymodel_pkg],
       install_requires=requirements(),
       include_package_data=True,
