@@ -36,12 +36,12 @@ build_root=os.path.dirname(__file__)
 
 try:
     import six
-except ImportError as e:
+except ImportError, e:
     raise ImportError("Six not installed. Please install Python 2.x compatibility package six before running DDFacet install. "
                         "You should not see this message unless you are not running pip install -- run pip install!")
 try:
     import pybind11
-except ImportError as e:
+except ImportError, e:
     raise ImportError("Pybind11 not installed. Please install C++ binding package pybind11 before running DDFacet install. "
                         "You should not see this message unless you are not running pip install -- run pip install!")
 
@@ -160,7 +160,7 @@ setup(name=pkg,
                 'sdist': custom_sdist,
                 'build': custom_build
                },
-      #python_requires='<3.0',
+      python_requires='<3.0',
       packages=[pkg, skymodel_pkg],
       install_requires=requirements(),
       include_package_data=True,
