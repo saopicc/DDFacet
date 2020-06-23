@@ -613,8 +613,7 @@ class ClassJones():
             for solset in apply_solsets:
 
                 _solset = getattr(H.root, solset)
-                antnames_solset = _solset.antenna[:]['name']
-                ant_idx = [i for i, name in enumerate(antnames_solset) if name.decode() in req_ants] # find only antennas useful for this dataset
+
                 dirnames_solset = _solset.source[:]['name'] # keep track to re-arrange order of solutions later
                 raNode, decNode = _solset.source[:]["dir"].T
                 lFacet, mFacet = self.FacetMachine.CoordMachine.radec2lm(raNode, decNode)
@@ -633,16 +632,22 @@ class ClassJones():
                         if ~np.all(np.isclose(_soltab.time[:], times)):
                             raise ValueError("Times not the same between solsets")
                     times = _soltab.time[:]
+
+                    antnames_soltab = _soltab.ant[:].tolist()
+                    ant_idx = [antnames_soltab.index(name.encode()) for name in req_ants] # find only antennas useful for this dataset
                     dirnames_soltab = _soltab.dir[:]
+                    dir_idx = [dirnames_soltab.index(name) for name in dirnames_solset] # find only antennas useful for this dataset
                     # Npols, Nd, Na, (Nf), Nt - arbitrary order
                     val = _soltab.val[:]
+                    val[_soltab.weight == 0] = np.nan # set flagged data to nan
                     # check axes order and reshape
                     axes_order = _soltab.val.attrs['AXES'].decode().split(',')
                     if soltab == 'tec000':
                         tec_conv = -8.4479745e6 / freqs
                         val = reorderAxes( val, axes_order, ['dir', 'ant', 'time', 'pol'] )
+                        val = val[dir_idx,...]
                         val = val[:,ant_idx,...]
-                        _, Nd, Na, Nt, _ = val.shape
+                        Nd, Na, Nt, _ = val.shape
                         # Nd, Na, Nt, Np, Nf
                         phase = tec_conv * val[..., None]
                         # Nt, Nd, Na, Nf, Np
@@ -651,9 +656,9 @@ class ClassJones():
 
                     if soltab == 'phase000':
                         val = reorderAxes( val, axes_order, ['dir', 'ant', 'freq', 'time', 'pol'] )
+                        #val = np.array( [val[i] for i in [list(dirnames_soltab).index(x) for x in dirnames_solset]] )
+                        val = val[dir_idx,...]
                         val = val[:,ant_idx,...]
-                        # reorder vals to match dirname_solset
-                        val = np.array( [val[i] for i in [list(dirnames_soltab).index(x) for x in dirnames_solset]] )
                         Nd, Na, _, Nt, _  = val.shape
                         _freqs = _soltab.freq[:]
                         # Nd, Na, Nf, Nt, Np
@@ -665,9 +670,8 @@ class ClassJones():
 
                     if soltab == 'amplitude000':
                         val = reorderAxes( val, axes_order, ['dir', 'ant', 'freq', 'time', 'pol'] )
+                        val = val[dir_idx,...]
                         val = val[:,ant_idx,...]
-                        # reorder vals to match dirname_solset
-                        val = np.array( [val[i] for i in [list(dirnames_soltab).index(x) for x in dirnames_solset]] )
                         Nd, Na, _, Nt, _ = val.shape
                         _freqs = _soltab.freq[:]
                         # Nd, Na, Nf, Nt, Np
@@ -709,14 +713,12 @@ class ClassJones():
         self.ClusterCat = ClusterCat
 
         # find time ranges of solutions
-        diff = np.diff(times)/2
+        diff = np.diff(times)/2.
         t_mid = times[1:] - diff
         DicoSols = {}
-        DicoSols["t0"] = np.insert(t_mid, 0, times[0]-diff[0]/2.)
-        DicoSols["t1"] = np.append(t_mid, times[-1]+diff[-1]/2.)
+        DicoSols["t0"] = np.insert(t_mid, 0, times[0]-diff[0])
+        DicoSols["t1"] = np.append(t_mid, times[-1]+diff[-1])
         DicoSols["tm"] = times
-        #for i in range(10):
-        #    print ('%f,%f,%f' % (DicoSols['t0'][i],DicoSols['t1'][i],times[i]))
 
         Nt, Nd, Na, Nf, Np = gains.shape
 
