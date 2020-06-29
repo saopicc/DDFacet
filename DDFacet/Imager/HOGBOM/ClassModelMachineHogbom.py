@@ -258,6 +258,14 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         Fs = np.fft.fftshift
         iFs = np.fft.ifftshift
 
+        import pyfftw
+        nthreads = int(self.GD['Parallel']['NCPU'])
+        if not nthreads:
+            import multiprocessing
+            nthreads = multiprocessing.cpu_count()
+        FFT = lambda x: pyfftw.interfaces.numpy_fft.fft2(x, axes=(-2, -1), planner_effort='FFTW_ESTIMATE', threads=nthreads) #, norm='ortho')
+        iFFT = lambda x: pyfftw.interfaces.numpy_fft.ifft2(x, axes=(-2, -1), planner_effort='FFTW_ESTIMATE', threads=nthreads) #, norm='ortho')
+
         # evaluate model
         ModelImage = self.GiveModelImage(self.GridFreqs)
 
@@ -265,7 +273,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         GaussKern = np.pad(GaussKern, self.Npad, mode='constant')
         FTshape, _ = GaussKern.shape
         from scipy import fftpack as FT
-        GaussKernhat = FT.fft2(iFs(GaussKern))
+        #GaussKernhat = FT.fft2(iFs(GaussKern))
+        GaussKernhat = FFT(iFs(GaussKern))
 
         # pad and FT of ModelImage
         ModelImagehat = np.zeros((self.Nchan, FTshape, FTshape), dtype=np.complex128)
@@ -273,11 +282,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         I = slice(self.Npad, -self.Npad)
         for i in range(self.Nchan):
             tmp_array = np.pad(ModelImage[i, 0], self.Npad, mode='constant')
-            ModelImagehat[i] = FT.fft2(iFs(tmp_array)) * GaussKernhat
-            ConvModelImage[i] = Fs(FT.ifft2(ModelImagehat[i]))[I, I].real
+            # ModelImagehat[i] = FT.fft2(iFs(tmp_array)) * GaussKernhat
+            ModelImagehat[i] = FFT(iFs(tmp_array)) * GaussKernhat
+            # ConvModelImage[i] = Fs(FT.ifft2(ModelImagehat[i]))[I, I].real
+            ConvModelImage[i] = Fs(iFFT(ModelImagehat[i]))[I, I].real
 
         if ResidCube is not None:
-            ConvModelImage += ResidCube.squeeze()
+            #ConvModelImage += ResidCube.squeeze()
             RMS = np.std(ResidCube.flatten())
             Threshold = self.GD["SPIMaps"]["AlphaThreshold"] * RMS
         else:
