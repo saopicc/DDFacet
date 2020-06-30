@@ -37,6 +37,11 @@ FALLBACK_VALUES = {
     'MAX_COLORS':1
 }
 
+def setattrw(module, attr, value):
+    if isinstance(value,bytes):
+        value=value.decode('utf-8')
+    setattr(module, attr, value)
+
 def getValueChecked(id):
     """Gets capability value, use fall-back if value not set
     Throws ValueError if value is not in the list
@@ -48,12 +53,12 @@ def getValueChecked(id):
 def default():
     """Set the default attribute values"""
     for color in COLORS:
-        setattr(MODULE, color, '')
-        setattr(MODULE, 'BG_%s' % color, '')
+        setattrw(MODULE, color, '')
+        setattrw(MODULE, 'BG_%s' % color, '')
     for control in CONTROLS:
-        setattr(MODULE, control, '')
+        setattrw(MODULE, control, '')
     for value in VALUES:
-        setattr(MODULE, value, None)
+        setattrw(MODULE, value, None)
  
 def setup():
     """Set the terminal control strings"""
@@ -68,17 +73,17 @@ def setup():
         # Get the color index from curses
         colorIndex = getattr(curses, 'COLOR_%s' % color)
         # Set the color escape sequence after filling the template with index
-        setattr(MODULE, color, curses.tparm(fgColorSeq, colorIndex))
+        setattrw(MODULE, color, curses.tparm(fgColorSeq, colorIndex))
         # Set background escape sequence
-        setattr(
+        setattrw(
             MODULE, 'BG_%s' % color, curses.tparm(bgColorSeq, colorIndex)
         )
     for control in CONTROLS:
         # Set the control escape sequence
-        setattr(MODULE, control, curses.tigetstr(CONTROLS[control]) or '')
+        setattrw(MODULE, control, curses.tigetstr(CONTROLS[control]) or '')
     for value in VALUES:
         # Set terminal related values
-        setattr(MODULE, value, curses.tigetnum(VALUES[value]))
+        setattrw(MODULE, value, curses.tigetnum(VALUES[value]))
  
 def render(text):
     """Helper function to render text easily
