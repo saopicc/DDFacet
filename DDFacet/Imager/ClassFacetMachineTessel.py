@@ -324,7 +324,12 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
                 if len(POut)>1:
                     log.print(ModColor.Str("WARNING: There are more than one polygon in the intersection"))
-                    log.print(ModColor.Str("   Taking the largest one..."))
+                    sFile="Poly%i.npz"%self.iSave
+                    log.print(ModColor.Str("   Saving polygon file for eventual debigging as: %s"%sFile))
+                    np.savez(sFile,
+                             polySquare=polySquare,
+                             polygonFacetCut=polygonFacetCut)
+                    log.print(ModColor.Str("   Taking the largest polygon..."))
                     A=0
                     for iP in range(len(POut)):
                         Aa=Polygon.Polygon(POut[iP]).area()
@@ -368,7 +373,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 # pylab.draw()
                 # pylab.show(False)
                 # pylab.pause(0.5)
-                # self.iSave+=1
+                self.iSave+=1
 
             return LPoly
 
