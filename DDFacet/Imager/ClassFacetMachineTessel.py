@@ -30,6 +30,7 @@ from DDFacet.Other import MyPickle
 from scipy.spatial import Voronoi, ConvexHull
 from SkyModel.Sky import ModVoronoi
 from DDFacet.Other import reformat
+from DDFacet.Other import ModColor
 from DDFacet.Data.ClassJones import _parse_solsfile
 import os
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
@@ -83,7 +84,6 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         #         ll = l.replace("\n", "")
         #         MSName.append(ll)
         #     MSName = MSName[0]
-
 
         MSName = self.VS.ListMS[0].MSName
 
@@ -266,7 +266,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         DiamMax = self.GD["Facets"]["DiamMax"] * np.pi / 180
         # DiamMax=4.5*np.pi/180
         DiamMin = self.GD["Facets"]["DiamMin"] * np.pi / 180
-
+        
         def ClosePolygon(polygon):
             P = polygon.tolist()
             polygon = np.array(P + [P[0]])
@@ -281,7 +281,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             # polygonFacet=ClosePolygon(polygonFacet)
             P0 = Polygon.Polygon(polygonFacet)
             P0Cut = Polygon.Polygon(P0 & PFOV)
-
+            
             if P0Cut.nPoints() == 0:
                 return []
 
@@ -310,37 +310,65 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                  [dl, -dm],
                  [dl, dm],
                  [-dl, dm]]) * 0.5
+            
             for lc, mc in zip(Lc, Mc):
                 polySquare = DpolySquare.copy()  # ClosePolygon(DpolySquare.copy())
                 polySquare[:, 0] += lc
                 polySquare[:, 1] += mc
                 # polySquare=ClosePolygon(polySquare)
                 P1 = Polygon.Polygon(polySquare)
-
+                
                 POut = (P0Cut & P1)
                 if POut.nPoints() == 0:
                     continue
 
-                polyOut = np.array(POut[0])
+                if len(POut)>1:
+                    log.print(ModColor.Str("WARNING: There are more than one polygon in the intersection"))
+                    log.print(ModColor.Str("   Taking the largest one..."))
+                    A=0
+                    for iP in range(len(POut)):
+                        Aa=Polygon.Polygon(POut[iP]).area()
+                        if Aa>A:
+                            A=Aa
+                            polyOut = np.array(POut[iP])
+                else:
+                    polyOut = np.array(POut[0])
+                    
                 # polyOut=ClosePolygon(polyOut)
                 LPoly.append(polyOut)
 
-                # pylab.clf()
+                # ################################
+                # def CloseLoop(x,y):
+                #     x=np.concatenate([x,np.array([x[0]])])
+                #     y=np.concatenate([y,np.array([y[0]])])
+                #     return x,y
+                # np.savez("Poly%i.npz"%self.iSave,
+                #          polySquare=polySquare,
+                #          polygonFacetCut=polygonFacetCut)
+                # import pylab
+                # # pylab.clf()
                 # x,y=polygonFacetCut.T
-                # pylab.plot(x,y,color="blue")
+                # x,y=CloseLoop(x,y)
+                # #pylab.plot(x,y,color="blue")
                 # x,y=polygonFacet.T
-                # pylab.plot(x,y,color="blue",ls=":",lw=3)
+                # x,y=CloseLoop(x,y)
+                # #pylab.plot(x,y,color="blue",ls=":",lw=3)
                 # x,y=np.array(PFOV[0]).T
+                # x,y=CloseLoop(x,y)
                 # pylab.plot(x,y,color="black")
                 # x,y=polySquare.T
+                # x,y=CloseLoop(x,y)
                 # pylab.plot(x,y,color="green",ls=":",lw=3)
                 # x,y=polyOut.T
+                # x,y=CloseLoop(x,y)
                 # pylab.plot(x,y,color="red",ls="--",lw=3)
-                # pylab.xlim(-0.03,0.03)
-                # pylab.ylim(-0.03,0.03)
+                # pylab.xlim(self.RadiusTot,-self.RadiusTot)
+                # pylab.ylim(-self.RadiusTot,self.RadiusTot)
+                # pylab.title("iSave=%i"%self.iSave)
                 # pylab.draw()
                 # pylab.show(False)
                 # pylab.pause(0.5)
+                # self.iSave+=1
 
             return LPoly
 
@@ -351,6 +379,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         LPolygonNew = []
 
+        self.iSave=0
         for iFacet in range(len(LPolygon)):
             polygon = LPolygon[iFacet]
             ThisDiamMax = DiamMax
@@ -376,7 +405,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         for iFacet in sorted(DicoPolygon.keys()):
             diam = DicoPolygon[iFacet]["diamMin"]
-            # print iFacet,diam,DiamMin
+            #print(iFacet,diam,DiamMin)
             if diam < DiamMin:
                 dmin = 1e6
                 xc0, yc0 = DicoPolygon[iFacet]["xyc"]
