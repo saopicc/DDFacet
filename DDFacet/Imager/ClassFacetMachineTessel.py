@@ -305,11 +305,10 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             Lc = Lc.ravel().tolist()
             Mc = Mc.ravel().tolist()
 
-            DpolySquare = np.array(
-                [[-dl, -dm],
-                 [dl, -dm],
-                 [dl, dm],
-                 [-dl, dm]]) * 0.5
+            DpolySquare = np.array([[-dl, -dm],
+                                    [dl, -dm],
+                                    [dl, dm],
+                                    [-dl, dm]]) * 0.5
             
             for lc, mc in zip(Lc, Mc):
                 polySquare = DpolySquare.copy()  # ClosePolygon(DpolySquare.copy())
@@ -322,10 +321,12 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 if POut.nPoints() == 0:
                     continue
 
+                DoPlot=0
                 if len(POut)>1:
+                    DoPlot=1
                     log.print(ModColor.Str("WARNING: There are more than one polygon in the intersection"))
                     sFile="Poly%i.npz"%self.iSave
-                    log.print(ModColor.Str("   Saving polygon file for eventual debigging as: %s"%sFile))
+                    log.print(ModColor.Str("   Saving polygon file for eventual debugging as: %s"%sFile))
                     np.savez(sFile,
                              polySquare=polySquare,
                              polygonFacetCut=polygonFacetCut)
@@ -347,32 +348,36 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 #     x=np.concatenate([x,np.array([x[0]])])
                 #     y=np.concatenate([y,np.array([y[0]])])
                 #     return x,y
-                # np.savez("Poly%i.npz"%self.iSave,
-                #          polySquare=polySquare,
-                #          polygonFacetCut=polygonFacetCut)
-                # import pylab
-                # # pylab.clf()
-                # x,y=polygonFacetCut.T
-                # x,y=CloseLoop(x,y)
-                # #pylab.plot(x,y,color="blue")
-                # x,y=polygonFacet.T
-                # x,y=CloseLoop(x,y)
-                # #pylab.plot(x,y,color="blue",ls=":",lw=3)
-                # x,y=np.array(PFOV[0]).T
-                # x,y=CloseLoop(x,y)
-                # pylab.plot(x,y,color="black")
-                # x,y=polySquare.T
-                # x,y=CloseLoop(x,y)
-                # pylab.plot(x,y,color="green",ls=":",lw=3)
-                # x,y=polyOut.T
-                # x,y=CloseLoop(x,y)
-                # pylab.plot(x,y,color="red",ls="--",lw=3)
-                # pylab.xlim(self.RadiusTot,-self.RadiusTot)
-                # pylab.ylim(-self.RadiusTot,self.RadiusTot)
-                # pylab.title("iSave=%i"%self.iSave)
-                # pylab.draw()
-                # pylab.show(False)
-                # pylab.pause(0.5)
+                # if False:#DoPlot:
+                #     # np.savez("Poly%i.npz"%self.iSave,
+                #     #          polySquare=polySquare,
+                #     #          polygonFacetCut=polygonFacetCut)
+                #     import pylab
+                #     # pylab.clf()
+                #     x,y=polygonFacetCut.T
+                #     x,y=CloseLoop(x,y)
+                #     #pylab.plot(x,y,color="blue")
+                #     x,y=polygonFacet.T
+                #     x,y=CloseLoop(x,y)
+                #     #pylab.plot(x,y,color="blue",ls=":",lw=3)
+                #     x,y=np.array(PFOV[0]).T
+                #     x,y=CloseLoop(x,y)
+                #     pylab.plot(x,y,color="black")
+                #     x,y=polySquare.T
+                #     x,y=CloseLoop(x,y)
+                #     pylab.plot(x,y,color="green",ls=":",lw=3)
+                #     x,y=polyOut.T
+                #     x,y=CloseLoop(x,y)
+                #     pylab.plot(x,y,color="red",ls="--",lw=3)
+                #     pylab.scatter(x,y,c="red")
+                #     pylab.xlim(self.RadiusTot,-self.RadiusTot)
+                #     pylab.ylim(-self.RadiusTot,self.RadiusTot)
+                #     pylab.title("iSave=%i"%self.iSave)
+                #     pylab.draw()
+                #     pylab.show(block=True)
+                #     #pylab.pause(0.5)
+                # #############################
+                
                 self.iSave+=1
 
             return LPoly
