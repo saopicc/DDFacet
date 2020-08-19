@@ -398,7 +398,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         print("Cleaning model dictionary from masked components using %s"%(MaskName), file=log)
         im=image(MaskName)
         MaskArray=im.getdata()[0,0].T[::-1]
-        for (x,y) in self.DicoSMStacked["Comp"].keys():
+        for (x,y) in self.DicoSMStacked["Comp"].copy().keys():
             if MaskArray[x,y]==0:
                 del(self.DicoSMStacked["Comp"][(x,y)])
 
