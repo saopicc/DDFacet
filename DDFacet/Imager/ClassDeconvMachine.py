@@ -2058,7 +2058,7 @@ class ClassImagerDeconv():
                 if "alphastdmap" not in _images:
                     _images.addSharedArray("alphastdmap", intmodel().shape, np.float32)
                 # LB - using apprescube since intrescube can have large unpgysical values
-                _images['alphamap'], _images["alphastdmap"] = ModelMachine.GiveSpectralIndexMap(GaussPars=self.FWHMBeam[-1], ResidCube=apprescube())
+                _images['alphamap'], _images["alphastdmap"] = ModelMachine.GiveSpectralIndexMap(GaussPars=self.FWHMBeam[0], ResidCube=apprescube())
                 return _images['alphamap'], _images["alphastdmap"]
             else:
                 _images['alphamap'] = ModelMachine.GiveSpectralIndexMap()

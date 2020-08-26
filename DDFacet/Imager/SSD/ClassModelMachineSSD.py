@@ -46,6 +46,7 @@ from pyrap.images import image
 from SkyModel.Sky import ClassSM
 import os
 import copy
+from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 
 class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def __init__(self,*args,**kwargs):
@@ -90,6 +91,29 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         MyPickle.Save(D,FileName)
 
+    def ChangeNPix(self,NPixOut):
+        NPix=self.ModelShape[-1]
+        NPixOut, _ = EstimateNpix(float(NPixOut), Padding=1)
+        NPix0, _ = EstimateNpix(float(NPix), Padding=1)
+        if NPix!=NPix0: stop
+        print>>log,"Changing image size: %i -> %i pixels"%(NPix,NPixOut)
+        xc0=NPix//2
+        xc1=NPixOut//2
+        dx=xc0-xc1
+        DCompOut={}
+        DCompOut["Type"]="SSD"
+        N,M,_,_=self.ModelShape
+        self.ModelShape=[N,M,NPixOut,NPixOut]
+        for (x0,y0) in self.DicoSMStacked['Comp'].keys():
+            x1=x0-dx
+            y1=y0-dx
+            c0=(x1>=0)&(x1<NPixOut)
+            c1=(y1>=0)&(y1<NPixOut)
+            if c0&c1:
+                #print "(%i,%i)->(%i,%i)"%(x0,y0,x1,y1)
+                DCompOut[(x1,y1)]=self.DicoSMStacked['Comp'][(x0,y0)]
+        self.DicoSMStacked=DCompOut
+        
     def giveDico(self):
         D=self.DicoSMStacked
         D["GD"]=self.GD
@@ -401,7 +425,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def FilterNegComponants(self,box=20,sig=3,RemoveNeg=True):
         print("Cleaning model dictionary from negative components with (box, sig) = (%i, %i)"%(box,sig), file=log)
         
-        print("  Number of componants before filtering: %i"%len(self.DicoSMStacked["Comp"]), file=log)
+        print("  Number of components before filtering: %i"%len(self.DicoSMStacked["Comp"]), file=log)
         ModelImage=self.GiveModelImage(self.DicoSMStacked["RefFreq"])[0,0]
         
         Min=scipy.ndimage.filters.minimum_filter(ModelImage,(box,box))
@@ -420,22 +444,24 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 del(self.DicoSMStacked["Comp"][key])
             except:
                 print("  Component at (%i, %i) not in dict "%key, file=log)
-        print("  Number of componants after filtering: %i"%len(self.DicoSMStacked["Comp"]), file=log)
+        print("  Number of components after filtering: %i"%len(self.DicoSMStacked["Comp"]), file=log)
 
 
 
     def CleanMaskedComponants(self,MaskName,InvertMask=False):
-        print("Cleaning model dictionary from masked components using %s [%i componants]"%(MaskName,len(self.DicoSMStacked["Comp"])), file=log)
+        print("Cleaning model dictionary from masked components using %s [%i components]"%(MaskName,len(self.DicoSMStacked["Comp"])), file=log)
 
         im=image(MaskName)
         MaskArray=im.getdata()[0,0].T[::-1]
         if InvertMask:
             print("  Inverting the mask", file=log)
             MaskArray=1-MaskArray
-        for (x,y) in self.DicoSMStacked["Comp"].keys():
+        # copy keys to avoid py3 error
+        iterkeys=list(self.DicoSMStacked["Comp"].keys())
+        for (x,y) in iterkeys:
             if MaskArray[x,y]==0:
                 del(self.DicoSMStacked["Comp"][(x,y)])
-        print("  There are %i componants left"%len(self.DicoSMStacked["Comp"]), file=log)
+        print("  There are %i components left"%len(self.DicoSMStacked["Comp"]), file=log)
 
                 
     def ToNPYModel(self,FitsFile,SkyModel,BeamImage=None):

@@ -30,8 +30,8 @@ from DDFacet.Other import MyPickle
 from scipy.spatial import Voronoi, ConvexHull
 from SkyModel.Sky import ModVoronoi
 from DDFacet.Other import reformat
-from DDFacet.Data.ClassJones import _parse_solsfile
-import os
+from DDFacet.Data.ClassJones import _parse_solsfile, _which_solsfile
+import os, glob
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 import tables
 
@@ -126,9 +126,12 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             decNode = ClusterNodes.dec
             lFacet, mFacet = self.CoordMachine.radec2lm(raNode, decNode)
         elif SolsFile is not None and ".h5" in  SolsFile:
-            h5file, apply_solsets, apply_map = _parse_solsfile(SolsFile)
-            log.print("Taking facet directions from H5parm: {}, solsets: {}".format(h5file, apply_solsets))
-            with tables.open_open(h5file) as H:
+
+            h5files, apply_solsets, apply_map = _parse_solsfile(SolsFile)
+            print("Parsing h5file pattern {}".format(h5files), file=log)
+            h5file = glob.glob(h5files)[0]
+            print( "Taking facet directions from H5parm: {}, solsets: {}".format(h5file, apply_solsets), file=log)
+            with tables.open_file(h5file) as H:
                 lm, radec = [], []
                 for solset in apply_solsets:
                     _solset = getattr(H.root, solset)
@@ -219,14 +222,14 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 # pylab.draw()
                 # pylab.show()
                 # #pylab.pause(0.1)
-                
+
                 if ThisP.size>0:
                     LPolygon.append(ThisP[0])
                     ListNode.append(iNode)
             NodesCat=NodesCat[np.array(ListNode)].copy()
 
 
-            
+
 # =======
 #             LPolygon = [
 #                 np.array(PP & Polygon.Polygon(np.array(vertices[region])))[0]

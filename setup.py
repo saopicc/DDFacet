@@ -31,7 +31,7 @@ import sys
 
 pkg='DDFacet'
 skymodel_pkg='SkyModel'
-__version__ = "0.5.1.0"
+__version__ = "0.5.3.1"
 build_root=os.path.dirname(__file__)
 
 try:
@@ -115,7 +115,7 @@ def requirements():
     requirements = [("nose >= 1.3.7", "nose >= 1.3.7"),
                     ("Cython >= 0.25.2", "Cython >= 0.25.2"),
                     ("numpy >= 1.15.1", "numpy >= 1.15.1"), #Ubuntu 18.04
-                    ("sharedarray @ git+https://gitlab.com/bennahugo/shared-array.git@master", "sharedarray @ git+https://gitlab.com/bennahugo/shared-array.git@master"),
+                    ("sharedarray >= 3.2.0", "sharedarray >= 3.2.0"),
                     ("Polygon3 >= 3.0.8", "Polygon2 >= 2.0.8"),
                     ("pyFFTW >= 0.10.4", "pyFFTW >= 0.10.4"),
                     ("astropy >= 3.0", "astropy <= 2.0.11"),
@@ -126,7 +126,7 @@ def requirements():
                     ("pyephem >= 3.7.6.0", "pyephem >= 3.7.6.0"),
                     ("numexpr >= 2.6.2", "numexpr >= 2.6.2"),
                     ("matplotlib >= 2.0.0", "matplotlib >= 2.0.0"),
-                    ("scipy <= 1.3.3", "scipy >= 0.16.0"),
+                    ("scipy >= 1.3.3", "scipy >= 0.16.0"),
                     ("astLib >= 0.8.0", "astLib >= 0.8.0"),
                     ("psutil >= 5.2.2", "psutil >= 5.2.2"),
                     ("py-cpuinfo >= 3.2.0", "py-cpuinfo >= 3.2.0"),
@@ -140,7 +140,8 @@ def requirements():
                     ("pylru >= 1.1.0", "pylru >= 1.1.0"),
                     ("six >= 1.12.0", "six >= 1.12.0"),
                     ("pybind11 >= 2.2.2", "pybind11 >= 2.2.2"),
-                    ("codex-africanus[dask] <= 0.1.8", "codex-africanus[dask] <= 0.1.8"),
+                    ("dask[array] >= 1.1.0", "dask[array] == 2.11.0"),
+                    ("codex-africanus[dask] <= 0.1.8", "codex-africanus[dask]"),
                     ("bdsf > 1.8.15", "bdsf<=1.8.15") # SkyModel / kms dependency
                     ] 
 
@@ -177,7 +178,7 @@ setup(name=pkg,
       long_description_content_type='text/markdown',
       scripts=define_scripts(),
       extras_require={
-          'dft-support': ['montblanc @ git+https://github.com/ska-sa/montblanc.git@0.6.1'],
+          'dft-support': ['montblanc >= 0.6.1'],
           'moresane-support': ['pymoresane >= 0.3.0'],
           'testing-requirements': ['nose >= 1.3.7'],
           'fits-beam-support': ['meqtrees-cattery'],
