@@ -974,7 +974,7 @@ class ClassMS():
         tp = table(table_all.getkeyword('POLARIZATION'),ack=False)
         # get list of corrype enums for first row of polarization table, and convert to strings via MS_STOKES_ENUMS. 
         # self.CorrelationNames will be a list of strings
-        self.CorrelationIds = tp.getcol('CORR_TYPE',0,1)[self._polid]
+        self.CorrelationIds = tp.getcol('CORR_TYPE',0,1)[0]
         self.CorrelationNames = [ (ctype >= 0 and ctype < len(MS_STOKES_ENUMS) and MS_STOKES_ENUMS[ctype]) or
                 None for ctype in self.CorrelationIds ]
         self.Ncorr = len(self.CorrelationNames)
