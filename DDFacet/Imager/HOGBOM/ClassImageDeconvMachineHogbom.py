@@ -298,7 +298,6 @@ class ClassImageDeconvMachine():
             print(ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done CLEANing" % (ThisFlux),col="green" ), file=log)
             exit_msg = exit_msg + " " + "FluxThreshold"
             continue_deconvolution = False or continue_deconvolution
-            update_model = False or update_model
             # No need to do anything further if we are already at the stopping flux
             return exit_msg, continue_deconvolution, update_model
 
@@ -313,6 +312,13 @@ class ClassImageDeconvMachine():
 
                 T.timeit("max0")
 
+                from DDFacet.Imager import ClassDeconvMachine
+                if ClassDeconvMachine.user_stopped:
+                    print(ModColor.Str("    user stop signal received"))
+                    exit_msg = exit_msg + " " + "UserStop"
+                    continue_deconvolution = False
+                    break # stop cleaning if threshold reached
+
                 if ThisFlux <= StopFlux:
                     print(ModColor.Str("    CLEANing [iter=%i] peak of %.3g Jy lower than stopping flux" % (i,ThisFlux),col="green"), file=log)
                     cont = ThisFlux > self.FluxThreshold
@@ -320,8 +326,6 @@ class ClassImageDeconvMachine():
                           print(ModColor.Str("    CLEANing [iter=%i] absolute flux threshold of %.3g Jy has been reached" % (i,self.FluxThreshold),col="green",Bold=True), file=log)
                     exit_msg = exit_msg + " " + "MinFluxRms"
                     continue_deconvolution = cont or continue_deconvolution
-                    update_model = True or update_model
-
                     break # stop cleaning if threshold reached
 
                 # This is used to track Cleaning progress
@@ -357,6 +361,7 @@ class ClassImageDeconvMachine():
 
                 #Update model
                 self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs)
+                update_model = True
 
                 # Subtract LocalSM*CurrentGain from dirty image
                 self.SubStep(x, y, PSF * Iapp[:, None, None, None] * self.GD["Deconv"]["Gain"])
@@ -368,15 +373,13 @@ class ClassImageDeconvMachine():
         except KeyboardInterrupt:
             print(ModColor.Str("    CLEANing [iter=%i] minor cycle interrupted with Ctrl+C, peak flux %.3g" % (self._niter, ThisFlux)), file=log)
             exit_msg = exit_msg + " " + "MaxIter"
-            continue_deconvolution = False or continue_deconvolution
-            update_model = True or update_model
+            continue_deconvolution = False
             return exit_msg, continue_deconvolution, update_model
 
         if self._niter >= self.MaxMinorIter: #Reached maximum number of iterations:
             print(ModColor.Str("    CLEANing [iter=%i] Reached maximum number of iterations, peak flux %.3g" % (self._niter, ThisFlux)), file=log)
             exit_msg = exit_msg + " " + "MaxIter"
-            continue_deconvolution = False or continue_deconvolution
-            update_model = True or update_model
+            continue_deconvolution = False
 
         return exit_msg, continue_deconvolution, update_model
 
