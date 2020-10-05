@@ -386,7 +386,7 @@ class ClassVisServer():
         iMS, iChunk = DATA["iMS"], DATA["iChunk"]
         self._put_vis_column_label = "%d.%d" % (iMS+1, iChunk+1)
         self._put_vis_column_job_id = "PutData:%d:%d" % (iMS, iChunk)
-        APP.runJob(self._put_vis_column_job_id, self. visPutColumnHandler, args=(DATA.readonly(), field, column, likecol), io=0)
+        APP.runJob(self._put_vis_column_job_id, self. visPutColumnHandler, args=(DATA.readonly(), field, column, likecol), io=0)#,serial=True)
 
     def visPutColumnHandler (self, DATA, field, column, likecol):
         iMS, iChunk = DATA["iMS"], DATA["iChunk"]
@@ -533,11 +533,24 @@ class ClassVisServer():
         DATA["Weights"] = weights
         
         if self.GD["Weight"]["OutColName"]:
+            # When the MS doesn't have an IMAGING_WEIGHT column
+            ColDesc={'valueType': 'float',
+                     'dataManagerType': 'StandardStMan',
+                     'dataManagerGroup': 'SSMVar',
+                     'option': 4,
+                     'maxlen': 0,
+                     'comment': '',
+                     'ndim': 1,
+                     'shape': np.array([DATA["freqs"].size]),
+                     '_c_order': True,
+                     'keywords': {}}
+            
             ms.PutVisColumn(self.GD["Weight"]["OutColName"],
                             DATA["Weights"],
                             DATA["ROW0"],
                             DATA["ROW1"],
                             likecol="IMAGING_WEIGHT",
+                            ColDesc=ColDesc,
                             sort_index=DATA["sort_index"])
 
         

@@ -1303,8 +1303,12 @@ class ClassMS():
         return l,m
 
 
-    def PutVisColumn(self, colname, vis, row0, row1, likecol="DATA", sort_index=None):
-        self.AddCol(colname, LikeCol=likecol, quiet=True)
+    def PutVisColumn(self, colname, vis, row0, row1, likecol="DATA", sort_index=None, ColDesc=None):
+        self.AddCol(colname,
+                    LikeCol=likecol,
+                    quiet=True,
+                    ColDesc=ColDesc)
+        
         nrow = row1 - row0
         if self._reverse_channel_order:
             vis = vis[:,::-1,...]
@@ -1469,7 +1473,7 @@ class ClassMS():
                 t.putcol(Colout,t.getcol(Colin,row0,NRow),row0,NRow)
         t.close()
 
-    def AddCol(self,ColName,LikeCol="DATA",quiet=False):
+    def AddCol(self,ColName,LikeCol="DATA",quiet=False,ColDesc=None):
         t=table(self.MSName,readonly=False,ack=False)
         if (ColName in t.colnames()):# and not self.GD["Predict"]["Overwrite"]):
             if not quiet:
@@ -1478,11 +1482,13 @@ class ClassMS():
             return
         # elif (ColName in t.colnames() and self.GD["Predict"]["Overwrite"]):
         #     t.removecols(ColName)
-
-        print("  Putting column %s in %s"%(ColName,self.MSName), file=log)
-        desc=t.getcoldesc(LikeCol)
+        if ColDesc is None:
+            desc=t.getcoldesc(LikeCol)
+        else:
+            desc=ColDesc
         desc["name"]=ColName
         desc['comment']=desc['comment'].replace(" ","_")
+        print("  Putting column %s in %s"%(ColName,self.MSName), file=log)
         t.addcols(desc)
         t.close()
         

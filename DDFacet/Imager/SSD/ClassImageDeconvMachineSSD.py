@@ -104,13 +104,12 @@ class ClassImageDeconvMachine():
                                                                          MainCache=self.maincache,
                                                                          IdSharedMem=self.IdSharedMem)
         elif self.GD["GAClean"]["InitType"] == "MORESANE":
-
             from . import ClassInitSSDModelMoresane
-            self. InitMachine = ClassInitSSDModelMoresane.ClassInitSSDModelParallel(self.GD,
-                                                                                    NFreqBands, RefFreq,
-                                                                                    NCPU=self.NCPU,
-                                                                                    MainCache=self.maincache,
-                                                                                    IdSharedMem=self.IdSharedMem)
+            self.InitMachine = ClassInitSSDModelMoresane.ClassInitSSDModelParallel(self.GD,
+                                                                                   NFreqBands, RefFreq,
+                                                                                   NCPU=self.NCPU,
+                                                                                   MainCache=self.maincache,
+                                                                                   IdSharedMem=self.IdSharedMem)
         else:
             raise ValueError("InitType should be HMP or MORESANE")
         self._init_machine_initialized = False
@@ -255,7 +254,8 @@ class ClassImageDeconvMachine():
         ListIslands=IslandDistanceMachine.CalcCrossIslandFlux(ListIslands)
         ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
         ListIslands=IslandDistanceMachine.MergeIslands(ListIslands)
-
+        ListIslands=IslandDistanceMachine.BreakLargeIslands(ListIslands)
+        
         self.LabelIslandsImage=IslandDistanceMachine.CalcLabelImage(ListIslands)
 
         self.ListIslands=ListIslands
