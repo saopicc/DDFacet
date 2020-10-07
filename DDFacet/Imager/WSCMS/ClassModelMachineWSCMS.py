@@ -257,87 +257,75 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         return ModelImage
 
     def GiveSpectralIndexMap(self, GaussPars=[(1, 1, 0)], ResidCube=None,
-                                GiveComponents=False, ChannelWeights=None):
+                             GiveComponents=False, ChannelWeights=None):
 
         # convert to radians
         ex, ey, pa = GaussPars
-        ex *= np.pi/180
-        ey *= np.pi/180
-        pa *= np.pi/180
+        ex *= np.pi/180/np.sqrt(2)/2
+        ey *= np.pi/180/np.sqrt(2)/2
+        epar = (ex + ey)/2.0
+        pa = 0.0
 
         # get in terms of number of cells
         CellSizeRad = self.GD['Image']['Cell'] * np.pi / 648000
-        # ex /= self.GD['Image']['Cell'] * np.pi / 648000
-        # ey /= self.GD['Image']['Cell'] * np.pi / 648000
 
         # get Gaussian kernel
-        GaussKern = ModFFTW.GiveGauss(self.Npix, CellSizeRad=CellSizeRad, GaussPars=(ex, ey, pa), parallel=False)
+        GaussKern = ModFFTW.GiveGauss(self.Npix, CellSizeRad=CellSizeRad, GaussPars=(epar, epar, pa), parallel=False)
 
         # take FT
         Fs = np.fft.fftshift
         iFs = np.fft.ifftshift
-        npad = self.Npad
-        FTarray = self.ScaleMachine.FTMachine.xhatim.view()
-        FTarray[...] = iFs(np.pad(GaussKern[None, None], ((0, 0), (0, 0), (npad, npad), (npad, npad)),
-                             mode='constant'), axes=(2, 3))
 
-        # this puts the FT in FTarray
-        self.ScaleMachine.FTMachine.FFTim()
+        import pyfftw
+        nthreads = int(self.GD['Parallel']['NCPU'])
+        if not nthreads:
+            import multiprocessing
+            nthreads = multiprocessing.cpu_count()
+        else:
+            from multiprocessing.pool import ThreadPool
+            import dask
 
-        # need to copy since FTarray and FTcube are views to the same array
-        FTkernel = FTarray.copy()
+            dask.config.set(pool=ThreadPool(nthreads))
+
+        FFT = lambda x: pyfftw.interfaces.numpy_fft.fft2(x, axes=(-2, -1), planner_effort='FFTW_ESTIMATE', threads=nthreads) #, norm='ortho')
+        iFFT = lambda x: pyfftw.interfaces.numpy_fft.ifft2(x, axes=(-2, -1), planner_effort='FFTW_ESTIMATE', threads=nthreads) #, norm='ortho')
 
         # evaluate model
         ModelImage = self.GiveModelImage(self.GridFreqs)
 
-        # pad and take FT
-        FTcube = self.ScaleMachine.FTMachine.Chatim.view()
-        FTcube[...] = iFs(np.pad(ModelImage, ((0, 0), (0, 0), (npad, npad), (npad, npad)),
-                                 mode='constant'), axes=(2, 3))
-        self.ScaleMachine.FTMachine.CFFTim()
+        # pad GausKern and take FT
+        GaussKern = np.pad(GaussKern, self.Npad, mode='constant')
+        FTshape, _ = GaussKern.shape
+        from scipy import fftpack as FT
+        #GaussKernhat = FT.fft2(iFs(GaussKern))
+        GaussKernhat = FFT(iFs(GaussKern))
 
-        # multiply by kernel
-        FTcube *= FTkernel
-
-        # take iFT
-        self.ScaleMachine.FTMachine.iCFFTim()
-
-        I = slice(npad, -npad)
-
-        ConvModelImage = Fs(FTcube, axes=(2,3))[:, :, I, I].real
-
-        ConvModelMean = np.mean(ConvModelImage.squeeze(), axis=0)
-
-        ConvModelLow = ConvModelImage[-1, 0]
-        ConvModelHigh = ConvModelImage[0, 0]
+        # pad and FT of ModelImage
+        ModelImagehat = np.zeros((self.Nchan, FTshape, FTshape), dtype=np.complex128)
+        ConvModelImage = np.zeros((self.Nchan, self.Npix, self.Npix), dtype=np.float64)
+        I = slice(self.Npad, -self.Npad)
+        for i in range(self.Nchan):
+            tmp_array = np.pad(ModelImage[i, 0], self.Npad, mode='constant')
+            # ModelImagehat[i] = FT.fft2(iFs(tmp_array)) * GaussKernhat
+            ModelImagehat[i] = FFT(iFs(tmp_array)) * GaussKernhat
+            # ConvModelImage[i] = Fs(FT.ifft2(ModelImagehat[i]))[I, I].real
+            ConvModelImage[i] = Fs(iFFT(ModelImagehat[i]))[I, I].real
 
         if ResidCube is not None:
-            ConvModelImage += ResidCube
-
-        ConvModelImage = ConvModelImage.squeeze()
-
-        RMS = np.std(ResidCube.flatten())
-
-        Threshold = self.GD["SPIMaps"]["AlphaThreshold"] * RMS
+            #ConvModelImage += ResidCube.squeeze()
+            RMS = np.std(ResidCube.flatten())
+            Threshold = self.GD["SPIMaps"]["AlphaThreshold"] * RMS
+        else:
+            AbsModel = np.abs(ModelImage).squeeze()
+            MinAbsImage = np.amin(AbsModel, axis=0)
+            RMS = np.min(np.abs(MinAbsImage.flatten())) # base cutoff on smallest value in model
+            Threshold = self.GD["SPIMaps"]["AlphaThreshold"] * RMS
 
         # get minimum along any freq axis
         MinImage = np.amin(ConvModelImage, axis=0)
         MaskIndices = np.argwhere(MinImage > Threshold)
         FitCube = ConvModelImage[:, MaskIndices[:, 0], MaskIndices[:, 1]]
 
-        # Initial guess for I0
-        I0i = ConvModelMean[MaskIndices[:, 0], MaskIndices[:, 1]]
-
-        # initial guess for alphas
-        Ilow = ConvModelLow[MaskIndices[:, 0], MaskIndices[:, 1]]/I0i
-        Ihigh = ConvModelHigh[MaskIndices[:, 0], MaskIndices[:, 1]]/I0i
-        alphai = (np.log(Ihigh) - np.log(Ilow))/(np.log(self.GridFreqs[0]/self.RefFreq) - np.log(self.GridFreqs[-1]/self.RefFreq))
-
-        # import matplotlib.pyplot as plt
-        #
-        # for i in range(self.Nchan):
-        #     plt.imshow(np.where(ConvModelImage[i] > Threshold, ConvModelImage[i], 0.0))
-        #     plt.show()
 
         if ChannelWeights is None:
             weights = np.ones(self.Nchan, dtype=np.float32)
@@ -351,37 +339,20 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         try:
             import traceback
             from africanus.model.spi.dask import fit_spi_components
-            NCPU = self.GD["Parallel"]["NCPU"]
-            if NCPU:
-                from multiprocessing.pool import ThreadPool
-                import dask
-
-                dask.config.set(pool=ThreadPool(NCPU))
-            else:
-                import multiprocessing
-                NCPU = multiprocessing.cpu_count()
-
             import dask.array as da
             _, ncomps = FitCube.shape
-            FitCubeDask = da.from_array(FitCube.T.astype(np.float64), chunks=(ncomps//NCPU, self.Nchan))
+            FitCubeDask = da.from_array(FitCube.T.astype(np.float64), chunks=(ncomps//nthreads, self.Nchan))
             weightsDask = da.from_array(weights.astype(np.float64), chunks=(self.Nchan))
-            freqsDask = da.from_array(self.GridFreqs.astype(np.float64), chunks=(self.Nchan))
+            freqsDask = da.from_array(np.array(self.GridFreqs).astype(np.float64), chunks=(self.Nchan))
 
             alpha, varalpha, Iref, varIref = fit_spi_components(FitCubeDask, weightsDask,
                                                                 freqsDask, self.RefFreq,
-                                                                dtype=np.float64, I0i=I0i,
-                                                                alphai=alphai).compute()
-
-            # from africanus.model.spi import fit_spi_components
-            #
-            # alpha, varalpha, Iref, varIref = fit_spi_components(FitCube.T.astype(np.float64), weights.astype(np.float64),
-            #                                                     self.GridFreqs.astype(np.float64), self.RefFreq.astype(np.float64),
-            #                                                     dtype=np.float64, I0i=I0i, alphai=alphai)
+                                                                dtype=np.float64).compute()
         except Exception as e:
-            traceback_str = traceback.format_exc(e)
+            raise(e)
             print("Warning - Failed at importing africanus spi fitter. This could be an issue with the dask " \
-                        "version. Falling back to (slow) scipy version", file=log)
-            print("Original traceback - ", traceback_str, file=log)
+                        "version. Falling back to scipy version", file=log)
+            print("Original traceback - ", e, file=log)
             alpha, varalpha, Iref, varIref = self.FreqMachine.FitSPIComponents(FitCube, self.GridFreqs, self.RefFreq)
 
         _, _, nx, ny = ModelImage.shape

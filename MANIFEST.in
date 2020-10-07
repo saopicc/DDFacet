@@ -1,6 +1,8 @@
 recursive-include DDFacet/Array/ *.py
 recursive-include DDFacet/Data/ *.py
 recursive-include DDFacet/Gridder/ *.c
+recursive-include DDFacet/Gridder/ *.cc
+recursive-include DDFacet/Gridder/ *.hpp
 recursive-include DDFacet/Gridder/ *.h
 recursive-include DDFacet/Gridder/ *.pyx
 recursive-include DDFacet/Imager/ *.py
