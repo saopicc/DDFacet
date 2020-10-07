@@ -1,0 +1,43 @@
+    def CalcFreqDomains(self):
+        ChanWidth=self.MS.ChanWidth.ravel()[0]
+        ChanFreqs=self.MS.ChanFreq.flatten()
+
+        NChanJones=self.GD["Beam"]["NBand"]
+        if NChanJones==0:
+            NChanJones=self.MS.NSPWChan
+        ChanEdges=np.linspace(ChanFreqs.min()-ChanWidth/2.,ChanFreqs.max()+ChanWidth/2.,NChanJones+1)
+
+        FreqDomains=[[ChanEdges[iF],ChanEdges[iF+1]] for iF in range(NChanJones)]
+        FreqDomains=np.array(FreqDomains)
+        self.FreqDomains=FreqDomains
+        self.NChanJones=NChanJones
+
+        MeanFreqJonesChan=(FreqDomains[:,0]+FreqDomains[:,1])/2.
+        DFreq=np.abs(self.MS.ChanFreq.reshape((self.MS.NSPWChan,1))-MeanFreqJonesChan.reshape((1,NChanJones)))
+        self.VisToJonesChanMapping=np.argmin(DFreq,axis=1)
+
+    def GiveRawBeam(self,time,ra,dec):
+        #self.LoadSR()
+        Beam=np.zeros((ra.shape[0],self.MS.na,self.MS.NSPWChan,2,2),dtype=np.complex)
+        for i in range(ra.shape[0]):
+            self.SR.setDirection(ra[i],dec[i])
+            Beam[i]=self.SR.evaluate(time)
+        #Beam=np.swapaxes(Beam,1,2)
+        return Beam
+
+    def GiveInstrumentBeam(self,*args,**kwargs):
+        
+        T=ClassTimeIt.ClassTimeIt("GiveInstrumentBeam")
+        T.disable()
+        Beam=self.GiveRawBeam(*args,**kwargs)
+        nd,na,nch,_,_=Beam.shape
+        T.timeit("0")
+        MeanBeam=np.zeros((nd,na,self.NChanJones,2,2),dtype=Beam.dtype)
+        for ich in range(self.NChanJones):
+            indCh=np.where(self.VisToJonesChanMapping==ich)[0]
+            MeanBeam[:,:,ich,:,:]=np.mean(Beam[:,:,indCh,:,:],axis=2)
+        T.timeit("1")
+
+        return MeanBeam
+
+
