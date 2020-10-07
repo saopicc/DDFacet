@@ -25,6 +25,7 @@ def read_options():
     group.add_option('--InDicoModel',help='Input DicoModel name [no default]',default='')
     group.add_option('--OutDicoModel',help='Output DicoModel name, default is %default',default=None)
     group.add_option('--MaskName',help='Name of the fits mask, default is %default',default=None)
+    group.add_option('--NPixOut',help='Name of the fits mask, default is %default',default=None)
     group.add_option('--InvertMask',help='Name of the fits mask, default is %default',default=0)
     group.add_option('--FilterNegComp',help='Name of the fits mask, default is %default',type="int",default=0)
     opt.add_option_group(group)
@@ -48,6 +49,9 @@ def main(options=None):
 
     if options.FilterNegComp:
         MM.RemoveNegComponants()
+
+    if options.NPixOut:
+        MM.ChangeNPix(int(options.NPixOut))
 
     MM.ToFile(options.OutDicoModel)
 

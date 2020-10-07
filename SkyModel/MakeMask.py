@@ -19,7 +19,6 @@ import pickle
 import scipy.ndimage
 from SkyModel.Tools import ModFFTW
 from SkyModel.PSourceExtract import ClassIslands
-from SkyModel.Other.ClassCasaImage import PutDataInNewImage
 import scipy.special
 from DDFacet.Other import logger
 log=logger.getLogger("MakeMask")
@@ -35,6 +34,12 @@ from DDFacet.Other import MyPickle
 from DDFacet.ToolsDir import ModCoord
 import DDFacet.Other.MyPickle
 from matplotlib.path import Path
+from astropy.io import fits
+
+def PutDataInNewImage(oldfits,newfits,data):
+    hdu=fits.open(oldfits)
+    hdu[0].data=data
+    hdu.writeto(newfits+'.fits',overwrite=True)
 
 def read_options():
     desc=""" cyril.tasse@obspm.fr"""
@@ -187,8 +192,6 @@ class ClassMakeMask():
 
  
         OutTest="%s.convex_mask"%self.FitsFile
-        os.system("rm -rf %s"%OutTest)
-        os.system("rm -rf %s.fits"%OutTest)
         ImWrite=Mask.reshape((1,1,nx,nx))
         PutDataInNewImage(self.FitsFile,OutTest,np.float32(ImWrite))
 
@@ -265,14 +268,10 @@ class ClassMakeMask():
                     MaskFaint[x,y]=1
 
         OutTest="%s.bright_mask"%self.FitsFile
-        os.system("rm -rf %s"%OutTest)
-        os.system("rm -rf %s.fits"%OutTest)
         ImWrite=MaskBright.reshape((1,1,nx,nx))
         PutDataInNewImage(self.FitsFile,"%s.fits"%OutTest,np.float32(ImWrite))
  
         OutTest="%s.faint_mask"%self.FitsFile
-        os.system("rm -rf %s"%OutTest)
-        os.system("rm -rf %s.fits"%OutTest)
         ImWrite=MaskFaint.reshape((1,1,nx,nx))
         PutDataInNewImage(self.FitsFile,"%s.fits"%OutTest,np.float32(ImWrite))
 
@@ -394,8 +393,6 @@ class ClassMakeMask():
                 N+=1
             print("Number of large enough islands %i"%N, file=log)
             MaskExtended=MaskOut
-            os.system("rm -rf %s"%OutMaskExtended)
-            os.system("rm -rf %s.fits"%OutMaskExtended)
             PutDataInNewImage(self.FitsFile,OutMaskExtended,np.float32(MaskExtended))
 
         NoiseMed=np.median(self.Noise)
@@ -416,11 +413,8 @@ class ClassMakeMask():
             #CasaNoise.putdata(self.Noise)
             #CasaNoise.tofits(self.OutNameNoiseMap+".fits")
             #del(CasaNoise)
-            os.system("rm -rf %s"%self.OutNameNoiseMap)
-            #os.system("rm -rf %s"%self.OutNameNoiseMap+".fits")
             PutDataInNewImage(self.FitsFile,self.OutNameNoiseMap,np.float32(self.Noise))
 
-            os.system("rm -rf %s.mean"%self.OutNameNoiseMap)
             PutDataInNewImage(self.FitsFile,self.OutNameNoiseMap+".mean",np.float32(np.zeros_like(self.Noise)))
 
 

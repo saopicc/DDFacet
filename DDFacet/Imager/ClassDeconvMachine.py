@@ -47,6 +47,7 @@ import copy
 from DDFacet.Other import AsyncProcessPool
 from DDFacet.Other.AsyncProcessPool import APP
 import six
+import signal
 if six.PY3:
     import pickle as cPickle
 else:
@@ -94,6 +95,15 @@ from DDFacet.Data.PointingProvider import PointingProvider
 #     # some floating-point error.
 #     assert np.max(np.abs(pixcrd - pixcrd2)) < 1e-6
 
+
+# SIGUSR1 does a graceful stop for deconvolution
+user_stopped = False
+
+def handle_user_stop_signal(signum, frame):
+    global user_stopped
+    user_stopped = True
+
+signal.signal(signal.SIGUSR1, handler=handle_user_stop_signal)
 
 class ClassImagerDeconv():
     def __init__(self, GD=None,
@@ -1180,6 +1190,10 @@ class ClassImagerDeconv():
             self.DeconvMachine.Update(self.DicoDirty)
 
             repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
+
+            if user_stopped:
+                print(ModColor.Str("user stop signal (SIGUSR1) received. This will be the last major cycle"))
+                continue_deconv = False
             try:
                 self.FacetMachine.ToCasaImage(self.DeconvMachine.LabelIslandsImage,
                                               ImageName="%s.labelIslands%2.2i"%(self.BaseName,iMajor),Fits=True,
@@ -2058,7 +2072,7 @@ class ClassImagerDeconv():
                 if "alphastdmap" not in _images:
                     _images.addSharedArray("alphastdmap", intmodel().shape, np.float32)
                 # LB - using apprescube since intrescube can have large unpgysical values
-                _images['alphamap'], _images["alphastdmap"] = ModelMachine.GiveSpectralIndexMap(GaussPars=self.FWHMBeam[-1], ResidCube=apprescube())
+                _images['alphamap'], _images["alphastdmap"] = ModelMachine.GiveSpectralIndexMap(GaussPars=self.FWHMBeam[0], ResidCube=apprescube())
                 return _images['alphamap'], _images["alphastdmap"]
             else:
                 _images['alphamap'] = ModelMachine.GiveSpectralIndexMap()
