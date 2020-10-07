@@ -120,7 +120,7 @@ class ClassIslandDistanceMachine():
     def BreakLargeIslands(self,ListIslands):
         if self.GD["SSDClean"]["MaxIslandSize"]:
             LOut=[]
-            log.print("  breaking islands with linear size larger than %i pixels into smaller ones"%self.GD["SSDClean"]["MaxIslandSize"], file=log)
+            print("  breaking islands with linear size larger than %i pixels into smaller ones"%self.GD["SSDClean"]["MaxIslandSize"], file=log)
             for iIsland,ThisIsland in enumerate(ListIslands):
                 x,y=np.array(ThisIsland).T
                 x0,x1=x.min(),x.max()
@@ -132,18 +132,23 @@ class ClassIslandDistanceMachine():
                 if nn==1:
                     LOut.append(ThisIsland)
                 else:
-                    log.print("    breaking islands #%i into %i islands"%(iIsland,nn), file=log)
-                    xb,yb=np.mgrid[x0:x1:(nx+1)*1j,y0:y1:(ny+1)*1j]
+                    print("    breaking islands #%i into %i islands"%(iIsland,nn), file=log)
+                    xb=np.int64(np.mgrid[x0:x1:(nx+1)*1j])
+                    yb=np.int64(np.mgrid[y0:y1:(ny+1)*1j])
                     xb=xb.flatten()
                     yb=yb.flatten()
-                    for ii in range(nn):
-                        ind=np.where((x>xb[ii])&(x<=xb[ii])&(y>yb[ii])&(y<=yb[ii]))[0]
-                        if ind.size==0: continue
-                        II=np.zeros((ind.size,2),x.type)
-                        II[:,0]=x[ind]
-                        II[:,1]=y[ind]
-                        LOut.append(II)
+                    for ix in range(nx):
+                        for iy in range(ny):
+                            ind=np.where((x>xb[ix])&(x<=xb[ix+1])&(y>yb[iy])&(y<=yb[iy+1]))[0]
+                            if ind.size==0: continue
+                            II=np.zeros((ind.size,2),x.dtype)
+                            II[:,0]=x[ind]
+                            II[:,1]=y[ind]
+                            LOut.append(II)
+
             return LOut
+        else:
+            return ListIslands
                         
     def CalcCrossIslandPSF(self,ListIslands):
         print("  calculating global islands cross-contamination", file=log)
