@@ -86,9 +86,6 @@ class ClassATCABeam():
         # Sec. 4.1.4 of https://www.narrabri.atnf.csiro.au/people/ste616/beamshapes/beamshape_16cm.html
         # coded by Etienne Bonnassieux. Bandwidth for each of these bands is 128 MHz except for
         # edges. Fit valid only up to 100 arcmin.
-	#DicoCoefs[0]={"Name":"ATCA-16-0", "f0":1.0e9, "f1":1.332e9,
-        #              "C":np.array([1,0,-1.154e-03,0,+5.351e-07,0,-1.265e-10,0,
-        #                            +1.634e-14,0,-1.099e-18,0,+3.009e-23])}
         DicoCoefs[0]={"Name":"ATCA-16-0", "f0":1.0e9, "f1":1.332e9,
                       "C":np.array([1,0,-1.154e-03,0,+5.351e-07,0,-1.265e-10,0,
                                     +1.634e-14,0,-1.099e-18,0,+3.009e-23])}
