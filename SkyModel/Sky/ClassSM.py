@@ -29,8 +29,8 @@ class ClassSM():
         self.TargetList=infile
         self.Type="Catalog"
         self.DoPrint=True
-        if (type(infile).__name__=="instance") or (type(infile).__name__=="ClassImageSM"):
-            Cat=infile.SourceCat
+        if (type(infile).__name__=="instance") or (type(infile).__name__=="ClassImageSM") or (type(infile).__name__=="ClassSM"):
+            Cat=infile.SourceCat.copy()
             Cat=Cat.view(np.recarray)
             self.DoPrint=0
 # =======
@@ -460,8 +460,8 @@ class ClassSM():
     def Calc_LM(self,rac,decc):
         Cat=self.SourceCat
         if not("l" in list(Cat.dtype.fields.keys())):
-            Cat=RecArrayOps.AppendField(Cat,('l',float))
-            Cat=RecArrayOps.AppendField(Cat,('m',float))
+            Cat=RecArrayOps.AppendField(Cat,'l',float)
+            Cat=RecArrayOps.AppendField(Cat,'m',float)
 
         Cat.l,Cat.m=self.radec2lm_scalar(self.SourceCat.ra,self.SourceCat.dec,rac,decc)
         self.SourceCat=Cat
@@ -469,8 +469,8 @@ class ClassSM():
 
         Cat=self.ClusterCat
         if not("l" in list(Cat.dtype.fields.keys())):
-            Cat=RecArrayOps.AppendField(Cat,('l',float))
-            Cat=RecArrayOps.AppendField(Cat,('m',float))
+            Cat=RecArrayOps.AppendField(Cat,'l',float)
+            Cat=RecArrayOps.AppendField(Cat,'m',float)
         Cat.l,Cat.m=self.radec2lm_scalar(self.ClusterCat.ra,self.ClusterCat.dec,rac,decc)
         self.ClusterCat=Cat
     # def Calc_LM(self,rac,decc):
