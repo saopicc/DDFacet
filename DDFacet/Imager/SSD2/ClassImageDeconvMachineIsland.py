@@ -22,11 +22,45 @@ import psutil
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Other.AsyncProcessPool import APP
 
-class ClassInitSSDModelParallel():
+class ClassImageDeconvMachineIsland():
     def __init__(self, GD, NFreqBands, RefFreq, MainCache=None, IdSharedMem=""):
         self.GD=GD
-        self.InitMachine = ClassInitSSDModel(GD, NFreqBands, RefFreq, MainCache, IdSharedMem)
+        
+        if self.GD["SSD2"]["IslandDeconvMode"] == "HMP":
+            if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
+                raise NotImplementedError("Multi-polarization CLEAN is not supported in MSMF")
+            from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
+            self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
+            print("Using MSMF algorithm", file=log)
+        elif self.GD["SSD2"]["IslandDeconvMode"] == "Hogbom":
+            if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
+                raise NotImplementedError("Multi-polarization CLEAN is not supported in Hogbom")
+            from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
+            self.DeconvMachine=ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(**MinorCycleConfig)
+            print("Using Hogbom algorithm", file=log)
+        elif self.GD["SSD2"]["IslandDeconvMode"]=="MORESANE":
+            if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
+                raise NotImplementedError("Multi-polarization is not supported in MORESANE")
+            from DDFacet.Imager.MORESANE import ClassImageDeconvMachineMoresane
+            self.DeconvMachine=ClassImageDeconvMachineMoresane.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
+            print("Using MORESANE algorithm", file=log)
+        elif self.GD["SSD2"]["IslandDeconvMode"]=="WSCMS":
+            if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
+                raise NotImplementedError("Multi-polarization is not supported in WSCMS")
+            from DDFacet.Imager.WSCMS import ClassImageDeconvMachineWSCMS
+            self.DeconvMachine = ClassImageDeconvMachineWSCMS.ClassImageDeconvMachine(MainCache=self.VS.maincache,
+                                                                                      **MinorCycleConfig)
+            print("Using WSCMS algorithm", file=log)
+        else:
+            raise NotImplementedError("Unknown --Deconvolution-Mode setting '%s'" % self.GD["Deconv"]["Mode"])
+        
+        self.GD["Mask"]["Auto"]=False
+        self.GD["Mask"]["External"]=None
+        self.MaskMachine = ClassMaskMachine.ClassMaskMachine(self.GD)
+        self.DeconvMachine.setMaskMachine(self.MaskMachine)
+
         self.NCPU=(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
+        
         APP.registerJobHandlers(self)
 
     def Init(self, DicoVariablePSF, GridFreqs, DegridFreqs):
@@ -34,174 +68,34 @@ class ClassInitSSDModelParallel():
         self.GridFreqs=GridFreqs
         self.DegridFreqs=DegridFreqs
 
-        print("Initialise HMP machine", file=log)
-        self.InitMachine.Init(DicoVariablePSF, GridFreqs, DegridFreqs)
+        print("Initialise island deconv machine", file=log)
+        self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,
+                                PSFAve=self.DicoVariablePSF["PSFSideLobes"],
+                                facetcache=facetcache,
+                                GridFreqs=self.GridFreqs,
+                                DegridFreqs=self.DegridFreqs,
+                                DoWait=DoWait)
 
+        
     def Reset(self):
         self.DicoVariablePSF = None
-        self.InitMachine.Reset()
+        self.DeconvMachine.Reset()
 
-    def _initIsland_worker(self, DicoOut, iIsland, Island,
+    def _deconvIsland_worker(self, DicoOut, iIsland, Island,
                            DicoVariablePSF, DicoDirty, DicoParm, FacetCache,NCPU):
         logger.setSilent(["ClassImageDeconvMachineMSMF", "ClassPSFServer", "ClassMultiScaleMachine", "GiveModelMachine", "ClassModelMachineMSMF"])
-        self.InitMachine.Init(DicoVariablePSF, DicoParm["GridFreqs"], DicoParm["DegridFreqs"], facetcache=FacetCache)
-        self.InitMachine.setDirty(DicoDirty)
-        #self.InitMachine.DeconvMachine.setNCPU(NCPU)
-        self.InitMachine.setSSDModelImage(DicoParm["ModelImage"])
-
-        #print ":::::::::::::::::::::::",iIsland
-
-        try:
-            SModel, AModel = self.InitMachine.giveModel(Island)
-        except:
-            if not self.GD["GAClean"]["ParallelInitHMP"]:
-                raise
-            print(traceback.format_exc(), file=log)
-            FileOut = "errIsland_%6.6i.npy" % iIsland
-            print(ModColor.Str("...... error on island %i, saving to file %s" % (iIsland, FileOut)), file=log)
-            np.save(FileOut, np.array(Island))
-            self.InitMachine.Reset()
-            return
-        DicoOut["S"] = SModel
-        DicoOut["Alpha"] = AModel
-        self.InitMachine.Reset()
-
-    def giveDicoInitIndiv(self, ListIslands, ModelImage, DicoDirty, ListDoIsland=None):
-        DicoInitIndiv = shared_dict.create("DicoInitIsland")
-        ParmDict = shared_dict.create("InitSSDModelHMP")
-        ParmDict["ModelImage"] = ModelImage
-        ParmDict["GridFreqs"] = self.GridFreqs
-        ParmDict["DegridFreqs"] = self.DegridFreqs
+        self.DeconvMachine.Init(DicoVariablePSF, DicoParm["GridFreqs"], DicoParm["DegridFreqs"], facetcache=FacetCache)
+        self.DeconvMachine.setDirty(DicoDirty)
+        self.DeconvMachine.setSSDModelImage(DicoParm["ModelImage"])
         
-#         ListBigIslands=[]
-#         ListSmallIslands=[]
-#         ListDoBigIsland=[]
-#         ListDoSmallIsland=[]
-#         NParallel=0
-#         for iIsland,Island in enumerate(ListIslands):
-#             if len(Island)>self.GD["SSDClean"]["ConvFFTSwitch"]:
-#                 ListBigIslands.append(Island)
-#                 ListDoBigIsland.append(ListDoIsland[iIsland])
-#                 if ListDoIsland or ListDoIsland[iIsland]:
-#                     NParallel+=1
-#             else:
-#                 ListSmallIslands.append(Island)
-#                 ListDoSmallIsland.append(ListDoIsland[iIsland])
-#         print>>log,"Initialise big islands (parallelised per island)"
-#         pBAR= ProgressBar(Title="Init islands")
-#         pBAR.render(0, NParallel)
-#         nDone=0
-#         for iIsland,Island in enumerate(ListBigIslands):
-#             if not ListDoIsland or ListDoBigIsland[iIsland]:
-#                 subdict = DicoInitIndiv.addSubdict(iIsland)
-#                 # APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
-#                 #            args=(subdict.writeonly(), iIsland, Island,
-#                 #                  self.DicoVariablePSF.readonly(), DicoDirty.readonly(),
-#                 #                  ParmDict.readonly(), self.InitMachine.DeconvMachine.facetcache.readonly(),self.NCPU),serial=True)
-#                 self._initIsland_worker(subdict, iIsland, Island,
-#                                         self.DicoVariablePSF, DicoDirty,
-#                                         ParmDict, self.InitMachine.DeconvMachine.facetcache,
-#                                         self.NCPU)
-#                 pBAR.render(nDone+1, NParallel)
-#                 nDone+=1
-# #        APP.awaitJobResults("InitIsland:*", progress="Init islands")
-#         print>>log,"Initialise small islands (parallelised over islands)"
-#         for iIsland,Island in enumerate(ListSmallIslands):
-#             if not ListDoIsland or ListDoSmallIsland[iIsland]:
-#                 subdict = DicoInitIndiv.addSubdict(iIsland)
-#                 APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
-#                            args=(subdict.writeonly(), iIsland, Island,
-#                                  self.DicoVariablePSF.readonly(), DicoDirty.readonly(),
-#                                  ParmDict.readonly(), self.InitMachine.DeconvMachine.facetcache.readonly(),1))
-#         APP.awaitJobResults("InitIsland:*", progress="Init islands")
-#         DicoInitIndiv.reload()
+        self.DeconvMachine.Reset()
 
-
-        print("Initialise islands (parallelised over islands)", file=log)
-        if self.InitMachine.DeconvMachine.facetcache is None:
-            print("HMP bases not initialized. Will re-initialize now.", file=log)
-        if not self.GD["GAClean"]["ParallelInitHMP"]:
-          pBAR = ProgressBar(Title="  Init islands")
-          for iIsland,Island in enumerate(ListIslands):
-            if not ListDoIsland or ListDoIsland[iIsland]:
-                subdict = DicoInitIndiv.addSubdict(iIsland)
-                self._initIsland_worker(subdict, 
-                                        iIsland, 
-                                        Island,
-                                        self.DicoVariablePSF, 
-                                        DicoDirty,
-                                        ParmDict, 
-                                        self.InitMachine.DeconvMachine.facetcache,
-                                        1)
-            pBAR.render(iIsland, len(ListIslands))
-        else:
-          for iIsland,Island in enumerate(ListIslands):
-            if not ListDoIsland or ListDoIsland[iIsland]:
-                subdict = DicoInitIndiv.addSubdict(iIsland)
-                APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
-                           args=(subdict.writeonly(), 
-                                 iIsland, 
-                                 Island,
-                                 self.DicoVariablePSF.readonly(), 
-                                 DicoDirty.readonly(),
-                                 ParmDict.readonly(), 
-                                 self.InitMachine.DeconvMachine.facetcache.readonly() 
-                                    if self.InitMachine.DeconvMachine.facetcache is not None else None,
-                                 1))
-          APP.awaitJobResults("InitIsland:*", progress="Init islands")
-          DicoInitIndiv.reload()
-        
-        ParmDict.delete()
-
-        return DicoInitIndiv
-
-######################################################################################################
-
-class ClassInitSSDModel():
-    """
-    This class is essentially a wrapper around a single HMP machine. It initializes an HMP machine
-    with very specific settings, then uses it deconvolve (init) SSD islands.
-    
-    The class is initialized once in the main process (to populate the HMP basis function cache),
-    then re-initialized in the workers on a per-island basis.
-    """
-    def __init__(self, GD, NFreqBands, RefFreq, MainCache=None, IdSharedMem=""):
-        """Constructs initializer. 
-        Note that this should be called pretty much when setting up the imager,
-        before APP workers are started, because the object registers APP handlers.
-        """
-        self.GD = copy.deepcopy(GD)
-        self.GD["Parallel"]["NCPU"] = 1
-        # self.GD["HMP"]["Alpha"]=[0,0,1]#-1.,1.,5]
-        self.GD["HMP"]["Alpha"] = self.GD["GAClean"]["AlphaInitHMP"]
-        self.GD["Deconv"]["Mode"] = "HMP"
-        self.GD["Deconv"]["CycleFactor"] = 0
-        self.GD["Deconv"]["PeakFactor"] = 0.0
-        self.GD["Deconv"]["RMSFactor"] = self.GD["GAClean"]["RMSFactorInitHMP"]
-        self.GD["Deconv"]["Gain"] = self.GD["GAClean"]["GainInitHMP"]
-        self.GD["Deconv"]["AllowNegative"] = self.GD["GAClean"]["AllowNegativeInitHMP"]
-        self.GD["Deconv"]["MaxMinorIter"] = int(self.GD["GAClean"]["MaxMinorIterInitHMP"])
-
-        self.GD["HMP"]["Scales"] = self.GD["GAClean"]["ScalesInitHMP"]
-
-        self.GD["HMP"]["Ratios"] =  self.GD["GAClean"]["RatiosInitHMP"]
-        # self.GD["MultiScale"]["Ratios"]=[]
-        self.GD["HMP"]["NTheta"] = self.GD["GAClean"]["NThetaInitHMP"]
-
-        # print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-        # # self.GD["HMP"]["Scales"] = [0,1,2,4,8,16,24,32,48,64]
-        # # self.GD["HMP"]["Taper"] = 32
-        # # self.GD["HMP"]["Support"] = 32#self.GD["HMP"]["Scales"][-1]
-        # self.GD["Deconv"]["RMSFactor"] = 1.
-        # self.GD["Deconv"]["AllowNegative"] = True
-        
-        self.GD["HMP"]["SolverMode"] = "NNLS"
-        # self.GD["MultiScale"]["SolverMode"]="PI"
 
         self.NFreqBands = NFreqBands
         self.RefFreq = RefFreq
+        
         MinorCycleConfig = dict(self.GD["Deconv"])
-        MinorCycleConfig["NCPU"] = self.GD["Parallel"]["NCPU"]
+        MinorCycleConfig["NCPU"] = 1#self.GD["Parallel"]["NCPU"]
         MinorCycleConfig["NFreqBands"] = self.NFreqBands
         MinorCycleConfig["RefFreq"] = RefFreq
 
@@ -209,40 +103,8 @@ class ClassInitSSDModel():
         ModelMachine = ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
         ModelMachine.setRefFreq(self.RefFreq)
         MinorCycleConfig["ModelMachine"] = ModelMachine
-
         self.MinorCycleConfig = MinorCycleConfig
-        self.DeconvMachine = ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=MainCache,
-                                                                                 ParallelMode=True,
-                                                                                 CacheFileName="HMP_Init",
-                                                                                 IdSharedMem=IdSharedMem,
-                                                                                 GD=self.GD,
-                                                                                 **MinorCycleConfig)
 
-        self.GD["Mask"]["Auto"]=False
-        self.GD["Mask"]["External"]=None
-        self.MaskMachine = ClassMaskMachine.ClassMaskMachine(self.GD)
-
-    def Init(self,DicoVariablePSF,GridFreqs,DegridFreqs,
-                 DoWait=False,
-                 facetcache=None):
-        """
-        Init method. Note that this will end up being called in one of two modes. In the main process,
-        it is called to initialize the HMP machine's basis function cache (so facetcache=None). After this is 
-        done, the cache is passed to workers, where the HMP machine is initialized from facetcache.
-        
-        facetcache: dict of basis functions for the HMP machine.
-        """
-        self.DicoVariablePSF=DicoVariablePSF
-        self.GridFreqs=GridFreqs
-        self.DegridFreqs=DegridFreqs
-
-        self.DeconvMachine.setMaskMachine(self.MaskMachine)
-
-        self.Margin=20
-
-        self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["PSFSideLobes"],
-                                facetcache=facetcache,
-                                GridFreqs=self.GridFreqs,DegridFreqs=self.DegridFreqs,DoWait=DoWait)
 
 
     def Reset(self):
@@ -487,8 +349,10 @@ class ClassInitSSDModel():
         #fMult=1.
         #if 1.<factor<2.:
         #    fMult=factor
+        
         fMult=1.
         SModel=ModelImage[0,0,x,y]*fMult
+        
         # ###########"
         # fMult=(np.mean(SumResid))/(np.mean(SumConvModelOnes))
         # SModel=ModelImage[0,0,x,y]+ModelOnes[0,0,x,y]*fMult
@@ -509,5 +373,4 @@ class ClassInitSSDModel():
         T.timeit("spec index")
 
         return SModel,AModel
-
 

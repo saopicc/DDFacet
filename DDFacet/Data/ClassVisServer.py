@@ -43,6 +43,7 @@ from DDFacet.Data import ClassSmearMapping
 from DDFacet.Data import ClassJones
 from DDFacet.Array import shared_dict
 from DDFacet.Other.AsyncProcessPool import APP
+from DDFacet.Other import reformat
 import six
 if six.PY3:
     from DDFacet.cbuild.Gridder import _pyGridderSmearPols3x as _pyGridderSmearPols
@@ -894,8 +895,23 @@ class ClassVisServer():
                 # take mean weight across correlations and apply this to all
                 weight[...] = w.mean(axis=2)
             elif weight_col == "None" or weight_col == None:
-    #            print>> log, "  Selected weights columns is None, filling weights with ones"
+                #            print>> log, "  Selected weights columns is None, filling weights with ones"
                 weight.fill(1)
+            elif weight_col == "Lucky_kMS" and self.GD["DDESolutions"]["DDSols"]:
+                ID=row0
+                SolsName=self.GD["DDESolutions"]["DDSols"]
+                SolsDir=self.GD["DDESolutions"]["SolsDir"]
+                if SolsDir is None:
+                    FileName="%skillMS.%s.Weights.%i.npy"%(reformat.reformat(ms.MSName),SolsName,ID)
+                else:
+                    _MSName=reformat.reformat(ms.MSName).split("/")[-2]
+                    DirName=os.path.abspath("%s%s"%(reformat.reformat(SolsDir),_MSName))
+                    if not os.path.isdir(DirName):
+                        os.makedirs(DirName)
+                    FileName="%s/killMS.%s.Weights.%i.npy"%(DirName,SolsName,ID)
+                log.print( "  loading weights from file: %s"%FileName)
+                w=np.load(FileName)
+                weight[...] = w
             elif weight_col == "WEIGHT":
                 w = tab.getcol(weight_col, row0, nrows)
     #            print>> log, "  reading column %s for the weights, shape is %s, will expand frequency axis" % (weight_col, w.shape)
