@@ -90,7 +90,7 @@ class ClassImageNoiseMachine():
         # MinorCycleConfig["RefFreq"] = self.RefFreq
         # MinorCycleConfig["CleanMaskImage"]=None
         self.MinorCycleConfig = MinorCycleConfig
-        if self.GD["Deconv"]["Mode"] in ["HMP", "SSD"]:
+        if self.GD["Deconv"]["Mode"] in ["HMP", "SSD", "SSD2"]:
             # for SSD we need to set up the HMP ModelMachine.
             self.GD["Deconv"]["Mode"] = "HMP"
             ModConstructor = ClassModModelMachine(self.GD)
@@ -114,9 +114,9 @@ class ClassImageNoiseMachine():
         elif self.GD["Deconv"]["Mode"] == "WSCMS":
             from DDFacet.Imager.WSCMS import ClassImageDeconvMachineWSCMS
             self.DeconvMachine = ClassImageDeconvMachineWSCMS.ClassImageDeconvMachine(MainCache=self.MainCache,
-                                                                                       ParallelMode=True,
-                                                                                       CacheFileName="HMP_Masking",
-                                                                                       **self.MinorCycleConfig)
+                                                                                      ParallelMode=True,
+                                                                                      CacheFileName="HMP_Masking",
+                                                                                      **self.MinorCycleConfig)
         else:
             raise NotImplementedError("Mode %s not compatible with automasking" % self.GD["Deconv"]["Mode"])
 

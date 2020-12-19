@@ -44,6 +44,7 @@ class ClassModModelMachine():
         """
         self.GD = GD
         self.SSDMM = None
+        self.SSD2MM = None
         self.MSMFMM = None
         self.MORSANEMM = None
         self.MUFFINMM = None
@@ -112,6 +113,14 @@ class ClassModModelMachine():
             else:
                 print("SSD model machine already initialised", file=log)
             return self.SSDMM
+        elif Mode == "SSD2":
+            if self.SSD2MM is None:
+                print("Initialising SSD2 model machine", file=log)
+                from DDFacet.Imager.SSD2 import ClassModelMachineSSD
+                self.SSD2MM = ClassModelMachineSSD.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.get_instance())
+            else:
+                print("SSD2 model machine already initialised", file=log)
+            return self.SSD2MM
         elif Mode == "HMP":
             if self.MSMFMM is None:
                 print("Initialising HMP model machine", file=log)

@@ -40,6 +40,7 @@ from DDFacet.Imager.SSD.GA.ClassEvolveGA import ClassEvolveGA
 from DDFacet.Imager.SSD.MCMC.ClassMetropolis import ClassMetropolis
 from DDFacet.Array import NpParallel
 from DDFacet.Imager.SSD import ClassIslandDistanceMachine
+from .ClassImageDeconvMachineIsland import ClassImageDeconvMachineIsland
 from DDFacet.Array import shared_dict
 import psutil
 
@@ -48,7 +49,8 @@ logger.setSilent("ClassIsland")
 
 
 class ClassImageDeconvMachine():
-    def __init__(self,Gain=0.3,
+    def __init__(self,MinorCycleConfig=None,
+                 Gain=0.3,
                  MaxMinorIter=100,NCPU=6,
                  CycleFactor=2.5,FluxThreshold=None,RMSFactor=3,PeakFactor=0,
                  GD=None,SearchMaxAbs=1,IdSharedMem=None,
@@ -85,10 +87,20 @@ class ClassImageDeconvMachine():
             raise ValueError("ModelMachine Type should be SSD2")
 
         self._niter = 0
+        
+        self.IslandsDeconvMachine=ClassImageDeconvMachineIsland(self.GD, NFreqBands, RefFreq, MainCache=MainCache)
 
         
-        
+    def _init_InitMachine(self):
+        if not self._init_machine_initialized:
+            self.IslandsDeconvMachine.Init(self.DicoVariablePSF, self.GridFreqs, self.DegridFreqs)
+            self._init_machine_initialized = True
 
+    def _reset_InitMachine(self):
+        if self._init_machine_initialized:
+            self.IslandsDeconvMachine.Reset()
+            self._init_machine_initialized = False
+    
 
     def setMaskMachine(self,MaskMachine):
         self.MaskMachine=MaskMachine
@@ -206,7 +218,6 @@ class ClassImageDeconvMachine():
 
 
 
-    
 
     def DeconvIslands(self):
         self.DicoInitIndiv={}
@@ -255,6 +266,7 @@ class ClassImageDeconvMachine():
         print("  selected %i islands larger than %i pixels for initialisation"%(np.count_nonzero(ListDoIslandsInit),self.GD["GAClean"]["MinSizeInit"]), file=log)
 
         self._init_InitMachine()
+        self.IslandsDeconvMachine
         if np.count_nonzero(ListDoIslandsInit)>0:
             self.DicoInitIndiv = self.InitMachine.giveDicoInitIndiv(self.ListIslands,
                                                                     ListDoIsland=ListDoIslandsInit,

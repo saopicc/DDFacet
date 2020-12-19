@@ -240,9 +240,10 @@ class ClassImagerDeconv():
 
 
         self.ImageNoiseMachine=ClassImageNoiseMachine.ClassImageNoiseMachine(self.GD,self.ModelMachine,
-                                                                        DegridFreqs=self.VS.FreqBandChannelsDegrid,
-                                                                        GridFreqs=self.VS.FreqBandCenters,
-                                                                        MainCache=self.VS.maincache)
+                                                                             DegridFreqs=self.VS.FreqBandChannelsDegrid,
+                                                                             GridFreqs=self.VS.FreqBandCenters,
+                                                                             MainCache=self.VS.maincache)
+        
         self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
         self.MaskMachine.setImageNoiseMachine(self.ImageNoiseMachine)
 
@@ -262,13 +263,16 @@ class ClassImagerDeconv():
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                     raise NotImplementedError("Multi-polarization is not supported in SSD")
                 from DDFacet.Imager.SSD import ClassImageDeconvMachineSSD
-                self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
+                self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(MainCache=self.VS.maincache,
+                                                                                      **MinorCycleConfig)
                 print("Using SSD with %s Minor Cycle algorithm"%self.GD["SSDClean"]["IslandDeconvMode"], file=log)
             elif self.GD["Deconv"]["Mode"]=="SSD2":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                     raise NotImplementedError("Multi-polarization is not supported in SSD")
                 from DDFacet.Imager.SSD2 import ClassImageDeconvMachineSSD
-                self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
+                self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(MainCache=self.VS.maincache,
+                                                                                      MinorCycleConfig=MinorCycleConfig,
+                                                                                      **MinorCycleConfig)
                 print("Using SSD2 with %s Minor Cycle algorithm"%self.GD["SSDClean"]["IslandDeconvMode"], file=log)
             elif self.GD["Deconv"]["Mode"] == "Hogbom":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:

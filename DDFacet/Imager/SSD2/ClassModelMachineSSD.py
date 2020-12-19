@@ -28,7 +28,7 @@ import numpy as np
 from DDFacet.Other import logger
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
-log=logger.getLogger("ClassModelMachineSSD")
+log=logger.getLogger("ClassModelMachineSSD2")
 from DDFacet.Array import NpParallel
 from DDFacet.Array import ModLinAlg
 from DDFacet.ToolsDir import ModFFTW
@@ -51,20 +51,13 @@ from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def __init__(self,*args,**kwargs):
         ClassModelMachinebase.ClassModelMachine.__init__(self, *args, **kwargs)
-        # self.GD=GD
-        # if Gain is None:
-        #     self.Gain=self.GD["Deconv"]["Gain"]
-        # else:
-        #     self.Gain=Gain
-        # self.GainMachine=GainMachine
-        # self.DicoSMStacked["Comp"]={}
         if self.GD is not None:
             self.SolveParam = self.GD["SSDClean"]["SSDSolvePars"]
             print("Solved parameters: %s"%(str(self.SolveParam)), file=log)
             self.NParam=len(self.SolveParam)
         self.RefFreq=None
         self.DicoSMStacked={}
-        self.DicoSMStacked["Type"]="SSD"
+        self.DicoSMStacked["Type"]="SSD2"
 
     def setRefFreq(self,RefFreq,Force=False):#,AllFreqs):
         if self.RefFreq is not None and not Force:
@@ -86,7 +79,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         #D["PM"]=self.PM
         D["GD"]=self.GD
         D["ModelShape"]=self.ModelShape
-        D["Type"]="SSD"
+        D["Type"]="SSD2"
         D["SolveParam"]=self.SolveParam
 
         MyPickle.Save(D,FileName)

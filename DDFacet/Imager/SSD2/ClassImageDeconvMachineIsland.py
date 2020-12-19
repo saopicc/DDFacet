@@ -23,32 +23,24 @@ from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Other.AsyncProcessPool import APP
 
 class ClassImageDeconvMachineIsland():
-    def __init__(self, GD, NFreqBands, RefFreq, MainCache=None, IdSharedMem=""):
+    def __init__(self, GD, NFreqBands, RefFreq, MainCache=None, **MinorCycleConfig):
         self.GD=GD
         
         if self.GD["SSD2"]["IslandDeconvMode"] == "HMP":
-            if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
-                raise NotImplementedError("Multi-polarization CLEAN is not supported in MSMF")
             from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
-            self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
+            self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(GD=self.GD,MainCache=MainCache, **MinorCycleConfig)
             print("Using MSMF algorithm", file=log)
         elif self.GD["SSD2"]["IslandDeconvMode"] == "Hogbom":
-            if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
-                raise NotImplementedError("Multi-polarization CLEAN is not supported in Hogbom")
             from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
             self.DeconvMachine=ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(**MinorCycleConfig)
             print("Using Hogbom algorithm", file=log)
         elif self.GD["SSD2"]["IslandDeconvMode"]=="MORESANE":
-            if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
-                raise NotImplementedError("Multi-polarization is not supported in MORESANE")
             from DDFacet.Imager.MORESANE import ClassImageDeconvMachineMoresane
-            self.DeconvMachine=ClassImageDeconvMachineMoresane.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
+            self.DeconvMachine=ClassImageDeconvMachineMoresane.ClassImageDeconvMachine(MainCache=MainCache, **MinorCycleConfig)
             print("Using MORESANE algorithm", file=log)
         elif self.GD["SSD2"]["IslandDeconvMode"]=="WSCMS":
-            if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
-                raise NotImplementedError("Multi-polarization is not supported in WSCMS")
             from DDFacet.Imager.WSCMS import ClassImageDeconvMachineWSCMS
-            self.DeconvMachine = ClassImageDeconvMachineWSCMS.ClassImageDeconvMachine(MainCache=self.VS.maincache,
+            self.DeconvMachine = ClassImageDeconvMachineWSCMS.ClassImageDeconvMachine(MainCache=MainCache,
                                                                                       **MinorCycleConfig)
             print("Using WSCMS algorithm", file=log)
         else:
