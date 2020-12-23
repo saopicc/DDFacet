@@ -912,6 +912,12 @@ class ClassVisServer():
                 log.print( "  loading weights from file: %s"%FileName)
                 w=np.load(FileName)
                 weight[...] = w
+            elif ".npy" in weight_col:
+                ID=row0
+                FileName=weight_col
+                log.print( "  loading weights from file: %s"%FileName)
+                w=np.load(FileName)
+                weight[...] = w[row0:row0+nrows,...]
             elif weight_col == "WEIGHT":
                 w = tab.getcol(weight_col, row0, nrows)
     #            print>> log, "  reading column %s for the weights, shape is %s, will expand frequency axis" % (weight_col, w.shape)
