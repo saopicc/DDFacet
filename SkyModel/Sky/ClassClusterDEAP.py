@@ -298,10 +298,10 @@ class ClassPlotMachine():
         # mng = pylab.get_current_fig_manager()
         # #mng.frame.Maximize(True)
         # mng.window.showMaximized()
-        pylab.pause(0.1)
         pylab.draw()
-        pylab.show(False)
-            
+        pylab.show(block=False)
+        pylab.pause(0.1)
+        
 
         ######################
         
@@ -327,9 +327,9 @@ class ClassPlotMachine():
         pylab.hist(meanDistancePerFacet,bins=100)
         pylab.xlabel("Mean distance /facet")
             
-        pylab.pause(0.1)
         pylab.draw()
-        pylab.show(False)
+        pylab.show(block=False)
+        pylab.pause(0.1)
         
         # II=np.unique(ind)
         # NPerNode=np.zeros((xc.size,),np.float32)
