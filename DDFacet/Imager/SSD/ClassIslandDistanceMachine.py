@@ -120,6 +120,7 @@ class ClassIslandDistanceMachine():
     def BreakLargeIslands(self,ListIslands):
         if self.GD["SSDClean"]["MaxIslandSize"]:
             LOut=[]
+            NN=int(self.GD["SSDClean"]["MaxIslandSize"])
             print("  breaking islands with linear size larger than %i pixels into smaller ones"%self.GD["SSDClean"]["MaxIslandSize"], file=log)
             for iIsland,ThisIsland in enumerate(ListIslands):
                 x,y=np.array(ThisIsland).T
