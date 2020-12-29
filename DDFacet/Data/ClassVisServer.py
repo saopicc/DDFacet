@@ -234,8 +234,8 @@ class ClassVisServer():
                 "MultiFrequency Mode: ON, %dx%g MHz bands" %
                 (NFreqBands, grid_bw*1e-6)), file=log)
 
-            if not ("Alpha" in self.GD["SSDClean"]["SSDSolvePars"]):
-                self.GD["SSDClean"]["SSDSolvePars"].append("Alpha")
+            # if not ("Alpha" in self.GD["SSDClean"]["SSDSolvePars"]):
+            #     self.GD["SSDClean"]["SSDSolvePars"].append("Alpha")
 
         else:
             self.GD["Freq"]["NBand"] = 1
@@ -558,7 +558,7 @@ class ClassVisServer():
         if weights is None:
             print(ModColor.Str("This chunk is all flagged or has zero weight."), file=log)
             return
-        if DATA["sort_index"] is not None and DATA["Weights"] is not 1:
+        if DATA["sort_index"] != None and DATA["Weights"] is not 1:
             DATA["Weights"] = DATA["Weights"][DATA["sort_index"]]
 
         self.computeBDAInBackground(dictname, ms, DATA,

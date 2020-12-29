@@ -28,7 +28,7 @@ import numpy as np
 from DDFacet.Other import logger
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
-log=logger.getLogger("ClassModelMachineSSD2")
+log=logger.getLogger("ClassModelMachineSSD")
 from DDFacet.Array import NpParallel
 from DDFacet.Array import ModLinAlg
 from DDFacet.ToolsDir import ModFFTW
@@ -51,6 +51,13 @@ from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def __init__(self,*args,**kwargs):
         ClassModelMachinebase.ClassModelMachine.__init__(self, *args, **kwargs)
+        # self.GD=GD
+        # if Gain is None:
+        #     self.Gain=self.GD["Deconv"]["Gain"]
+        # else:
+        #     self.Gain=Gain
+        # self.GainMachine=GainMachine
+        # self.DicoSMStacked["Comp"]={}
         if self.GD is not None:
             self.SolveParam = self.GD["SSDClean"]["SSDSolvePars"]
             print("Solved parameters: %s"%(str(self.SolveParam)), file=log)
@@ -79,7 +86,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         #D["PM"]=self.PM
         D["GD"]=self.GD
         D["ModelShape"]=self.ModelShape
-        D["Type"]="SSD2"
+        D["Type"]="SSD"
         D["SolveParam"]=self.SolveParam
 
         MyPickle.Save(D,FileName)
@@ -204,7 +211,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         #S[np.abs(S)<self.Th]=0
         #S-=self.Th*np.sign(S)
         SolveParam=np.array(self.SolveParam)
-        iS=np.where(SolveParam=="S")[0][0]
+        iS=np.where(SolveParam=="Poly0")[0][0]
         S=Vr[iS]
         #S*=self.GainMachine.GiveGain()
 
@@ -272,22 +279,26 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
                 #print>>log,((x,y),iSol,ThisSol)
 
-                iS=np.where(SolveParam=="S")[0]
+                iS=np.where(SolveParam=="Poly0")[0]
                 S=ThisSol[iS]
                 if S==0: continue
-
-                ThisAlpha=0
-                iAlpha=np.where(SolveParam=="Alpha")[0]
-                if iAlpha.size!=0:
-                    ThisAlpha=ThisSol[iAlpha]
 
                 iGSig=np.where(SolveParam=="GSig")[0]
                 ThisGSig=0.
                 if iGSig.size!=0:
                     ThisGSig=ThisSol[iGSig]
 
+                
+                p=ThisSol[:].copy()
+                p[0]=0.
+                logS=np.poly1d(p[::-1])(np.log(FreqIn/RefFreq))
+                SFreq=S*np.exp(logS)
+                
+
+                    
                 for ch in range(nchan):
-                    Flux=S*(FreqIn[ch]/RefFreq)**(ThisAlpha)
+                    
+                    Flux=SFreq[ch]
                     
                     sig=np.abs(ThisGSig)
                     Sum=0
