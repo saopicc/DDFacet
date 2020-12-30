@@ -170,13 +170,23 @@ class ClassSpectralFunctions():
         # ThisAlpha=ThisAlpha.reshape((Npix,1))
         # SUnityFreq=(ThisFreqs/RefFreq)**ThisAlpha
 
-        SUnityFreq=np.zeros((Npix,ThisFreqs.size),np.float32)
-        for iPix in range(Npix):
-            p=PolyArray[iPix,:].copy()
-            p[0]=0.
-            logS=np.poly1d(p[::-1])(np.log(ThisFreqs.ravel()/RefFreq))
-            SUnityFreq[iPix,:]=np.exp(logS)
-            
+        # SUnityFreq=np.zeros((Npix,ThisFreqs.size),np.float32)
+        # for iPix in range(Npix):
+        #     p=PolyArray[iPix,:].copy()
+        #     p[0]=0.
+        #     logS=np.poly1d(p[::-1])(np.log(ThisFreqs.ravel()/RefFreq))
+        #     SUnityFreq[iPix,:]=np.exp(logS)
+
+        Npix,NOrder=PolyArray.shape
+        n=np.arange(NOrder)
+        n=n.reshape((1,1,NOrder))
+        f=ThisFreqs.reshape((1,-1,1))
+        a=(PolyArray.copy()).reshape((Npix,1,NOrder))
+        a[:,:,0]=0.
+        SUnityFreq0=a*(np.log(f/RefFreq))**n
+        SUnityFreq0=np.exp(np.sum(SUnityFreq0,axis=-1))
+        SUnityFreq=SUnityFreq0
+
         FreqBandsFlux=np.sqrt(np.sum(BeamFactor*( SUnityFreq )**2,axis=1))/np.sqrt(np.sum(BeamFactorWeightSq))
         FreqBandsFlux/=np.sqrt(MeanJonesBand)
 
