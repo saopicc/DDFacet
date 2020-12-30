@@ -184,15 +184,16 @@ class ClassEvolveGA():
                     
                 self.ArrayMethodsMachine.PM.ReinitPop(pop1,SModelArrayBest,AlphaModel=AlphaModel,GSigModel=GSigModel,PutNoise=True)
 
-
-                print(BestIndiv.flat[:])
-                print(BestIndiv.flat[:])
-                print(BestIndiv.flat[:])
-                print(BestIndiv.flat[:])
-                print(BestIndiv.flat[:])
-                print(BestIndiv.flat[:])
-                print(BestIndiv.flat[:])
+                # print(BestIndiv.flat[:])
+                # print(BestIndiv.flat[:])
+                # print(BestIndiv.flat[:])
+                # print(BestIndiv.flat[:])
+                # print(BestIndiv.flat[:])
+                # print(BestIndiv.flat[:])
+                # print(BestIndiv.flat[:])
                 pop1[0].flat[:]=BestIndiv.flat[:]
+
+                
                 
                 # half of the pop with the MP model
                 #SModelArrayBest0=SModelArrayBest.copy()
