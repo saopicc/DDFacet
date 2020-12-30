@@ -558,7 +558,8 @@ class ClassVisServer():
         if weights is None:
             print(ModColor.Str("This chunk is all flagged or has zero weight."), file=log)
             return
-        if DATA["sort_index"] != None and DATA["Weights"] is not 1:
+        
+        if DATA["sort_index"] is not None and DATA["Weights"] is not 1:
             DATA["Weights"] = DATA["Weights"][DATA["sort_index"]]
 
         self.computeBDAInBackground(dictname, ms, DATA,
