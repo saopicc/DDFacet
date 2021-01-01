@@ -58,7 +58,7 @@ class ClassParamMachine():
         DefaultValues={"Poly0":{"Mean":0.,
                             "Sigma":{
                                 "Type":"PeakFlux",
-                                "Value":0.001}
+                                "Value":0.1}
                         },
                        "Poly1":{"Mean":-0.6,
                                 "Sigma":{
@@ -135,12 +135,14 @@ class ClassParamMachine():
 
             for i_indiv,indiv in zip(range(len(pop)),pop):
                 SubArray=self.ArrayToSubArray(indiv,Type=Type)
-
                 if Type=="Poly0":
                     SubArray[:]=SModelArray[:]
+                    S=np.abs(SubArray[:]).copy()
+                    S/=np.max(S)
                     if (i_indiv!=0) and PutNoise:
-                        SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
-
+                        #SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
+                        #SubArray[:]+=np.random.randn(SModelArray.size)*SigVal*(SubArray[:]!=0.) # will not put noise in zero-valued pixels
+                        SubArray[:]+=np.random.randn(SModelArray.size)*SigVal*S # will not put noise in zero-valued pixels
 
                 elif Type=="Poly1":
                     if AlphaModel is None:

@@ -146,16 +146,17 @@ class ClassEvolveGA():
                 AModelArrayMP=np.zeros_like(SModelArrayMP)
 
             if NGen==0: 
-                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArrayMP,AlphaModel=AModelArrayMP)
+                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArrayMP,AlphaModel=AModelArrayMP,PutNoise=False)
                 self.ArrayMethodsMachine.KillWorkers()
                 return self.pop[0]
 
 
+            PutNoise=True#False
             if np.max(np.abs(self.IslandBestIndiv))==0:
-                #print "NEW"
-                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArrayMP,AlphaModel=AModelArrayMP)
+                #print("NEW")
+                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArrayMP,AlphaModel=AModelArrayMP,PutNoise=PutNoise)
             else:
-                #print "MIX"
+                #print("MIX")
                 NIndiv=len(self.pop)//10
                 pop0=self.pop[0:NIndiv]
                 pop1=self.pop[NIndiv::]
@@ -181,8 +182,8 @@ class ClassEvolveGA():
                 GSigModel=None
                 if "GSig" in self.ArrayMethodsMachine.PM.SolveParam:
                     GSigModel=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"GSig")
-                    
-                self.ArrayMethodsMachine.PM.ReinitPop(pop1,SModelArrayBest,AlphaModel=AlphaModel,GSigModel=GSigModel,PutNoise=True)
+
+                self.ArrayMethodsMachine.PM.ReinitPop(pop1,SModelArrayBest,AlphaModel=AlphaModel,GSigModel=GSigModel,PutNoise=PutNoise)
 
                 # print(BestIndiv.flat[:])
                 # print(BestIndiv.flat[:])
@@ -200,7 +201,7 @@ class ClassEvolveGA():
                 #mask=(SModelArrayBest0==0)
                 #SModelArrayBest0[mask]=SModelArrayMP[mask]
                 #self.ArrayMethodsMachine.PM.ReinitPop(pop0,SModelArrayBest0,AlphaModel=AlphaModel,GSigModel=GSigModel)
-                self.ArrayMethodsMachine.PM.ReinitPop(pop0,SModelArrayMP,AlphaModel=AModelArrayMP)
+                self.ArrayMethodsMachine.PM.ReinitPop(pop0,SModelArrayMP,AlphaModel=AModelArrayMP,PutNoise=PutNoise)
                 
                 # _,Chi20=self.ArrayMethodsMachine.GiveFitnessPop(pop0)
                 # _,Chi21=self.ArrayMethodsMachine.GiveFitnessPop(pop1)

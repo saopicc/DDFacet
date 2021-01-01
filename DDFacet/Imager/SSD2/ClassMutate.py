@@ -185,7 +185,7 @@ class ClassMutate():
                 #for TypeParm in [self.PM.SolveParam[iTypeParm]]:
                     A=self.PM.ArrayToSubArray(individual,TypeParm)
                     #if TypeParm=="GSig": continue
-                    if TypeParm=="S":
+                    if TypeParm=="Poly0":
                         ds=0.1*np.abs(self.DicoData["DirtyArrayParmsMean"].ravel()[iPix]-Af[iPix])
                     else:
                         if "Sigma" in self.PM.DicoIParm[TypeParm]["Default"].keys():

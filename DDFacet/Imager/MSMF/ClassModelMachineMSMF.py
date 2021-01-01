@@ -340,17 +340,14 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                         if ThisComp["ModelType"]=="Delta":
                             ModelImage[ch,pol,x,y]+=Flux
 
-                        elif ThisComp["ModelType"]=="Gaussian":
+                        elif ThisComp["ModelType"]=="Gaussian" or ThisComp["ModelType"]=="Hat":
                             Gauss=ThisComp["Model"]
                             Sup,_=Gauss.shape
                             x0,x1=x-Sup//2,x+Sup//2+1
                             y0,y1=y-Sup//2,y+Sup//2+1
-
-
                             Aedge,Bedge=GiveEdgesDissymetric(x,y,N0x,N0y,Sup//2,Sup//2,Sup,Sup)
                             x0d,x1d,y0d,y1d=Aedge
                             x0p,x1p,y0p,y1p=Bedge
-
                             ModelImage[ch,pol,x0d:x1d,y0d:y1d]+=Gauss[x0p:x1p,y0p:y1p]*Flux
 
         # vmin,vmax=np.min(self._MeanDirtyOrig[0,0]),np.max(self._MeanDirtyOrig[0,0])

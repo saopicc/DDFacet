@@ -20,7 +20,7 @@ from DDFacet.Other import logger
 log=logger.getLogger("ClassInitSSDModel")
 import traceback
 from DDFacet.Other import ModColor
-from ClassConvMachine import ClassConvMachineImages
+from .ClassConvMachine import ClassConvMachineImages
 from DDFacet.Imager import ClassMaskMachine
 
 SilentModules=["ClassPSFServer","ClassImageDeconvMachine","GiveModelMachine","ClassModelMachineMoresane","ClassModelMachineSSD","pymoresane.main"]
@@ -34,7 +34,7 @@ class ClassInitSSDModelParallel():
         self.IdSharedMem=IdSharedMem
 
 
-    def Init(self, DicoVariablePSF, RefFreq, GridFreqs, DegridFreqs):
+    def Init(self, DicoVariablePSF, GridFreqs, DegridFreqs):
         self.DicoVariablePSF=DicoVariablePSF
         self.GridFreqs=GridFreqs
         self.DegridFreqs=DegridFreqs

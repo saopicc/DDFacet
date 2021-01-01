@@ -308,7 +308,7 @@ class ClassImageDeconvMachine():
                                 self._initMSM_facet(iFacet, fcdict, None,
                                                     self.SideLobeLevel, self.OffsetSideLobe, MSM0=MSM0, verbose=False)
 
-                if self.ParallelMode:
+                if self.ParallelMode and self.PSFServer.NFacets>1:
                     APP.awaitJobResults("InitHMP:*", progress="Init HMP")
                     self.facetcache.reload()
 
@@ -527,7 +527,7 @@ class ClassImageDeconvMachine():
         cube, sm = self._CubeDirty[:,:,x0d:x1d,y0d:y1d], LocalSM[:,:,x0p:x1p,y0p:y1p]
 
 
-        # if self.DoPlot:
+        # if True:#self.DoPlot:
         #     AA0=cube[0,0,:,:].copy()
         #     vmin,vmax=np.min(AA0),np.max(AA0)
         #     AA1=sm[0,0,:,:].copy()
@@ -543,7 +543,7 @@ class ClassImageDeconvMachine():
         #     pylab.imshow((AA0-AA1),interpolation="nearest")
         #     pylab.colorbar()
         #     pylab.draw()
-        #     pylab.show(False)
+        #     pylab.show(block=False)
         #     pylab.pause(0.1)
 
         numexpr.evaluate('cube-sm',out=cube,casting="unsafe")
@@ -593,17 +593,19 @@ class ClassImageDeconvMachine():
         # #unc print Bedge
         # # print self.Dirty[0,x0d:x1d,y0d:y1d]
 
-    def Plot(self):
+    def Plot(self,label=None):
         import pylab
         pylab.clf()
-        pylab.subplot(1,3,1)
-        pylab.imshow(self._CubeDirty[0,0])
-        pylab.colorbar()
-        pylab.subplot(1,3,2)
-        pylab.imshow(self._CubeDirty[1,0])
-        pylab.colorbar()
+        nch=self._CubeDirty.shape[0]
+        for ich in range(nch):
+            pylab.subplot(1,nch,ich+1)
+            pylab.imshow(self._CubeDirty[ich,0])
+            pylab.colorbar()
+        if label is not None:
+            pylab.suptitle(label)
         pylab.draw()
-        pylab.show()
+        pylab.show(block=False)
+        pylab.pause(0.1)
 
         
     def updateRMS(self):
@@ -798,6 +800,19 @@ class ClassImageDeconvMachine():
                 # x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
                 x, y, peak = NpParallel.A_whereMax(
                     self._PeakSearchImage, NCPU=self.NCPU, DoAbs=DoAbs, Mask=CurrentNegMask)
+                
+                # nch,npol,nx0,ny0=self._CubeDirty.shape
+                # peak=0.
+                # ichb=0
+                # for ich in range(nch):
+                #     x0, y0, peak0 = NpParallel.A_whereMax(self._CubeDirty[ich].reshape((1,npol,nx0,ny0)),
+                #                                           NCPU=self.NCPU, DoAbs=DoAbs, Mask=CurrentNegMask)
+                #     if peak0>peak:
+                #         peak=peak0
+                #         x,y=x0,y0
+                #         ichb=ich
+                # print(ichb,peak)
+                
                 if self.GD["HMP"]["FractionRandomPeak"] is not None:
                     op=lambda x: x
                     if DoAbs: op=lambda x: np.abs(x)
@@ -898,6 +913,7 @@ class ClassImageDeconvMachine():
                     #     print >>log, "    [iter=%i] peak residual %.3g" % (
                     #         i, ThisFlux)
                     ClassMultiScaleMachine.CleanSolutionsDump.flush()
+                    self.Plot()
 
                 nch, npol, _, _ = self._CubeDirty.shape
                 Fpol = np.float32(
@@ -946,6 +962,7 @@ class ClassImageDeconvMachine():
                 self.SubStep(x,y,LocalSM)
                 T.timeit("SubStep")
 
+                # self.Plot(label=i)
                 # pylab.subplot(1,2,2)
                 # pylab.imshow(self.Dirty[0][x0:x1,y0:y1],interpolation="nearest",vmin=mm0,vmax=mm1)#,vmin=m0,vmax=m1)
 

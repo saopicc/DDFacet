@@ -197,6 +197,8 @@ class ClassMultiScaleMachine():
         self.NFreqBands = NFreqBands
         self.MultiFreqMode = NFreqBands>1
         self.SolveMode = self.GD["HMP"]["SolverMode"]
+        self.ExtendedModelType="Hat"
+        self.ExtendedModelType="Gaussian"
         self._kappa = self.GD["HMP"]["Kappa"]
         self._stall_threshold = self.GD["Debug"]["CleanStallThreshold"]
         self.GlobalWeightFunction=None
@@ -417,11 +419,28 @@ class ClassMultiScaleMachine():
                 Major = Scales[iScales] / (2. * np.sqrt(2. * np.log(2.)))
                 Minor = Major / float(MinMajRatio)
                 PSFGaussPars = (Major, Minor, th)
+                if self.ExtendedModelType=="Gaussian":
+                    Gauss = ModFFTW.GiveConvolvingGaussianWrapper((1, nx, ny), PSFGaussPars)
+                    SumGauss = np.sum(Gauss,dtype=np.float64)
+                    Gauss *= 1 / SumGauss
+                elif self.ExtendedModelType=="Hat":
+                    MajaxConv=1. / (2. * np.sqrt(2. * np.log(2.)))
+                    Gauss0 = ModFFTW.GiveConvolvingGaussianWrapper((1, nx, ny), (MajaxConv,MajaxConv,0.))
+                    Gauss = np.zeros(Gauss0.shape, np.float64)
+                    nx0,ny0=Gauss.shape
+                    dx,dy=np.mgrid[-(nx0//2):nx0//2+1,-(ny0//2):ny0//2+1]
+                    d=np.sqrt(dx**2+dy**2)
+                    Gauss[d<=Scales[iScales]]=1
+                    
+                    ModFFTW.ConvolveGaussianWrapper(Gauss.reshape((1,1,nx0,ny0)),
+                                                    Out=Gauss.reshape((1,1,nx0,ny0)),
+                                                    Sig=0,
+                                                    Gauss=Gauss0)
+                    SumGauss = np.sum(Gauss,dtype=np.float64)
+                    Gauss *= 1 / SumGauss
 
-                Gauss = ModFFTW.GiveConvolvingGaussianWrapper((1, nx, ny), PSFGaussPars)
-                SumGauss = np.sum(Gauss,dtype=np.float64)
-                Gauss *= 1 / SumGauss
-
+                    
+                    
                 self.ScaleFuncs[iScaleFunc] = Gauss
                 self.ScaleFuncsSum[iScaleFunc] = SumGauss
         else:
@@ -446,7 +465,7 @@ class ClassMultiScaleMachine():
                 Minor = Major / float(MinMajRatio)
                 PSFGaussPars = (Major, Minor, th)
                 d = {}
-                d["ModelType"] = "Gaussian"
+                d["ModelType"] = self.ExtendedModelType#"Gaussian"
                 d["Model"] = self.ScaleFuncs[iScaleFunc]
                 d["ModelParams"] = PSFGaussPars
                 d["Scale"] = iScales
@@ -918,6 +937,7 @@ class ClassMultiScaleMachine():
         # MeanFluxTrue=np.sum(FpolTrue.ravel()*self.WeightMuellerSignal)/np.sum(self.WeightMuellerSignal)
         W=np.float32(self.DicoDirty["WeightChansImages"]).ravel()
         MeanFluxTrue = np.sum(Fpol.ravel()*W/np.sqrt(JonesNorm).ravel())#mean()
+        #MeanFluxTrue = np.max(Fpol.ravel()/np.sqrt(JonesNorm).ravel())#mean()
         
         if  self.SolveMode=="MatchingPursuit":
             #Sol=np.dot(BM.T,WVecPSF*dirtyVec)
