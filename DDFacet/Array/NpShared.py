@@ -117,7 +117,7 @@ def Unlock (array):
 
 def ListNames():
     ll = list(SharedArray.list())
-    return [str(AR.name) for AR in ll]
+    return [str(AR.name.decode("ascii")) for AR in ll]
 
 
 def DelAll(key=None):

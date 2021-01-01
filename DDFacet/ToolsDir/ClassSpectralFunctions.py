@@ -104,8 +104,9 @@ class ClassSpectralFunctions():
 
     def CalcFluxBands(self,NAlpha=21):
         Alphas=np.linspace(-1,1,NAlpha)
-        self.FluxBands=np.zeros((self.NFacets,NAlpha,self.NFreqBand),np.float32)
-        for iFacet in range(self.NFacets):
+        NFacets=len(self.DicoMappingDesc["MeanJonesBand"])
+        self.FluxBands=np.zeros((NFacets,NAlpha,self.NFreqBand),np.float32)
+        for iFacet in range(NFacets):
             self.FluxBands[iFacet]=self.GiveFreqBandsFluxRatio(iFacet,Alphas)
         
         

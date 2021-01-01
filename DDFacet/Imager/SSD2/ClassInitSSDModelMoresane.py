@@ -49,6 +49,7 @@ class ClassInitSSDModelParallel():
 
 
     def giveDicoInitIndiv(self,ListIslands,ModelImage,DicoDirty,ListDoIsland=None,Parallel=True):
+        #Parallel=False
         NCPU=self.NCPU
         work_queue = multiprocessing.JoinableQueue()
         ListIslands=ListIslands#[300:308]
@@ -117,7 +118,8 @@ class ClassInitSSDModelParallel():
                 pBAR.render(NDone,NJobs)
 
                 iIsland=DicoResult["iIsland"]
-                NameDico="%sDicoInitIsland_%5.5i"%(self.IdSharedMem,iIsland)
+                NameDico="%sDicoInitIsland%5.5i"%(self.IdSharedMem,iIsland)
+
                 Dico=NpShared.SharedToDico(NameDico)
                 self.DicoInitIndiv[iIsland]=copy.deepcopy(Dico)
                 NpShared.DelAll(NameDico)
@@ -209,10 +211,10 @@ class ClassInitSSDModel():
             time.sleep(10)
             print("Start 4")
 
-        self.DeconvMachine.Update(self.DicoDirty,DoSetMask=False)
-        if DoWait:
-            print("IINit4")
-            time.sleep(10)
+        # self.DeconvMachine.Update(self.DicoDirty,DoSetMask=False)
+        # if DoWait:
+        #     print("IINit4")
+        #     time.sleep(10)
 
         #self.DeconvMachine.updateRMS()
 
@@ -222,6 +224,8 @@ class ClassInitSSDModel():
         self.DicoDirty=DicoDirty
         self.Dirty=DicoDirty["ImageCube"]
         self.MeanDirty=DicoDirty["MeanImage"]
+        self.DeconvMachine.Update(self.DicoDirty,DoSetMask=False)
+        #self.DeconvMachine.updateRMS()
 
     def setSubDirty(self,ListPixParms):
         T=ClassTimeIt.ClassTimeIt("InitSSD.setSubDirty")
@@ -351,14 +355,14 @@ class ClassInitSSDModel():
         #self.ModelMachine.DicoSMStacked=self.DicoBasicModelMachine
         self.ModelMachine.setRefFreq(self.RefFreq,Force=True)
         
-        self.MinorCycleConfig["ModelMachine"] = ModelMachine
+        self.MinorCycleConfig["ModelMachine"] = self.ModelMachine
         self.ModelMachine.setModelShape(self.SubDirty.shape)
         #self.ModelMachine.setListComponants(self.DeconvMachine.ModelMachine.ListScales)
         T.timeit("setlistcomp")
         
         self.DeconvMachine.Update(self.DicoSubDirty,DoSetMask=False)
         #self.DeconvMachine.updateMask(np.logical_not(self.SubMask))
-        self.DeconvMachine.updateModelMachine(ModelMachine)
+        self.DeconvMachine.updateModelMachine(self.ModelMachine)
         #self.DeconvMachine.resetCounter()
         T.timeit("update")
         #print "update"
@@ -520,7 +524,7 @@ class WorkerInitMSMF(multiprocessing.Process):
         
 
         DicoInitIndiv={"S":SModel,"Alpha":AModel}
-        NameDico="%sDicoInitIsland_%5.5i"%(self.IdSharedMem,iIsland)
+        NameDico="%sDicoInitIsland%5.5i"%(self.IdSharedMem,iIsland)
         NpShared.DicoToShared(NameDico, DicoInitIndiv)
         self.result_queue.put({"Success": True, "iIsland": iIsland})
 

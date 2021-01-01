@@ -57,6 +57,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def setRefFreq(self,RefFreq,Force=False):#,AllFreqs):
         if self.RefFreq is not None and not Force:
             print(ModColor.Str("Reference frequency already set to %f MHz"%(self.RefFreq/1e6)), file=log)
+            self.DicoModel["RefFreq"]=self.RefFreq
             return
         self.RefFreq=RefFreq
         self.DicoModel["RefFreq"]=RefFreq
@@ -162,7 +163,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         dFreq = 1e6
         # f0=self.DicoSMStacked["AllFreqs"].min()
         # f1=self.DicoSMStacked["AllFreqs"].max()
-        RefFreq = self.DicoSMStacked["RefFreq"]
+        RefFreq = self.DicoModel["RefFreq"]
         f0 = RefFreq / 1.5
         f1 = RefFreq * 1.5
 

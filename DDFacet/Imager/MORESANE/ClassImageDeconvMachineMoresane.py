@@ -115,7 +115,7 @@ class ClassImageDeconvMachine():
         #print kwargs["GridFreqs"],kwargs["DegridFreqs"]
         self.GridFreqs=kwargs["GridFreqs"]
         self.DegridFreqs=kwargs["DegridFreqs"]
-        self.ModelMachine.setFreqMachine(kwargs["GridFreqs"], kwargs["DegridFreqs"])
+        #self.ModelMachine.setFreqMachine(kwargs["GridFreqs"], kwargs["DegridFreqs"])
 
     def SetDirty(self,DicoDirty):
         self.DicoDirty=DicoDirty
