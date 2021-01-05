@@ -522,7 +522,6 @@ class WorkerInitMSMF(multiprocessing.Process):
         Island=self.ListIsland[iIsland]
         SModel,AModel=self.InitMachine.giveModel(Island)
         
-
         DicoInitIndiv={"S":SModel,"Alpha":AModel}
         NameDico="%sDicoInitIsland%5.5i"%(self.IdSharedMem,iIsland)
         NpShared.DicoToShared(NameDico, DicoInitIndiv)

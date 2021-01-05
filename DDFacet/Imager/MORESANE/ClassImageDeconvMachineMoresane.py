@@ -42,6 +42,7 @@ from DDFacet.Other import MyPickle
 import multiprocessing
 import time
 from DDFacet.Imager.MORESANE.ClassMoresaneSingleSlice import ClassMoresaneSingleSlice
+from DDFacet.Imager.MORESANE import ClassOrieux
 from DDFacet.Array import shared_dict
 from DDFacet.ToolsDir import ClassSpectralFunctions
 from scipy.optimize import least_squares
@@ -205,46 +206,59 @@ class ClassImageDeconvMachine():
         s_dirty_cut=self.giveSliceCut(dirty,Nout)
         s_psf_cut=self.giveSliceCut(psf,2*Nout)
 
+        s_dirty_cut=self.giveSliceCut(dirty,Nout)
+        s_psf_cut=self.giveSliceCut(psf,Nout)
+        
         if s_psf_cut is None:
             print(ModColor.Str("Could not adapt psf shape to 2*dirty shape!"), file=log)
             print(ModColor.Str("   shapes are (dirty, psf) = [%s, %s]"%(str(dirty.shape),str(psf.shape))), file=log)
             s_psf_cut=self.giveSliceCut(psf,Nout)
             
-
+        from skimage import restoration
+        
         for ch in range(nch):
             #print dirty[ch,0,s_dirty_cut,s_dirty_cut].shape
             #print psf[ch,0,s_psf_cut,s_psf_cut].shape
-            CM=ClassMoresaneSingleSlice(dirty[ch,0,s_dirty_cut,s_dirty_cut],
-                                        psf[ch,0,s_psf_cut,s_psf_cut],
-                                        mask=None,GD=None)
-            model,resid=CM.giveModelResid(major_loop_miter=self.GD["MORESANE"]["NMajorIter"],
-                                          minor_loop_miter=self.GD["MORESANE"]["NMinorIter"],
-                                          loop_gain=self.GD["MORESANE"]["Gain"],
-                                          sigma_level=self.GD["MORESANE"]["SigmaCutLevel"],# tolerance=1.,
-                                          enforce_positivity=self.GD["MORESANE"]["ForcePositive"])
+            
+            # CM=ClassMoresaneSingleSlice(dirty[ch,0,s_dirty_cut,s_dirty_cut],
+            #                             psf[ch,0,s_psf_cut,s_psf_cut],
+            #                             mask=None,GD=None)
+            # model,resid=CM.giveModelResid(major_loop_miter=self.GD["MORESANE"]["NMajorIter"],
+            #                               minor_loop_miter=self.GD["MORESANE"]["NMinorIter"],
+            #                               loop_gain=self.GD["MORESANE"]["Gain"],
+            #                               sigma_level=self.GD["MORESANE"]["SigmaCutLevel"],# tolerance=1.,
+            #                               enforce_positivity=self.GD["MORESANE"]["ForcePositive"])
+            
+            # model = restoration.richardson_lucy(dirty[ch,0,s_dirty_cut,s_dirty_cut], psf[ch,0,s_psf_cut,s_psf_cut], iterations=30)
+
+            CO=ClassOrieux.ClassOrieux(dirty[ch,0,s_dirty_cut,s_dirty_cut], psf[ch,0,s_psf_cut,s_psf_cut])
+            model=CO.Deconv()
+            
+            print(model.max())
             Model[ch,0,s_dirty_cut,s_dirty_cut]=model[:,:]
-        
-        #     import pylab
-        #     pylab.clf()
-        #     pylab.subplot(2,2,1)
-        #     pylab.imshow(dirty[ch,0,SliceDirty,SliceDirty],interpolation="nearest")
-        #     pylab.colorbar()
 
-        #     pylab.subplot(2,2,2)
-        #     pylab.imshow(psf[ch,0,SlicePSF,SlicePSF],interpolation="nearest")
-        #     pylab.colorbar()
 
-        #     pylab.subplot(2,2,3)
-        #     pylab.imshow(model,interpolation="nearest")
-        #     pylab.colorbar()
+            import pylab
+            pylab.clf()
+            pylab.subplot(2,2,1)
+            pylab.imshow(dirty[ch,0,s_dirty_cut,s_dirty_cut],interpolation="nearest")
+            pylab.colorbar()
 
-        #     pylab.subplot(2,2,4)
-        #     pylab.imshow(resid,interpolation="nearest")
-        #     pylab.colorbar()
+            pylab.subplot(2,2,2)
+            pylab.imshow(psf[ch,0,s_psf_cut,s_psf_cut],interpolation="nearest")
+            pylab.colorbar()
 
-        #     pylab.draw()
-        #     pylab.show()
+            pylab.subplot(2,2,3)
+            pylab.imshow(model,interpolation="nearest")
+            pylab.colorbar()
 
+            # pylab.subplot(2,2,4)
+            # pylab.imshow(resid,interpolation="nearest")
+            # pylab.colorbar()
+
+            pylab.draw()
+            pylab.show(block=False)
+            pylab.pause(0.1)
 
         # print 
         # print np.max(np.max(Model,axis=-1),axis=-1)
