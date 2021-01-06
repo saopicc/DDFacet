@@ -52,7 +52,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         ClassModelMachinebase.ClassModelMachine.__init__(self, *args, **kwargs)
         self.RefFreq=None
         self.DicoModel={}
-        self.DicoModel["Type"]="MORESANE"
+        self.DicoModel["Type"]="MultiSlice"
 
     def setRefFreq(self,RefFreq,Force=False):#,AllFreqs):
         if self.RefFreq is not None and not Force:
@@ -72,7 +72,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         D["GD"]=self.GD
         D["ModelShape"]=self.ModelShape
-        D["Type"]="MORESANE"
+        D["Type"]="MultiSlice"
 
         MyPickle.Save(D,FileName)
 
@@ -80,7 +80,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         D=self.DicoModel
         D["GD"]=self.GD
         D["ModelShape"]=self.ModelShape
-        D["Type"]="MORESANE"
+        D["Type"]="MultiSlice"
         return D
 
     def FromFile(self,FileName):
