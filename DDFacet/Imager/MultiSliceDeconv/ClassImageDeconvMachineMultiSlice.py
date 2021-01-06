@@ -41,8 +41,6 @@ from DDFacet.Imager import ClassGainMachine
 from DDFacet.Other import MyPickle
 import multiprocessing
 import time
-from DDFacet.Imager.MORESANE.ClassMoresaneSingleSlice import ClassMoresaneSingleSlice
-from DDFacet.Imager.MORESANE import ClassOrieux
 from DDFacet.Array import shared_dict
 from DDFacet.ToolsDir import ClassSpectralFunctions
 from scipy.optimize import least_squares
@@ -54,9 +52,14 @@ class ClassImageDeconvMachine():
         self.GD=GD
         self.ModelMachine = ModelMachine
         self.RefFreq=RefFreq
-        if self.ModelMachine.DicoModel["Type"]!="MORESANE":
-            raise ValueError("ModelMachine Type should be MORESANE")
+        if self.ModelMachine.DicoModel["Type"]!="MultiSlice":
+            raise ValueError("ModelMachine Type should be MultiSlice")
+        
         self.MultiFreqMode=(self.GD["Freq"]["NBand"]>1)
+        if self.GD["MultiSliceClean"]["Type"]=="MORESANE":
+            from DDFacet.Imager.MultiSliceDeconv.ClassMoresaneSingleSlice import ClassMoresaneSingleSlice
+        if self.GD["MultiSliceClean"]["Type"]=="Orieux":
+            from DDFacet.Imager.MultiSliceDeconv import ClassOrieux
 
     def SetPSF(self,DicoVariablePSF):
         self.PSFServer=ClassPSFServer(self.GD)
