@@ -60,3 +60,4 @@ class ClassMoresaneSingleSlice(FI):
             self.moresane(*args,**kwargs)
         return self.model,self.residual
 
+    

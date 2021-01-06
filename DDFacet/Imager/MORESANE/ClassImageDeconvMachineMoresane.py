@@ -219,43 +219,39 @@ class ClassImageDeconvMachine():
         for ch in range(nch):
             #print dirty[ch,0,s_dirty_cut,s_dirty_cut].shape
             #print psf[ch,0,s_psf_cut,s_psf_cut].shape
-            
-            # CM=ClassMoresaneSingleSlice(dirty[ch,0,s_dirty_cut,s_dirty_cut],
-            #                             psf[ch,0,s_psf_cut,s_psf_cut],
-            #                             mask=None,GD=None)
-            # model,resid=CM.giveModelResid(major_loop_miter=self.GD["MORESANE"]["NMajorIter"],
-            #                               minor_loop_miter=self.GD["MORESANE"]["NMinorIter"],
-            #                               loop_gain=self.GD["MORESANE"]["Gain"],
-            #                               sigma_level=self.GD["MORESANE"]["SigmaCutLevel"],# tolerance=1.,
-            #                               enforce_positivity=self.GD["MORESANE"]["ForcePositive"])
-            
-            # model = restoration.richardson_lucy(dirty[ch,0,s_dirty_cut,s_dirty_cut], psf[ch,0,s_psf_cut,s_psf_cut], iterations=30)
 
-            CO=ClassOrieux.ClassOrieux(dirty[ch,0,s_dirty_cut,s_dirty_cut], psf[ch,0,s_psf_cut,s_psf_cut])
-            model=CO.Deconv()
+            if self.GD["MultiSliceClean"]["Type"]=="MORESANE":
+                CM=ClassMoresaneSingleSlice(dirty[ch,0,s_dirty_cut,s_dirty_cut],
+                                            psf[ch,0,s_psf_cut,s_psf_cut],
+                                            mask=None,GD=None)
+                model,resid=CM.giveModelResid(major_loop_miter=self.GD["MORESANE"]["NMajorIter"],
+                                              minor_loop_miter=self.GD["MORESANE"]["NMinorIter"],
+                                              loop_gain=self.GD["MORESANE"]["Gain"],
+                                              sigma_level=self.GD["MORESANE"]["SigmaCutLevel"],# tolerance=1.,
+                                              enforce_positivity=self.GD["MORESANE"]["ForcePositive"])
+            elif self.GD["MultiSliceClean"]["Type"]=="Orieux":
+                CO=ClassOrieux.ClassOrieux(dirty[ch,0,s_dirty_cut,s_dirty_cut], psf[ch,0,s_psf_cut,s_psf_cut])
+                model=CO.Deconv()
+                # model = restoration.richardson_lucy(dirty[ch,0,s_dirty_cut,s_dirty_cut], psf[ch,0,s_psf_cut,s_psf_cut], iterations=30)
+
             
-            print(model.max())
             Model[ch,0,s_dirty_cut,s_dirty_cut]=model[:,:]
 
-
+            print(model.max())
             import pylab
             pylab.clf()
             pylab.subplot(2,2,1)
             pylab.imshow(dirty[ch,0,s_dirty_cut,s_dirty_cut],interpolation="nearest")
             pylab.colorbar()
-
             pylab.subplot(2,2,2)
             pylab.imshow(psf[ch,0,s_psf_cut,s_psf_cut],interpolation="nearest")
             pylab.colorbar()
-
             pylab.subplot(2,2,3)
             pylab.imshow(model,interpolation="nearest")
             pylab.colorbar()
-
             # pylab.subplot(2,2,4)
             # pylab.imshow(resid,interpolation="nearest")
             # pylab.colorbar()
-
             pylab.draw()
             pylab.show(block=False)
             pylab.pause(0.1)
