@@ -5,9 +5,9 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 
-from DDFacet.Imager.MORESANE.edwin import udft
-from DDFacet.Imager.MORESANE.edwin import optim, operators, criterions
-from DDFacet.Imager.MORESANE.edwin.criterions import Huber
+from .edwin import udft
+from .edwin import optim, operators, criterions
+from .edwin.criterions import Huber
 # from edwin import udft
 # from edwin import optim, operators, criterions
 # from edwin.criterions import Huber

@@ -57,9 +57,9 @@ class ClassImageDeconvMachine():
         
         self.MultiFreqMode=(self.GD["Freq"]["NBand"]>1)
         if self.GD["MultiSliceClean"]["Type"]=="MORESANE":
-            from DDFacet.Imager.MultiSliceDeconv.ClassMoresaneSingleSlice import ClassMoresaneSingleSlice
+            from .MORESANE.ClassMoresaneSingleSlice import ClassMoresaneSingleSlice
         if self.GD["MultiSliceClean"]["Type"]=="Orieux":
-            from DDFacet.Imager.MultiSliceDeconv import ClassOrieux
+            from .Orieux import ClassOrieux
 
     def SetPSF(self,DicoVariablePSF):
         self.PSFServer=ClassPSFServer(self.GD)
