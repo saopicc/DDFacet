@@ -183,10 +183,10 @@ RUN ldconfig
 # timba
 RUN apt-get install -y libqdbm-dev
 WORKDIR /src
-RUN wget https://github.com/ska-sa/meqtrees-timba/archive/v1.7.0.tar.gz
-RUN tar -xvf v1.7.0.tar.gz.1
-RUN mkdir /src/meqtrees-timba-1.7.0/build
-WORKDIR /src/meqtrees-timba-1.7.0/build
+RUN wget https://github.com/ska-sa/meqtrees-timba/archive/v1.8.0.tar.gz
+RUN tar -xvf v1.8.0.tar.gz
+RUN mkdir /src/meqtrees-timba-1.8.0/build
+WORKDIR /src/meqtrees-timba-1.8.0/build
 RUN cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_PYTHON_3=ON ..
 RUN make -j4
 RUN make install
