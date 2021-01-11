@@ -163,7 +163,7 @@ class ClassImageDeconvMachine():
         AllDegridFreqs = []
         for i in kwargs["DegridFreqs"].keys():
             AllDegridFreqs.append(kwargs["DegridFreqs"][i])
-        self.DegridFreqs = np.unique(np.asarray(AllDegridFreqs).flatten())
+        self.DegridFreqs = np.unique(np.concatenate(AllDegridFreqs).flatten())
 
 
     def AdaptArrayShape(self,A,Nout):

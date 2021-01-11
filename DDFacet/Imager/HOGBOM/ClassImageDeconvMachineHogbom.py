@@ -109,7 +109,7 @@ class ClassImageDeconvMachine():
         AllDegridFreqs = []
         for i in kwargs["DegridFreqs"].keys():
             AllDegridFreqs.append(kwargs["DegridFreqs"][i])
-        self.Freqs_degrid = np.asarray(AllDegridFreqs).flatten()
+        self.Freqs_degrid = np.unique(np.concatenate(AllDegridFreqs).flatten())
         self.SetPSF(kwargs["PSFVar"])
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
         self.ModelMachine.setPSFServer(self.PSFServer)
