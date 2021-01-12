@@ -913,7 +913,7 @@ class ClassImageDeconvMachine():
                     #     print >>log, "    [iter=%i] peak residual %.3g" % (
                     #         i, ThisFlux)
                     ClassMultiScaleMachine.CleanSolutionsDump.flush()
-                    self.Plot()
+                    #self.Plot()
 
                 nch, npol, _, _ = self._CubeDirty.shape
                 Fpol = np.float32(

@@ -45,7 +45,7 @@ from DDFacet.Array import shared_dict
 from DDFacet.ToolsDir import ClassSpectralFunctions
 from scipy.optimize import least_squares
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
-
+from scipy.signal import fftconvolve
 
 class ClassImageDeconvMachine():
     def __init__(self,GD=None,ModelMachine=None,RefFreq=None,*args,**kw):
@@ -56,11 +56,9 @@ class ClassImageDeconvMachine():
             raise ValueError("ModelMachine Type should be MultiSlice")
         
         self.MultiFreqMode=(self.GD["Freq"]["NBand"]>1)
-        if self.GD["MultiSliceClean"]["Type"]=="MORESANE":
-            from .MORESANE.ClassMoresaneSingleSlice import ClassMoresaneSingleSlice
-        if self.GD["MultiSliceClean"]["Type"]=="Orieux":
-            from .Orieux import ClassOrieux
-
+        self.CurrentNegMask=None
+        self.FitFluxScale="Linear"
+        
     def SetPSF(self,DicoVariablePSF):
         self.PSFServer=ClassPSFServer(self.GD)
         DicoVariablePSF=shared_dict.attach(DicoVariablePSF.path)#["CubeVariablePSF"]
@@ -191,6 +189,7 @@ class ClassImageDeconvMachine():
             # print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
             return "MaxIter", True, True
 
+        log.print("Deconvolve MultiSlice model cube...")
 
         dirty=self._Dirty
         nch,npol,_,_=dirty.shape
@@ -200,22 +199,25 @@ class ClassImageDeconvMachine():
         self.PSFServer.setLocation(xp,yp)
         self.iFacet=self.PSFServer.iFacet
 
+        if self.CurrentNegMask is not None:
+            print("  using externally defined Mask (self.CurrentNegMask)", file=log)
+            CurrentNegMask=self.CurrentNegMask
+        elif self.MaskMachine:
+            print("  using MaskMachine Mask", file=log)
+            CurrentNegMask=self.MaskMachine.CurrentNegMask
+        elif self._MaskArray is not None:
+            print("  using externally defined Mask (self._MaskArray)", file=log)
+            CurrentNegMask=self._MaskArray
+        else:
+            print("  not using a mask", file=log)
+            CurrentNegMask=None
+            
         psf,_=self.PSFServer.GivePSF()
         
         Nout=np.min([dirty.shape[-1],psf.shape[-1]])
 
         if Nout%2!=0: Nout-=1
 
-        s_dirty_cut=self.giveSliceCut(dirty,Nout)
-        s_psf_cut=self.giveSliceCut(psf,2*Nout)
-
-        s_dirty_cut=self.giveSliceCut(dirty,Nout)
-        s_psf_cut=self.giveSliceCut(psf,Nout)
-        
-        if s_psf_cut is None:
-            print(ModColor.Str("Could not adapt psf shape to 2*dirty shape!"), file=log)
-            print(ModColor.Str("   shapes are (dirty, psf) = [%s, %s]"%(str(dirty.shape),str(psf.shape))), file=log)
-            s_psf_cut=self.giveSliceCut(psf,Nout)
             
         from skimage import restoration
         
@@ -223,41 +225,65 @@ class ClassImageDeconvMachine():
             #print dirty[ch,0,s_dirty_cut,s_dirty_cut].shape
             #print psf[ch,0,s_psf_cut,s_psf_cut].shape
 
-            if self.GD["MultiSliceClean"]["Type"]=="MORESANE":
-                CM=ClassMoresaneSingleSlice(dirty[ch,0,s_dirty_cut,s_dirty_cut],
-                                            psf[ch,0,s_psf_cut,s_psf_cut],
-                                            mask=None,GD=None)
+            if self.GD["MultiSliceDeconv"]["Type"]=="MORESANE":
+                s_dirty_cut=self.giveSliceCut(dirty,Nout)
+                s_psf_cut=self.giveSliceCut(psf,2*Nout)
+                if s_psf_cut is None:
+                    print(ModColor.Str("Could not adapt psf shape to 2*dirty shape!"), file=log)
+                    print(ModColor.Str("   shapes are (dirty, psf) = [%s, %s]"%(str(dirty.shape),str(psf.shape))), file=log)
+                    s_psf_cut=self.giveSliceCut(psf,Nout)
+                from .MORESANE.ClassMoresaneSingleSlice import ClassMoresaneSingleSlice
+                mask=None
+                if CurrentNegMask is not None:
+                    mask=(1-CurrentNegMask)[0,0,s_dirty_cut,s_dirty_cut]
+                A,B=dirty[ch,0,s_dirty_cut,s_dirty_cut].copy(), psf[ch,0,s_psf_cut,s_psf_cut].copy()
+                CM=ClassMoresaneSingleSlice(A,B,
+                                            #dirty[ch,0,s_dirty_cut,s_dirty_cut],
+                                            #psf[ch,0,s_psf_cut,s_psf_cut],
+                                            mask=mask,
+                                            GD=None)
                 model,resid=CM.giveModelResid(major_loop_miter=self.GD["MORESANE"]["NMajorIter"],
                                               minor_loop_miter=self.GD["MORESANE"]["NMinorIter"],
                                               loop_gain=self.GD["MORESANE"]["Gain"],
                                               sigma_level=self.GD["MORESANE"]["SigmaCutLevel"],# tolerance=1.,
                                               enforce_positivity=self.GD["MORESANE"]["ForcePositive"])
-            elif self.GD["MultiSliceClean"]["Type"]=="Orieux":
-                CO=ClassOrieux.ClassOrieux(dirty[ch,0,s_dirty_cut,s_dirty_cut], psf[ch,0,s_psf_cut,s_psf_cut])
+            elif self.GD["MultiSliceDeconv"]["Type"]=="Orieux":
+                # Nout=3
+                s_dirty_cut=self.giveSliceCut(dirty,Nout)
+                s_psf_cut=self.giveSliceCut(psf,Nout)
+                from .Orieux import ClassOrieux
+                A,B=dirty[ch,0,s_dirty_cut,s_dirty_cut].copy(), psf[ch,0,s_psf_cut,s_psf_cut].copy()
+                #A,B=psf[ch,0,s_psf_cut,s_psf_cut].copy(), psf[ch,0,s_psf_cut,s_psf_cut].copy()
+                CO=ClassOrieux.ClassOrieux(A,B)
+                #CO=ClassOrieux.ClassOrieux(dirty[ch,0,:,:], psf[ch,0,:,:])
                 model=CO.Deconv()
                 # model = restoration.richardson_lucy(dirty[ch,0,s_dirty_cut,s_dirty_cut], psf[ch,0,s_psf_cut,s_psf_cut], iterations=30)
-
-            
+                
             Model[ch,0,s_dirty_cut,s_dirty_cut]=model[:,:]
 
-            print(model.max())
-            import pylab
-            pylab.clf()
-            pylab.subplot(2,2,1)
-            pylab.imshow(dirty[ch,0,s_dirty_cut,s_dirty_cut],interpolation="nearest")
-            pylab.colorbar()
-            pylab.subplot(2,2,2)
-            pylab.imshow(psf[ch,0,s_psf_cut,s_psf_cut],interpolation="nearest")
-            pylab.colorbar()
-            pylab.subplot(2,2,3)
-            pylab.imshow(model,interpolation="nearest")
-            pylab.colorbar()
-            # pylab.subplot(2,2,4)
-            # pylab.imshow(resid,interpolation="nearest")
+            
+            # Dty=fftconvolve(model,B, mode='same')#[s_dirty_cut,s_dirty_cut]
+            # print(dirty[ch,0,s_dirty_cut,s_dirty_cut].max(), psf[ch,0,s_psf_cut,s_psf_cut].max(),np.sum(model))
+            # import pylab
+            # pylab.clf()
+            # pylab.subplot(2,2,1)
+            # pylab.imshow(dirty[ch,0,s_dirty_cut,s_dirty_cut],interpolation="nearest")
             # pylab.colorbar()
-            pylab.draw()
-            pylab.show(block=False)
-            pylab.pause(0.1)
+            # pylab.subplot(2,2,2)
+            # pylab.imshow(psf[ch,0,s_psf_cut,s_psf_cut],interpolation="nearest")
+            # pylab.colorbar()
+            # pylab.subplot(2,2,3)
+            # pylab.imshow(model,interpolation="nearest")
+            # pylab.colorbar()
+            # pylab.subplot(2,2,4)
+            # pylab.imshow(dirty[ch,0,s_dirty_cut,s_dirty_cut]-Dty,interpolation="nearest")
+            # pylab.colorbar()
+            # # pylab.subplot(2,2,4)
+            # # pylab.imshow(resid,interpolation="nearest")
+            # # pylab.colorbar()
+            # pylab.draw()
+            # pylab.show(block=False)
+            # pylab.pause(0.1)
 
         # print 
         # print np.max(np.max(Model,axis=-1),axis=-1)
@@ -273,52 +299,110 @@ class ClassImageDeconvMachine():
         #Model.fill(0)
         #Model[:,:,xp,yp]=self._Dirty[:,:,xp,yp]
 
-        if self.MultiFreqMode:
-            S,Al=self.DoSpectralFit(Model)
-            self.ModelMachine.setModel(S,0)
-            self.ModelMachine.setModel(Al,1)
-        else:
-            self.ModelMachine.setModel(Model,0)
+        
+        indx,indy=np.where(CurrentNegMask[0,0]==1)
+        for ch in range(nch):
+            Model[ch,0,indx,indy]=0
+        CoefImage=self.DoSpectralFit(Model)
+        self.ModelMachine.setModel(CoefImage,FluxScale=self.FitFluxScale)
 
         
         return "MaxIter", True, True   # stop deconvolution but do update model
 
     def DoSpectralFit(self,Model):
-
+        log.print("Fitting MultiSlice model cube...")
+        NOrder=self.GD["MultiSliceDeconv"]["PolyFitOrder"]
+        if NOrder==0:
+            NOrder=self.GD["Freq"]["NBand"]
+        
         def GiveResid(X,F,iFacet):
             R=np.zeros_like(F)
-            S0,Alpha=X
+            Fit=np.zeros_like(F)
             for iBand in range(R.size):
-                #print iBand,self.SpectralFunctionsMachine.IntExpFunc(Alpha=np.array([0.]),iChannel=iBand,iFacet=iFacet)
-                R[iBand]=F[iBand]-S0*self.SpectralFunctionsMachine.IntExpFunc(Alpha=np.array([Alpha]).ravel(),iChannel=iBand,iFacet=iFacet)
-
-            #stop
+                Fit[iBand]=self.SpectralFunctionsMachine.IntExpFuncPoly(X.reshape((1,NOrder)),
+                                                                               iChannel=iBand,
+                                                                               iFacet=iFacet,
+                                                                               FluxScale=self.FitFluxScale)
+            Fit[Fit<0]*=100.
+            R=F-Fit
+            # print("aa",R)
             return R
-
         
         nx,ny=Model.shape[-2],Model.shape[-1]
-        S=np.zeros((1,1,nx,ny),np.float32)
-        Al=np.zeros((1,1,nx,ny),np.float32)
+        CoefImage=np.zeros((NOrder,1,nx,ny),np.float32)
 
-        for iPix in range(Model.shape[-2]):
-            for jPix in range(Model.shape[-1]):
-                F=Model[:,0,iPix,jPix]
-
-                JonesNorm=(self.DicoDirty["JonesNorm"][:,:,iPix,jPix]).reshape((-1,1,1,1))
-                #W=self.DicoDirty["WeightChansImages"]
-                #JonesNorm=np.sum(JonesNorm*W.reshape((-1,1,1,1)),axis=0).reshape((1,1,1,1))
+        indx,indy=np.where((Model[:,0,:,:]).any(axis=0))
+        iDone=0
+        for iPix,jPix in zip(indx.tolist(),indy.tolist()):
+            #print("%i/%i"%(iDone,indx.size))
+            iDone+=1
+            self.PSFServer.setLocation(iPix,jPix)
+            iFacet=self.PSFServer.iFacet
+            
+            F=np.float64(Model[:,0,iPix,jPix])
+            # print(iPix,jPix,iFacet,F)
+            
+            #JonesNorm=(self.DicoDirty["JonesNorm"][:,:,iPix,jPix]).reshape((-1,1,1,1))
+            #W=self.DicoDirty["WeightChansImages"]
+            #JonesNorm=np.sum(JonesNorm*W.reshape((-1,1,1,1)),axis=0).reshape((1,1,1,1))
+            
+            #F=F/np.sqrt(JonesNorm).ravel()
+            F0=np.mean(F)
+            if F0==0:
+                continue
+            x0=np.zeros((NOrder,),np.float64)
+            x0[0]=F0
+            if NOrder>1:
+                x0[1]=0.8
+            R0=GiveResid(x0,F,iFacet)
+            X=least_squares(GiveResid, x0, args=(F,iFacet))#,ftol=1e-3,gtol=1e-3,xtol=1e-3)
+            R1=GiveResid(X['x'],F,iFacet)
+            x=X['x']
+            #print(F,x)
+            #stop
+            CoefImage[:,0,iPix,jPix]=x[:]
                 
-                #F=F/np.sqrt(JonesNorm).ravel()
-                F0=np.mean(F)
-                if F0==0:
-                    continue
+        CoefImage[:,:,:,:]*=self.GD["Deconv"]["Gain"]
+        return CoefImage
+    
 
-                x0=(F0,-0.8)
+    # def DoSpectralFit(self,Model):
+
+    #     def GiveResid(X,F,iFacet):
+    #         R=np.zeros_like(F)
+    #         S0,Alpha=X
+    #         for iBand in range(R.size):
+    #             #print iBand,self.SpectralFunctionsMachine.IntExpFunc(Alpha=np.array([0.]),iChannel=iBand,iFacet=iFacet)
+    #             R[iBand]=F[iBand]-S0*self.SpectralFunctionsMachine.IntExpFunc(Alpha=np.array([Alpha]).ravel(),iChannel=iBand,iFacet=iFacet)
+
+    #         #stop
+    #         return R
+
+        
+    #     nx,ny=Model.shape[-2],Model.shape[-1]
+    #     S=np.zeros((1,1,nx,ny),np.float32)
+    #     Al=np.zeros((1,1,nx,ny),np.float32)
+
+    #     for iPix in range(Model.shape[-2]):
+    #         for jPix in range(Model.shape[-1]):
+    #             F=Model[:,0,iPix,jPix]
+
+    #             JonesNorm=(self.DicoDirty["JonesNorm"][:,:,iPix,jPix]).reshape((-1,1,1,1))
+    #             #W=self.DicoDirty["WeightChansImages"]
+    #             #JonesNorm=np.sum(JonesNorm*W.reshape((-1,1,1,1)),axis=0).reshape((1,1,1,1))
                 
-                #print self.iFacet,iPix,jPix,F,F0
-                X=least_squares(GiveResid, x0, args=(F,self.iFacet),ftol=1e-3,gtol=1e-3,xtol=1e-3)
-                x=X['x']
-                S[0,0,iPix,jPix]=x[0]
-                Al[0,0,iPix,jPix]=x[1]
+    #             #F=F/np.sqrt(JonesNorm).ravel()
+    #             F0=np.mean(F)
+    #             if F0==0:
+    #                 continue
 
-        return S,Al
+    #             x0=(F0,-0.8)
+                
+    #             #print self.iFacet,iPix,jPix,F,F0
+    #             X=least_squares(GiveResid, x0, args=(F,self.iFacet),ftol=1e-3,gtol=1e-3,xtol=1e-3)
+    #             x=X['x']
+    #             S[0,0,iPix,jPix]=x[0]
+    #             Al[0,0,iPix,jPix]=x[1]
+
+    #     return S,Al
+    

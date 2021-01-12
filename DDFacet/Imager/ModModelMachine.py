@@ -46,7 +46,7 @@ class ClassModModelMachine():
         self.SSDMM = None
         self.SSD2MM = None
         self.MSMFMM = None
-        self.MORSANEMM = None
+        self.MultiSliceMM = None
         self.MUFFINMM = None
         self.HOGBOMMM = None
         self.WSCMSMM = None
@@ -131,16 +131,16 @@ class ClassModModelMachine():
             else:
                 print("HMP model machine already initialised", file=log)
             return self.MSMFMM
-        elif Mode == "MORESANE":
-            if self.MORSANEMM is None:
-                print("Initialising MORESANE model machine", file=log)
-                from DDFacet.Imager.MORESANE import ClassModelMachineMORESANE
-                self.MORESANEMM = ClassModelMachineMORESANE.ClassModelMachine(
+        elif Mode == "MultiSlice":
+            if self.MultiSliceMM is None:
+                print("Initialising MultiSlice model machine", file=log)
+                from DDFacet.Imager.MultiSliceDeconv import ClassModelMachineMultiSlice
+                self.MultiSliceMM = ClassModelMachineMultiSlice.ClassModelMachine(
                     self.GD,
                     GainMachine= ClassGainMachine.ClassGainMachine.get_instance())
             else:
-                print("MORSANE model machine already initialised", file=log)
-            return self.MORESANEMM
+                print("MultiSlice model machine already initialised", file=log)
+            return self.MultiSliceMM
         elif Mode == "MUFFIN":
             if self.MUFFINMM is None:
                 print("Initialising MUFFIN model machine", file=log)

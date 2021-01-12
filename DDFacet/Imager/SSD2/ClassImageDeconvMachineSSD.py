@@ -110,8 +110,15 @@ class ClassImageDeconvMachine():
                                                                                    NCPU=self.NCPU,
                                                                                    MainCache=self.maincache,
                                                                                    IdSharedMem=self.IdSharedMem)
+        elif self.GD["GAClean"]["InitType"] == "MultiSlice":
+            from . import ClassInitSSDModelMultiSlice
+            self.InitMachine = ClassInitSSDModelMultiSlice.ClassInitSSDModelParallel(self.GD,
+                                                                                     NFreqBands, RefFreq,
+                                                                                     NCPU=self.NCPU,
+                                                                                     MainCache=self.maincache,
+                                                                                     IdSharedMem=self.IdSharedMem)
         else:
-            raise ValueError("InitType should be HMP or MORESANE")
+            raise ValueError("InitType should be HMP or MultiSlice or MORESANE")
         self._init_machine_initialized = False
 
 

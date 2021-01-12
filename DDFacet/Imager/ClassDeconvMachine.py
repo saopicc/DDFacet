@@ -280,12 +280,12 @@ class ClassImagerDeconv():
                 from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
                 self.DeconvMachine=ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(**MinorCycleConfig)
                 print("Using Hogbom algorithm", file=log)
-            elif self.GD["Deconv"]["Mode"]=="MORESANE":
+            elif self.GD["Deconv"]["Mode"]=="MultiSlice":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
-                    raise NotImplementedError("Multi-polarization is not supported in MORESANE")
-                from DDFacet.Imager.MORESANE import ClassImageDeconvMachineMoresane
-                self.DeconvMachine=ClassImageDeconvMachineMoresane.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
-                print("Using MORESANE algorithm", file=log)
+                    raise NotImplementedError("Multi-polarization is not supported in MultiSlice")
+                from DDFacet.Imager.MultiSliceDeconv import ClassImageDeconvMachineMultiSlice
+                self.DeconvMachine=ClassImageDeconvMachineMultiSlice.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
+                print("Using MultiSlice algorithm", file=log)
             elif self.GD["Deconv"]["Mode"]=="MUFFIN":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                     raise NotImplementedError("Multi-polarization is not supported in MORESANE")

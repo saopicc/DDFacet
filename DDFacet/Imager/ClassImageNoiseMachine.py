@@ -90,7 +90,7 @@ class ClassImageNoiseMachine():
         # MinorCycleConfig["RefFreq"] = self.RefFreq
         # MinorCycleConfig["CleanMaskImage"]=None
         self.MinorCycleConfig = MinorCycleConfig
-        if self.GD["Deconv"]["Mode"] in ["HMP", "SSD", "SSD2"]:
+        if self.GD["Deconv"]["Mode"] in ["HMP", "SSD", "SSD2", "MultiSlice"]:
             # for SSD we need to set up the HMP ModelMachine.
             self.GD["Deconv"]["Mode"] = "HMP"
             ModConstructor = ClassModModelMachine(self.GD)

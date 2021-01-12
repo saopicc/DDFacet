@@ -132,6 +132,7 @@ class ClassSpectralFunctions():
             BeamFactorWeightSq=1.
             MeanJonesBand=1.
 
+
         ThisFreqs=ThisFreqs.reshape((1,ThisFreqs.size))
         ThisAlpha=ThisAlpha.reshape((Npix,1))
         FreqBandsFlux=np.sqrt(np.sum(BeamFactor*((ThisFreqs/RefFreq)**ThisAlpha)**2,axis=1))/np.sqrt(np.sum(BeamFactorWeightSq))
@@ -144,7 +145,7 @@ class ClassSpectralFunctions():
 
         return FreqBandsFlux.ravel()
 
-    def IntExpFuncPoly(self,PolyArray,iChannel=0,iFacet=0):#, S0=1.,Alpha=0.):
+    def IntExpFuncPoly(self,PolyArray,iChannel=0,iFacet=0,FluxScale="Exp"):#, S0=1.,Alpha=0.):
         
         RefFreq=self.RefFreq
 
@@ -183,16 +184,22 @@ class ClassSpectralFunctions():
         n=n.reshape((1,1,NOrder))
         f=ThisFreqs.reshape((1,-1,1))
         a=(PolyArray.copy()).reshape((Npix,1,NOrder))
-        a[:,:,0]=0.
-        SUnityFreq0=a*(np.log(f/RefFreq))**n
-        SUnityFreq0=np.exp(np.sum(SUnityFreq0,axis=-1))
+
+        if FluxScale=="Exp":
+            a[:,:,0]=0.
+            SUnityFreq0=a*(np.log(f/RefFreq))**n
+            SUnityFreq0=np.exp(np.sum(SUnityFreq0,axis=-1))
+        elif FluxScale=="Linear":
+            SUnityFreq0=a*((f-RefFreq)/RefFreq)**n
+            SUnityFreq0=np.sum(SUnityFreq0,axis=-1)
         SUnityFreq=SUnityFreq0
 
         FreqBandsFlux=np.sqrt(np.sum(BeamFactor*( SUnityFreq )**2,axis=1))/np.sqrt(np.sum(BeamFactorWeightSq))
         FreqBandsFlux/=np.sqrt(MeanJonesBand)
 
         S0=S0.reshape((Npix,))
-        FreqBandsFlux*=S0
+        if FluxScale=="Exp":
+            FreqBandsFlux*=S0
 
         return FreqBandsFlux.ravel()
     
