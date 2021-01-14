@@ -336,7 +336,7 @@ class ClassImageDeconvMachine():
         indx,indy=np.where((Model[:,0,:,:]).any(axis=0))
         iDone=0
         for iPix,jPix in zip(indx.tolist(),indy.tolist()):
-            #log.print("%i/%i:[%i, %i]"%(iDone,indx.size,iPix,jPix))
+            log.print("%i/%i:[%i, %i]"%(iDone,indx.size,iPix,jPix))
             iDone+=1
             self.PSFServer.setLocation(iPix,jPix)
             iFacet=self.PSFServer.iFacet
@@ -357,7 +357,7 @@ class ClassImageDeconvMachine():
             if NOrder>1:
                 x0[1]=0.8
             R0=GiveResid(x0,F,iFacet)
-            X=least_squares(GiveResid, x0, args=(F,iFacet))#,ftol=1e-3,gtol=1e-3,xtol=1e-3)
+            X=least_squares(GiveResid, x0, args=(F,iFacet),ftol=1e-1,gtol=1e-1,xtol=1e-1)
             R1=GiveResid(X['x'],F,iFacet)
             x=X['x']
             #print(F,x)

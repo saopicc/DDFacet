@@ -933,9 +933,10 @@ class ClassImageDeconvMachine():
                 PSF = self.PSFServer.GivePSF()
                 MSMachine = self.DicoMSMachine[self.PSFServer.iFacet]
 
+                T.timeit("stuff2")
                 LocalSM = MSMachine.GiveLocalSM(x, y, Fpol)
 
-                T.timeit("FindScale")
+                T.timeit("GiveLocalSM")
                 # print iScale
 
                 # if iScale=="BadFit": continue

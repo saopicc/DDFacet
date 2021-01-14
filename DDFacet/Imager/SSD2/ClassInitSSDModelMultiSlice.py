@@ -101,7 +101,7 @@ class ClassInitSSDModelParallel():
                 workerlist[ii].start()
 
         timer = ClassTimeIt.ClassTimeIt()
-        pBAR = ProgressBar(Title="  MultiSlice Init islands ")
+        pBAR = ProgressBar(Title="  Init islands MultiSlice")
         #pBAR.disable()
         pBAR.render(0, NJobs)
         iResult = 0
