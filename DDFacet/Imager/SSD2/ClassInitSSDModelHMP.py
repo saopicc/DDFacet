@@ -46,7 +46,7 @@ class ClassInitSSDModelParallel():
         logger.setSilent(["ClassImageDeconvMachineMSMF", "ClassPSFServer", "ClassMultiScaleMachine", "GiveModelMachine", "ClassModelMachineMSMF"])
         self.InitMachine.Init(DicoVariablePSF, DicoParm["GridFreqs"], DicoParm["DegridFreqs"], facetcache=FacetCache)
         self.InitMachine.setDirty(DicoDirty)
-        #self.InitMachine.DeconvMachine.setNCPU(NCPU)
+        # self.InitMachine.DeconvMachine.setNCPU(NCPU)
         self.InitMachine.setSSDModelImage(DicoParm["ModelImage"])
 
         #print ":::::::::::::::::::::::",iIsland
@@ -62,8 +62,12 @@ class ClassInitSSDModelParallel():
             np.save(FileOut, np.array(Island))
             self.InitMachine.Reset()
             return
-        DicoOut["S"] = SModel
-        DicoOut["Alpha"] = AModel
+        #DicoOut["S"] = SModel
+        #DicoOut["Alpha"] = AModel
+        PolyModel=np.zeros((self.GD["SSD2"]["PolyFreqOrder"],SModel.size),SModel.dtype)
+        PolyModel[0,:]=SModel
+        PolyModel[1,:]=AModel
+        DicoOut["PolyModel"] = PolyModel
         self.InitMachine.Reset()
 
     def giveDicoInitIndiv(self, ListIslands, ModelImage, DicoDirty, ListDoIsland=None):
@@ -121,7 +125,7 @@ class ClassInitSSDModelParallel():
         if self.InitMachine.DeconvMachine.facetcache is None:
             print("HMP bases not initialized. Will re-initialize now.", file=log)
         if not self.GD["GAClean"]["ParallelInitHMP"]:
-          pBAR = ProgressBar(Title="  Init islands")
+          pBAR = ProgressBar(Title="  Init islands HMP")
           for iIsland,Island in enumerate(ListIslands):
             if not ListDoIsland or ListDoIsland[iIsland]:
                 subdict = DicoInitIndiv.addSubdict(iIsland)
@@ -148,7 +152,7 @@ class ClassInitSSDModelParallel():
                                  self.InitMachine.DeconvMachine.facetcache.readonly() 
                                     if self.InitMachine.DeconvMachine.facetcache is not None else None,
                                  1))
-          APP.awaitJobResults("InitIsland:*", progress="Init islands")
+          APP.awaitJobResults("InitIsland:*", progress="Init islands HMP")
           DicoInitIndiv.reload()
         
         ParmDict.delete()

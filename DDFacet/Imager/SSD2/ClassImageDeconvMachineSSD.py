@@ -42,6 +42,7 @@ from DDFacet.Array import NpParallel
 from DDFacet.Imager.SSD2 import ClassIslandDistanceMachine
 from DDFacet.Array import shared_dict
 import psutil
+import copy
 
 logger.setSilent("ClassArrayMethodSSD")
 logger.setSilent("ClassIsland")
@@ -64,10 +65,11 @@ class ClassImageDeconvMachine():
         self.ModelImage=None
         self.MaxMinorIter=MaxMinorIter
         self.NCPU=NCPU
+        self.GD=copy.deepcopy(GD)
+        self.DicoDicoInitIndiv=None
         if NCPU==0:
             self.NCPU=int(GD["Parallel"]["NCPU"] or psutil.cpu_count())
         self.Chi2Thr=10000
-        self.GD=GD
         if IdSharedMem is None:
             self.IdSharedMem=str(os.getpid())
         else:
@@ -96,29 +98,55 @@ class ClassImageDeconvMachine():
         self.NChains=self.NCPU
 
         self.DeconvMode="GAClean"
+        
+        if self.GD["SSD2"]["PolyFreqOrder"]>NFreqBands:
+            stop
+            
+        if self.GD["SSD2"]["PolyFreqOrder"]==0:
+            self.GD["SSD2"]["PolyFreqOrder"]=NFreqBands
+        
+        self.GD["MultiSliceDeconv"]["PolyFitOrder"]=self.GD["SSD2"]["PolyFreqOrder"]
 
-        if self.GD["GAClean"]["InitType"] == "HMP":
-            from . import ClassInitSSDModelHMP
-            self.InitMachine = ClassInitSSDModelHMP.ClassInitSSDModelParallel(self.GD,
-                                                                         NFreqBands,RefFreq,
-                                                                         MainCache=self.maincache,
-                                                                         IdSharedMem=self.IdSharedMem)
-        elif self.GD["GAClean"]["InitType"] == "MORESANE":
-            from . import ClassInitSSDModelMoresane
-            self.InitMachine = ClassInitSSDModelMoresane.ClassInitSSDModelParallel(self.GD,
-                                                                                   NFreqBands, RefFreq,
-                                                                                   NCPU=self.NCPU,
-                                                                                   MainCache=self.maincache,
-                                                                                   IdSharedMem=self.IdSharedMem)
-        elif self.GD["GAClean"]["InitType"] == "MultiSlice":
-            from . import ClassInitSSDModelMultiSlice
-            self.InitMachine = ClassInitSSDModelMultiSlice.ClassInitSSDModelParallel(self.GD,
-                                                                                     NFreqBands, RefFreq,
-                                                                                     NCPU=self.NCPU,
-                                                                                     MainCache=self.maincache,
-                                                                                     IdSharedMem=self.IdSharedMem)
-        else:
-            raise ValueError("InitType should be HMP or MultiSlice or MORESANE")
+        ListInitType=self.GD["GAClean"]["InitType"]
+        if isinstance(ListInitType,str):
+            ListInitType=[self.GD["GAClean"]["InitType"]]
+        if ListInitType is None:
+            ListInitType=[]
+        self.ListInitMachine=[]
+
+        for InitType in ListInitType:
+            if InitType == "HMP":
+                from . import ClassInitSSDModelHMP
+                log.print(ModColor.Str("Initialisation of sourcekins using HMP",col="blue"))
+                self.ListInitMachine.append( ClassInitSSDModelHMP.ClassInitSSDModelParallel(self.GD,
+                                                                                            NFreqBands,RefFreq,
+                                                                                            MainCache=self.maincache,
+                                                                                            IdSharedMem=self.IdSharedMem) )
+            elif InitType == "MORESANE":
+                from . import ClassInitSSDModelMoresane
+                log.print(ModColor.Str("Initialisation of sourcekins using MORESANE",col="blue"))
+                self.ListInitMachine.append( ClassInitSSDModelMoresane.ClassInitSSDModelParallel(self.GD,
+                                                                                                 NFreqBands, RefFreq,
+                                                                                                 NCPU=self.NCPU,
+                                                                                                 MainCache=self.maincache,
+                                                                                                 IdSharedMem=self.IdSharedMem) )
+            elif "MultiSlice" in InitType:
+                GD=copy.deepcopy(GD)
+                _,SubType=InitType.split(":")
+                GD["MultiSliceDeconv"]["Type"]=SubType
+                from . import ClassInitSSDModelMultiSlice
+                log.print(ModColor.Str("Initialisation of sourcekins using MultiSlice/%s"%GD["MultiSliceDeconv"]["Type"],col="blue"))
+                self.ListInitMachine.append( ClassInitSSDModelMultiSlice.ClassInitSSDModelParallel(GD,
+                                                                                                   NFreqBands, RefFreq,
+                                                                                                   NCPU=self.NCPU,
+                                                                                                   MainCache=self.maincache,
+                                                                                                   IdSharedMem=self.IdSharedMem) )
+                
+            else:
+                raise ValueError("InitType should be HMP or MultiSlice or MORESANE")
+
+        if len(self.ListInitMachine)>1 and GD["GAClean"]["NMaxGen"]==0:
+            stop
         self._init_machine_initialized = False
 
 
@@ -153,12 +181,15 @@ class ClassImageDeconvMachine():
 
     def _init_InitMachine(self):
         if not self._init_machine_initialized:
-            self.InitMachine.Init(self.DicoVariablePSF, self.GridFreqs, self.DegridFreqs)
-            self._init_machine_initialized = True
+            for InitMachine in self.ListInitMachine:
+                InitMachine.Init(self.DicoVariablePSF, self.GridFreqs, self.DegridFreqs)
+                
+        self._init_machine_initialized = True
 
     def _reset_InitMachine(self):
         if self._init_machine_initialized:
-            self.InitMachine.Reset()
+            for InitMachine in self.ListInitMachine:
+                InitMachine.Reset()
             self._init_machine_initialized = False
 
     def Init(self,**kwargs):
@@ -324,10 +355,20 @@ class ClassImageDeconvMachine():
         print("  selected %i islands larger than %i pixels for initialisation"%(np.count_nonzero(ListDoIslandsInit),self.GD["GAClean"]["MinSizeInit"]), file=log)
 
         self._init_InitMachine()
+        if self.DicoDicoInitIndiv is not None:
+            self.DicoDicoInitIndiv.delete()
+            
+        self.DicoDicoInitIndiv  = shared_dict.create("DicoDicoInitIndiv")
         if np.count_nonzero(ListDoIslandsInit)>0:
-            self.DicoInitIndiv = self.InitMachine.giveDicoInitIndiv(self.ListIslands,
-                                                                    ListDoIsland=ListDoIslandsInit,
-                                                                    ModelImage=ModelImage, DicoDirty=self.DicoDirty)
+            self.ListDicoInitIndiv=[]
+            for iMachine,InitMachine in enumerate(self.ListInitMachine):
+                self.DicoDicoInitIndiv[iMachine] = InitMachine.giveDicoInitIndiv(self.ListIslands,
+                                                                                 ListDoIsland=ListDoIslandsInit,
+                                                                                 ModelImage=ModelImage,
+                                                                                 DicoDirty=self.DicoDirty)
+                
+                # print(iMachine,(self.DicoDicoInitIndiv[iMachine][0]["PolyModel"]))
+                
         if self.GD["Misc"]["ConserveMemory"]:
             self._reset_InitMachine()
 
@@ -413,25 +454,23 @@ class ClassImageDeconvMachine():
             print("Evolving %i generations of %i sourcekin"%(self.GD["GAClean"]["NMaxGen"],self.GD["GAClean"]["NSourceKin"]), file=log)
             ListBigIslands=[]
             ListSmallIslands=[]
-            ListInitBigIslands=[]
-            ListInitSmallIslands=[]
+            
             for iIsland,Island in enumerate(self.ListIslands):
                 if len(Island)>self.GD["SSDClean"]["ConvFFTSwitch"]:
                     ListBigIslands.append(Island)
-                    ListInitBigIslands.append(self.DicoInitIndiv.get(iIsland,None))
                 else:
                     ListSmallIslands.append(Island)
-                    ListInitSmallIslands.append(self.DicoInitIndiv.get(iIsland,None))
+
 
             if len(ListSmallIslands)>0:
                 print("Deconvolve small islands (<=%i pixels) (parallelised over island)"%(self.GD["SSDClean"]["ConvFFTSwitch"]), file=log)
-                self.DeconvListIsland(ListSmallIslands,ParallelMode="OverIslands",ListInitIslands=ListInitSmallIslands)
+                self.DeconvListIsland(ListSmallIslands,ParallelMode="OverIslands")
             else:
                 print("No small islands", file=log)
 
             if len(ListBigIslands)>0:
                 print("Deconvolve large islands (>%i pixels) (parallelised per island)"%(self.GD["SSDClean"]["ConvFFTSwitch"]), file=log)
-                self.DeconvListIsland(ListBigIslands,ParallelMode="PerIsland",ListInitIslands=ListInitBigIslands)
+                self.DeconvListIsland(ListBigIslands,ParallelMode="PerIsland")
             else:
                 print("No large islands", file=log)
 
@@ -460,13 +499,14 @@ class ClassImageDeconvMachine():
                 self.SelectedIslandsMask[0,0,x,y]=1
                 
             self.DeconvListIsland(ListBigIslands,ParallelMode="PerIsland")
-
+            
+        self.DicoDicoInitIndiv.delete()
         return "MaxIter", True, True   # stop deconvolution but do update model
 
 
 
 
-    def DeconvListIsland(self,ListIslands,ParallelMode="OverIslands",ListInitIslands=None):
+    def DeconvListIsland(self,ListIslands,ParallelMode="OverIslands"):
         # ================== Parallel part
 
         NIslands=len(ListIslands)
@@ -560,18 +600,19 @@ class ClassImageDeconvMachine():
                                  self._Dirty,
                                  self.DicoVariablePSF["CubeVariablePSF"],
                                  IdSharedMem=self.IdSharedMem,
-                                 FreqsInfo=self.PSFServer.DicoMappingDesc,ParallelPerIsland=ParallelPerIsland,
+                                 FreqsInfo=self.PSFServer.DicoMappingDesc,
+                                 ParallelPerIsland=ParallelPerIsland,
                                  StopWhenQueueEmpty=StopWhenQueueEmpty,
                                  DeconvMode=self.DeconvMode,
-                                 NChains=self.NChains,
-                                 ListInitIslands=ListInitIslands)
+                                 NChains=self.NChains)
+            
             workerlist.append(W)
-
+            
             if Parallel: 
                 workerlist[ii].start()
             else:
                 workerlist[ii].run()
-
+            
         iResult=0
         #print "!!!!!!!!!!!!!!!!!!!!!!!!",iResult,NJobs
         while iResult < NJobs:
@@ -725,14 +766,12 @@ class WorkerDeconvIsland(multiprocessing.Process):
                  ParallelPerIsland=False,
                  StopWhenQueueEmpty=False,
                  DeconvMode="GAClean",
-                 NChains=1,
-                 ListInitIslands=None):
+                 NChains=1):
         multiprocessing.Process.__init__(self)
         self.MultiFreqMode=MultiFreqMode
         self.work_queue = work_queue
         self.result_queue = result_queue
         self.kill_received = False
-        self.ListInitIslands=ListInitIslands
         self.exit = multiprocessing.Event()
         self.GD=GD
         self.IdSharedMem=IdSharedMem
@@ -819,8 +858,7 @@ class WorkerDeconvIsland(multiprocessing.Process):
                                   GD=self.GD,
                                   iIsland=iIsland,
                                   island_dict=island_dict,
-                                  ParallelFitness=self.ParallelPerIsland,
-                                  ListInitIslands=self.ListInitIslands)
+                                  ParallelFitness=self.ParallelPerIsland)
                 Model=CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
                 island_dict["Model"] = np.array(Model)
                 del(CEv)

@@ -14,6 +14,7 @@ import numpy as np
 import random
 import psutil
 from DDFacet.Imager.SSD2 import ClassArrayMethodSSD
+from DDFacet.Array import shared_dict
 
 def FilterIslandsPix(ListIn,Npix):
     ListOut=[]
@@ -135,18 +136,41 @@ class ClassEvolveGA():
         #print "Best indiv start",
         #self.ArrayMethodsMachine.PM.PrintIndiv(self.IslandBestIndiv)
         #print
-        if self.IslandBestIndiv is not None:
-            #SModelArrayMP,Alpha=self.ArrayMethodsMachine.DeconvCLEAN()
-            #AModelArrayMP=None
-            DicoModelMP=self.ListInitIslands[self.iIsland]
+        
+        def GiveListPolyArrayMP(N,iTypeInit=None):
+            return [GivePolyArrayMP(iTypeInit=iTypeInit) for iIndiv in range(N)]
+                
+        def GivePolyArrayMP(iTypeInit=None):
+            
+            NTypeInit=len(self.DicoDicoInitIndiv.keys())
+            
+            if iTypeInit is None:
+                iTypeInit=int(np.random.rand(1)[0]*NTypeInit)
+            
+            DicoModelMP=None
+            DicoInitIndiv=self.DicoDicoInitIndiv.get(iTypeInit,None)
+            if DicoInitIndiv is not None:
+                DicoModelMP=DicoInitIndiv.get(self.iIsland,None)
+            
             if DicoModelMP is not None:
-                SModelArrayMP,AModelArrayMP=DicoModelMP["S"],DicoModelMP["Alpha"]
+                PolyModelArrayMP=DicoModelMP["PolyModel"]
             else:
                 SModelArrayMP,_=self.ArrayMethodsMachine.DeconvCLEAN()
                 AModelArrayMP=np.zeros_like(SModelArrayMP)
+                PolyModelArrayMP=np.zeros((self.ArrayMethodsMachine.PM.NOrderPoly,self.ArrayMethodsMachine.PM.NPixListParms),np.float32)
+                PolyModelArrayMP[0,:]=SModelArrayMP
+            return PolyModelArrayMP
 
-            if NGen==0: 
-                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArrayMP,AlphaModel=AModelArrayMP,PutNoise=False)
+        self.DicoDicoInitIndiv  = shared_dict.attach("DicoDicoInitIndiv")
+        self.DicoDicoInitIndiv.reload()
+        
+        if self.IslandBestIndiv is not None:
+            #SModelArrayMP,Alpha=self.ArrayMethodsMachine.DeconvCLEAN()
+            #AModelArrayMP=None
+            
+            
+            if NGen==0:
+                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,GiveListPolyArrayMP(1)*len(self.pop),PutNoise=False)
                 self.ArrayMethodsMachine.KillWorkers()
                 return self.pop[0]
 
@@ -154,7 +178,8 @@ class ClassEvolveGA():
             PutNoise=True#False
             if np.max(np.abs(self.IslandBestIndiv))==0:
                 #print("NEW")
-                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArrayMP,AlphaModel=AModelArrayMP,PutNoise=PutNoise)
+                ListPolyModelArrayMP=GiveListPolyArrayMP(len(self.pop))
+                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,ListPolyModelArrayMP,PutNoise=PutNoise)
             else:
                 #print("MIX")
                 NIndiv=len(self.pop)//10
@@ -174,35 +199,43 @@ class ClassEvolveGA():
                 
                 # self.ArrayMethodsMachine.PM.ReinitPop(pop0,SModelArray)
 
+                # print("Best!!!",BestIndiv)
+                # print("Best!!!",BestIndiv)
+                # print("Best!!!",BestIndiv)
+                # print("Best!!!",BestIndiv)
+                # print("Best!!!",BestIndiv)
+                # print("Best!!!",BestIndiv)
+                # print("Best!!!",BestIndiv)
+
+
+                ##################"
+                # BEST
                 # half with the best indiv
-                SModelArrayBest=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"Poly0")
-                AlphaModel=None
+                PolyModelArray=None
                 if "Poly1" in self.ArrayMethodsMachine.PM.SolveParam:
-                    AlphaModel=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"Poly1")
+                    PolyModelArray=np.zeros((self.ArrayMethodsMachine.PM.NOrderPoly,self.ArrayMethodsMachine.PM.NPixListParms),np.float32)
+                    for iOrder in range(self.ArrayMethodsMachine.PM.NOrderPoly):
+                        PolyModelArray[iOrder]=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"Poly%i"%iOrder)
+
                 GSigModel=None
                 if "GSig" in self.ArrayMethodsMachine.PM.SolveParam:
                     GSigModel=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"GSig")
 
-                self.ArrayMethodsMachine.PM.ReinitPop(pop1,SModelArrayBest,AlphaModel=AlphaModel,GSigModel=GSigModel,PutNoise=PutNoise)
-
-                # print(BestIndiv.flat[:])
-                # print(BestIndiv.flat[:])
-                # print(BestIndiv.flat[:])
-                # print(BestIndiv.flat[:])
-                # print(BestIndiv.flat[:])
-                # print(BestIndiv.flat[:])
-                # print(BestIndiv.flat[:])
+                self.ArrayMethodsMachine.PM.ReinitPop(pop1,[PolyModelArray]*len(pop1),GSigModel=GSigModel,PutNoise=PutNoise)
                 pop1[0].flat[:]=BestIndiv.flat[:]
-
                 
+                ##################"
+                # From Minor Cycle estimate
                 
                 # half of the pop with the MP model
-                #SModelArrayBest0=SModelArrayBest.copy()
-                #mask=(SModelArrayBest0==0)
-                #SModelArrayBest0[mask]=SModelArrayMP[mask]
-                #self.ArrayMethodsMachine.PM.ReinitPop(pop0,SModelArrayBest0,AlphaModel=AlphaModel,GSigModel=GSigModel)
-                self.ArrayMethodsMachine.PM.ReinitPop(pop0,SModelArrayMP,AlphaModel=AModelArrayMP,PutNoise=PutNoise)
-                
+                self.ArrayMethodsMachine.PM.ReinitPop(pop0,GiveListPolyArrayMP( len(pop0) ),PutNoise=PutNoise)
+
+                NTypeInit=len(self.DicoDicoInitIndiv.keys())
+                for iTypeInit in range(NTypeInit):
+                    pop0a=pop0[iTypeInit:iTypeInit+1]
+                    self.ArrayMethodsMachine.PM.ReinitPop(pop0a,GiveListPolyArrayMP( len(pop0a) , iTypeInit=iTypeInit),PutNoise=False)
+
+                    
                 # _,Chi20=self.ArrayMethodsMachine.GiveFitnessPop(pop0)
                 # _,Chi21=self.ArrayMethodsMachine.GiveFitnessPop(pop1)
                 # print

@@ -95,7 +95,9 @@ class ClassArrayMethodSSD():
         self.FreqsInfo=FreqsInfo
         
         self.NFreqBands,self.npol,self.NPixPSF,_=PSF.shape
-        self.PM=ClassParamMachine(ListPixParms,ListPixData,FreqsInfo,SolveParam=GD["SSDClean"]["SSDSolvePars"])
+        self.PM=ClassParamMachine(ListPixParms,ListPixData,FreqsInfo,
+                                  NOrderPoly=GD["SSD2"]["PolyFreqOrder"],
+                                  SolveParamType=GD["SSD2"]["SolvePars"])
         self.PM.setFreqs(FreqsInfo)
         self.ConvMachine.setParamMachine(self.PM)
         

@@ -28,7 +28,7 @@ import os
 import numpy as np
 from DDFacet.Other import logger
 from DDFacet.Other import ModColor
-log=logger.getLogger("ClassImageDeconvMachine")
+log=logger.getLogger("ClassImageDeconvMachineMultiSlice")
 from DDFacet.Array import NpParallel
 from DDFacet.Array import NpShared
 from DDFacet.ToolsDir import ModFFTW
@@ -58,6 +58,7 @@ class ClassImageDeconvMachine():
         self.MultiFreqMode=(self.GD["Freq"]["NBand"]>1)
         self.CurrentNegMask=None
         self.FitFluxScale="Linear"
+        self.MaskMachine=None
         
     def SetPSF(self,DicoVariablePSF):
         self.PSFServer=ClassPSFServer(self.GD)
@@ -220,11 +221,11 @@ class ClassImageDeconvMachine():
 
             
         from skimage import restoration
-        
+
         for ch in range(nch):
             #print dirty[ch,0,s_dirty_cut,s_dirty_cut].shape
             #print psf[ch,0,s_psf_cut,s_psf_cut].shape
-
+            log.print("Deconvolve slice #%i"%ch)
             if self.GD["MultiSliceDeconv"]["Type"]=="MORESANE":
                 s_dirty_cut=self.giveSliceCut(dirty,Nout)
                 s_psf_cut=self.giveSliceCut(psf,2*Nout)
@@ -299,10 +300,11 @@ class ClassImageDeconvMachine():
         #Model.fill(0)
         #Model[:,:,xp,yp]=self._Dirty[:,:,xp,yp]
 
-        
-        indx,indy=np.where(CurrentNegMask[0,0]==1)
-        for ch in range(nch):
-            Model[ch,0,indx,indy]=0
+        if CurrentNegMask is not None:
+            indx,indy=np.where(CurrentNegMask[0,0]==1)
+            for ch in range(nch):
+                Model[ch,0,indx,indy]=0
+                
         CoefImage=self.DoSpectralFit(Model)
         self.ModelMachine.setModel(CoefImage,FluxScale=self.FitFluxScale)
 
@@ -320,9 +322,9 @@ class ClassImageDeconvMachine():
             Fit=np.zeros_like(F)
             for iBand in range(R.size):
                 Fit[iBand]=self.SpectralFunctionsMachine.IntExpFuncPoly(X.reshape((1,NOrder)),
-                                                                               iChannel=iBand,
-                                                                               iFacet=iFacet,
-                                                                               FluxScale=self.FitFluxScale)
+                                                                        iChannel=iBand,
+                                                                        iFacet=iFacet,
+                                                                        FluxScale=self.FitFluxScale)
             Fit[Fit<0]*=100.
             R=F-Fit
             # print("aa",R)
@@ -334,7 +336,7 @@ class ClassImageDeconvMachine():
         indx,indy=np.where((Model[:,0,:,:]).any(axis=0))
         iDone=0
         for iPix,jPix in zip(indx.tolist(),indy.tolist()):
-            #print("%i/%i"%(iDone,indx.size))
+            #log.print("%i/%i:[%i, %i]"%(iDone,indx.size,iPix,jPix))
             iDone+=1
             self.PSFServer.setLocation(iPix,jPix)
             iFacet=self.PSFServer.iFacet
@@ -362,6 +364,7 @@ class ClassImageDeconvMachine():
             #stop
             CoefImage[:,0,iPix,jPix]=x[:]
                 
+        log.print("   done...")
         CoefImage[:,:,:,:]*=self.GD["Deconv"]["Gain"]
         return CoefImage
     

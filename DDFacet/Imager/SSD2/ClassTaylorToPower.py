@@ -1,18 +1,65 @@
 #from sympy import *
 import sympy
 from DDFacet.Other import logger
-log=logger.getLogger("ClassInitSSDModel")
+log=logger.getLogger("ClassTaylorToPower")
 import copy
+import numpy as np
 
 def test():
-    CTP=ClassTaylorToPower(4)
-    CTP.Compute()
+    N=3
+    CTP=ClassTaylorToPower(N)
+    CTP.ComputeConvertionFunctions()
 
+    nu=np.linspace(100,300,100)*1e6
+    nu0=200e6
+    # a0=10.
+    # a1=-0.7
+    # a2=1.
+    
+    
+    b0=10.
+    b1=1.
+    b2=0.
+    
+    f=b0+b1*(nu-nu0)/nu0+b2*((nu-nu0)/nu0)**2
+    
+    Cube=np.random.rand(N,1,1,1)
+    Cube[0,0,0,0]=b0
+    Cube[1,0,0,0]=b1
+    Cube[2,0,0,0]=b2
+    C=CTP.LinPolyCube2LogPolyCube(Cube)
+    
+    a0,a1,a2=C.flat[:]
+    fPow=a0*(nu/nu0)**(a1+a2*np.log(nu/nu0))
+    
+    import pylab
+    pylab.clf()
+    pylab.plot(nu,np.log10(f),label="linear")
+    pylab.plot(nu,np.log10(fPow),label="synchrotron")
+    pylab.legend()
+    pylab.draw()
+    pylab.show(block=False)
+    return
+    
+    # a=np.random.rand(5,5)
+    # print(CTP.LLambda[0](a,a,a))
+    
+    Cube=np.random.rand(N,1,5,5)
+    C=CTP.LinPolyCube2LogPolyCube(Cube)
+    
+
+
+    print(C)
+    return CTP
+    
+    
+    stop
+    
 class ClassTaylorToPower():
     def __init__(self,N):
         self.N=N
 
-    def Compute(self):
+    def ComputeConvertionFunctions(self):
         N=self.N
         Ss=" ".join(["a%i"%i for i in range(self.N)])
         St=" ".join(["b%i"%i for i in range(self.N)])
@@ -24,50 +71,71 @@ class ClassTaylorToPower():
         #a0, a1, a2, nu, nu0 =sympy.symbols('a0 a1 a2 nu nu0')
 
         SPow="+".join(["a%i*sympy.Pow(sympy.log(nu/nu0),%i) "%(i,i-1) for i in range(1,N)])
-        Ex="e=a0*sympy.Pow((nu/nu0),%s)"%SPow
+        #Ex="e=a0*sympy.Pow((nu/nu0),%s)"%SPow
         #Ex="e=a0*Pow((nu/nu0),2)"
         #exec("import sympy; %s"%Ex,locals())
         #exec("import sympy; %s"%Ex,locals())
         Ex="a0*sympy.Pow((nu/nu0),%s)"%SPow
         e=eval("%s"%Ex)
+
+        
+        
         log.print("Spectral expression (log): %s"%e)
+
+
         
         et=eval("e.series(x=nu, x0=nu0, n=N)")
         et0=sympy.Add(*(et.args[0:N]))
-
+        
         P = eval("sympy.Poly(et0, nu)")
         pc0=P.coeffs()
-
         
-        Ex="+".join(["b%i*sympy.Pow((nu-nu0)/nu0,%i) "%(i,i) for i in range(0,N)])
-        e1=eval(Ex)
+        
+        
+        Ex1="+".join(["b%i*sympy.Pow((nu-nu0)/nu0,%i) "%(i,i) for i in range(0,N)])
+        e1=eval(Ex1)
         log.print("Spectral expression (lin): %s"%e1)
         P1=eval("sympy.Poly(e1,nu)")
         pc1=P1.coeffs()
+        
+        
+        
         L=[sympy.Eq(pc0[i], pc1[i]) for i in range(0,N)]
         La=",".join(["a%i"%i for i in range(N)])
         S=sympy.solve(L,La)[0]
+        
         log.print("Solutions")
         SLa=" ".join(["a%i"%i for i in range(self.N)])
         La=eval("sympy.symbols('%s')"%(SLa))
-        print(La)
+        SLb=" ".join(["b%i"%i for i in range(self.N)])
+        Lb=eval("sympy.symbols('%s')"%(SLb))
+
+        # SS='sympy.lambdify(%s,%s,"numpy")'%(str(tuple(La)), Ex)
+        # self.fPow=eval(SS)
+        # self.fLin=eval('sympy.lambdify(%s,e1,"numpy")'%(str(tuple(Lb))))
+        
+        
+        
         LLambda=[]
         for ik,k in enumerate(La):
             log.print("   %s = %s"%(k,S[k].simplify()))
-            f=eval('sympy.lambdify(%s,S[k],"numpy")'%str(tuple(La)))
+            SS='sympy.lambdify(%s,%s,"numpy")'%(str(tuple(Lb)),S[k].simplify())
+            f=eval(SS)
             LLambda.append(f)
-            
+
         self.LLambda=LLambda
 
     def LinPolyCube2LogPolyCube(self,Cube):
         NTerms,npol,nx,ny=Cube.shape
         Lp=[]
+        indx,indy=np.where(Cube[0,0]!=0)
         for iTerm in range(NTerms):
-            Lp=Cube[iTerm,0,:,:]
+            Lp.append(Cube[iTerm,0,indx,indy])
         Lp=tuple(Lp)
         CubeOut=np.zeros_like(Cube)
         for iTerm in range(NTerms):
-            CubeOut[iTerm,0,:,:]=self.LLambda[iTerm](*Lp)
+            CubeOut[iTerm,0].flat[indx*ny+indy]=self.LLambda[iTerm](*Lp)
+            #CubeOut[iTerm,0,:,:]=self.LLambda[iTerm](*Lp)
         return CubeOut
     
 # et.factor()

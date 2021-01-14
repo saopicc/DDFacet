@@ -22,17 +22,25 @@ import traceback
 from DDFacet.Other import ModColor
 from .ClassConvMachine import ClassConvMachineImages
 from DDFacet.Imager import ClassMaskMachine
+from .ClassTaylorToPower import ClassTaylorToPower
 
-SilentModules=["ClassPSFServer","ClassImageDeconvMachine","GiveModelMachine","ClassModelMachineMultiSlice","ClassModelMachineSSD"]
+SilentModules=["ClassPSFServer",
+               "ClassImageDeconvMachine",
+               "GiveModelMachine",
+               "ClassImageDeconvMachineMultiSlice",
+               "ClassModelMachineMultiSlice",
+               "ClassTaylorToPower",
+               "ClassModelMachineSSD"]
 
 class ClassInitSSDModelParallel():
     def __init__(self, GD, NFreqBands, RefFreq, NCPU, MainCache=None,IdSharedMem=""):
         self.GD = copy.deepcopy(GD)
+        self.GD["MultiSliceDeconv"]["PolyFitOrder"]=self.GD["SSD2"]["PolyFreqOrder"]
         self.MainCache=MainCache
         self.RefFreq=RefFreq
         self.NCPU = NCPU
         self.IdSharedMem=IdSharedMem
-
+        
 
     def Init(self, DicoVariablePSF, GridFreqs, DegridFreqs):
         self.DicoVariablePSF=DicoVariablePSF
@@ -52,7 +60,7 @@ class ClassInitSSDModelParallel():
         #self.InitMachine.Reset()
 
     def giveDicoInitIndiv(self,ListIslands,ModelImage,DicoDirty,ListDoIsland=None,Parallel=True):
-        #Parallel=False
+        # Parallel=False
         NCPU=self.NCPU
         work_queue = multiprocessing.JoinableQueue()
         ListIslands=ListIslands#[300:308]
@@ -165,6 +173,9 @@ class ClassInitSSDModel():
         self.GD["Deconv"]["AllowNegative"]=self.GD["GAClean"]["AllowNegativeInitHMP"]
         self.GD["Deconv"]["MaxMinorIter"]=self.GD["GAClean"]["MaxMinorIterInitHMP"]
         
+        self.CTP=ClassTaylorToPower(self.GD["MultiSliceDeconv"]["PolyFitOrder"])
+        self.CTP.ComputeConvertionFunctions()
+        
         logger.setSilent(SilentModules)
 
         self.GD["HMP"]["Scales"]=self.GD["GAClean"]["ScalesInitHMP"]
@@ -200,8 +211,8 @@ class ClassInitSSDModel():
                                                                                      **self.MinorCycleConfig)
         self.GD["Mask"]["Auto"]=False
         self.GD["Mask"]["External"]=None
-        self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
-        self.DeconvMachine.setMaskMachine(self.MaskMachine)
+        #self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
+        #self.DeconvMachine.setMaskMachine(self.MaskMachine)
 
         self.Margin=50
 
@@ -364,7 +375,7 @@ class ClassInitSSDModel():
         T.timeit("setlistcomp")
         
         self.DeconvMachine.Update(self.DicoSubDirty,DoSetMask=False)
-        #self.DeconvMachine.updateMask(np.logical_not(self.SubMask))
+        self.DeconvMachine.updateMask(np.logical_not(self.SubMask))
         self.DeconvMachine.updateModelMachine(self.ModelMachine)
         #self.DeconvMachine.resetCounter()
         T.timeit("update")
@@ -375,6 +386,13 @@ class ClassInitSSDModel():
         #print "deconv"
         #time.sleep(30)
 
+        ModelImage=self.ModelMachine.DicoModel["CoefImage"]#GiveModelImage()
+        ModelImage=self.CTP.LinPolyCube2LogPolyCube(ModelImage)
+        x,y=self.ArrayPixParms.T
+        ModelImageIsland=ModelImage[:,0,x,y]
+        return ModelImageIsland
+    
+        T.timeit("getmodel")
         ModelImage=self.ModelMachine.GiveModelImage()
         T.timeit("getmodel")
 
@@ -523,8 +541,11 @@ class WorkerInitMSMF(multiprocessing.Process):
             self.Init()
         iIsland=DicoJob["iIsland"]
         Island=self.ListIsland[iIsland]
-        SModel,AModel=self.InitMachine.giveModel(Island)
-        DicoInitIndiv={"S":SModel,"Alpha":AModel}
+        #SModel,AModel=self.InitMachine.giveModel(Island)
+        PolyModel=self.InitMachine.giveModel(Island)
+        DicoInitIndiv={#"S":SModel,
+                       #"Alpha":AModel,
+                       "PolyModel":PolyModel}
         NameDico="%sDicoInitIsland%5.5i"%(self.IdSharedMem,iIsland)
         NpShared.DicoToShared(NameDico, DicoInitIndiv)
         self.result_queue.put({"Success": True, "iIsland": iIsland})

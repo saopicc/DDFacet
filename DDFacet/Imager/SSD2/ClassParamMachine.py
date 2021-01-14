@@ -34,17 +34,24 @@ from DDFacet.ToolsDir import ClassSpectralFunctions
 
 
 class ClassParamMachine():
-    def __init__(self,ListPixParms,ListPixData,FreqsInfo,iFacet=0,SolveParam=["Poly0","Poly1"]):
+    def __init__(self,ListPixParms,ListPixData,FreqsInfo,iFacet=0,
+                 NOrderPoly=2,
+                 SolveParamType=["Poly"]):
 
         self.ListPixParms=ListPixParms
         self.ListPixData=ListPixData
         self.NPixListParms=len(self.ListPixParms)
         self.NPixListData=len(self.ListPixData)
         self.iFacet=iFacet
-
-
+        self.NOrderPoly=NOrderPoly
+        SolveParam=[]
+        if "Poly" in SolveParamType:
+            for iOrder in range(NOrderPoly): SolveParam.append("Poly%i"%iOrder)
+        if "GSig" in SolveParamType: 
+            SolveParam.append("GSig")
+            
+        self.PolyOrder=NOrderPoly#np.sum([("Poly" in key) for key in SolveParam])
         
-        self.PolyOrder=np.sum([("Poly" in key) for key in SolveParam])
         self.SolveParam=SolveParam
 
         
@@ -53,7 +60,7 @@ class ClassParamMachine():
             self.MultiFreqMode=True
 
         self.NParam=len(self.SolveParam)
-
+        
         self.DicoIParm={}
         DefaultValues={"Poly0":{"Mean":0.,
                             "Sigma":{
@@ -120,23 +127,31 @@ class ClassParamMachine():
                 ListPars+=[toolbox.attr_float_normal_GSig]*self.NPixListParms
         return ListPars
 
-    def ReinitPop(self,pop,SModelArray,AlphaModel=None,GSigModel=None,PutNoise=True):
-
+    #    def ReinitPop(self,pop,SModelArray,AlphaModel=None,GSigModel=None,PutNoise=True):
+    def ReinitPop(self,pop,ListPolyModelArray,GSigModel=None,PutNoise=True):
+        
+        
         for Type in self.SolveParam:
-            DicoSigma=self.DicoIParm[Type]["Default"]["Sigma"]
-            MeanVal=self.DicoIParm[Type]["Default"]["Mean"]
-            if DicoSigma["Type"]=="Abs":
-                SigVal=DicoSigma["Value"]
-            elif DicoSigma["Type"]=="PeakFlux":
-                SigVal=DicoSigma["Value"]*np.max(np.abs(SModelArray))
-            # elif DicoSigma["Type"]=="Median":
-            #     SigVal=DicoSigma["Value"]*np.median(SModelArray[SModelArray!=0])
             
 
             for i_indiv,indiv in zip(range(len(pop)),pop):
+                
+                PolyModelArray=ListPolyModelArray[i_indiv]
+                
+                SModelArray=PolyModelArray[0,:]
+                
+                DicoSigma=self.DicoIParm[Type]["Default"]["Sigma"]
+                MeanVal=self.DicoIParm[Type]["Default"]["Mean"]
+                if DicoSigma["Type"]=="Abs":
+                    SigVal=DicoSigma["Value"]
+                elif DicoSigma["Type"]=="PeakFlux":
+                    SigVal=DicoSigma["Value"]*np.max(np.abs(SModelArray))
+
+
+                
                 SubArray=self.ArrayToSubArray(indiv,Type=Type)
                 if Type=="Poly0":
-                    SubArray[:]=SModelArray[:]
+                    SubArray[:]=PolyModelArray[0,:]
                     S=np.abs(SubArray[:]).copy()
                     S/=np.max(S)
                     if (i_indiv!=0) and PutNoise:
@@ -144,18 +159,32 @@ class ClassParamMachine():
                         #SubArray[:]+=np.random.randn(SModelArray.size)*SigVal*(SubArray[:]!=0.) # will not put noise in zero-valued pixels
                         SubArray[:]+=np.random.randn(SModelArray.size)*SigVal*S # will not put noise in zero-valued pixels
 
-                elif Type=="Poly1":
-                    if AlphaModel is None:
-                        AlphaModel=MeanVal*np.ones((SModelArray.size,),np.float32)
+                elif "Poly" in Type:
+                    iOrder=int(Type[4:])
+                    AlphaModel=None
+                    
+                    AlphaModel=PolyModelArray[iOrder]
+                    
+                    # if PolyModelArray.shape[0]>=iOrder:
+                    #     AlphaModel=PolyModelArray[iOrder]
+                    # else:
+                    #     AlphaModel=MeanVal*np.ones((SModelArray.size,),np.float32)
+                        
                     SubArray[:]=AlphaModel[:]
                     if (i_indiv!=0) and PutNoise: 
                         SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
 
-                elif "Poly" in Type:
-                    ParmModel=MeanVal*np.ones((SModelArray.size,),np.float32)
-                    SubArray[:]=ParmModel[:]
-                    if (i_indiv!=0) and PutNoise: 
-                        SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
+                # elif Type=="Poly1":
+                #     if AlphaModel is None:
+                #         AlphaModel=MeanVal*np.ones((SModelArray.size,),np.float32)
+                #     SubArray[:]=AlphaModel[:]
+                #     if (i_indiv!=0) and PutNoise: 
+                #         SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
+                # elif "Poly" in Type:
+                #     ParmModel=MeanVal*np.ones((SModelArray.size,),np.float32)
+                #     SubArray[:]=ParmModel[:]
+                #     if (i_indiv!=0) and PutNoise: 
+                #         SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
 
                 elif Type=="GSig":
                     if GSigModel==None:
