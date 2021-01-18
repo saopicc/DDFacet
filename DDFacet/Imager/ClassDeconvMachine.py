@@ -1163,6 +1163,7 @@ class ClassImagerDeconv():
             self.ImageNoiseMachine.setPSF(self.DicoImagesPSF)
             # now update the mask - it will eventually call for ImageNoiseMachine to compute a noise image
             self.MaskMachine.updateMask(self.DicoDirty)
+            
             if self.MaskMachine.CurrentMask is not None:
                 if "k" in self._saveims:
                     self.FacetMachine.ToCasaImage(np.float32(self.MaskMachine.CurrentMask),

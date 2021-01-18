@@ -261,31 +261,56 @@ class ClassImageDeconvMachine():
                 # model = restoration.richardson_lucy(dirty[ch,0,s_dirty_cut,s_dirty_cut], psf[ch,0,s_psf_cut,s_psf_cut], iterations=30)
                 
             Model[ch,0,s_dirty_cut,s_dirty_cut]=model[:,:]
-
+            #print(Model[ch,0].max(),Model[ch,0],np.count_nonzero(Model[ch,0]!=0))
             
-            # Dty=fftconvolve(model,B, mode='same')#[s_dirty_cut,s_dirty_cut]
-            # print(dirty[ch,0,s_dirty_cut,s_dirty_cut].max(), psf[ch,0,s_psf_cut,s_psf_cut].max(),np.sum(model))
+            # if CurrentNegMask is not None:
+            #     indx,indy=np.where(CurrentNegMask[0,0]==1)
+            #     nx,ny=Model[ch,0].shape
+            #     Model[ch,0].flat[indx*ny+indy]=0
+            # #print(Model[ch,0].max(),Model[ch,0],np.count_nonzero(Model[ch,0]!=0))
+
+
+
+            #N0=model.shape[0]//2
+            
+            Dty=fftconvolve(Model[ch,0,s_dirty_cut,s_dirty_cut],B, mode='same')#[s_dirty_cut,s_dirty_cut]
+
+            #import scipy.signal
+            #Dty=scipy.signal.convolve2d(model,B, mode='same')
+            
+            fact=np.max(dirty[ch,0,s_dirty_cut,s_dirty_cut])/np.max(Dty)
+            log.print("Peak-based correction factor: %f"%fact)
+            Model[ch,0,s_dirty_cut,s_dirty_cut]*=fact
+
+            # # print(dirty[ch,0,s_dirty_cut,s_dirty_cut].max(), psf[ch,0,s_psf_cut,s_psf_cut].max(),np.sum(model))
+            
             # import pylab
-            # pylab.clf()
-            # pylab.subplot(2,2,1)
-            # pylab.imshow(dirty[ch,0,s_dirty_cut,s_dirty_cut],interpolation="nearest")
+            # pylab.clf(),s_dirty_cut,s_dirty_cut
+            # ax=pylab.subplot(2,2,1)
+            # pylab.imshow(A,interpolation="nearest")
+            # #pylab.imshow(CurrentNegMask[0,0,s_dirty_cut,s_dirty_cut],interpolation="nearest")
             # pylab.colorbar()
-            # pylab.subplot(2,2,2)
-            # pylab.imshow(psf[ch,0,s_psf_cut,s_psf_cut],interpolation="nearest")
+            # pylab.title("Dirty")
+            # pylab.subplot(2,2,2,sharex=ax,sharey=ax)
+            # pylab.imshow(B,interpolation="nearest")
             # pylab.colorbar()
-            # pylab.subplot(2,2,3)
-            # pylab.imshow(model,interpolation="nearest")
+            # pylab.title("PSF")
+            # pylab.subplot(2,2,3,sharex=ax,sharey=ax)
+            # pylab.imshow((Model[ch,0,s_dirty_cut,s_dirty_cut]),interpolation="nearest")#,vmin=-0.1,vmax=0.1)
             # pylab.colorbar()
-            # pylab.subplot(2,2,4)
-            # pylab.imshow(dirty[ch,0,s_dirty_cut,s_dirty_cut]-Dty,interpolation="nearest")
+            # pylab.title("Model")
+            # pylab.subplot(2,2,4,sharex=ax,sharey=ax)
+            # pylab.imshow(A-Dty,interpolation="nearest")
             # pylab.colorbar()
+            # pylab.title("Dirty-Model*PSF")
             # # pylab.subplot(2,2,4)
             # # pylab.imshow(resid,interpolation="nearest")
             # # pylab.colorbar()
             # pylab.draw()
-            # pylab.show(block=False)
+            # pylab.show()#block=False)
             # pylab.pause(0.1)
 
+            
         # print 
         # print np.max(np.max(Model,axis=-1),axis=-1)
         # print 

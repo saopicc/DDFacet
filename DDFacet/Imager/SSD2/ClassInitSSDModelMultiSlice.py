@@ -173,8 +173,8 @@ class ClassInitSSDModel():
         self.GD["Deconv"]["AllowNegative"]=self.GD["GAClean"]["AllowNegativeInitHMP"]
         self.GD["Deconv"]["MaxMinorIter"]=self.GD["GAClean"]["MaxMinorIterInitHMP"]
         
-        self.CTP=ClassTaylorToPower(self.GD["MultiSliceDeconv"]["PolyFitOrder"])
-        self.CTP.ComputeConvertionFunctions()
+        # self.CTP=ClassTaylorToPower(self.GD["MultiSliceDeconv"]["PolyFitOrder"])
+        # self.CTP.ComputeConvertionFunctions()
         
         logger.setSilent(SilentModules)
 
