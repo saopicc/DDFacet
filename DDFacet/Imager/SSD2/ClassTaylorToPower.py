@@ -128,13 +128,41 @@ class ClassTaylorToPower():
     def LinPolyCube2LogPolyCube(self,Cube):
         NTerms,npol,nx,ny=Cube.shape
         Lp=[]
-        indx,indy=np.where(Cube[0,0]!=0)
+
+        absCube0=np.abs(Cube[0,0])
+        indx,indy=np.where( absCube0 > absCube0.max()/1e4 )
+        
         for iTerm in range(NTerms):
             Lp.append(Cube[iTerm,0,indx,indy])
         Lp=tuple(Lp)
         CubeOut=np.zeros_like(Cube)
+        
+        
+        
         for iTerm in range(NTerms):
             CubeOut[iTerm,0].flat[indx*ny+indy]=self.LLambda[iTerm](*Lp)
+            
+
+        for iTerm in range(NTerms):
+            c=CubeOut[iTerm,0,:,:]
+            ac=np.abs(c)
+            indx,indy=np.where(ac>10.)
+            for iTerm in range(NTerms):
+                CubeOut[iTerm,0].flat[indx*ny+indy]=0
+        
+        
+        
+        # print("!!!:::",Cube[:,0,indx,indy])
+        # print("!!!:::",Cube[:,0,indx,indy])
+        # print("!!!:::",Cube[:,0,indx,indy])
+        # print("!!!:::",Cube[:,0,indx,indy])
+        # print("!!!:::",Cube[:,0,indx,indy])
+        # print("!!!:::",CubeOut[:,0,indx,indy])
+        # print("!!!:::",CubeOut[:,0,indx,indy])
+        # print("!!!:::",CubeOut[:,0,indx,indy])
+        # print("!!!:::",CubeOut[:,0,indx,indy])
+        # print("!!!:::",CubeOut[:,0,indx,indy])
+        
             #CubeOut[iTerm,0,:,:]=self.LLambda[iTerm](*Lp)
         return CubeOut
     

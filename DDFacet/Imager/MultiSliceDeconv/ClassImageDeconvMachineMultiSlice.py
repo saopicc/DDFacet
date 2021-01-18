@@ -304,7 +304,13 @@ class ClassImageDeconvMachine():
             indx,indy=np.where(CurrentNegMask[0,0]==1)
             for ch in range(nch):
                 Model[ch,0,indx,indy]=0
-                
+
+        for ich in range(nch):
+            absModel=np.abs(Model[ich])
+            #_,indx,indy=np.where(np.any(absModel<absModel.max()/1e4,axis=0))
+            _,indx,indy=np.where(absModel<absModel.max()/1e4)
+            Model[ich,0,indx,indy]=0
+        
         CoefImage=self.DoSpectralFit(Model)
         self.ModelMachine.setModel(CoefImage,FluxScale=self.FitFluxScale)
 
@@ -336,7 +342,7 @@ class ClassImageDeconvMachine():
         indx,indy=np.where((Model[:,0,:,:]).any(axis=0))
         iDone=0
         for iPix,jPix in zip(indx.tolist(),indy.tolist()):
-            log.print("%i/%i:[%i, %i]"%(iDone,indx.size,iPix,jPix))
+            # log.print("%i/%i:[%i, %i]"%(iDone,indx.size,iPix,jPix))
             iDone+=1
             self.PSFServer.setLocation(iPix,jPix)
             iFacet=self.PSFServer.iFacet
@@ -355,12 +361,13 @@ class ClassImageDeconvMachine():
             x0=np.zeros((NOrder,),np.float64)
             x0[0]=F0
             if NOrder>1:
-                x0[1]=0.8
+                x0[1]=0.
             R0=GiveResid(x0,F,iFacet)
-            X=least_squares(GiveResid, x0, args=(F,iFacet),ftol=1e-1,gtol=1e-1,xtol=1e-1)
+            X=least_squares(GiveResid, x0, args=(F,iFacet),ftol=1e-2)#,gtol=1e-1,xtol=1e-1)
             R1=GiveResid(X['x'],F,iFacet)
             x=X['x']
             #print(F,x)
+            #print("%0.5f"%(x[1]))
             #stop
             CoefImage[:,0,iPix,jPix]=x[:]
                 

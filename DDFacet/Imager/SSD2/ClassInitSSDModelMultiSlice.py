@@ -60,7 +60,7 @@ class ClassInitSSDModelParallel():
         #self.InitMachine.Reset()
 
     def giveDicoInitIndiv(self,ListIslands,ModelImage,DicoDirty,ListDoIsland=None,Parallel=True):
-        # Parallel=False
+        Parallel=False
         NCPU=self.NCPU
         work_queue = multiprocessing.JoinableQueue()
         ListIslands=ListIslands#[300:308]
@@ -555,16 +555,16 @@ class WorkerInitMSMF(multiprocessing.Process):
         while not self.kill_received and not self.work_queue.empty():
             
             DicoJob = self.work_queue.get()
-            # self.initIsland(DicoJob)
-            try:
-                self.initIsland(DicoJob)
-            except:
-                print(traceback.format_exc())
-                iIsland=DicoJob["iIsland"]
-                FileOut="errIsland_%6.6i.npy"%iIsland
-                print(ModColor.Str("...... on island %i, saving to file %s"%(iIsland,FileOut)))
-                np.save(FileOut,np.array(self.ListIsland[iIsland]))
-                print()
+            self.initIsland(DicoJob)
+            # try:
+            #     self.initIsland(DicoJob)
+            # except:
+            #     print(traceback.format_exc())
+            #     iIsland=DicoJob["iIsland"]
+            #     FileOut="errIsland_%6.6i.npy"%iIsland
+            #     print(ModColor.Str("...... on island %i, saving to file %s"%(iIsland,FileOut)))
+            #     np.save(FileOut,np.array(self.ListIsland[iIsland]))
+            #     print()
 
 
 

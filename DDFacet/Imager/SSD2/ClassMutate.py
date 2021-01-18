@@ -83,6 +83,8 @@ class ClassMutate():
                 a1=A[iAlpha,0,i1,j1]
 
                 a2=(f0/f2)*(2**a0)+(f1/f2)*(2**a1)
+                #print(f0,f2,f1,a0,a1)
+                
                 if 1e-3<a2<1e3:
                     a2=np.log(a2)/np.log(2.)
                     # print a0,a1,a2
