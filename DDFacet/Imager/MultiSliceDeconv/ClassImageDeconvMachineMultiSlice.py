@@ -58,6 +58,7 @@ class ClassImageDeconvMachine():
         self.MultiFreqMode=(self.GD["Freq"]["NBand"]>1)
         self.CurrentNegMask=None
         self.FitFluxScale="Linear"
+        self.FitFluxScale="Exp"
         self.MaskMachine=None
         
     def SetPSF(self,DicoVariablePSF):

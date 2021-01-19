@@ -177,6 +177,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         f=ThisFreqs.reshape((1,-1,1))
         S0=PolyArray[:,0]
         a=(PolyArray.copy()).reshape((Npix,1,NOrder))
+        nch=ThisFreqs.size
+        
         if self.FluxScale=="Exp":
             a[:,:,0]=0.
             SUnityFreq0=a*(np.log(f/RefFreq))**n
@@ -188,7 +190,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             SUnityFreq0=a*((f-RefFreq)/RefFreq)**n
             SUnityFreq0=np.sum(SUnityFreq0,axis=-1)
             SUnityFreq=SUnityFreq0
-        nch=ThisFreqs.size
         ModelImagePix=SUnityFreq
         
         ind=np.int64(indx)*ny+np.int64(indy)
