@@ -137,22 +137,18 @@ class ClassATCABeam():
                                     0.03669,-0.03556,-0.08266,-0.12810,-0.15440,\
                                    -0.16090,-0.15360,-0.13566,-0.10666,-0.06847,\
                                    -0.03136,-0.00854])}
-        DicoCoefs[15]={"Name":"ATCA-X-upper", "f0":6.50e9, "f1":11e9,
-                      "C":np.array([1.0,1.04e-3,8.36e-7,-4.68e-10,5.50e-13])}
+#        DicoCoefs[15]={"Name":"ATCA-X-upper", "f0":6.50e9, "f1":11e9,
+#                      "C":np.array([1.00000, 1.04e-3, 8.36e-7,-4.68e-10,5.50e-13])}
 
-        
-        DicoCoefs[15]={"Name":"ATCA-C-RI-1", "f0":2.868e9, "f1":3.500e9,
-                      "C":np.array([ ])}
         NBand=len(DicoCoefs)
 
         nu0=ChanFreqs[0]
+
         for iBand in  DicoCoefs.keys():
             C=DicoCoefs[iBand]["C"][::-1]
-
             x0=np.roots(C)
             #x0deg=x0/(nu0/1e9)
             x=np.linspace(0,3.,1000)*60.
-
             P=np.poly1d((C))
             y=P(x)
             Pd=np.polyder(P, m=1)
