@@ -264,11 +264,11 @@ class ClassImageDeconvMachine():
             Model[ch,0,s_dirty_cut,s_dirty_cut]=model[:,:]
             #print(Model[ch,0].max(),Model[ch,0],np.count_nonzero(Model[ch,0]!=0))
             
-            # if CurrentNegMask is not None:
-            #     indx,indy=np.where(CurrentNegMask[0,0]==1)
-            #     nx,ny=Model[ch,0].shape
-            #     Model[ch,0].flat[indx*ny+indy]=0
-            # #print(Model[ch,0].max(),Model[ch,0],np.count_nonzero(Model[ch,0]!=0))
+            if CurrentNegMask is not None:
+                indx,indy=np.where(CurrentNegMask[0,0]==1)
+                nx,ny=Model[ch,0].shape
+                Model[ch,0].flat[indx*ny+indy]=0
+            #print(Model[ch,0].max(),Model[ch,0],np.count_nonzero(Model[ch,0]!=0))
 
 
 
@@ -279,9 +279,9 @@ class ClassImageDeconvMachine():
             #import scipy.signal
             #Dty=scipy.signal.convolve2d(model,B, mode='same')
             
-            fact=np.max(dirty[ch,0,s_dirty_cut,s_dirty_cut])/np.max(Dty)
-            log.print("Peak-based correction factor: %f"%fact)
-            Model[ch,0,s_dirty_cut,s_dirty_cut]*=fact
+            # fact=np.max(dirty[ch,0,s_dirty_cut,s_dirty_cut])/np.max(Dty)
+            # log.print("Peak-based correction factor: %f"%fact)
+            # Model[ch,0,s_dirty_cut,s_dirty_cut]*=fact
 
             # # print(dirty[ch,0,s_dirty_cut,s_dirty_cut].max(), psf[ch,0,s_psf_cut,s_psf_cut].max(),np.sum(model))
             
