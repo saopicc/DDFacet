@@ -325,10 +325,10 @@ class ClassImageDeconvMachine():
         #Model.fill(0)
         #Model[:,:,xp,yp]=self._Dirty[:,:,xp,yp]
 
-        if CurrentNegMask is not None:
-            indx,indy=np.where(CurrentNegMask[0,0]==1)
-            for ch in range(nch):
-                Model[ch,0,indx,indy]=0
+        # if CurrentNegMask is not None:
+        #     indx,indy=np.where(CurrentNegMask[0,0]==1)
+        #     for ch in range(nch):
+        #         Model[ch,0,indx,indy]=0
 
         for ich in range(nch):
             absModel=np.abs(Model[ich])
