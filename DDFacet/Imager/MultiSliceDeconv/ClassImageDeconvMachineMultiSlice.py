@@ -58,7 +58,7 @@ class ClassImageDeconvMachine():
         self.MultiFreqMode=(self.GD["Freq"]["NBand"]>1)
         self.CurrentNegMask=None
         self.FitFluxScale="Linear"
-        self.FitFluxScale="Exp"
+        #self.FitFluxScale="Exp"
         self.MaskMachine=None
         
     def SetPSF(self,DicoVariablePSF):
@@ -357,8 +357,10 @@ class ClassImageDeconvMachine():
                                                                         iChannel=iBand,
                                                                         iFacet=iFacet,
                                                                         FluxScale=self.FitFluxScale)
-            Fit[Fit<0]*=100.
+            #Fit[Fit<0]*=100.
+            
             R=F-Fit
+            if np.abs(X[1])>4: R*= 1000.#np.abs(X[1])
             # print("aa",R)
             return R
         
