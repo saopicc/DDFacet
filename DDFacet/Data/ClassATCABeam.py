@@ -82,68 +82,78 @@ class ClassATCABeam():
     def calcCoefs(self):
         ChanFreqs=self.MS.ChanFreq.flatten()
         DicoCoefs={}
-        # coefficients for 16cm band of the ATCA, taken from the "+" values of  Tab. 3 in
-        # Sec. 4.1.4 of https://www.narrabri.atnf.csiro.au/people/ste616/beamshapes/beamshape_16cm.html
-        # coded by Etienne Bonnassieux. Bandwidth for each of these bands is 128 MHz except for
-        # edges. Fit valid only up to 100 arcmin.
-#        DicoCoefs[0]={"Name":"ATCA-16-0", "f0":1.0e9, "f1":1.332e9,
-#                      "C":np.array([1,0,-1.154e-03,0,+5.351e-07,0,-1.265e-10,0,
-#                                    +1.634e-14,0,-1.099e-18,0,+3.009e-23])}
-#        DicoCoefs[1]={"Name":"ATCA-16-1", "f0":1.332e9, "f1":1.466e9,
-#                      "C":np.array([1,0,-1.092e-03,0,+4.660e-07,0,-9.875e-11,0,
-#	                            +1.119e-14,0,-6.504e-19,0,+1.522e-23])}
-#        DicoCoefs[2]={"Name":"ATCA-16-2", "f0":1.460e9, "f1":1.588e9,
-#                      "C":np.array([1,0,-1.048e-03,0,+4.305e-07,0,-8.824e-11,0,
-#	                            +9.684e-15,0,-5.446e-19,0,+1.232e-23])}
-#        DicoCoefs[3]={"Name":"ATCA-16-3", "f0":1.588e9, "f1":1.716e9,
-#                      "C":np.array([1,0,-1.033e-03,0,+4.221e-07,0,-8.692e-11,0,
-#                                    +9.679e-15,0,-5.571e-19,0,+1.298e-23])}
-#        DicoCoefs[4]={"Name":"ATCA-16-4", "f0":1.716e9, "f1":1.844e9,
-#                      "C":np.array([1,0,-1.003e-03,0,+4.016e-07,0,-8.170e-11,0,
-#	                            +9.046e-15,0,-5.199e-19,0,+1.213e-23])}
-#        DicoCoefs[5]={"Name":"ATCA-16-5", "f0":1.844e9, "f1":1.972e9,
-#                      "C":np.array([1,0,-9.794e-04,0,+3.831e-07,0,-7.562e-11,0,
-#	                            +8.067e-15,0,-4.440e-19,0,+9.882e-24])}
-#        DicoCoefs[6]={"Name":"ATCA-16-6", "f0":1.972e9, "f1":2.100e9,
-#                      "C":np.array([1,0,-9.692e-04,0,+3.848e-07,0,-7.809e-11,0,
-#	                            +8.621e-15,0,-4.927e-19,0,+1.140e-23])}
-#        DicoCoefs[7]={"Name":"ATCA-16-7", "f0":2.100e9, "f1":2.228e9,
-#                      "C":np.array([1,0,-9.919e-04,0,+4.028e-07,0,-8.251e-11,0,
-#	                            +9.077e-15,0,-5.122e-19,0,+1.163e-23])}
-#        DicoCoefs[8]={"Name":"ATCA-16-8", "f0":2.228e9, "f1":2.356e9,
-#                      "C":np.array([1,0,-1.007e-03,0,+4.131e-07,0,-8.480e-11,0,
-#	                            +9.305e-15,0,-5.220e-19,0,+1.176e-23])}
-#        DicoCoefs[9]={"Name":"ATCA-16-9", "f0":2.356e9, "f1":2.484e9,
-#                      "C":np.array([1,0,-1.016e-03,0,+4.235e-07,0,-8.817e-11,0,
-#	                            +9.772e-15,0,-5.521e-19,0,+1.251e-23])}
-#        DicoCoefs[10]={"Name":"ATCA-16-10", "f0":2.484e9, "f1":2.612e9,
-#                      "C":np.array([1,0,-1.033e-03,0,+4.375e-07,0,-9.223e-11,0,
-#	                            +1.033e-14,0,-5.885e-19,0,+1.343e-23])}
-#        DicoCoefs[11]={"Name":"ATCA-16-11", "f0":2.612e9, "f1":2.740e9,
-#                      "C":np.array([1,0,-1.035e-03,0,+4.395e-07,0,-9.269e-11,0,
-#	                            +1.038e-14,0,-5.919e-19,0,+1.353e-23])}
-#        DicoCoefs[12]={"Name":"ATCA-16-12", "f0":2.740e9, "f1":2.868e9,
-#                      "C":np.array([1,0,-1.064e-03,0,+4.622e-07,0,-9.913e-11,0,
-#	                            +1.125e-14,0,-6.502e-19,0,+1.505e-23])}
-#        DicoCoefs[13]={"Name":"ATCA-16-13", "f0":2.868e9, "f1":3.500e9,
-#                      "C":np.array([1,0,-1.081e-03,0,+4.769e-07,0,-1.045e-10,0,
-#	                            +1.222e-14,0,-7.325e-19,0,+1.768e-23])}
-        # coefficients for ATCA_16 in the MIRIAD PBmath.cc file
-        DicoCoeffs[0]={"Name":"ATCA-C-0", "f0":1.204e9, "f1":1.460e9,
-                       "C":np.array([1.00000, 1.06274e-03, 1.32342e-06,-8.72013e-10, 1.08020e-12])}
-        DicoCoeffs[1]={"Name":"ATCA-C-1", "f0":1.460e9, "f1":1.716e9,
-                       "C":np.array([1.00000, 9.80817e-04, 1.17898e-06,-7.83160e-10, 8.66199e-13])}
-        DicoCoeffs[2]={"Name":"ATCA-C-2", "f0":1.716e9, "f1":1.972e9,
-                       "C":np.array([1.00000, 9.53553e-04, 9.33233e-07,-4.26759e-10, 5.63667e-13])}
-        DicoCoeffs[3]={"Name":"ATCA-C-3", "f0":1.972e9, "f1":2.228e9,
-                       "C":np.array([1.00000, 9.78268e-04, 6.63231e-07, 4.18235e-11, 2.62297e-13])}
-        DicoCoeffs[4]={"Name":"ATCA-C-4", "f0":2.228e9, "f1":2.484e9,
-                       "C":np.array([1.00000, 1.02424e-03, 6.12726e-07, 2.25733e-10, 2.04834e-13])}
-        DicoCoeffs[5]={"Name":"ATCA-C-5", "f0":2.484e9, "f1":2.740e9,
-                       "C":np.array([1.00000, 1.05818e-03, 5.37473e-07, 4.22386e-10, 1.17530e-13])}
-        DicoCoeffs[6]={"Name":"ATCA-C-6", "f0":2.740e9, "f1":2.996e9,
-                       "C":np.array([1.00000, 1.10650e-03, 5.11574e-07, 5.89732e-10, 8.13628e-14])}
 
+        ATCABeamType="pbmath"
+
+
+        if ATCABeamType=="csiro":
+            # coefficients for 16cm band of the ATCA, taken from the "+" values of  Tab. 3 in
+            # Sec. 4.1.4 of https://www.narrabri.atnf.csiro.au/people/ste616/beamshapes/beamshape_16cm.html
+            # coded by Etienne Bonnassieux. Bandwidth for each of these bands is 128 MHz except for
+            # edges. Fit valid only up to 100 arcmin.
+            # !!!!!! THIS IS A BEAM, NOT AN INVERSE BEAM. ADAPT LATER CODE APPROPRIATELY !!!!!!
+            DicoCoefs[0]={"Name":"ATCA-16-0", "f0":1.0e9, "f1":1.332e9,
+                          "C":np.array([1,0,-1.154e-03,0,+5.351e-07,0,-1.265e-10,0,
+                                        +1.634e-14,0,-1.099e-18,0,+3.009e-23])}
+            DicoCoefs[1]={"Name":"ATCA-16-1", "f0":1.332e9, "f1":1.466e9,
+                          "C":np.array([1,0,-1.092e-03,0,+4.660e-07,0,-9.875e-11,0,
+                                        +1.119e-14,0,-6.504e-19,0,+1.522e-23])}
+            DicoCoefs[2]={"Name":"ATCA-16-2", "f0":1.460e9, "f1":1.588e9,
+                          "C":np.array([1,0,-1.048e-03,0,+4.305e-07,0,-8.824e-11,0,
+                                        +9.684e-15,0,-5.446e-19,0,+1.232e-23])}
+            DicoCoefs[3]={"Name":"ATCA-16-3", "f0":1.588e9, "f1":1.716e9,
+                          "C":np.array([1,0,-1.033e-03,0,+4.221e-07,0,-8.692e-11,0,
+                                        +9.679e-15,0,-5.571e-19,0,+1.298e-23])}
+            DicoCoefs[4]={"Name":"ATCA-16-4", "f0":1.716e9, "f1":1.844e9,
+                          "C":np.array([1,0,-1.003e-03,0,+4.016e-07,0,-8.170e-11,0,
+                                        +9.046e-15,0,-5.199e-19,0,+1.213e-23])}
+            DicoCoefs[5]={"Name":"ATCA-16-5", "f0":1.844e9, "f1":1.972e9,
+                          "C":np.array([1,0,-9.794e-04,0,+3.831e-07,0,-7.562e-11,0,
+                                        +8.067e-15,0,-4.440e-19,0,+9.882e-24])}
+            DicoCoefs[6]={"Name":"ATCA-16-6", "f0":1.972e9, "f1":2.100e9,
+                          "C":np.array([1,0,-9.692e-04,0,+3.848e-07,0,-7.809e-11,0,
+                                        +8.621e-15,0,-4.927e-19,0,+1.140e-23])}
+            DicoCoefs[7]={"Name":"ATCA-16-7", "f0":2.100e9, "f1":2.228e9,
+                          "C":np.array([1,0,-9.919e-04,0,+4.028e-07,0,-8.251e-11,0,
+                                        +9.077e-15,0,-5.122e-19,0,+1.163e-23])}
+            DicoCoefs[8]={"Name":"ATCA-16-8", "f0":2.228e9, "f1":2.356e9,
+                          "C":np.array([1,0,-1.007e-03,0,+4.131e-07,0,-8.480e-11,0,
+                                        +9.305e-15,0,-5.220e-19,0,+1.176e-23])}
+            DicoCoefs[9]={"Name":"ATCA-16-9", "f0":2.356e9, "f1":2.484e9,
+                          "C":np.array([1,0,-1.016e-03,0,+4.235e-07,0,-8.817e-11,0,
+                                        +9.772e-15,0,-5.521e-19,0,+1.251e-23])}
+            DicoCoefs[10]={"Name":"ATCA-16-10", "f0":2.484e9, "f1":2.612e9,
+                           "C":np.array([1,0,-1.033e-03,0,+4.375e-07,0,-9.223e-11,0,
+                                         +1.033e-14,0,-5.885e-19,0,+1.343e-23])}
+            DicoCoefs[11]={"Name":"ATCA-16-11", "f0":2.612e9, "f1":2.740e9,
+                           "C":np.array([1,0,-1.035e-03,0,+4.395e-07,0,-9.269e-11,0,
+                                         +1.038e-14,0,-5.919e-19,0,+1.353e-23])}
+            DicoCoefs[12]={"Name":"ATCA-16-12", "f0":2.740e9, "f1":2.868e9,
+                           "C":np.array([1,0,-1.064e-03,0,+4.622e-07,0,-9.913e-11,0,
+                                         +1.125e-14,0,-6.502e-19,0,+1.505e-23])}
+            DicoCoefs[13]={"Name":"ATCA-16-13", "f0":2.868e9, "f1":3.500e9,
+                           "C":np.array([1,0,-1.081e-03,0,+4.769e-07,0,-1.045e-10,0,
+                                         +1.222e-14,0,-7.325e-19,0,+1.768e-23])}
+        if ATCABeamType=="pbmath":
+            # coefficients for ATCA_16 in the MIRIAD PBmath.cc file
+            # !!!!!! THIS IS AN INVERSE BEAM, NOT A BEAM. ADAPT LATER CODE APPROPRIATELY !!!!!!
+            #1.204
+            DicoCoefs[0]={"Name":"ATCA-C-0", "f0":1.000e9, "f1":1.460e9,
+                          "C":np.array([1.00000, 0, 1.06274e-03, 0, 1.32342e-06, 0,-8.72013e-10, 0, 1.08020e-12])}
+            DicoCoefs[1]={"Name":"ATCA-C-1", "f0":1.460e9, "f1":1.716e9,
+                          "C":np.array([1.00000, 0, 9.80817e-04, 0, 1.17898e-06, 0,-7.83160e-10, 0, 8.66199e-13])}
+            DicoCoefs[2]={"Name":"ATCA-C-2", "f0":1.716e9, "f1":1.972e9,
+                          "C":np.array([1.00000, 0, 9.53553e-04, 0, 9.33233e-07, 0,-4.26759e-10, 0, 5.63667e-13])}
+            DicoCoefs[3]={"Name":"ATCA-C-3", "f0":1.972e9, "f1":2.228e9,
+                          "C":np.array([1.00000, 0, 9.78268e-04, 0, 6.63231e-07, 0,-4.18235e-11, 0, 2.62297e-13])}
+            DicoCoefs[4]={"Name":"ATCA-C-4", "f0":2.228e9, "f1":2.484e9,
+                          "C":np.array([1.00000, 0, 1.02424e-03, 0, 6.12726e-07, 0, 2.25733e-10, 0, 2.04834e-13])}
+            DicoCoefs[5]={"Name":"ATCA-C-5", "f0":2.484e9, "f1":2.740e9,
+                          "C":np.array([1.00000, 0, 1.05818e-03, 0, 5.37473e-07, 0, 4.22386e-10, 0, 1.17530e-13])}
+            DicoCoefs[6]={"Name":"ATCA-C-6", "f0":2.740e9, "f1":3.996e9,
+                          "C":np.array([1.00000, 0, 1.10650e-03, 0, 5.11574e-07, 0, 5.89732e-10, 0, 8.13628e-14])}
+            
+            # 2.996
 
 
 
@@ -151,12 +161,12 @@ class ClassATCABeam():
         # coefficients for C and X bands of ATCA, as found in a PBMath.cc file
         # provided by Chris Riseley. C band is C-RI, comment reads:
         # "Remy Indebetouw measured the PB through the second sidelobe 20111020"
-        DicoCoefs[14]={"Name":"ATCA-C-RI", "f0":4.50e9, "f1":6.5e9,
-                      "C":np.array([1.00000, 0.98132, 0.96365, 0.87195, 0.75109,\
-                                    0.62176, 0.48793, 0.34985, 0.21586, 0.10546,\
-                                    0.03669,-0.03556,-0.08266,-0.12810,-0.15440,\
-                                   -0.16090,-0.15360,-0.13566,-0.10666,-0.06847,\
-                                   -0.03136,-0.00854])}
+#        DicoCoefs[14]={"Name":"ATCA-C-RI", "f0":4.50e9, "f1":6.5e9,
+#                      "C":np.array([1.00000, 0.98132, 0.96365, 0.87195, 0.75109,\
+#                                    0.62176, 0.48793, 0.34985, 0.21586, 0.10546,\
+#                                    0.03669,-0.03556,-0.08266,-0.12810,-0.15440,\
+#                                   -0.16090,-0.15360,-0.13566,-0.10666,-0.06847,\
+#                                   -0.03136,-0.00854])}
 #        DicoCoefs[15]={"Name":"ATCA-X-upper", "f0":6.50e9, "f1":11e9,
 #                      "C":np.array([1.00000, 1.04e-3, 8.36e-7,-4.68e-10,5.50e-13])}
 
@@ -166,35 +176,41 @@ class ClassATCABeam():
 
         for iBand in  DicoCoefs.keys():
             C=DicoCoefs[iBand]["C"][::-1]
-            x0=np.roots(C)
+            #x0=np.roots(C)
             #x0deg=x0/(nu0/1e9)
-            x=np.linspace(0,3.,1000)*120.
+            x=np.linspace(0,2.,1000)*55
             P=np.poly1d((C))
-            y=P(x)
+            y=1./P(x)
             Pd=np.polyder(P, m=1)
-            yd=Pd(x*(nu0/1e9))
-            xd0=np.roots(Pd)
-            ind=np.where((np.abs(xd0.imag)<1e-6)&(xd0.real>0.))[0][0]
-            xn=np.abs(xd0[ind])
+            yd=Pd(x)
+#            import pylab
+#            pylab.scatter(x,y)
+#            pylab.savefig("P.png")
+#            stop
+            
+            #xd0=np.roots(Pd)
+            #ind=np.where((np.abs(xd0.imag)<1e-6)&(xd0.real>0.))[0][0]
+            #xn=np.abs(xd0[ind])
+            # by definition, null is at 100 arcmin. 
+            xn=100.#*(nu0/1e9)
             DicoCoefs[iBand]["x0"]=xn
-            DicoCoefs[iBand]["y0"]=P(xn)
-            # import pylab
-            # pylab.clf()
-            # pylab.plot(x,y)
-            # pylab.xlim(0,110)
-            # pylab.ylim(0,1.1)
-            # pylab.plot(x,yd)
-            # pylab.show()
-            # pylab.show(False)
-            # pylab.pause(0.1)
-            # stop
+            DicoCoefs[iBand]["y0"]=1./P(xn)
+            #import pylab
+            #pylab.clf()
+            #pylab.plot(x,y)
+            #print(iBand, x[(y>0.45)*(y<0.55)])
+            #pylab.xlim(0,110)
+            #pylab.ylim(0,1.1)
+            #pylab.plot(x,yd)
+            #pylab.savefig("test.%i.png"%iBand)
             # #
 
 
         
-        C=np.zeros((ChanFreqs.size,13),np.float32)
+        C=np.zeros((ChanFreqs.size,len(DicoCoefs[0]["C"])),np.float32)
         xNull=np.zeros((ChanFreqs.size,),np.float32)
         yNull=np.zeros((ChanFreqs.size,),np.float32)
+        beamfreq0=np.zeros((ChanFreqs.size,),np.float32)
         for ich in range(ChanFreqs.size):
             f=ChanFreqs[ich]
             NoMatch=True
@@ -204,6 +220,7 @@ class ClassATCABeam():
                     C[ich,:]=DicoCoefs[iBand]["C"]
                     xNull[ich]=DicoCoefs[iBand]["x0"]
                     yNull[ich]=DicoCoefs[iBand]["y0"]
+                    beamfreq0[ich]=0.5*(f0+f1)
                     NoMatch=False
                     break
             if NoMatch:
@@ -212,6 +229,7 @@ class ClassATCABeam():
         self.ChansToCoefs=C
         self.xNull=xNull
         self.yNull=yNull
+        self.beamfreq0=beamfreq0
         
     def GiveRawBeam(self,time,ra,dec):
         #self.LoadSR()
@@ -219,16 +237,18 @@ class ClassATCABeam():
         Beam=np.zeros((ra.shape[0],self.MS.na,self.MS.NSPWChan,2,2),dtype=np.complex)
         rac,decc=self.MS.OriginalRadec
         d=AngDist(ra,dec,rac,decc)*180./np.pi*60
-        
+        import pylab
         for ich in range(nch):
             C=self.ChansToCoefs[ich]
-            Dnu=d*self.MS.ChanFreq.flat[ich]/1e9
-            B=np.polynomial.polynomial.polyval(Dnu,C)
-            B[d>self.xNull[ich]]=self.yNull[ich]
+            bf0=self.beamfreq0
+            Dnu=d*self.MS.ChanFreq.flat[ich]/bf0[ich]
+            B=1./np.polynomial.polynomial.polyval(d,C)
+            #B[d>self.xNull[ich]]=self.yNull[ich]
             B=B.reshape((-1,1))
             Beam[:,:,ich,0,0]=B[:,:]
             Beam[:,:,ich,1,1]=B[:,:]
-            
+#        pylab.savefig("test.png")
+#        stop
         return Beam
 
     def GiveInstrumentBeam(self,*args,**kwargs):
@@ -239,9 +259,11 @@ class ClassATCABeam():
         nd,na,nch,_,_=Beam.shape
         T.timeit("0")
         MeanBeam=np.zeros((nd,na,self.NChanJones,2,2),dtype=Beam.dtype)
+
         for ich in range(self.NChanJones):
             indCh=np.where(self.VisToJonesChanMapping==ich)[0]
             MeanBeam[:,:,ich,:,:]=np.mean(Beam[:,:,indCh,:,:],axis=2)
+
         T.timeit("1")
 
         return MeanBeam
