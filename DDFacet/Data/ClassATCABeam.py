@@ -237,12 +237,11 @@ class ClassATCABeam():
         Beam=np.zeros((ra.shape[0],self.MS.na,self.MS.NSPWChan,2,2),dtype=np.complex)
         rac,decc=self.MS.OriginalRadec
         d=AngDist(ra,dec,rac,decc)*180./np.pi*60
-        import pylab
         for ich in range(nch):
             C=self.ChansToCoefs[ich]
             bf0=self.beamfreq0
-            Dnu=d*self.MS.ChanFreq.flat[ich]/bf0[ich]
-            B=1./np.polynomial.polynomial.polyval(d,C)
+            Dnu=d/self.MS.ChanFreq.flat[ich]*bf0[ich]
+            B=1./np.polynomial.polynomial.polyval(Dnu,C)
             #B[d>self.xNull[ich]]=self.yNull[ich]
             B=B.reshape((-1,1))
             Beam[:,:,ich,0,0]=B[:,:]
