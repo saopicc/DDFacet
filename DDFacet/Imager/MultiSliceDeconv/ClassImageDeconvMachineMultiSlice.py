@@ -58,7 +58,7 @@ class ClassImageDeconvMachine():
         self.MultiFreqMode=(self.GD["Freq"]["NBand"]>1)
         self.CurrentNegMask=None
         self.FitFluxScale="Linear"
-        #self.FitFluxScale="Exp"
+        self.FitFluxScale="Exp"
         self.MaskMachine=None
         
     def SetPSF(self,DicoVariablePSF):
@@ -338,6 +338,7 @@ class ClassImageDeconvMachine():
             Model[ich,0,indx,indy]=0
         
         CoefImage=self.DoSpectralFit(Model)
+        
         self.ModelMachine.setModel(CoefImage,FluxScale=self.FitFluxScale)
 
         
@@ -360,7 +361,9 @@ class ClassImageDeconvMachine():
             #Fit[Fit<0]*=100.
             
             R=F-Fit
-            if np.abs(X[1])>4: R*= 1000.#np.abs(X[1])
+            Lambda=np.max([np.abs(X[1]-(-0.7))/1,1.])
+            R*= Lambda#np.abs(X[1])
+
             # print("aa",R)
             return R
         
@@ -370,7 +373,7 @@ class ClassImageDeconvMachine():
         indx,indy=np.where((Model[:,0,:,:]).any(axis=0))
         iDone=0
         for iPix,jPix in zip(indx.tolist(),indy.tolist()):
-            # log.print("%i/%i:[%i, %i]"%(iDone,indx.size,iPix,jPix))
+            #log.print("%i/%i:[%i, %i]"%(iDone,indx.size,iPix,jPix))
             iDone+=1
             self.PSFServer.setLocation(iPix,jPix)
             iFacet=self.PSFServer.iFacet
@@ -390,16 +393,54 @@ class ClassImageDeconvMachine():
             x0[0]=F0
             if NOrder>1:
                 x0[1]=0.
+            x0=np.float64(np.random.randn(NOrder))
             R0=GiveResid(x0,F,iFacet)
-            X=least_squares(GiveResid, x0, args=(F,iFacet),ftol=1e-2)#,gtol=1e-1,xtol=1e-1)
+            X=least_squares(GiveResid, x0, args=(F,iFacet))#,ftol=1e-2)#,gtol=1e-1,xtol=1e-1)
             R1=GiveResid(X['x'],F,iFacet)
             x=X['x']
+
+
+            
+            Fit=np.zeros_like(F)
+            for iBand in range(F.size):
+                Fit[iBand]=self.SpectralFunctionsMachine.IntExpFuncPoly(x.reshape((1,NOrder)),
+                                                                        iChannel=iBand,
+                                                                        iFacet=iFacet,
+                                                                        FluxScale=self.FitFluxScale)
+
+            Chi2Ratio=np.sum((F-Fit)**2)/np.sum(F**2)
+            Chi2Cut=0.3
+
+            if Chi2Ratio>Chi2Cut:
+                x.fill(0)
+                
+            # if Chi2Ratio<0.2:
+            #     #Fit[Fit<0]*=100.
+            #     import pylab
+            #     pylab.clf()
+            #     pylab.plot(F)
+            #     pylab.plot(Fit)
+            #     pylab.title(Chi2Ratio)
+            #     pylab.draw()
+            #     pylab.show(block=False)
+            #     pylab.pause(0.1)
+            
             #print(F,x)
             #print("%0.5f"%(x[1]))
             #stop
             CoefImage[:,0,iPix,jPix]=x[:]
-                
+            
         log.print("   done...")
+
+        # S=CoefImage[0,0].flat[:]
+        # A=CoefImage[1,0].flat[:]
+        # ind=np.where(S!=0)[0]
+        # import pylab
+        # pylab.clf()
+        # pylab.scatter(np.log10(np.abs(S[ind])),A[ind])
+        # pylab.draw()
+        # pylab.show()
+        
         CoefImage[:,:,:,:]*=self.GD["Deconv"]["Gain"]
         return CoefImage
     

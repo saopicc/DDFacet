@@ -387,7 +387,9 @@ class ClassInitSSDModel():
         #time.sleep(30)
 
         ModelImage=self.ModelMachine.DicoModel["CoefImage"]#GiveModelImage()
-        ModelImage=self.CTP.LinPolyCube2LogPolyCube(ModelImage)
+        if self.ModelMachine.DicoModel["FluxScale"]=="Linear":
+            ModelImage=self.CTP.LinPolyCube2LogPolyCube(ModelImage)
+        
         x,y=self.ArrayPixParms.T
         ModelImageIsland=ModelImage[:,0,x,y]
         return ModelImageIsland
