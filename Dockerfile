@@ -247,8 +247,8 @@ RUN rm -rf /src/DDFacet/DDFacet/cbuild
 RUN pip3 install -U pip setuptools wheel
 RUN python3 -m pip install pybind11
 RUN python3 -m pip install tensorflow==1.8.0
-RUN python3 -m pip install -U "/src/DDFacet/[dft-support,moresane-support,testing-requirements,fits-beam-support]"
-RUN cd /src/DDFacet/ && python3 setup.py build && cd /
+RUN python3 -m pip install -U "/src/DDFacet/[dft-support,moresane-support,testing-requirements,fits-beam-support,kms-support]"
+
 # Set MeqTrees Cattery path to installation directory
 ENV MEQTREES_CATTERY_PATH /usr/local/lib/python3.6/dist-packages/Cattery/
 ENV PYTHONPATH $MEQTREES_CATTERY_PATH:$PYTHONPATH

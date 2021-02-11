@@ -2,5 +2,5 @@
 requires = ["setuptools", 
             "wheel", 
             "numpy>=1.15.1", # Ubuntu 18.04
-            "six >= 1.12.0", 
+            "six",
             "pybind11 >= 2.2.2"]
