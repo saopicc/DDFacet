@@ -184,10 +184,9 @@ def requirements():
                     "pybind11 >= 2.2.2; python_version < '3'",
                     "dask[array] >= 1.1.0; python_version >= '3'", 
                     "dask[array] == 2.11.0; python_version < '3'",
-                    "codex-africanus[dask] <= 0.1.8; python_version >= '3'", 
+                    "codex-africanus[dask] >= 0.2.10; python_version >= '3'", 
                     "codex-africanus[dask]; python_version < '3'"
                     ] 
-
     install_requirements = requirements
 
     return install_requirements
