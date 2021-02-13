@@ -54,7 +54,6 @@ class ClassImageDeconvMachine():
         self.RefFreq=RefFreq
         if self.ModelMachine.DicoModel["Type"]!="MultiSlice":
             raise ValueError("ModelMachine Type should be MultiSlice")
-        
         self.MultiFreqMode=(self.GD["Freq"]["NBand"]>1)
         self.CurrentNegMask=None
         self.FitFluxScale="Linear"

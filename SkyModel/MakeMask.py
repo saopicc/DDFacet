@@ -807,6 +807,7 @@ def main(options=None):
         f = open(SaveFile,'rb')
         options = pickle.load(f)
 
+        
     s0,s1=options.Box.split(",")
     Box=(int(s0),int(s1))
         
