@@ -121,7 +121,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         else:
              self.NCPU = NCPU
         self.DoAbs = self.GD["Deconv"]["AllowNegative"]
-        self.ScaleMachine = ClassScaleMachine.ClassScaleMachine(GD=self.GD, NCPU=NCPU, MaskArray=MaskArray)
+        self.ScaleMachine = ClassScaleMachine.ClassScaleMachine(GD=self.GD, NCPU=self.NCPU, MaskArray=MaskArray)
         self.ScaleMachine.Init(PSFServer, self.FreqMachine, cachepath=cachepath, MaxBaseline=MaxBaseline)
         self.NpixPSF = self.ScaleMachine.NpixPSF
         self.halfNpixPSF = self.NpixPSF//2
@@ -346,12 +346,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             freqsDask = da.from_array(np.array(self.GridFreqs).astype(np.float64), chunks=(self.Nchan))
 
             alpha, varalpha, Iref, varIref = fit_spi_components(FitCubeDask, weightsDask,
-                                                                freqsDask, self.RefFreq).compute()
+                                                                freqsDask, self.RefFreq,
+                                                                dtype=np.float64).compute()
         except Exception as e:
-            print("Warning - Failed at importing africanus spi fitter. This could be an issue with the dask " \
-                        "version. Falling back to scipy version", file=log)
-            print("Original traceback - ", e, file=log)
-            alpha, varalpha, Iref, varIref = self.FreqMachine.FitSPIComponents(FitCube, self.GridFreqs, self.RefFreq)
+            raise(e)
 
         _, _, nx, ny = ModelImage.shape
         alphamap = np.zeros([nx, ny])

@@ -115,23 +115,22 @@ class ClassScaleMachine(object):
         self.FWHMBeam = self.PSFServer.DicoVariablePSF["FWHMBeam"]
 
         # set reference key
-        self.CentralFacetID = self.GD['Facets']['NFacets']**2//2  # assumes odd number of facets
+        _, _, self.Npix, _ = self.PSFServer.ImageShape
+        self.CentralFacetID = self.PSFServer.giveFacetID2(self.Npix//2, self.Npix//2)
 
         # Set freqmachine
         self.FreqMachine = FreqMachine
         self.Nchan = self.FreqMachine.nchan
 
         # set scale convolve and FFTW related params
-        _, _, self.Npix, _ = self.PSFServer.ImageShape
-        self.NpixFacet = self.Npix//self.GD["Facets"]["NFacets"]
-        self.NpixPadded = int(np.ceil(self.GD["Facets"]["Padding"]*self.Npix))
+        self.NpixPadded = int(np.ceil(self.GD["WSCMS"]["Padding"]*self.Npix))
         # make sure it is odd numbered
-        if self.NpixPadded % 2 == 0:
+        if not self.NpixPadded % 2:
             self.NpixPadded += 1
         self.Npad = (self.NpixPadded - self.Npix)//2
         self.NpixPSF = self.PSFServer.NPSF  # need this to initialise the FTMachine
-        self.NpixPaddedPSF = int(np.ceil(self.GD["Facets"]["Padding"]*self.NpixPSF))
-        if self.NpixPaddedPSF % 2 == 0:
+        self.NpixPaddedPSF = int(np.ceil(self.GD["WSCMS"]["Padding"]*self.NpixPSF))
+        if not self.NpixPaddedPSF % 2:
             self.NpixPaddedPSF += 1
         self.NpadPSF = (self.NpixPaddedPSF - self.NpixPSF) // 2
 
@@ -168,6 +167,7 @@ class ClassScaleMachine(object):
             print(" - Scale %i, bias factor=%f, psfpeak=%f, gain=%f, kernel peak=%f" % \
                                (self.alphas[i], self.bias[i], self.ConvPSFmeanMax,
                                 self.gains[key], self.kernels[i].max()), file=log)
+        
         # these are permanent
         self.forbidden_scales = []
         # these get reset at the start of every major cycle
@@ -248,7 +248,7 @@ class ClassScaleMachine(object):
     # TODO - Set max scale with minimum baseline or facet size?
     def set_scales(self):
         if self.GD['WSCMS']["MaxScale"] is None:
-            MaxScale = self.NpixFacet//3
+            MaxScale = self.Npix//4
         else:
             MaxScale = self.GD['WSCMS']["MaxScale"]
         if self.GD["WSCMS"]["Scales"] is None:
