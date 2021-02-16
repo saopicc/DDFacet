@@ -569,6 +569,7 @@ class ClassJones():
             If nothing comes after the `:` or there is no `:` then we assume the
             solution spec of `sol000/tec000`.
         """
+        # TODO: if more than one solset present for a MS file and dirs or times differ, this will fail.
 
         def reorderAxes( a, oldAxes, newAxes ):
             """
@@ -606,12 +607,25 @@ class ClassJones():
         h5file = _which_solsfile(h5files, req_times, apply_solsets[0], apply_map)
         print( "  Applying {} solset {} soltabs {}".format(h5file, apply_solsets, apply_map), file=log)
 
-        times = None
+        # times = None
         with tables.open_file(h5file) as H:
-            gains = []
+            # Prepare unite Jones matrix array to be filled with the gains
+            first_soltab = [key for key, value in apply_map.items() if value][0] # get name of the first soltab
+            # Restrict Jones matrices to times present in the MS file.
+            t_h5 = getattr(getattr(H.root,apply_solsets[0]), first_soltab).time # times in h5parm
+            t_h5_startidx = np.argmin(np.abs(t_h5 - req_times[0])) # time idx in h5 closest to first time in MS
+            t_h5_stopidx = np.argmin(np.abs(t_h5 - req_times[-1])) + 1 # time idx in h5 after closest to end time in MS
+            times = t_h5[t_h5_startidx:t_h5_stopidx]
+            Nt = len(times)
+            Nd = len(getattr(H.root,apply_solsets[0]).source[:]['name'])
+            Na = len(req_ants)
+            freqs = self.MS.ChanFreq.ravel().astype(np.float32)
+            Nf = freqs.size
+            Np = 2
+            gains = np.ones((Nt,Nd,Na,Nf,Np), dtype=np.complex64)
+
             lm, radec = [], []
             for solset in apply_solsets:
-
                 _solset = getattr(H.root, solset)
 
                 dirnames_solset = _solset.source[:]['name'] # keep track to re-arrange order of solutions later
@@ -619,75 +633,62 @@ class ClassJones():
                 lFacet, mFacet = self.FacetMachine.CoordMachine.radec2lm(raNode, decNode)
                 radec.append(np.stack([raNode, decNode], axis=1))
                 lm.append(np.stack([lFacet, mFacet], axis=1))
-                # freqs=self.FacetMachine.VS.GlobalFreqs.reshape((1,1,1,-1))
-                freqs = self.MS.ChanFreq.ravel()
-                Nf = freqs.size
 
-                solset_gains = []
                 for soltab, v in apply_map.items():
                     if not v:
                         continue
                     _soltab = getattr(_solset, soltab)
-                    if times is not None:
-                        if ~np.all(np.isclose(_soltab.time[:], times)):
-                            raise ValueError("Times not the same between solsets")
-                    times = _soltab.time[:]
+                    # assert times
+                    if not len(_soltab.time) >= t_h5_stopidx:
+                        raise ValueError("Times not the same between solsets")
+                    if ~np.all(np.isclose(_soltab.time[t_h5_startidx:t_h5_stopidx], times)):
+                        raise ValueError("Times not the same between solsets")
 
-                    antnames_soltab = _soltab.ant[:].tolist()
-                    ant_idx = [antnames_soltab.index(name.encode()) for name in req_ants] # find only antennas useful for this dataset
-                    dirnames_soltab = _soltab.dir[:]
-                    dir_idx = [dirnames_soltab.index(name) for name in dirnames_solset] # find only antennas useful for this dataset
-                    # Npols, Nd, Na, (Nf), Nt - arbitrary order
-                    val = _soltab.val[:]
+                    val = np.array(_soltab.val, np.float32) # Npols, Nd, Na, (Nf), Nt - arbitrary order
                     val[_soltab.weight == 0] = np.nan # set flagged data to nan
                     # check axes order and reshape
                     axes_order = _soltab.val.attrs['AXES'].decode().split(',')
+                    if 'freq' in axes_order: # phase, amplitude
+                        val = reorderAxes(val, axes_order, ['dir', 'ant', 'freq', 'time', 'pol'])
+                    else: # tec
+                        val = reorderAxes(val, axes_order, ['dir', 'ant', 'time', 'pol'])
+                    val = val[...,t_h5_startidx:t_h5_stopidx,:] # select only time range also in MS
+                    # times = _soltab.time[:]
+
+                    antnames_soltab = _soltab.ant[:].tolist()
+                    ant_idx = [antnames_soltab.index(name.encode()) for name in req_ants] # find only antennas useful for this dataset
+                    try:
+                        dirnames_soltab = _soltab.dir[:].tolist()
+                    except:
+                        dirnames_soltab = _soltab.dir[:] # to be removed when no old soltab are around
+                    dir_idx = [dirnames_soltab.index(name) for name in dirnames_solset] # find only directions useful for this dataset
                     if soltab == 'tec000':
-                        tec_conv = -8.4479745e6 / freqs
-                        val = reorderAxes( val, axes_order, ['dir', 'ant', 'time', 'pol'] )
-                        val = val[dir_idx,...]
-                        val = val[:,ant_idx,...]
-                        Nd, Na, Nt, _ = val.shape
+                        tec_conv = (-8.4479745e6 / freqs).astype(np.float32)
+                        val = val[dir_idx][:,ant_idx]
                         # Nd, Na, Nt, Np, Nf
                         phase = tec_conv * val[..., None]
                         # Nt, Nd, Na, Nf, Np
                         phase = phase.transpose((2, 0, 1, 4, 3))
-                        solset_gains.append(np.exp(1j * phase))
-
+                        gains *= np.exp(1j * phase)
                     if soltab == 'phase000':
-                        val = reorderAxes( val, axes_order, ['dir', 'ant', 'freq', 'time', 'pol'] )
-                        #val = np.array( [val[i] for i in [list(dirnames_soltab).index(x) for x in dirnames_solset]] )
-                        val = val[dir_idx,...]
-                        val = val[:,ant_idx,...]
-                        Nd, Na, _, Nt, _  = val.shape
-                        _freqs = _soltab.freq[:]
+                        val = val[dir_idx][:,ant_idx]
+                        _freqs = np.array(_soltab.freq, np.float32)
                         # Nd, Na, Nf, Nt, Np
                         phase = interp1d(_freqs, val, axis=2, kind='nearest', bounds_error=False,
-                                    fill_value='extrapolate')(freqs)
+                                    fill_value='extrapolate')(freqs) # linear?
                         # Nt, Nd, Na, Nf, Np
                         phase = phase.transpose((3, 0, 1, 2, 4))
-                        solset_gains.append(np.exp(1j * phase))
-
+                        gains *= np.exp(1j * phase)
                     if soltab == 'amplitude000':
-                        val = reorderAxes( val, axes_order, ['dir', 'ant', 'freq', 'time', 'pol'] )
-                        val = val[dir_idx,...]
-                        val = val[:,ant_idx,...]
-                        Nd, Na, _, Nt, _ = val.shape
-                        _freqs = _soltab.freq[:]
+                        val = val[dir_idx][:,ant_idx]
+                        _freqs = np.array(_soltab.freq, np.float32)
                         # Nd, Na, Nf, Nt, Np
-                        amplitude = np.abs(
-                            interp1d(_freqs, val, axis=2, kind='nearest', bounds_error=False,
-                                     fill_value='extrapolate')(freqs))
-                        #amplitude = np.maximum(amplitude, 0.01) # hard cut to remove very small solutions
+                        amplitude = np.abs(interp1d(_freqs, val, axis=2, kind='nearest', bounds_error=False,
+                                             fill_value='extrapolate')(freqs)) # linear?
                         # Nt, Nd, Na, Nf, Np
                         amplitude = amplitude.transpose((3, 0, 1, 2, 4))
-                        solset_gains.append(amplitude)
-
-                # Nt,Nd,Na,Nf,Np
-                gains.append(np.prod(solset_gains, axis=0))
-            # Nt, (Nd+Nd+...), Na, Nf, Np
-            gains = np.concatenate(gains, axis=1)
-            # Nd+Nd+...
+                        gains *= amplitude
+            # Nd,2
             lm = np.concatenate(lm, axis=0)
             radec = np.concatenate(radec, axis=0)
 
@@ -714,7 +715,7 @@ class ClassJones():
 
         # find time ranges of solutions
         diff = np.diff(times)/2.
-        t_mid = times[1:] - diff
+        t_mid = times[1:] - diff # mid point per interval
         DicoSols = {}
         DicoSols["t0"] = np.insert(t_mid, 0, times[0]-diff[0])
         DicoSols["t1"] = np.append(t_mid, times[-1]+diff[-1])

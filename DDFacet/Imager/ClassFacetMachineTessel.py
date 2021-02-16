@@ -242,7 +242,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         # VM.ToReg(regFile,lFacet,mFacet,radius=.1)
 
         NodeFile = "%s.NodesCat.npy" % self.GD["Output"]["Name"]
-        print("Saving Nodes catalog in %s" % NodeFile, file=log)
+        print("Saving Nodes catalog in %s (Nfacets:%i)" % (NodeFile, NFacets), file=log)
         np.save(NodeFile, NodesCat)
 
         for iFacet, polygon0 in zip(range(len(LPolygon)), LPolygon):
@@ -458,7 +458,6 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         ###########################################
 
         NFacets = len(LPolygonNew)
-
         NJonesDir=NodesCat.shape[0]
         self.JonesDirCat = np.zeros(
             (NodesCat.shape[0],),
