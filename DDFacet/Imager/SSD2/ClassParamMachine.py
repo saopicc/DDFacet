@@ -157,8 +157,9 @@ class ClassParamMachine():
                     if (i_indiv!=0) and PutNoise:
                         #SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
                         #SubArray[:]+=np.random.randn(SModelArray.size)*SigVal*(SubArray[:]!=0.) # will not put noise in zero-valued pixels
+                        
                         SubArray[:]+=np.random.randn(SModelArray.size)*SigVal*S # will not put noise in zero-valued pixels
-
+                        
                 elif "Poly" in Type:
                     iOrder=int(Type[4:])
                     AlphaModel=None

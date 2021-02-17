@@ -146,7 +146,7 @@ class ClassEvolveGA():
             
             if iTypeInit is None:
                 iTypeInit=int(np.random.rand(1)[0]*NTypeInit)
-            
+                
             DicoModelMP=None
             DicoInitIndiv=self.DicoDicoInitIndiv.get(iTypeInit,None)
             if DicoInitIndiv is not None:
@@ -234,7 +234,7 @@ class ClassEvolveGA():
                 for iTypeInit in range(NTypeInit):
                     pop0a=pop0[iTypeInit:iTypeInit+1]
                     self.ArrayMethodsMachine.PM.ReinitPop(pop0a,GiveListPolyArrayMP( len(pop0a) , iTypeInit=iTypeInit),PutNoise=False)
-
+                
                     
                 # _,Chi20=self.ArrayMethodsMachine.GiveFitnessPop(pop0)
                 # _,Chi21=self.ArrayMethodsMachine.GiveFitnessPop(pop1)
@@ -246,6 +246,8 @@ class ClassEvolveGA():
 
 
                 self.pop=pop1+pop0
+                #print(self.pop)
+                #stop
         #print
 
 
