@@ -99,6 +99,7 @@ class ClassMS():
 
         self.AverageSteps=AverageTimeFreq
         self.MSName = MSName = reformat.reformat(os.path.abspath(MSname), LastSlash=False)
+        
         self.ColName=Col
         self.ChanSlice = ChanSlice or slice(None)
         self.zero_flag=zero_flag
@@ -121,7 +122,7 @@ class ClassMS():
         # once.
         self._reset_cache = ResetCache
         self._chunk_caches = {}
-        self.maincache = CacheManager(MSname+".F%d.D%d.ddfcache"%(self.Field, self.DDID), reset=ResetCache, cachedir=self.GD["Cache"]["Dir"], nfswarn=True)
+        self.maincache = CacheManager(MSName+".F%d.D%d.ddfcache"%(self.Field, self.DDID), reset=ResetCache, cachedir=self.GD["Cache"]["Dir"], nfswarn=True)
 
         self.ReadMSInfo(first_ms=first_ms,DoPrint=DoPrint)
         self.LFlaggedStations=[]
@@ -973,7 +974,7 @@ class ClassMS():
         tp = table(table_all.getkeyword('POLARIZATION'),ack=False)
         # get list of corrype enums for first row of polarization table, and convert to strings via MS_STOKES_ENUMS. 
         # self.CorrelationNames will be a list of strings
-        self.CorrelationIds = tp.getcol('CORR_TYPE',0,1)[self._polid]
+        self.CorrelationIds = tp.getcol('CORR_TYPE',0,1)[0]
         self.CorrelationNames = [ (ctype >= 0 and ctype < len(MS_STOKES_ENUMS) and MS_STOKES_ENUMS[ctype]) or
                 None for ctype in self.CorrelationIds ]
         self.Ncorr = len(self.CorrelationNames)
@@ -1205,7 +1206,7 @@ class ClassMS():
 
         if self.DicoSelectOptions["UVRangeKm"]:
             d0, d1 = self.DicoSelectOptions["UVRangeKm"]
-            print("  flagging uv data outside uv distance of [%5.1f~%5.1f] km" % (d0, d1), file=log)
+            print("  flagging uv data outside uv distance of [%5.2f~%5.2f] km" % (d0, d1), file=log)
             d0 = d0**2*1e6
             d1 = d1**2*1e6
             duv = (uvw[:,:2]**2).sum(1)  # u^2+v^2... and we already squared d0 and d1
@@ -1306,7 +1307,7 @@ class ClassMS():
         self.AddCol(colname, LikeCol=likecol, quiet=True)
         nrow = row1 - row0
         if self._reverse_channel_order:
-            vis = vis[:,::-1,:]
+            vis = vis[:,::-1,...]
         print("writing column %s rows %d:%d"%(colname,row0,row1), file=log)
         t = self.GiveMainTable(readonly=False, ack=False)
 
@@ -1324,17 +1325,27 @@ class ClassMS():
                 vis0 = t.getcol(colname, row0, nrow)
             except RuntimeError:
                 vis0 = t.getcol("DATA", row0, nrow)
-            vis0[:, self.ChanSlice, :] = vis[reverse_index, :, :]
+            vis0[:, self.ChanSlice, ...] = vis[reverse_index, :, ...]
             t.putcol(colname, vis0, row0, nrow)
         else:
             if sort_index is None:
                 vis0 = vis
             else:
-                vis0 = np.zeros((nrow,vis.shape[1],vis.shape[2]),vis.dtype)
+                if len(vis.shape)==3:
+                    vis0 = np.zeros((nrow,vis.shape[1],vis.shape[2]),vis.dtype)
+                elif len(vis.shape)==2:
+                    import warnings
+                    warnings.warn("Your dataset does not conform to NRAO MS v2 specification (memo 229) and only "
+                                  "contains 2D axis. We will assume this means nrow x nchan x (ncorr == 1). "
+                                  "Please notify your observatory of this issue.")
+                    vis0 = np.zeros((nrow,vis.shape[1]),vis.dtype)
+                    
                 vis0[sort_index,...] = vis
             t.putcol(colname, vis0, row0, nrow)
         t.close()
 
+
+        
     def SaveVis(self,vis=None,Col="CORRECTED_DATA",spw=0,DoPrint=True):
         if vis is None:
             vis=self.data

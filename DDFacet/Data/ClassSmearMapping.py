@@ -540,6 +540,10 @@ def GiveBlocksRowsListBL_old(a0, a1, DATA, dPhi, l, channel_mapping):
         CurrentRows.append(ind[iRowBL])   # add to list of rows
         # Frequency Block
         uv = np.sqrt(u[iRowBL]**2+v[iRowBL]**2+w[iRowBL]**2)   # uvw distance for this row
+        # solves issue where non-autocorrelations are set to uv = 0 and unflagged
+        # ?? seems to be an observatory specific issue (solution is perhaps to run
+        # CASA fixvis on the dataset to regenerate uv coordinates)
+        uv = max(uv, 1e-10)
         dnu = (C/np.pi)*dPhi/(uv*l)                            # delta-nu for this row
         NChanBlock = dnu/dFreq                                 # size of averaging block, in channels
         if NChanBlock < NChanBlockMax:                         # min size of channel averaging block for this time block

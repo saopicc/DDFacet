@@ -24,6 +24,9 @@ from __future__ import print_function
 
 from DDFacet.compatibility import range
 
+from DDFacet.Other import logger
+log = logger.getLogger("MyPickle")
+
 import os
 import six
 if six.PY3:
@@ -39,11 +42,48 @@ def Save(Obj,fileout):
     #print "  done"
 
 def Load(filein):
-    #print "  Loading from %s"%filein
-    G= cPickle.load( open( filein, "rb" ))
-    #G=pickle.load( open( filein, "rb" ) )
+    
+    try:
+        G= cPickle.load( open( filein, "rb" ))
+    except UnicodeDecodeError:
+        log.print("Cannot read dicomodel: %s"%filein)
+        D0 = cPickle.load( open( filein, "rb" ), encoding='bytes')
+        log.print("  converting to Python3...")
+        G = convert(D0)
+        # NameOut="%s.Py3.DicoModel"%filein
+        # log.print("Saving in %s"%NameOut)
+        # Save(G,NameOut)
     return G
 
+def convert(input):
+    if isinstance(input, dict):
+        return {convert(key): convert(value) for key, value in input.items()}
+    elif isinstance(input, list):
+        return [convert(element) for element in input]
+    elif isinstance(input, bytes):
+        return input.decode('ascii')
+    else:
+        return input
+
+# def DicoPy2To3(DicoIn, DicoOut):
+#     for key,value in DicoIn.items():
+#         keyout=key
+#         valout=value
+#         if isinstance(key,bytes):
+#             keyout=key.decode("ascii")
+#         if isinstance(value,bytes):
+#             DicoOut[keyout]=value.decode("ascii")
+#         elif isinstance(valout,dict):
+#             DicoOut[keyout] = {}
+#             DicoOut[keyout] = DicoPy2To3(DicoIn[key], DicoOut[keyout])
+#         elif isinstance(valout,list):
+#             DicoOut[keyout] = ListPy2To3(value)
+#         else:
+#             DicoOut[keyout] = valout
+#     return DicoOut
+
+# def ListPy2To3(ListIn):
+#     for v in ListIn:
 
 import os
 import numpy as np

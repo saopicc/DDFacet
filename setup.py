@@ -212,7 +212,7 @@ setup(name=pkg,
                 'build': custom_build,
                 'build_ext': custom_build_ext
                },
-      #python_requires='<3.0',
+      python_requires='>=3.0,<3.7',
       packages=[pkg, skymodel_pkg],
       install_requires=requirements(),
       include_package_data=True,

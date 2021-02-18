@@ -7,12 +7,11 @@ import numpy as np
 from SkyModel.Other import MyLogger
 log=MyLogger.getLogger("MakeModel")
 from SkyModel.Sky import ClassSM
-try:
-    from DDFacet.Imager.ModModelMachine import GiveModelMachine
-except:
-    from DDFacet.Imager.ModModelMachine import ClassModModelMachine
+from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 from DDFacet.Imager import ClassCasaImage
 from pyrap.images import image
+from SkyModel.Sky import ModRegFile
+from SkyModel.Other import ModColor
 
 SaveName="last_MakeModel.obj"
 
@@ -54,6 +53,25 @@ def main(options=None):
         f = open(SaveName,'rb')
         options = pickle.load(f)
 
+    NDir=int(options.NCluster)
+    if NDir==0 and options.ds9PreClusterFile:
+        R=ModRegFile.RegToNp(options.ds9PreClusterFile)
+        R.Read()
+        Cat=R.CatSel
+        NDir=Cat.ra.size
+        ClusterCat=np.zeros((NDir,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),("Cluster",int)])
+        ClusterCat=ClusterCat.view(np.recarray)
+        ClusterCat.ra[:]=Cat.ra[:]
+        ClusterCat.dec[:]=Cat.dec[:]
+        ClusterCat.SumI[:]=1.
+        ClusterCat.Cluster=np.arange(NDir)
+        ClusterCat.Name[:]=["%i"%i for i in range(NDir)]
+        
+        FileClusterCat="%s.ClusterCat.npy"%(options.ds9PreClusterFile)
+        print("   - ClusterCat File Name: %s"%ModColor.Str(FileClusterCat,col="green"))
+        np.save(FileClusterCat,ClusterCat)
+        return
+    
     SkyModel=options.SkyModel
 
     if "," in SkyModel:

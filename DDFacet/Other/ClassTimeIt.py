@@ -48,6 +48,7 @@ class ClassTimeIt():
     def timestr(self, hms=False):
         t1 = timemod.time()
         dt = t1-self.t0
+        self.dt=dt
         self.t0 = t1
         if not hms:
             return "%7.5fs" % dt
@@ -71,15 +72,16 @@ class ClassTimeIt():
             return
         ts = self.timestr(hms=hms)
         if not hms:
-            Sout = "  * %s%s %s : %s" % (self.name, stri, str(self.Counter), ts)
+            Sout = "  ***** %s%s %s : %s" % (self.name, stri, str(self.Counter), ts)
             if self.IsEnableIncr:
                 self.Counter += 1
         else:
-            Sout = "  * %s computation time: %s" % (stri, ts)
+            Sout = "  ***** %s computation time: %s" % (stri, ts)
         if DoLog:
-            print(Sout, file=log)
+            log.print(Sout, file=log)
         else:
-            print(Sout)
+            log.print(Sout)
+        return self.dt
 
     def disable(self):
         self.IsEnable = False

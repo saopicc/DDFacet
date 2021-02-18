@@ -34,6 +34,8 @@ from DDFacet.Array import ModLinAlg
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Data import ClassLOFARBeam
 from DDFacet.Data import ClassFITSBeam
+from DDFacet.Data import ClassGMRTBeam
+
 # import ClassSmoothJones is not used anywhere, should be able to remove it
 import tables
 import glob
@@ -942,10 +944,12 @@ class ClassJones():
             #print>>log, "  Estimating LOFAR beam model in %s mode every %5.1f min."%(LOFARBeamMode,DtBeamMin)
             # self.GiveInstrumentBeam=self.MS.GiveBeam
             # estimate beam sample times using DtBeamMin
-
         elif GD["Beam"]["Model"] == "FITS":
             self.BeamMachine = ClassFITSBeam.ClassFITSBeam(self.MS, GD["Beam"])
             self.GiveInstrumentBeam = self.BeamMachine.evaluateBeam
+        elif GD["Beam"]["Model"] == "GMRT":
+            self.BeamMachine = ClassGMRTBeam.ClassGMRTBeam(self.MS, GD["Beam"])
+            self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam
 
             # self.DtBeamDeg = GD["Beam"]["FITSParAngleIncrement"]
             # print>>log, "  Estimating FITS beam model every %5.1f min."%DtBeamMin

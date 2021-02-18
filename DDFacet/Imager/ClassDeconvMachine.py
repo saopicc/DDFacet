@@ -276,12 +276,6 @@ class ClassImagerDeconv():
                 from DDFacet.Imager.MORESANE import ClassImageDeconvMachineMoresane
                 self.DeconvMachine=ClassImageDeconvMachineMoresane.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
                 print("Using MORESANE algorithm", file=log)
-            elif self.GD["Deconv"]["Mode"]=="MUFFIN":
-                if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
-                    raise NotImplementedError("Multi-polarization is not supported in MORESANE")
-                from DDFacet.Imager.MUFFIN import ClassImageDeconvMachineMUFFIN
-                self.DeconvMachine=ClassImageDeconvMachineMUFFIN.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
-                print("Using MUFFIN algorithm", file=log)
             elif self.GD["Deconv"]["Mode"]=="WSCMS":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                     raise NotImplementedError("Multi-polarization is not supported in WSCMS")
@@ -997,7 +991,7 @@ class ClassImagerDeconv():
                 elif MaskOutSide==1:
                     SquareMaskMode="Outside"
                 NpixInside, _ = EstimateNpix(float(NpixInside), Padding=1)
-                print>>log,"  Zeroing model %s square [%i pixels]"%(SquareMaskMode,NpixInside)
+                print("  Zeroing model %s square [%i pixels]"%(SquareMaskMode,NpixInside),file=log)
                 dn=NpixInside//2
                 n=self.FacetMachine.Npix
                 InSquare=np.zeros(ModelImage.shape,bool)

@@ -88,9 +88,9 @@ def monitorMem():
         
         PureRAM=np.array(LMem)-Cache
         
-        Shared= NpShared.SizeShm()
-        if not Shared: Shared=LShared[-1]
-        LShared.append(Shared)
+        # Shared= NpShared.SizeShm()
+        # if not Shared: Shared=0.#LShared[-1]
+        # LShared.append(Shared)
 
 
         cpu=psutil.cpu_percent()
@@ -126,7 +126,8 @@ def monitorMem():
             ax.fill(x,y,'black', alpha=0.1, edgecolor='blue',lw=2)
 
             # Total used excluding cache
-            x,y=GivePolygon(LT,np.array(LShared)+np.array(PureRAM))
+            #x,y=GivePolygon(LT,np.array(LShared)+np.array(PureRAM))
+            x,y=GivePolygon(LT,np.array(PureRAM))
             ax.fill(x,y,'black', alpha=0.3, edgecolor='blue',lw=2)
 
             # memory
@@ -135,11 +136,11 @@ def monitorMem():
             ax.fill(x,y,'green', alpha=0.3, edgecolor='green',lw=2,hatch="//")
 
 
-            # Shared
-            #ax.plot(LT,LShared,lw=2,color="black")
-            x,y=GivePolygon(LT,LShared)
-            ax.fill(x,y,'red', alpha=0.3, edgecolor='red',lw=2,hatch="\\")
-            #ax.plot(LT,TotSeen,lw=2,color="red")
+            # # Shared
+            # #ax.plot(LT,LShared,lw=2,color="black")
+            # x,y=GivePolygon(LT,LShared)
+            # ax.fill(x,y,'red', alpha=0.3, edgecolor='red',lw=2,hatch="\\")
+            # #ax.plot(LT,TotSeen,lw=2,color="red")
 
             # # Total Used
             # ax.plot(LT,np.array(LMem),lw=2,color="blue",ls="--")

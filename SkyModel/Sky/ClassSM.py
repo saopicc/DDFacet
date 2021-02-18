@@ -28,9 +28,8 @@ class ClassSM():
         self.infile_cluster=infile_cluster
         self.TargetList=infile
         self.Type="Catalog"
-
         self.DoPrint=True
-        if type(infile).__name__=="instance":
+        if (type(infile).__name__=="instance") or (type(infile).__name__=="ClassImageSM"):
             Cat=infile.SourceCat
             Cat=Cat.view(np.recarray)
             self.DoPrint=0
@@ -88,7 +87,9 @@ class ClassSM():
             for i in range(len(self.SourceCat)):
                 for StrPiece in killdirs:
                     if StrPiece=="": continue
-                    if StrPiece in self.SourceCat.Name[i]: self.SourceCat.kill[i]=1
+                    Name=self.SourceCat.Name[i]
+                    if "byte" in type(Name).__name__: Name=Name.decode("utf-8")
+                    if StrPiece in Name: self.SourceCat.kill[i]=1
         if invert:
             ind0=np.where(self.SourceCat.kill==0)[0]
             ind1=np.where(self.SourceCat.kill==1)[0]
@@ -113,6 +114,7 @@ class ClassSM():
 
     def PrintBasics(self):
         infile=self.infile
+        # if "instance" in str(type(infile)): return
         npext=""
         if not(".npy" in infile): npext=".npy"
         print("   - Numpy catalog file: %s"%ModColor.Str("%s%s"%(infile,npext),col="green"))
@@ -443,6 +445,7 @@ class ClassSM():
         if not("l" in list(Cat.dtype.fields.keys())):
             Cat=RecArrayOps.AppendField(Cat,('l',float))
             Cat=RecArrayOps.AppendField(Cat,('m',float))
+
         Cat.l,Cat.m=self.radec2lm_scalar(self.SourceCat.ra,self.SourceCat.dec,rac,decc)
         self.SourceCat=Cat
         self.SourceCatKeepForSelector=self.SourceCat.copy()

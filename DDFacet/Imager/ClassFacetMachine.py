@@ -641,7 +641,7 @@ class ClassFacetMachine():
                 pyfftw.import_wisdom(DictWisdom["Wisdom"])
                 WisdomTypes=DictWisdom["WisdomTypes"]
             except:
-                print("Exception while reading wisdom... will remake")
+                log.print("Exception while reading wisdom... will remake")
                 WisdomTypes=[]
         else:
             WisdomTypes=[]
@@ -1673,7 +1673,7 @@ class ClassFacetMachine():
         APP.awaitJobResults(self._fft_job_id+"*", progress=("FFT PSF" if self.DoPSF else "FFT"))
         self._fft_job_id = None
 
-    def _set_model_grid_worker(self, iFacet, model_dict, cf_dict, ChanSel, ToSHMDict=False,ToGrid=False,ApplyNorm=True):
+    def _set_model_grid_worker(self, iFacet, model_dict, cf_dict, ChanSel, ToSHMDict=False,ToGrid=False,ApplyNorm=True,DoReturn=True):
         # We get the psf dict directly from the shared dict name (not from the .path of a SharedDict)
         # because this facet machine is not necessarilly the one where we have computed the PSF
         norm_dict = shared_dict.attach("normDict")
@@ -1685,7 +1685,8 @@ class ClassFacetMachine():
         model_dict[iFacet]["SumFlux"] = SumFlux
         if ToSHMDict:
             model_dict[iFacet]["FacetGrid"] = ModelGrid
-        return ModelGrid
+        if DoReturn:
+            return ModelGrid
 
     def set_model_grid (self,ToGrid=True,ApplyNorm=True):
         self.awaitInitCompletion()
@@ -1706,9 +1707,9 @@ class ClassFacetMachine():
             APP.runJob("%sF%d" % (self._set_model_grid_job_id, iFacet), 
                        self._set_model_grid_worker,
                        args=(iFacet, self._model_dict.readwrite(), self._CF[iFacet].readonly(),
-                             ChanSel,ToSHMDict,ToGrid,ApplyNorm))
+                             ChanSel,ToSHMDict,ToGrid,ApplyNorm,False))
         APP.awaitJobResults(self._set_model_grid_job_id + "*", progress="Make model grids")
-
+        del(self._model_dict["Image"])
 
     # #####################################################"
     def _convolveShift_worker(self, iFacet, d_mat, dl,dm,
