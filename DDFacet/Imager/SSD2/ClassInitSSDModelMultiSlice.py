@@ -38,6 +38,7 @@ SilentModules=["ClassPSFServer",
 class ClassInitSSDModelParallel():
     def __init__(self, GD, NFreqBands, RefFreq, NCPU, MainCache=None,IdSharedMem=""):
         self.GD = copy.deepcopy(GD)
+        
         self.GD["MultiSliceDeconv"]["PolyFitOrder"]=self.GD["SSD2"]["PolyFreqOrder"]
         self.MainCache=MainCache
         self.RefFreq=RefFreq
@@ -45,7 +46,7 @@ class ClassInitSSDModelParallel():
         self.IdSharedMem=IdSharedMem
         self.NFreqBands=NFreqBands
 
-        self.InitMachine = ClassInitSSDModel(GD, NFreqBands, RefFreq, MainCache, IdSharedMem)
+        self.InitMachine = ClassInitSSDModel(self.GD, NFreqBands, RefFreq, MainCache, IdSharedMem)
         self.NCPU=(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
         APP.registerJobHandlers(self)
 
@@ -85,7 +86,7 @@ class ClassInitSSDModelParallel():
             self.InitMachine.Reset()
             return
         DicoOut["PolyModel"] = ModelImageIsland
-        print(ModelImageIsland)
+        
         self.InitMachine.Reset()
 
     def giveDicoInitIndiv(self, ListIslands, ModelImage, DicoDirty, ListDoIsland=None):
@@ -112,7 +113,6 @@ class ClassInitSSDModelParallel():
             
         ParmDict.delete()
 
-        stop
         return DicoInitIndiv
 
 
@@ -427,7 +427,7 @@ class ClassInitSSDModel():
             ModelImage=self.CTP.LinPolyCube2LogPolyCube(ModelImage)
         
         x,y=self.ArrayPixParms.T
-        print(ModelImage.shape)
+        
         ModelImageIsland=ModelImage[:,0,x,y]
         return ModelImageIsland
     
