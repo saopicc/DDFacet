@@ -59,6 +59,9 @@ class ClassImageDeconvMachine():
         self.FitFluxScale="Linear"
         self.FitFluxScale="Exp"
         self.MaskMachine=None
+
+    def Reset(self):
+        pass
         
     def SetPSF(self,DicoVariablePSF):
         self.PSFServer=ClassPSFServer(self.GD)
@@ -113,7 +116,8 @@ class ClassImageDeconvMachine():
         if "PSFSideLobes" not in self.DicoVariablePSF.keys():
             self.DicoVariablePSF["PSFSideLobes"]=kwargs["PSFAve"]
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
-        self.ModelMachine.setRefFreq(kwargs["RefFreq"])
+        
+        self.ModelMachine.setRefFreq(self.RefFreq)
         # store grid and degrid freqs for ease of passing to MSMF
         #print kwargs["GridFreqs"],kwargs["DegridFreqs"]
         self.GridFreqs=kwargs["GridFreqs"]

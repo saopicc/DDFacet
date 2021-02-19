@@ -21,7 +21,6 @@ log=logger.getLogger("ClassInitSSDModel")
 import traceback
 from DDFacet.Other import ModColor
 from .ClassConvMachine import ClassConvMachineImages
-from DDFacet.Imager import ClassMaskMachine
 from .ClassTaylorToPower import ClassTaylorToPower
 from DDFacet.Array import shared_dict
 import psutil
@@ -86,6 +85,7 @@ class ClassInitSSDModelParallel():
             self.InitMachine.Reset()
             return
         DicoOut["PolyModel"] = ModelImageIsland
+        print(ModelImageIsland)
         self.InitMachine.Reset()
 
     def giveDicoInitIndiv(self, ListIslands, ModelImage, DicoDirty, ListDoIsland=None):
@@ -107,11 +107,12 @@ class ClassInitSSDModelParallel():
                                  DicoDirty.readonly(),
                                  ParmDict.readonly(), 
                                  1))
-            APP.awaitJobResults("InitIsland:*", progress="Init islands HMP")
+            APP.awaitJobResults("InitIsland:*", progress="Init islands MultiSlice")
             DicoInitIndiv.reload()
-        
+            
         ParmDict.delete()
 
+        stop
         return DicoInitIndiv
 
 
@@ -249,13 +250,15 @@ class ClassInitSSDModel():
 
         self.Margin=50
 
+    def Reset(self):
+        pass
+    
     def Init(self,DicoVariablePSF,GridFreqs,DegridFreqs,
                  DoWait=False):
         self.DicoVariablePSF=DicoVariablePSF
         self.GridFreqs=GridFreqs
         self.DegridFreqs=DegridFreqs
 
-        self.DeconvMachine.setMaskMachine(self.MaskMachine)
 
         self.Margin=20
 
@@ -424,105 +427,9 @@ class ClassInitSSDModel():
             ModelImage=self.CTP.LinPolyCube2LogPolyCube(ModelImage)
         
         x,y=self.ArrayPixParms.T
+        print(ModelImage.shape)
         ModelImageIsland=ModelImage[:,0,x,y]
         return ModelImageIsland
     
-
-
-
-##########################################
-####### Workers
-##########################################
-import os
-import signal
-           
-class WorkerInitMSMF(multiprocessing.Process):
-    def __init__(self,
-                 work_queue,
-                 result_queue,
-                 GD,
-                 DicoVariablePSF,
-                 DicoDirty,
-                 RefFreq,
-                 GridFreqs,
-                 DegridFreqs,
-                 MainCache,
-                 ModelImage,
-                 ListIsland,
-                 IdSharedMem):
-        multiprocessing.Process.__init__(self)
-        self.work_queue = work_queue
-        self.result_queue = result_queue
-        self.kill_received = False
-        self.exit = multiprocessing.Event()
-        self.GD=GD
-        self.DicoVariablePSF=DicoVariablePSF
-        self.DicoDirty=DicoDirty
-        self.RefFreq=RefFreq
-        self.GridFreqs=GridFreqs
-        self.DegridFreqs=DegridFreqs
-        self.MainCache=MainCache
-        self.ModelImage=ModelImage
-        self.ListIsland=ListIsland
-        self.InitMachine=None
-        self.IdSharedMem=IdSharedMem
-
-    def Init(self):
-
-        #print "sleeeping init0"
-        #time.sleep(10)
-        if self.InitMachine is not None: return
-        self.InitMachine=ClassInitSSDModel(self.GD,
-                                           self.DicoVariablePSF,
-                                           self.RefFreq,
-                                           self.GridFreqs,
-                                           self.DegridFreqs,
-                                           MainCache=self.MainCache,
-                                           IdSharedMem=self.IdSharedMem,
-                                           DoWait=False)
-        self.InitMachine.setSSDModelImage(self.ModelImage)
-        self.InitMachine.setDirty(self.DicoDirty)
-        #print "sleeeping init1"
-        #time.sleep(10)
-
-
-    def shutdown(self):
-        self.exit.set()
-
-
-    def initIsland(self, DicoJob):
-        if self.InitMachine is None:
-            self.Init()
-        iIsland=DicoJob["iIsland"]
-        Island=self.ListIsland[iIsland]
-        #SModel,AModel=self.InitMachine.giveModel(Island)
-        PolyModel=self.InitMachine.giveModel(Island)
-        DicoInitIndiv={#"S":SModel,
-                       #"Alpha":AModel,
-                       "PolyModel":PolyModel}
-        NameDico="%sDicoInitIsland%5.5i"%(self.IdSharedMem,iIsland)
-        NpShared.DicoToShared(NameDico, DicoInitIndiv)
-        self.result_queue.put({"Success": True, "iIsland": iIsland})
-
-
-    def run(self):
-        while not self.kill_received and not self.work_queue.empty():
-            
-            DicoJob = self.work_queue.get()
-            self.initIsland(DicoJob)
-            # try:
-            #     self.initIsland(DicoJob)
-            # except:
-            #     print(traceback.format_exc())
-            #     iIsland=DicoJob["iIsland"]
-            #     FileOut="errIsland_%6.6i.npy"%iIsland
-            #     print(ModColor.Str("...... on island %i, saving to file %s"%(iIsland,FileOut)))
-            #     np.save(FileOut,np.array(self.ListIsland[iIsland]))
-            #     print()
-
-
-
-
-
 
 
