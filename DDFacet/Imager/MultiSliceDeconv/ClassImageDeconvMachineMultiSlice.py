@@ -188,7 +188,7 @@ class ClassImageDeconvMachine():
             # print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
             # print self._Dirty.shape
             # print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-            return "MaxIter", True, True
+            return "Edge", True, True
 
         log.print("Deconvolve MultiSlice model cube...")
 

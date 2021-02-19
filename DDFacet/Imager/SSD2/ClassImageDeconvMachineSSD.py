@@ -296,7 +296,7 @@ class ClassImageDeconvMachine():
         
         self.LabelIslandsImage=IslandDistanceMachine.CalcLabelImage(ListIslands)
 
-        self.ListIslands=ListIslands
+        self.ListIslands=ListIslands# :10]
         self.NIslands=len(self.ListIslands)
 
         print("Sorting islands by size", file=log)
@@ -306,7 +306,7 @@ class ClassImageDeconvMachine():
 
         ListIslandsOut=[self.ListIslands[i] for i in ind]
         self.ListIslands=ListIslandsOut
-
+        
 
 
 
@@ -523,12 +523,12 @@ class ClassImageDeconvMachine():
             ParallelPerIsland=True
             StopWhenQueueEmpty=True
 
-        # ######### Debug
-        # ParallelPerIsland=False
-        # Parallel=False
-        # NCPU=1
-        # StopWhenQueueEmpty=True
-        # # ##################
+        ######### Debug
+        ParallelPerIsland=False
+        Parallel=False
+        NCPU=1
+        StopWhenQueueEmpty=True
+        # ##################
         
 
         work_queue = multiprocessing.Queue()

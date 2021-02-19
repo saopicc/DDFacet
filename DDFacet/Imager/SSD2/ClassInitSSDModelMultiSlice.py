@@ -60,7 +60,7 @@ class ClassInitSSDModelParallel():
         #self.InitMachine.Reset()
 
     def giveDicoInitIndiv(self,ListIslands,ModelImage,DicoDirty,ListDoIsland=None,Parallel=True):
-        Parallel=False
+        #Parallel=False
         NCPU=self.NCPU
         work_queue = multiprocessing.JoinableQueue()
         ListIslands=ListIslands#[300:308]
@@ -381,7 +381,11 @@ class ClassInitSSDModel():
         T.timeit("update")
         #print "update"
         #time.sleep(30)
-        self.DeconvMachine.Deconvolve()
+        
+        rep,_,_=self.DeconvMachine.Deconvolve()
+        if rep=="Edge":
+            return np.zeros((self.GD["SSD2"]["PolyFreqOrder"],len(ListPixParms)),np.float32)
+        
         T.timeit("deconv %s"%str(self.DicoSubDirty["ImageCube"].shape))
         #print "deconv"
         #time.sleep(30)

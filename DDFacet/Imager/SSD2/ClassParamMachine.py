@@ -153,7 +153,9 @@ class ClassParamMachine():
                 if Type=="Poly0":
                     SubArray[:]=PolyModelArray[0,:]
                     S=np.abs(SubArray[:]).copy()
-                    S/=np.max(S)
+                    if np.max(S)>0:
+                        S/=np.max(S)
+                        
                     if (i_indiv!=0) and PutNoise:
                         #SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
                         #SubArray[:]+=np.random.randn(SModelArray.size)*SigVal*(SubArray[:]!=0.) # will not put noise in zero-valued pixels
