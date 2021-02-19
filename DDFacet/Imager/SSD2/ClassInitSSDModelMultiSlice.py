@@ -108,8 +108,8 @@ class ClassInitSSDModelParallel():
                                  DicoDirty.readonly(),
                                  ParmDict.readonly(), 
                                  1))
-            APP.awaitJobResults("InitIsland:*", progress="Init islands MultiSlice")
-            DicoInitIndiv.reload()
+        APP.awaitJobResults("InitIsland:*", progress="Init islands MultiSlice")
+        DicoInitIndiv.reload()
             
         ParmDict.delete()
 

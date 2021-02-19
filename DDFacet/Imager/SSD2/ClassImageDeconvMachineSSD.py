@@ -296,7 +296,7 @@ class ClassImageDeconvMachine():
         
         self.LabelIslandsImage=IslandDistanceMachine.CalcLabelImage(ListIslands)
 
-        self.ListIslands=ListIslands# :10]
+        self.ListIslands=ListIslands#[0:100]
         self.NIslands=len(self.ListIslands)
 
         print("Sorting islands by size", file=log)
@@ -508,7 +508,7 @@ class ClassImageDeconvMachine():
 
     def DeconvListIsland(self,ListIslands,ParallelMode="OverIslands"):
         # ================== Parallel part
-
+        
         NIslands=len(ListIslands)
         if NIslands==0: return
         if ParallelMode=="OverIslands":
@@ -522,7 +522,7 @@ class ClassImageDeconvMachine():
             Parallel=True
             ParallelPerIsland=True
             StopWhenQueueEmpty=True
-
+        
         ######### Debug
         ParallelPerIsland=False
         Parallel=False
