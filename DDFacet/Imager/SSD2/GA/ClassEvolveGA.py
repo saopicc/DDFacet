@@ -2,7 +2,6 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-
 from DDFacet.compatibility import range
 
 from deap import base
@@ -162,13 +161,25 @@ class ClassEvolveGA():
                 PolyModelArrayMP[0,:]=SModelArrayMP
             return PolyModelArrayMP
 
+        def GiveListPolyArrayMP_LinComb(N):
+            L=[GivePolyArrayMP_LinComb() for iIndiv in range(N)]
+            NTypeInit=len(self.DicoDicoInitIndiv.keys())
+            for iTypeInit in range(NTypeInit):
+                L[iTypeInit]=GivePolyArrayMP(iTypeInit=iTypeInit)
+            return L
+        
         def GivePolyArrayMP_LinComb():
             NTypeInit=len(self.DicoDicoInitIndiv.keys())
             LInit=[]
-            for iTypeInit in range(NTypeInit):
-                LInit.append(GivePolyArrayMP(iTypeInit=iTypeInit))
+            Nrand=np.max([1,NTypeInit])
+            w=np.random.rand(Nrand)
+            w/=np.sum(w)
+            PolyModelArrayMP=w[0]*GivePolyArrayMP(iTypeInit=0)
+            for iTypeInit in range(1,Nrand):
+                PolyModelArrayMP+=w[iTypeInit]*GivePolyArrayMP(iTypeInit=iTypeInit)
+            return PolyModelArrayMP
+
             
-        
         self.DicoDicoInitIndiv  = shared_dict.attach("DicoDicoInitIndiv")
         self.DicoDicoInitIndiv.reload()
         
@@ -178,7 +189,8 @@ class ClassEvolveGA():
             
             
             if NGen==0:
-                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,GiveListPolyArrayMP(1)*len(self.pop),PutNoise=False)
+                #self.ArrayMethodsMachine.PM.ReinitPop(self.pop,GiveListPolyArrayMP(1)*len(self.pop),PutNoise=False)
+                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,GiveListPolyArrayMP_LinComb(len(self.pop)),PutNoise=False)
                 self.ArrayMethodsMachine.KillWorkers()
                 return self.pop[0]
 
@@ -186,7 +198,7 @@ class ClassEvolveGA():
             PutNoise=True#False
             if np.max(np.abs(self.IslandBestIndiv))==0:
                 #print("NEW")
-                ListPolyModelArrayMP=GiveListPolyArrayMP(len(self.pop))
+                ListPolyModelArrayMP=GiveListPolyArrayMP_LinComb(len(self.pop))
                 self.ArrayMethodsMachine.PM.ReinitPop(self.pop,ListPolyModelArrayMP,PutNoise=PutNoise)
             else:
                 #print("MIX")
@@ -236,12 +248,12 @@ class ClassEvolveGA():
                 # From Minor Cycle estimate
                 
                 # half of the pop with the MP model
-                self.ArrayMethodsMachine.PM.ReinitPop(pop0,GiveListPolyArrayMP( len(pop0) ),PutNoise=PutNoise)
+                self.ArrayMethodsMachine.PM.ReinitPop(pop0,GiveListPolyArrayMP_LinComb( len(pop0) ),PutNoise=PutNoise)
 
                 NTypeInit=len(self.DicoDicoInitIndiv.keys())
                 for iTypeInit in range(NTypeInit):
                     pop0a=pop0[iTypeInit:iTypeInit+1]
-                    self.ArrayMethodsMachine.PM.ReinitPop(pop0a,GiveListPolyArrayMP( len(pop0a) , iTypeInit=iTypeInit),PutNoise=False)
+                    self.ArrayMethodsMachine.PM.ReinitPop(pop0a,GiveListPolyArrayMP_LinComb( len(pop0a) , iTypeInit=iTypeInit),PutNoise=False)
                 
                     
                 # _,Chi20=self.ArrayMethodsMachine.GiveFitnessPop(pop0)
