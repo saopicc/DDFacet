@@ -174,6 +174,7 @@ class ClassEvolveGA():
             Nrand=np.max([1,NTypeInit])
             w=np.random.rand(Nrand)
             w/=np.sum(w)
+            #print(w)
             PolyModelArrayMP=w[0]*GivePolyArrayMP(iTypeInit=0)
             for iTypeInit in range(1,Nrand):
                 PolyModelArrayMP+=w[iTypeInit]*GivePolyArrayMP(iTypeInit=iTypeInit)

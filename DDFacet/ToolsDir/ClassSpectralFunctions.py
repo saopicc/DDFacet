@@ -178,13 +178,13 @@ class ClassSpectralFunctions():
         #     p[0]=0.
         #     logS=np.poly1d(p[::-1])(np.log(ThisFreqs.ravel()/RefFreq))
         #     SUnityFreq[iPix,:]=np.exp(logS)
-
+        
         Npix,NOrder=PolyArray.shape
         n=np.arange(NOrder)
         n=n.reshape((1,1,NOrder))
         f=ThisFreqs.reshape((1,-1,1))
         a=(PolyArray.copy()).reshape((Npix,1,NOrder))
-
+        
         if FluxScale=="Exp":
             a[:,:,0]=0.
             SUnityFreq0=a*(np.log(f/RefFreq))**n
@@ -193,13 +193,13 @@ class ClassSpectralFunctions():
             SUnityFreq0=a*((f-RefFreq)/RefFreq)**n
             SUnityFreq0=np.sum(SUnityFreq0,axis=-1)
         SUnityFreq=SUnityFreq0
-
+        
         FreqBandsFlux=np.sqrt(np.sum(BeamFactor*( SUnityFreq )**2,axis=1))/np.sqrt(np.sum(BeamFactorWeightSq))
         FreqBandsFlux/=np.sqrt(MeanJonesBand)
-
+        
         S0=S0.reshape((Npix,))
         if FluxScale=="Exp":
             FreqBandsFlux*=S0
-
+            
         return FreqBandsFlux.ravel()
     
