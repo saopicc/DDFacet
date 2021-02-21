@@ -455,22 +455,27 @@ class ClassImageDeconvMachine():
             ListBigIslands=[]
             ListSmallIslands=[]
             
+            ListInitBigIslands=[]
+            ListInitSmallIslands=[]
+            
             for iIsland,Island in enumerate(self.ListIslands):
                 if len(Island)>self.GD["SSDClean"]["ConvFFTSwitch"]:
                     ListBigIslands.append(Island)
+                    ListInitBigIslands.append(iIsland)
                 else:
                     ListSmallIslands.append(Island)
+                    ListInitSmallIslands.append(iIsland)
 
 
             if len(ListSmallIslands)>0:
                 print("Deconvolve small islands (<=%i pixels) (parallelised over island)"%(self.GD["SSDClean"]["ConvFFTSwitch"]), file=log)
-                self.DeconvListIsland(ListSmallIslands,ParallelMode="OverIslands")
+                self.DeconvListIsland(ListSmallIslands,ParallelMode="OverIslands",ListInitIslands=ListInitSmallIslands)
             else:
                 print("No small islands", file=log)
 
             if len(ListBigIslands)>0:
                 print("Deconvolve large islands (>%i pixels) (parallelised per island)"%(self.GD["SSDClean"]["ConvFFTSwitch"]), file=log)
-                self.DeconvListIsland(ListBigIslands,ParallelMode="PerIsland")
+                self.DeconvListIsland(ListBigIslands,ParallelMode="PerIsland",ListInitIslands=ListInitBigIslands)
             else:
                 print("No large islands", file=log)
 
@@ -506,7 +511,7 @@ class ClassImageDeconvMachine():
 
 
 
-    def DeconvListIsland(self,ListIslands,ParallelMode="OverIslands"):
+    def DeconvListIsland(self,ListIslands,ParallelMode="OverIslands",ListInitIslands=None):
         # ================== Parallel part
         
         NIslands=len(ListIslands)
@@ -523,12 +528,12 @@ class ClassImageDeconvMachine():
             ParallelPerIsland=True
             StopWhenQueueEmpty=True
         
-        ######### Debug
-        ParallelPerIsland=False
-        Parallel=False
-        NCPU=1
-        StopWhenQueueEmpty=True
-        # ##################
+        # ######### Debug
+        # ParallelPerIsland=False
+        # Parallel=False
+        # NCPU=1
+        # StopWhenQueueEmpty=True
+        # # ##################
         
 
         work_queue = multiprocessing.Queue()
@@ -555,15 +560,17 @@ class ClassImageDeconvMachine():
             W=self.DicoDirty["WeightChansImages"]
             JonesNorm=np.sum(JonesNorm*W.reshape((nchan,1,1,1)),axis=0).reshape((1,npol,1,1))
             T.timeit("JonesNorm")
-
+            
             IslandBestIndiv=self.ModelMachine.GiveIndividual(ThisPixList)
             T.timeit("GiveIndividual")
             FacetID=self.PSFServer.giveFacetID2(xm,ym)
             T.timeit("FacetID")
 
             island_dict["BestIndiv"] = IslandBestIndiv
-
-            ListOrder=[iIsland,FacetID,JonesNorm.flat[0],self.RMS**2,island_dict.path]
+            
+            iIslandInit=ListInitIslands[iIsland]
+            
+            ListOrder=[iIsland,FacetID,JonesNorm.flat[0],self.RMS**2,island_dict.path,iIslandInit]
 
 
             work_queue.put(ListOrder)
@@ -803,7 +810,7 @@ class WorkerDeconvIsland(multiprocessing.Process):
 
             #gc.enable()
             try:
-                iIsland,FacetID,JonesNorm,PixVariance,shdict_path = self.work_queue.get(True,2)
+                iIsland,FacetID,JonesNorm,PixVariance,shdict_path,iIslandInit = self.work_queue.get(True,2)
             except Exception as e:
                 #print "Exception worker: %s"%str(e)
                 break
@@ -858,7 +865,8 @@ class WorkerDeconvIsland(multiprocessing.Process):
                                   GD=self.GD,
                                   iIsland=iIsland,
                                   island_dict=island_dict,
-                                  ParallelFitness=self.ParallelPerIsland)
+                                  ParallelFitness=self.ParallelPerIsland,
+                                  iIslandInit=iIslandInit)
                 Model=CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
                 island_dict["Model"] = np.array(Model)
                 del(CEv)

@@ -29,13 +29,13 @@ def FilterIslandsPix(ListIn,Npix):
 class ClassEvolveGA():
     def __init__(self,Dirty,PSF,FreqsInfo,ListPixData=None,ListPixParms=None,IslandBestIndiv=None,GD=None,
                  WeightFreqBands=None,PixVariance=1e-2,iFacet=0,iIsland=None,island_dict=None,
-                 ParallelFitness=False,
-                 ListInitIslands=None):
+                 ParallelFitness=False,iIslandInit=None):
         if GD["Misc"]["RandomSeed"] is not None:
             random.seed(int(GD["Misc"]["RandomSeed"]))
             np.random.seed(int(GD["Misc"]["RandomSeed"]))
             
-        self.ListInitIslands=ListInitIslands
+        self.iIslandInit=iIslandInit
+        
         _,_,NPixPSF,_ = PSF.shape
         if ListPixData is None:
             x,y=np.mgrid[0:NPixPSF:1,0:NPixPSF:1]
@@ -149,8 +149,9 @@ class ClassEvolveGA():
                 
             DicoModelMP=None
             DicoInitIndiv=self.DicoDicoInitIndiv.get(iTypeInit,None)
-            if DicoInitIndiv is not None:
-                DicoModelMP=DicoInitIndiv.get(self.iIsland,None)
+            if DicoInitIndiv is not None and self.iIslandInit is not None:
+                #print(self.ArrayMethodsMachine.PM.NPixListData,self.iIsland,self.iIslandInit)
+                DicoModelMP=DicoInitIndiv.get(self.iIslandInit,None)
             
             if DicoModelMP is not None:
                 PolyModelArrayMP=DicoModelMP["PolyModel"]
