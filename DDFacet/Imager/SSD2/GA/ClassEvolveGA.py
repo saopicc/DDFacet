@@ -161,6 +161,13 @@ class ClassEvolveGA():
                 PolyModelArrayMP[0,:]=SModelArrayMP
             return PolyModelArrayMP
 
+        def GivePolyArrayMP_LinComb():
+            NTypeInit=len(self.DicoDicoInitIndiv.keys())
+            LInit=[]
+            for iTypeInit in range(NTypeInit):
+                LInit.append(GivePolyArrayMP(iTypeInit=iTypeInit))
+            
+        
         self.DicoDicoInitIndiv  = shared_dict.attach("DicoDicoInitIndiv")
         self.DicoDicoInitIndiv.reload()
         
