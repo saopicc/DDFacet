@@ -346,8 +346,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             freqsDask = da.from_array(np.array(self.GridFreqs).astype(np.float64), chunks=(self.Nchan))
 
             alpha, varalpha, Iref, varIref = fit_spi_components(FitCubeDask, weightsDask,
-                                                                freqsDask, self.RefFreq,
-                                                                dtype=np.float64).compute()
+                                                                freqsDask, self.RefFreq).compute()
         except Exception as e:
             raise(e)
 
