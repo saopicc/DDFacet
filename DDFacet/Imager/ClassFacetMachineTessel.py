@@ -129,6 +129,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
             h5files, apply_solsets, apply_map = _parse_solsfile(SolsFile)
             print("Parsing h5file pattern {}".format(h5files), file=log)
+            import glob
             h5file = glob.glob(h5files)[0]
             print( "Taking facet directions from H5parm: {}, solsets: {}".format(h5file, apply_solsets), file=log)
             with tables.open_file(h5file) as H:
