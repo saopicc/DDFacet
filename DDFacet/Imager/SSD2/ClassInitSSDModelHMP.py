@@ -13,7 +13,7 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import logger
-log=logger.getLogger("ClassInitSSDModel")
+log=logger.getLogger("ClassInitSSDModelHMP")
 from DDFacet.Other import ModColor
 from DDFacet.Imager.SSD.ClassConvMachine import ClassConvMachineImages
 from DDFacet.Imager import ClassMaskMachine

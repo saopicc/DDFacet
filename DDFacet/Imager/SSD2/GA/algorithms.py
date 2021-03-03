@@ -192,7 +192,7 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
 
 
     T= ClassTimeIt.ClassTimeIt()
-    #T.disable()
+    T.disable()
     best_ind0 = tools.selBest(population, 1)[0]
 
     #print best_ind0

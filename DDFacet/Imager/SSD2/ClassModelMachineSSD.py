@@ -28,7 +28,7 @@ import numpy as np
 from DDFacet.Other import logger
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
-log=logger.getLogger("ClassModelMachineSSD")
+log=logger.getLogger("ClassModelMachineSSD2")
 from DDFacet.Array import NpParallel
 from DDFacet.Array import ModLinAlg
 from DDFacet.ToolsDir import ModFFTW
@@ -99,7 +99,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         #D["PM"]=self.PM
         D["GD"]=self.GD
         D["ModelShape"]=self.ModelShape
-        D["Type"]="SSD"
+        D["Type"]="SSD2"
         D["SolveParam"]=self.SolveParam
 
         MyPickle.Save(D,FileName)
@@ -114,7 +114,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         xc1=NPixOut//2
         dx=xc0-xc1
         DCompOut={}
-        DCompOut["Type"]="SSD"
+        DCompOut["Type"]="SSD2"
         N,M,_,_=self.ModelShape
         self.ModelShape=[N,M,NPixOut,NPixOut]
         for (x0,y0) in self.DicoSMStacked['Comp'].keys():
@@ -131,7 +131,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         D=self.DicoSMStacked
         D["GD"]=self.GD
         D["ModelShape"]=self.ModelShape
-        D["Type"]="SSD"
+        D["Type"]="SSD2"
         D["SolveParam"]=self.SolveParam
         return D
 
@@ -159,7 +159,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def GiveConvertedSolveParamDico(self,SolveParam1):
         SolveParam0=self.DicoSMStacked["SolveParam"]
-        print("Converting SSD model %s into %s..."%(str(SolveParam0),str(SolveParam1)), file=log)
+        print("Converting SSD2 model %s into %s..."%(str(SolveParam0),str(SolveParam1)), file=log)
         DicoOut=copy.deepcopy(self.DicoSMStacked)
         DicoOut["SolveParam"]=SolveParam1
         del(DicoOut["Comp"])

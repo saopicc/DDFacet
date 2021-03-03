@@ -251,10 +251,10 @@ class ClassEvolveGA():
                 # half of the pop with the MP model
                 self.ArrayMethodsMachine.PM.ReinitPop(pop0,GiveListPolyArrayMP_LinComb( len(pop0) ),PutNoise=PutNoise)
 
-                NTypeInit=len(self.DicoDicoInitIndiv.keys())
-                for iTypeInit in range(NTypeInit):
-                    pop0a=pop0[iTypeInit:iTypeInit+1]
-                    self.ArrayMethodsMachine.PM.ReinitPop(pop0a,GiveListPolyArrayMP_LinComb( len(pop0a) , iTypeInit=iTypeInit),PutNoise=False)
+                # NTypeInit=len(self.DicoDicoInitIndiv.keys())
+                # for iTypeInit in range(NTypeInit):
+                #     pop0a=pop0[iTypeInit:iTypeInit+1]
+                #     self.ArrayMethodsMachine.PM.ReinitPop(pop0a,GiveListPolyArrayMP( len(pop0a) , iTypeInit=iTypeInit),PutNoise=False)
                 
                     
                 # _,Chi20=self.ArrayMethodsMachine.GiveFitnessPop(pop0)

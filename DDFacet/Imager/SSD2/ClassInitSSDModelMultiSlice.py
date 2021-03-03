@@ -17,7 +17,7 @@ from DDFacet.Other.progressbar import ProgressBar
 import time
 from DDFacet.Array import NpShared
 from DDFacet.Other import logger
-log=logger.getLogger("ClassInitSSDModel")
+log=logger.getLogger("ClassInitSSDModelMultiSlice")
 import traceback
 from DDFacet.Other import ModColor
 from .ClassConvMachine import ClassConvMachineImages

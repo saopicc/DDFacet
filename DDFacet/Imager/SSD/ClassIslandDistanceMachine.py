@@ -556,10 +556,15 @@ class WorkerDistance(multiprocessing.Process):
         Result=np.zeros((3,NIslands),np.int32)
 
         x0,y0=np.array(self.ListIslands[iIsland]).T
+
+        MaxSize=20000
+        incr0=np.max([1,int(x0.size/MaxSize)+1])
+        incr1=np.max([1,int(x1.size/MaxSize)+1])
+        
         for jIsland in range(NIslands):
             x1,y1=np.array(self.ListIslands[jIsland]).T
-            dx=x0.reshape((-1,1))-x1.reshape((1,-1))
-            dy=y0.reshape((-1,1))-y1.reshape((1,-1))
+            dx=(x0.flat[0::incr0]).reshape((-1,1))-(x1.flat[0::incr1]).reshape((1,-1))
+            dy=(y0.flat[0::incr0]).reshape((-1,1))-(y1.flat[0::incr1]).reshape((1,-1))
             d=np.sqrt(dx**2+dy**2)
             dmin=np.min(d)
             indx,indy=np.where(d==dmin)

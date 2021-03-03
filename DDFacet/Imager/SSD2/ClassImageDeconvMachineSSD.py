@@ -296,7 +296,8 @@ class ClassImageDeconvMachine():
         
         self.LabelIslandsImage=IslandDistanceMachine.CalcLabelImage(ListIslands)
 
-        self.ListIslands=ListIslands#[0:100]
+        self.ListIslands=ListIslands
+        
         self.NIslands=len(self.ListIslands)
 
         print("Sorting islands by size", file=log)
@@ -305,7 +306,8 @@ class ClassImageDeconvMachine():
         ind=np.argsort(Sz)[::-1]
 
         ListIslandsOut=[self.ListIslands[i] for i in ind]
-        self.ListIslands=ListIslandsOut
+        self.ListIslands=ListIslandsOut#[100::10][0:1]
+        self.NIslands=len(self.ListIslands)
         
 
 
