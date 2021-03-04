@@ -397,6 +397,10 @@ class ClassImageDeconvMachine():
             print(ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done here" % (ThisFlux),col="green" ), file=log)
             return "FluxThreshold", False, False
 
+        if ThisFlux == 0.0:
+            print(ModColor.Str("   Image is devoid of flux / all your data is flagged! STOPPING!", col="green" ), file=log)
+            return "FluxThreshold", False, False
+            
         self.SearchIslands(StopFlux)
         #return None,None,None
         self.InitIslands()

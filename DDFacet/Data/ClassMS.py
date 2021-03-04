@@ -27,7 +27,9 @@ from DDFacet.compatibility import range
 import os, re, glob
 import pyrap.measures as pm
 import pyrap.quanta as qa
+from astropy.time import Time
 from pyrap.tables import table
+from datetime import datetime as dt
 
 import ephem
 import numpy as np
@@ -1213,12 +1215,14 @@ class ClassMS():
             flags[(duv < d0) | (duv > d1),:,:] = True
 
         if self.DicoSelectOptions["TimeRange"]:
-            t0 = times[0]
-            tt = (times - t0) / 3600.
-            st0, st1 = self.DicoSelectOptions["TimeRange"]
-            print("  selecting uv data in time range [%.4f~%5.4f] hours" % (st0, st1), file=log)
-            ind = np.where((tt >= st0) & (tt < st1))[0]
-            flags[ind, :, :] = True
+            st0, st1 = list(map(lambda x: dt.utcfromtimestamp(qa.quantity(x).to_unix_time()),
+                                self.DicoSelectOptions["TimeRange"]))
+            print("  imaging only uv data in time range [{}~{}] UTC".format(st0, st1), file=log)
+            st0, st1 = list(map(lambda x: qa.quantity(x).to_unix_time(),
+                                self.DicoSelectOptions["TimeRange"]))
+            times_utc = np.array(list(map(lambda x: qa.quantity("{}s".format(x)).to_unix_time(), times)))
+            sel = np.logical_or(times_utc < st0, times_utc > st1)
+            flags[sel, :, :] = True
 
         if self.DicoSelectOptions["DistMaxToCore"]:
             DMax = self.DicoSelectOptions["DistMaxToCore"] * 1e3

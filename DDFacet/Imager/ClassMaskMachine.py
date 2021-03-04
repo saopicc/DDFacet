@@ -28,7 +28,7 @@ import numpy as np
 from DDFacet.Other import logger
 from DDFacet.Other import ModColor
 log=logger.getLogger("MaskMachine")
-from pyrap.images import image
+from astropy.io import fits as pyfits
 import scipy.special
 import copy
 from DDFacet.Imager.ModModelMachine import ClassModModelMachine
@@ -76,10 +76,12 @@ class ClassMaskMachine():
         if not self.DoMask: return
         print("Computing Mask", file=log)
         
-        if self.GD["Mask"]["Auto"]:
+        if self.GD["Mask"]["Auto"] and self.GD["Deconv"]["Mode"] in ["HMP", "SSD"]:
             self.ImageNoiseMachine.calcNoiseMap(DicoResidual)
             self.NoiseMask=(self.ImageNoiseMachine.FluxImage>self.GD["Mask"]["SigTh"]*self.ImageNoiseMachine.NoiseMapReShape)
-
+        elif self.GD["Mask"]["Auto"]:
+            raise RuntimeError("Automasking only supported under HMP and SSD. Use Mask-External instead")
+        
         if self.NoiseMask is not None: 
             print("  Merging Current mask with Noise-based mask", file=log)
             self.CurrentMask = OR(self.CurrentMask,self.NoiseMask)
@@ -97,7 +99,15 @@ class ClassMaskMachine():
         CleanMaskImage=self.GD["Mask"]["External"]
         if not CleanMaskImage: return
         print("  Reading mask image: %s"%CleanMaskImage, file=log)
-        MaskImage=image(CleanMaskImage).getdata()
+        with pyfits.open(CleanMaskImage) as f:
+            if len(f) != 1:
+                raise RuntimeError("Currently only supports external masks with a single HDU")
+            MaskImage = f[0].data
+            if np.abs(MaskImage).max() < 1.0e-10:
+                raise RuntimeError("Provided external mask is empty! Will not continue.")
+            if f[0].header["NAXIS"] != 4:
+                raise RuntimeError("External Mask must be 4 dimensional: RA x DEC x STOKES x CHAN")
+            
         nch,npol,_,_=MaskImage.shape
         MaskArray=np.zeros(MaskImage.shape,np.bool8)
         for ch in range(nch):

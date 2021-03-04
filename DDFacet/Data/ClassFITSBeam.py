@@ -177,7 +177,7 @@ class ClassFITSBeam (object):
                                max(self.freqs[-1] - vb._freqgrid[-1], 0)
                     beamlist.append((distance, vb, filenames))
                 # select beams with smallest distance
-                dist0, vb, filenames = sorted(beamlist)[0]
+                dist0, vb, filenames = sorted(beamlist, key=lambda beam: beam[0])[0]
                 if len(beamlist) > 1:
                     if dist0 == 0:
                         print("beam patterns %s %s overlap the frequency coverage" % filenames, file=log)
