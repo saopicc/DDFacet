@@ -17,18 +17,18 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 # '''
-#
+
 # from __future__ import absolute_import
 # from __future__ import division
 # from __future__ import print_function
 
 # from DDFacet.compatibility import range
 # import unittest
-#
+
 # import DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage
-#
-#
-# class TestSSDKillMS(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCompareFITSImage):
+
+
+# class TestLOFAR_J1329_p4729(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCompareFITSImage):
 #     @classmethod
 #     def defineImageList(cls):
 #         """ Method to define set of reference images to be tested.
@@ -40,7 +40,7 @@
 #         return ['dirty', 'dirty.corr', 'psf', 'NormFacets', 'Norm',
 #                 'app.residual', 'app.model',
 #                 'app.convmodel', 'app.restored']
-#
+
 #     @classmethod
 #     def defineMaxSquaredError(cls):
 #         """ Method defining maximum error tolerance between any pair of corresponding
@@ -52,7 +52,7 @@
 #         return [1e-6,1e-6,1e-6,1e-4,1e-4,
 #                 5e-1,5e-1,
 #                 5e-1,5e-1]
-#
+
 #     @classmethod
 #     def defMeanSquaredErrorLevel(cls):
 #         """ Method defining maximum tolerance for the mean squared error between any
@@ -64,10 +64,10 @@
 #         return [1e-7,1e-7,1e-7,1e-7,1e-7,
 #                 1e-5,1e-5,
 #                 1e-5,1e-5]
-#
+
 #     @classmethod
 #     def timeoutsecs(cls):
 #         return 21600 * 4
-#
+
 # if __name__ == '__main__':
 #     unittest.main()

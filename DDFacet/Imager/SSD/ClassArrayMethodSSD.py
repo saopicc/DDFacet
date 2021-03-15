@@ -13,6 +13,7 @@ from DDFacet.Other import logger
 
 log=logger.getLogger("ClassArrayMethodSSD")
 import multiprocessing
+import queue
 import psutil
 
 from DDFacet.Imager.SSD import ClassConvMachine
@@ -434,39 +435,41 @@ class ClassArrayMethodSSD():
 
 
         iResult=0
+        success = True
+        try:
+            while iResult < NJobs:
+                DicoResult=None
+            
+                if result_queue.qsize()!=0:
+                    try:
+                        DicoResult=result_queue.get_nowait()
+                    except queue.Empty:
+                        time.sleep(.1)
+                        continue 
+                    except Exception as e:
+                        print("The following unhandled exception occured.", file=log)
+                        import traceback
+                        traceback.print_tb(e.__traceback__, file=log)
+                        success = False
+                        break       
 
-        while iResult < NJobs:
-            DicoResult=None
-            #print work_queue.qsize(),result_queue.qsize()
-            if result_queue.qsize()!=0:
-                try:
-                    DicoResult=result_queue.get_nowait()
-                except Exception as e:
-                    #print "Exception: %s"%(str(e))
-                    pass
-                
-
-            if DicoResult==None:
-                time.sleep(.1)
-                continue            
-
-            # try:
-            #     DicoResult = result_queue.get(True, 5)
-            # except:
-            #     time.sleep(0.1)
-            #     continue
-
-            if DicoResult["Success"]:
-                iIndividual=DicoResult["iIndividual"]
-                iResult += 1
-                DicoFitnesses[iIndividual]=DicoResult["fitness"]
-                DicoChi2[iIndividual]=DicoResult["Chi2"]
-            NDone = iResult
-
-        # for ii in range(NCPU):
-        #     workerlist[ii].shutdown()
-        #     workerlist[ii].terminate()
-        #     workerlist[ii].join()
+                if DicoResult is not None and DicoResult["Success"]:
+                    iIndividual=DicoResult["iIndividual"]
+                    iResult += 1
+                    DicoFitnesses[iIndividual]=DicoResult["fitness"]
+                    DicoChi2[iIndividual]=DicoResult["Chi2"]
+                NDone = iResult
+        finally:
+            # TODO @cyriltasse: BH: why is the pool not properly shutdown??
+            # for ii in range(NCPU):
+            #     workerlist[ii].shutdown()
+            #     workerlist[ii].terminate()
+            #     workerlist[ii].join()
+            pass
+        
+        if not success:
+            raise RuntimeError("Some parallel jobs have failed. Check your log and report the issue if "
+                               "not a memory issue. Bus errors indicate memory allocation errors")
 
         fitnesses=[]
         Chi2=[]
@@ -526,35 +529,35 @@ class ClassArrayMethodSSD():
 
 
         iResult=0
+        success = True
+        try:
+            while iResult < NJobs:
+                DicoResult=None
+                if result_queue.qsize()!=0:
+                    try:
+                        DicoResult=result_queue.get_nowait()
+                    except queue.Empty:
+                        time.sleep(.1)
+                        continue 
+                    except Exception as e:
+                        print("The following unhandled exception occured.", file=log)
+                        import traceback
+                        traceback.print_tb(e.__traceback__, file=log)
+                        success = False
+                        break         
 
-        while iResult < NJobs:
-            DicoResult=None
-            #print work_queue.qsize(),result_queue.qsize()
-            if result_queue.qsize()!=0:
-                try:
-                    DicoResult=result_queue.get_nowait()
-                except Exception as e:
-                    #print "Exception: %s"%(str(e))
-                    pass
-                
-
-            if DicoResult==None:
-                time.sleep(.1)
-                continue            
-
-            # try:
-            #     DicoResult = result_queue.get(True, 5)
-            # except:
-            #     time.sleep(0.1)
-            #     continue
-
-            if DicoResult["Success"]:
-                iIndividual=DicoResult["iIndividual"]
-                iResult += 1
-                mutant = pop_array[iIndividual]
-                pop[iIndividual][:] = mutant[:]
-            NDone = iResult
-
+                if DicoResult is not None and DicoResult["Success"]:
+                    iIndividual=DicoResult["iIndividual"]
+                    iResult += 1
+                    mutant = pop_array[iIndividual]
+                    pop[iIndividual][:] = mutant[:]
+                NDone = iResult
+        finally:
+            # TODO @cyriltasse: BH: why is the pool not properly shutdown??
+            pass
+        if not success:
+            raise RuntimeError("Some parallel jobs have failed. Check your log and report the issue if "
+                               "not a memory issue. Bus errors indicate memory allocation errors")
         return pop
 
 
@@ -590,33 +593,35 @@ class ClassArrayMethodSSD():
 
         iResult=0
         DicoChains = {}
-        while iResult < NJobs:
-            DicoResult=None
-            #print work_queue.qsize(),result_queue.qsize()
-            if result_queue.qsize()!=0:
-                try:
-                    DicoResult=result_queue.get_nowait()
-                except Exception as e:
-                    #print "Exception: %s"%(str(e))
-                    pass
-                
+        success = True
+        try:
+            while iResult < NJobs:
+                DicoResult=None
+                if result_queue.qsize()!=0:
+                    try:
+                        DicoResult=result_queue.get_nowait()
+                    except queue.Empty:
+                        time.sleep(.1)
+                        continue 
+                    except Exception as e:
+                        print("The following unhandled exception occured.", file=log)
+                        import traceback
+                        traceback.print_tb(e.__traceback__, file=log)
+                        success = False
+                        break           
 
-            if DicoResult==None:
-                time.sleep(.1)
-                continue            
-
-            # try:
-            #     DicoResult = result_queue.get(True, 5)
-            # except:
-            #     time.sleep(0.1)
-            #     continue
-
-            if DicoResult["Success"]:
-                iIndividual=DicoResult["iIndividual"]
-                iResult += 1
-                # result already in _chain_dict
-        self._chain_dict.reload()
-
+                if DicoResult is not None and DicoResult["Success"]:
+                    iIndividual=DicoResult["iIndividual"]
+                    iResult += 1
+                    # result already in _chain_dict
+            self._chain_dict.reload()
+        finally:
+            # TODO @cyriltasse: BH: why is the pool not properly shutdown??
+            pass
+        
+        if not success:
+            raise RuntimeError("Some parallel jobs have failed. Check your log and report the issue if "
+                               "not a memory issue. Bus errors indicate memory allocation errors")
         return self._chain_dict
 
     
@@ -845,36 +850,32 @@ class WorkerFitness(multiprocessing.Process):
         return A
 
     def run(self):
-        # # pause self in debugging mode
-        # #if self._pause_on_start:
-        # #    os.kill(os.getpid(),signal.SIGSTOP)
-        # while not self.kill_received and not self.work_queue.empty():
-        #     DicoJob = self.work_queue.get()
-        #     individual=DicoJob["individual"]
-        #     iIndividual=DicoJob["iIndividual"]
-        #     fitness=self.GiveFitness(individual)
-        #     #print iIndividual
-        #     self.result_queue.put({"Success": True, 
-        #                            "iIndividual": iIndividual,
-        #                            "fitness":fitness})
-         
+        success = True
         while not self.kill_received and self.CondContinue():
-            #gc.enable()
             try:
                 DicoJob = self.work_queue.get()
-            except:
+            except queue.Empty:
+                continue # sync wait above
+            except Exception as e:
+                print("The following unhandled exception occured.", file=log)
+                import traceback
+                traceback.print_tb(e.__traceback__, file=log)
+                success = False
                 break
             
 
             if DicoJob["OperationType"]=="Fitness":
-                #print "FitNess"
                 self.GiveFitnessWorker(DicoJob)
             elif DicoJob["OperationType"]=="Metropolis":
                 self.runMetroSingleChainWorker(DicoJob)
             elif DicoJob["OperationType"]=="Mutate":
-                #print "Mutate"
                 self.runSingleMutation(DicoJob)
-
+            else:
+                raise ValueError("Unknown DicoJob. This is a bug - please report")
+        
+        if not success:
+            raise RuntimeError("Some parallel jobs have failed. Check your log and report the issue if "
+                               "not a memory issue. Bus errors indicate memory allocation errors")
     def runSingleMutation(self,DicoJob):
         pid=str(multiprocessing.current_process())
         self.T.reinit()
@@ -1151,35 +1152,19 @@ class WorkerFitness(multiprocessing.Process):
         
         NAccepted=0
         iStep=0
-        NMax=NSteps#10000
+        NMax=NSteps
         
-        #for iStep in range(NSteps):
         while NAccepted<NSteps and iStep<NMax:
             iStep+=1
-            #print "========================"
-            #print iStep
             individual1,=self.MutMachine.mutGaussian(individual0.copy(), 
-                                                     Mut_pFlux, Mut_p0, Mut_pMove)#,
-                                                     #FactorAccelerate=FactorAccelerate)
-            # ds=Noise
-            # individual1,=self.MutMachine.mutNormal(individual0.copy(),ds*1e-1*FactorAccelerate)
-            # #T.timeit("mutate")
-
+                                                     Mut_pFlux, Mut_p0, Mut_pMove)
             _,Chi2=self.GiveFitness(individual1)
-            # if Chi2<self.MinChi2:
-            #     self.Var=Chi2/self.Chi2PMax
-            #     #print "           >>>>>>>>>>>>>> %f"%np.min(Chi2)
-
-
             Chi2_n=Chi2/self.Var
-            
-
             Chi2_n=Chi20_n+ShrinkFactor*(Chi2_n-Chi20_n)
-
             logProb=self.rv.logpdf(Chi2_n)
             
             p1=logProb
-            p0=logProb0#DicoChains["logProb"][-1]
+            p0=logProb0
             if p1-p0>5:
                 R=1
             elif p1-p0<-5:
@@ -1188,8 +1173,6 @@ class WorkerFitness(multiprocessing.Process):
                 R=np.min([1.,np.exp(p1-p0)])
 
             r=np.random.rand(1)[0]
-            #print "%5.3f [%f -> %f]"%(R,p0,p1)
-            # print "MaxDiff ",np.max(np.abs(self.pop[iChain]-DicoChains[iChain]["Parms"][-1]))
             lAccept.append((r<R))
             if r<R: # accept
                 individual0=individual1

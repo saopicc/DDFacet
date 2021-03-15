@@ -27,6 +27,7 @@ from DDFacet.compatibility import range
 import os
 import numpy as np
 import multiprocessing
+import queue
 import time
 from DDFacet.Other import logger
 from DDFacet.Other import ModColor
@@ -570,57 +571,52 @@ class ClassImageDeconvMachine():
                 workerlist[ii].run()
 
         iResult=0
-        #print "!!!!!!!!!!!!!!!!!!!!!!!!",iResult,NJobs
-        while iResult < NJobs:
-            DicoResult=None
-            # for result_queue in List_Result_queue:
-            #     if result_queue.qsize()!=0:
-            #         try:
-            #             DicoResult=result_queue.get_nowait()
-                        
-            #             break
-            #         except:
-                        
-            #             pass
-            #         #DicoResult=result_queue.get()
-            #print "!!!!!!!!!!!!!!!!!!!!!!!!! Qsize",result_queue.qsize()
-            if result_queue.qsize()!=0:
+        success=True
+        try:
+            while iResult < NJobs:
+                DicoResult=None
+                if result_queue.qsize()!=0:
+                    try:
+                        DicoResult=result_queue.get_nowait()
+                    except queue.Empty:
+                        time.sleep(.1)
+                        continue 
+                    except Exception as e:
+                        print("The following unhandled exception occured.", file=log)
+                        import traceback
+                        traceback.print_tb(e.__traceback__, file=log)
+                        success = False
+                        break
+
+                if DicoResult is not None and DicoResult["Success"]:
+                    iResult+=1
+                    NDone=iResult
+                    intPercent=int(100*  NDone / float(NJobs))
+                    pBAR.render(NDone,NJobs)
+
+                    iIsland=DicoResult["iIsland"]
+                    island_dict = deconv_dict[iIsland]
+                    island_dict.reload()
+
+                    self.ModelMachine.AppendIsland(ListIslands[iIsland], island_dict["Model"].copy())
+
+                    if DicoResult["HasError"]:
+                        self.ErrorModelMachine.AppendIsland(ThisPixList, ListIslands[iIsland], island_dict["sModel"].copy())
+
+            deconv_dict.delete()
+        finally:
+            for ii in range(NCPU):
                 try:
-                    DicoResult=result_queue.get_nowait()
-                except:
-                    pass
-                    #DicoResult=result_queue.get()
-
-
-            if DicoResult is None:
-                time.sleep(0.05)
-                continue
-
-            iResult+=1
-            NDone=iResult
-            intPercent=int(100*  NDone / float(NJobs))
-            pBAR.render(NDone,NJobs)
-
-            if DicoResult["Success"]:
-                iIsland=DicoResult["iIsland"]
-                island_dict = deconv_dict[iIsland]
-                island_dict.reload()
-
-                self.ModelMachine.AppendIsland(ListIslands[iIsland], island_dict["Model"].copy())
-
-                if DicoResult["HasError"]:
-                    self.ErrorModelMachine.AppendIsland(ThisPixList, ListIslands[iIsland], island_dict["sModel"].copy())
-
-        deconv_dict.delete()
-
-        for ii in range(NCPU):
-            try:
-                workerlist[ii].shutdown()
-                workerlist[ii].terminate()
-                workerlist[ii].join()
-            except:
-                pass
-        
+                    workerlist[ii].shutdown()
+                    workerlist[ii].terminate()
+                    workerlist[ii].join() 
+                except Exception as e:
+                    print("The following unhandled exception occured.", file=log)
+                    import traceback
+                    traceback.print_tb(e.__traceback__, file=log)
+        if not success:
+            raise RuntimeError("Some parallel jobs have failed. Check your log and report the issue if "
+                               "not a memory issue. Bus errors indicate memory allocation errors")
 
 
 
@@ -755,21 +751,18 @@ class WorkerDeconvIsland(multiprocessing.Process):
 
  
     def run(self):
-
-
+        success = True
         while not self.kill_received and self.CondContinue():
-
-            #gc.enable()
             try:
                 iIsland,FacetID,JonesNorm,PixVariance,shdict_path = self.work_queue.get(True,2)
+            except queue.Empty:
+                continue #sync call above 
             except Exception as e:
-                #print "Exception worker: %s"%str(e)
+                print("The following unhandled exception occured.", file=log)
+                import traceback
+                traceback.print_tb(e.__traceback__, file=log)
+                success = False
                 break
-
-            # iIsland=DicoOrder["iIsland"]
-            # FacetID=DicoOrder["FacetID"]
-            
-            # JonesNorm=DicoOrder["JonesNorm"]
 
             island_dict = shared_dict.attach(shdict_path)
 
@@ -786,24 +779,6 @@ class WorkerDeconvIsland(multiprocessing.Process):
             if dx>0:
                 IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
                 ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=dx)
-
-
-            # ################################
-            # DicoSave={"Dirty":self._Dirty,
-            #           "PSF":PSF,
-            #           "FreqsInfo":self.FreqsInfo,
-            #           #"DicoMappingDesc":self.PSFServer.DicoMappingDesc,
-            #           "ListPixData":ListPixData,
-            #           "ListPixParms":ListPixParms,
-            #           "IslandBestIndiv":IslandBestIndiv,
-            #           "GD":self.GD,
-            #           "FacetID":FacetID,
-            #           "iIsland":iIsland,"IdSharedMem":self.IdSharedMem}
-            # print "saving"
-            # MyPickle.Save(DicoSave, "SaveTest")
-            # print "saving ok"
-            # ################################
-
             
             if self.DeconvMode=="GAClean":
                 CEv=ClassEvolveGA(self._Dirty,
@@ -843,40 +818,8 @@ class WorkerDeconvIsland(multiprocessing.Process):
 
                 del(CEv)
                 self.result_queue.put({"Success":True,"iIsland":iIsland,"HasError":True})
-
-
-            # # if island lies inside image
-            # try:
-            #     nch=self.FreqsInfo["MeanJonesBand"][FacetID].size
-            #     #WeightMeanJonesBand=self.FreqsInfo["MeanJonesBand"][FacetID].reshape((nch,1,1,1))
-            #     #WeightMueller=WeightMeanJonesBand.ravel()
-            #     #WeightMuellerSignal=np.sqrt(WeightMueller*self.FreqsInfo["WeightChansImages"].ravel())
-
-            #     CEv=ClassEvolveGA(self._Dirty,
-            #                       PSF,
-            #                       self.FreqsInfo,
-            #                       ListPixParms=ListPixParms,
-            #                       ListPixData=ListPixData,
-            #                       iFacet=FacetID,PixVariance=PixVariance,
-            #                       IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
-            #                       GD=self.GD)
-            #     #,
-            #      #                 WeightFreqBands=WeightMuellerSignal)
-            #     Model=CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
-            
-            #     Model=np.array(Model).copy()#/np.sqrt(JonesNorm)
-            #     #Model*=CEv.ArrayMethodsMachine.Gain
-                
-            #     del(CEv)
-                
-            #     NpShared.ToShared("%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland),Model)
-                
-            #     #print "Current process: %s [%s left]"%(str(multiprocessing.current_process()),str(self.work_queue.qsize()))
-                
-            #     self.result_queue.put({"Success":True,"iIsland":iIsland})
-            # except Exception,e:
-            #     print "Exception on island %i: %s"%(iIsland,str(e))
-
-            #     self.result_queue.put({"Success":False})
-
-        #print "WORKER DONE"
+            else:
+                raise ValueError("Unknown Deconv mode. This is a bug. Please report")
+        if not success:
+            raise RuntimeError("Some parallel jobs have failed. Check your log and report the issue if "
+                               "not a memory issue. Bus errors indicate memory allocation errors")

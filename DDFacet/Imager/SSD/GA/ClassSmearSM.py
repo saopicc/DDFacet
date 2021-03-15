@@ -10,6 +10,7 @@ from DDFacet.Imager.SSD import ClassConvMachine
 from DDFacet.Other import logger
 log=logger.getLogger("ClassSmearSM")
 import multiprocessing
+import queue
 from DDFacet.Array import NpShared
 from DDFacet.Array import ModLinAlg
 import time
@@ -172,8 +173,6 @@ class ClassSmearSM():
         while iPix<indx.size:
             xc,yc=indx[iPix],indy[iPix]
             FacetID=self.PSFServer.giveFacetID2(xc,yc)
-            #DicoOrder={"xy":(xc,yc),
-            #           "FacetID":FacetID}
             Queue.append([xc,yc,FacetID])
 
             iPix+=1
@@ -183,15 +182,10 @@ class ClassSmearSM():
                 Queue=[]
                 iQueue+=1
 
-
         NJobs=indx.size
-
-
-
         workerlist=[]
 
         pBAR= ProgressBar(Title=" Find gaussian")
-        #pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0,NJobs))
         for ii in range(NCPU):
             W=WorkerSmear(work_queue, 
@@ -213,65 +207,50 @@ class ClassSmearSM():
             
         N=self.NImGauss
         iResult=0
-        #print "!!!!!!!!!!!!!!!!!!!!!!!!",iResult,NJobs
-        while iResult < NJobs:
-            DicoResult=None
-            # for result_queue in List_Result_queue:
-            #     if result_queue.qsize()!=0:
-            #         try:
-            #             DicoResult=result_queue.get_nowait()
-                        
-            #             break
-            #         except:
-                        
-            #             pass
-            #         #DicoResult=result_queue.get()
-            #print "!!!!!!!!!!!!!!!!!!!!!!!!! Qsize",result_queue.qsize()
-            #print work_queue.qsize(),result_queue.qsize()
-            if result_queue.qsize()!=0:
+        success = True
+        try:
+            while iResult < NJobs:
+                DicoResult=None
+                
                 try:
                     DicoResult=result_queue.get_nowait()
-                except:
-                    pass
-                    #DicoResult=result_queue.get()
+                except queue.Empty:
+                    time.sleep(.1)
+                    continue 
+                except Exception as e:
+                    print("The following unhandled exception occured.", file=log)
+                    import traceback
+                    traceback.print_tb(e.__traceback__, file=log)
+                    success = False
+                    break
 
+                if DicoResult is not None and DicoResult["Success"]:
+                    iQueue=DicoResult["iQueue"]
+                    Queue=NpShared.GiveArray("%sQueue_%3.3i"%(self.IdSharedMem,iQueue))
+                    for iJob in range(Queue.shape[0]):
+                        x0,y0,iGauss=Queue[iJob]
+                        SMax=self.MeanModelImage[0,0,x0,y0]
+                        SubModelOut=self.ModelOut[0,0][x0-N//2:x0+N//2+1,y0-N//2:y0+N//2+1]
+                        SubModelOut+=self.ListRestoredGauss[iGauss]*SMax
+                        SubModelOut+=self.ListGauss[iGauss]*SMax
 
-            if DicoResult is None:
-                time.sleep(0.001)
-                continue
-
-
-
-            if DicoResult["Success"]:
-                iQueue=DicoResult["iQueue"]
-                Queue=NpShared.GiveArray("%sQueue_%3.3i"%(self.IdSharedMem,iQueue))
-                for iJob in range(Queue.shape[0]):
-                    x0,y0,iGauss=Queue[iJob]
-                    SMax=self.MeanModelImage[0,0,x0,y0]
-                    SubModelOut=self.ModelOut[0,0][x0-N//2:x0+N//2+1,y0-N//2:y0+N//2+1]
-                    SubModelOut+=self.ListRestoredGauss[iGauss]*SMax
-                    #iGauss=0
-                    #print
-                    #print SMax
-                    #print np.sum(self.ListGauss[iGauss])
-                    #print
-                    SubModelOut+=self.ListGauss[iGauss]*SMax
-
-                    iResult+=1
-                    NDone=iResult
-                    intPercent=int(100*  NDone / float(NJobs))
-                    pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
-
-
-
-        for ii in range(NCPU):
-            try:
-                workerlist[ii].shutdown()
-                workerlist[ii].terminate()
-                workerlist[ii].join()
-            except:
-                pass
-        
+                        iResult+=1
+                        NDone=iResult
+                        intPercent=int(100*  NDone / float(NJobs))
+                        pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
+        finally:
+            for ii in range(NCPU):
+                try:
+                    workerlist[ii].shutdown()
+                    workerlist[ii].terminate()
+                    workerlist[ii].join()
+                except Exception as e:
+                    print("The following unhandled exception occured.", file=log)
+                    import traceback
+                    traceback.print_tb(e.__traceback__, file=log)
+        if not success:
+            raise RuntimeError("Some parallel jobs have failed. Check your log and report the issue if "
+                               "not a memory issue. Bus errors indicate memory allocation errors")
         return self.ModelOut
 
 
@@ -331,7 +310,6 @@ class WorkerSmear(multiprocessing.Process):
  
     def GiveConv(self,SubModelOrig):
         N=self.NImGauss
-        #ConvModel=self.CurrentConvMachine.Convolve(SubModelOrig.reshape(1,SubModelOrig.size)).reshape((N,N))
         ConvModel=np.dot(self.CurrentCM[0,0],SubModelOrig.reshape((SubModelOrig.size,1))).reshape((N,N))
         return ConvModel
 
@@ -348,48 +326,13 @@ class WorkerSmear(multiprocessing.Process):
         
         xcPSF=ycPSF=NPSF//2
         SubPSF=PSF[xcPSF-N//2:xcPSF+N//2+1,ycPSF-N//2:ycPSF+N//2+1]
-        #SubModelOrig.fill(0)
-        #SubModelOrig[N//2,N//2]=1
-        #SubModelOrig[N//2+10,N//2+10]=10
-        #ConvModel=self.CurrentConvMachine.Convolve(SubModelOrig.reshape(1,SubModelOrig.size)).reshape((N,N))
-        #ConvModel1=scipy.signal.fftconvolve(SubModelOrig, SubPSF, mode='same')
         ConvModel=self.GiveConv(SubModelOrig)
 
         Dirty=SubResid+ConvModel
-        
-        # for i in range(10):
-        #     Noise=self.GiveConv(np.random.randn(*(Dirty.shape)))
-        #     #Noise*=1e-1/np.max(Noise)
-        #     #Dirty+=Noise
-        #     Dirty=ConvModel#+Noise
-        #     InvCov=self.CurrentConvMachine.GiveInvertCov(1.)#self.Var)
-        #     Sol=np.dot(InvCov,Dirty.reshape((Dirty.size,1))).reshape((N,N))
-        #     #Sol=np.dot(InvCov,Sol.reshape((Dirty.size,1))).reshape((N,N))
-        #     import pylab
-        #     pylab.clf()
-        #     pylab.subplot(1,2,1)
-        #     pylab.imshow(Dirty,interpolation="nearest")
-        #     pylab.colorbar()
-        #     vmax=Sol.max()
-        #     pylab.subplot(1,2,2)
-
-        #     pylab.imshow(Sol,interpolation="nearest",vmax=vmax,vmin=-0.1*vmax)
-        #     pylab.colorbar()
-        #     pylab.draw()
-        #     pylab.show(False)
-        #     pylab.pause(0.1)
-        #     stop
-
-
-        
-
-
-
         DeltaChi2=self.DeltaChi2
-        #Chi2Min=np.sum(SubResid**2)/self.Var
         Chi2Min=self.GiveChi2(SubResid)
         
-        SMax=SubModelOrig[xc,yc]#self.MeanModelImage[x0,y0]
+        SMax=SubModelOrig[xc,yc]
         SubModel0=SubModelOrig.copy()
         SubModel0[xc,yc]=0
 
@@ -398,79 +341,21 @@ class WorkerSmear(multiprocessing.Process):
         
         while True:
             if iGauss==self.NGauss-1:
-                #print "max size"
                 break
-            # if self.GSig[iGauss]<self.SigMin:
-            #     iGauss+=1
-            #     continue
 
             v=self.ListGauss[iGauss]
             Add=v*SMax
             
             ModifiedSubModel=SubModel0+Add
-            # import pylab
-
-            # pylab.subplot(1,2,1)
-            # pylab.imshow(SubModelOrig,interpolation="nearest")
-            # pylab.subplot(1,2,2)
-            # pylab.imshow(ModifiedSubModel,interpolation="nearest")
-            # pylab.draw()
-            # pylab.show(False)
-            # pylab.pause(0.1)
-            # if sig!=0:
-            #     stop
-
-
-            # ModifiedSubModel.fill(0)
-            # ModifiedSubModel[xc,xc]=1.
-            #ConvModel=scipy.signal.fftconvolve(ModifiedSubModel, SubPSF, mode='same')
             ConvModel=self.GiveConv(ModifiedSubModel)
 
             ThisDirty=ConvModel
             ThisResid=Dirty-ThisDirty
-            #Chi2=np.sum((ThisResid)**2)/self.Var
-
-            #Chi2=np.dot(np.dot(ThisResid.reshape((1,NPixResid)),InvCov),ThisResid.reshape((NPixResid,1)))
             Chi2=self.GiveChi2(ThisResid)#/Chi2Min
-
-
-            #print Chi2,Chi2Min,Chi2Min+DeltaChi2
-
-            # print sig,Chi2,Chi2Min
-
-            # # try:
-            # import pylab
-            # vmin,vmax=SubResid.min(),SubResid.max()
-            # pylab.subplot(1,3,1)
-            # pylab.imshow(SubResid,interpolation="nearest",vmin=vmin,vmax=vmax)
-            # pylab.subplot(1,3,2)
-            # pylab.imshow(ThisDirty,interpolation="nearest")#,vmin=vmin,vmax=vmax)
-            # pylab.subplot(1,3,3)
-            # pylab.imshow(ThisResid,interpolation="nearest")#,vmin=vmin,vmax=vmax)
-            # pylab.title("%f"%Chi2)
-            # pylab.draw()
-            # pylab.show(False)
-            # pylab.pause(0.1)
-            # # except:
-            # #     stop
-
             if Chi2/Chi2Min> DeltaChi2:#Chi2Min+DeltaChi2:
-            #if Chi2> DeltaChi2:
-                #print "reached max chi2 %f"%self.GSig[iGauss]
                 break
 
             iGauss+=1
-
-            #import time
-            #time.sleep(0.5)
-
-
-        # import pylab
-        # #vmin,vmax=SubResid.min(),SubResid.max()
-        # pylab.imshow(ModifiedSubModel,interpolation="nearest")
-        # pylab.draw()
-        # pylab.show(False)
-        # pylab.pause(0.1)
 
         if self.GSig[iGauss]<self.SigMin:
             iGauss=0
@@ -479,15 +364,19 @@ class WorkerSmear(multiprocessing.Process):
 
 
     def run(self):
+        success = True
         while not self.kill_received and self.CondContinue():
-            #gc.enable()
             try:
-                iQueue = self.work_queue.get_nowait()#(True,2)
-            except Exception,e:
-                #print "Exception worker: %s"%str(e)
+                iQueue = self.work_queue.get_nowait()
+            except queue.Empty:
+                time.sleep(.1)
+                continue 
+            except Exception as e:
+                print("The following unhandled exception occured.", file=log)
+                import traceback
+                traceback.print_tb(e.__traceback__, file=log)
+                success = False
                 break
-
-            #print "Start %i"%iQueue
 
             Queue=NpShared.GiveArray("%sQueue_%3.3i"%(self.IdSharedMem,iQueue))
             self.CurrentInvCov=NpShared.GiveArray("%sInvCov_AllFacet"%(self.IdSharedMem))
@@ -497,12 +386,7 @@ class WorkerSmear(multiprocessing.Process):
                 
                 iFacet=FacetID
                 self.CurrentFacetID=FacetID
-                #self.CurrentCF=NpShared.GiveArray("%sConvMatrix_Facet_%4.4i"%(self.IdSharedMem,iFacet))
                 self.CurrentCM=NpShared.GiveArray("%sCM_Facet%4.4i"%(self.IdSharedMem,iFacet))
-                #self.CurrentInvCov=NpShared.GiveArray("%sInvCov_Facet%4.4i"%(self.IdSharedMem,iFacet))
-                # if self.CurrentInvCov is None:
-                #     invCM=ModLinAlg.invSVD(np.float64(self.CurrentCM[0,0]))/self.Var
-                #     self.CurrentInvCov=NpShared.ToShared("%sInvCov_Facet%4.4i"%(self.IdSharedMem,iFacet),invCM)
 
                 iGauss=self.SmearThisComp(x0,y0)
                 Queue[iJob,2]=iGauss
@@ -510,4 +394,7 @@ class WorkerSmear(multiprocessing.Process):
             
 
             self.result_queue.put({"Success":True,"iQueue":iQueue})
-
+            
+        if not success:
+            raise RuntimeError("Some parallel jobs have failed. Check your log and report the issue if "
+                               "not a memory issue. Bus errors indicate memory allocation errors")

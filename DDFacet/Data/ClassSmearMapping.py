@@ -520,14 +520,22 @@ def GiveBlocksRowsListBL_old(a0, a1, DATA, dPhi, l, channel_mapping):
     du = u[1::] - u[0:-1]
     dv = v[1::] - v[0:-1]
     dw = w[1::] - w[0:-1]
-
+    assert du.size == dv.size
+    assert dv.size == dw.size
+    
+    if du.size < 1: 
+        # delta uvw is just an epsilon off the uvw
+        # derivative is undefined
+        du = np.concatenate((du, [1e-30]))
+        dv = np.concatenate((dv, [1e-30]))
+        dw = np.concatenate((dw, [1e-30]))
+    
     du = np.concatenate((du, [du[-1]]))
     dv = np.concatenate((dv, [dv[-1]]))
     dw = np.concatenate((dw, [dw[-1]]))
 
     Duv = C*(dPhi)/(np.pi*l*nu0)
     duvtot = 0
-
 #    print Duv
 
     CurrentRows = []

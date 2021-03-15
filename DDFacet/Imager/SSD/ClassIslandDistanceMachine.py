@@ -18,7 +18,7 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 from scipy.spatial import ConvexHull
 from matplotlib.path import Path
 import psutil
-
+import queue
 
 class Island(object):
     '''
@@ -313,7 +313,7 @@ class ClassIslandDistanceMachine():
             pBAR.render(NDone,NJobs)
 
     def giveEdgesIslands(self,ListIslands):
-        print("  extracting Island edges", file=log)
+        print("  extracting Island edges", file=log, end='')
         ListEdgesIslands=[]
         _,_,nx,_=self._MaskArray.shape
         #Ed=np.zeros_like(self._MaskArray)
@@ -337,7 +337,7 @@ class ClassIslandDistanceMachine():
         # pylab.imshow(Ed[0,0],interpolation="nearest")
         # pylab.draw()
         # pylab.show(False)
-
+        print("  <done>", file=log)
         return ListEdgesIslands
 
     def ConvexifyIsland(self,ListIslands):#,PolygonFile=None):
@@ -449,44 +449,51 @@ class ClassIslandDistanceMachine():
         pBAR = ProgressBar(Title="  Calc. Dist. ")
         pBAR.render(0, NJobs)
         iResult = 0
+        success=True
         if not Parallel:
             for ii in range(NCPU):
                 workerlist[ii].run()  # just run until all work is completed
-
-        while iResult < NJobs:
-            DicoResult = None
-            if result_queue.qsize() != 0:
+        try:
+            while iResult < NJobs:
+                DicoResult = None
+                
                 try:
                     DicoResult = result_queue.get()
-                except:
-                    pass
+                except queue.Empty:
+                    continue # sync call above
+                except Exception as e:
+                    print("The following unhandled exception occured.", file=log)
+                    import traceback
+                    traceback.print_tb(e.__traceback__, file=log)
+                    success = False
+                    break
 
-            if DicoResult == None:
-                time.sleep(0.5)
-                continue
+                if DicoResult is not None and DicoResult["Success"]:
+                    iResult+=1
+                    NDone=iResult
+                    pBAR.render(NDone,NJobs)
 
-            if DicoResult["Success"]:
-                iResult+=1
-                NDone=iResult
-                pBAR.render(NDone,NJobs)
+                    iIsland=DicoResult["iIsland"]
+                    Result=NpShared.GiveArray("%sDistances_%6.6i"%(self.IdSharedMem,iIsland))
 
-                iIsland=DicoResult["iIsland"]
-                Result=NpShared.GiveArray("%sDistances_%6.6i"%(self.IdSharedMem,iIsland))
-
-                self.dx[iIsland]=Result[0]
-                self.dy[iIsland]=Result[1]
-                self.D[iIsland]=Result[2]
-                NpShared.DelAll("%sDistances_%6.6i"%(self.IdSharedMem,iIsland))
-
-
-
-
-        if Parallel:
-            for ii in range(NCPU):
-                workerlist[ii].shutdown()
-                workerlist[ii].terminate()
-                workerlist[ii].join()
-
+                    self.dx[iIsland]=Result[0]
+                    self.dy[iIsland]=Result[1]
+                    self.D[iIsland]=Result[2]
+                    NpShared.DelAll("%sDistances_%6.6i"%(self.IdSharedMem,iIsland))
+        finally:
+            if Parallel:
+                for ii in range(NCPU):
+                    try:
+                        workerlist[ii].shutdown()
+                        workerlist[ii].terminate()
+                        workerlist[ii].join()
+                    except Exception as e:
+                        print("The following unhandled exception occured.", file=log)
+                        import traceback
+                        traceback.print_tb(e.__traceback__, file=log)
+        if not success:
+            raise RuntimeError("Some parallel jobs have failed. Check your log and report the issue if "
+                               "not a memory issue. Bus errors indicate memory allocation errors")
 
 
 
@@ -539,20 +546,23 @@ class WorkerDistance(multiprocessing.Process):
         self.result_queue.put({"iIsland": iIsland, "Success":True})
 
     def run(self):
+        success = True
         while not self.kill_received and not self.work_queue.empty():
-            
-            DicoJob = self.work_queue.get()
-            self.giveMinDist(DicoJob)
-            # try:
-            #     self.initIsland(DicoJob)
-            # except:
-            #     iIsland=DicoJob["iIsland"]
-            #     print ModColor.Str("On island %i"%iIsland)
-            #     print traceback.format_exc()
-            #     print
-            #     print self.ListIsland[iIsland]
-            #     print
-
+            try:
+                DicoJob = self.work_queue.get()
+                self.giveMinDist(DicoJob)
+            except queue.Empty:
+                continue # sync call above
+            except Exception as e:
+                print("The following unhandled exception occured.", file=log)
+                import traceback
+                traceback.print_tb(e.__traceback__, file=log)
+                success = False
+                break            
+        if not success:
+            raise RuntimeError("Some parallel jobs have failed. Check your log and report the issue if "
+                               "not a memory issue. Bus errors indicate memory allocation errors")
+        
 
 
 

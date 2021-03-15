@@ -1482,7 +1482,9 @@ class ClassFacetMachine():
         # Create Jones Matrices Dictionary
         DicoJonesMatrices = None
         Apply_killMS = self.GD["DDESolutions"]["DDSols"]
-        Apply_Beam = self.GD["Beam"]["Model"] is not None
+        Apply_Beam = self.GD["Beam"]["Model"] is not None and \
+                     self.GD["Beam"]["Model"] != "" and \
+                     self.GD["Beam"]["Model"] != 0
 
         if Apply_killMS or Apply_Beam:
             DicoJonesMatrices = {}
