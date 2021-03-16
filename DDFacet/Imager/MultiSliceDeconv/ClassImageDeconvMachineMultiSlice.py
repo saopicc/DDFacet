@@ -46,6 +46,8 @@ from DDFacet.ToolsDir import ClassSpectralFunctions
 from scipy.optimize import least_squares
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from scipy.signal import fftconvolve
+import scipy.stats
+MAD=scipy.stats.median_absolute_deviation
 
 class ClassImageDeconvMachine():
     def __init__(self,GD=None,ModelMachine=None,RefFreq=None,*args,**kw):
@@ -218,29 +220,27 @@ class ClassImageDeconvMachine():
             CurrentNegMask=None
             
         psf,_=self.PSFServer.GivePSF()
-        
         Nout=np.min([dirty.shape[-1],psf.shape[-1]])
-
         if Nout%2!=0: Nout-=1
 
             
-        from skimage import restoration
+        # from skimage import restoration
 
-        for ch in range(nch):
-            #print dirty[ch,0,s_dirty_cut,s_dirty_cut].shape
-            #print psf[ch,0,s_psf_cut,s_psf_cut].shape
-            log.print("Deconvolve slice #%i"%ch)
-            if self.GD["MultiSliceDeconv"]["Type"]=="MORESANE":
-                s_dirty_cut=self.giveSliceCut(dirty,Nout)
-                s_psf_cut=self.giveSliceCut(psf,2*Nout)
-                if s_psf_cut is None:
-                    print(ModColor.Str("Could not adapt psf shape to 2*dirty shape!"), file=log)
-                    print(ModColor.Str("   shapes are (dirty, psf) = [%s, %s]"%(str(dirty.shape),str(psf.shape))), file=log)
-                    s_psf_cut=self.giveSliceCut(psf,Nout)
-                from .MORESANE.ClassMoresaneSingleSlice import ClassMoresaneSingleSlice
-                mask=None
-                if CurrentNegMask is not None:
-                    mask=(1-CurrentNegMask)[0,0,s_dirty_cut,s_dirty_cut]
+        if self.GD["MultiSliceDeconv"]["Type"]=="MORESANE":
+            s_dirty_cut=self.giveSliceCut(dirty,Nout)
+            s_psf_cut=self.giveSliceCut(psf,2*Nout)
+            if s_psf_cut is None:
+                print(ModColor.Str("Could not adapt psf shape to 2*dirty shape!"), file=log)
+                print(ModColor.Str("   shapes are (dirty, psf) = [%s, %s]"%(str(dirty.shape),str(psf.shape))), file=log)
+                s_psf_cut=self.giveSliceCut(psf,Nout)
+            from .MORESANE.ClassMoresaneSingleSlice import ClassMoresaneSingleSlice
+            mask=None
+            if CurrentNegMask is not None:
+                mask=(1-CurrentNegMask)[0,0,s_dirty_cut,s_dirty_cut]
+
+            # ch
+            for ch in range(nch):
+                log.print("Deconvolve slice #%i"%ch)
                 A,B=dirty[ch,0,s_dirty_cut,s_dirty_cut].copy(), psf[ch,0,s_psf_cut,s_psf_cut].copy()
                 CM=ClassMoresaneSingleSlice(A,B,
                                             #dirty[ch,0,s_dirty_cut,s_dirty_cut],
@@ -252,32 +252,59 @@ class ClassImageDeconvMachine():
                                               loop_gain=self.GD["MORESANE"]["Gain"],
                                               sigma_level=self.GD["MORESANE"]["SigmaCutLevel"],# tolerance=1.,
                                               enforce_positivity=self.GD["MORESANE"]["ForcePositive"])
-            elif self.GD["MultiSliceDeconv"]["Type"]=="Orieux":
-                # Nout=3
-                s_dirty_cut=self.giveSliceCut(dirty,Nout)
-                s_psf_cut=self.giveSliceCut(psf,Nout)
-                from .Orieux import ClassOrieux
+                Model[ch,0,s_dirty_cut,s_dirty_cut]=model[:,:]
+                if CurrentNegMask is not None:
+                    indx,indy=np.where(CurrentNegMask[0,0]==1)
+                    nx,ny=Model[ch,0].shape
+                    Model[ch,0].flat[indx*ny+indy]=0
+                    
+        elif self.GD["MultiSliceDeconv"]["Type"]=="Orieux":
+            s_dirty_cut=self.giveSliceCut(dirty,Nout)
+            s_psf_cut=self.giveSliceCut(psf,Nout)
+            from .Orieux import ClassOrieux
+            for ch in range(nch):
                 A,B=dirty[ch,0,s_dirty_cut,s_dirty_cut].copy(), psf[ch,0,s_psf_cut,s_psf_cut].copy()
                 #A,B=psf[ch,0,s_psf_cut,s_psf_cut].copy(), psf[ch,0,s_psf_cut,s_psf_cut].copy()
                 CO=ClassOrieux.ClassOrieux(A,B)
                 #CO=ClassOrieux.ClassOrieux(dirty[ch,0,:,:], psf[ch,0,:,:])
                 model=CO.Deconv()
                 # model = restoration.richardson_lucy(dirty[ch,0,s_dirty_cut,s_dirty_cut], psf[ch,0,s_psf_cut,s_psf_cut], iterations=30)
-                
-            Model[ch,0,s_dirty_cut,s_dirty_cut]=model[:,:]
-            #print(Model[ch,0].max(),Model[ch,0],np.count_nonzero(Model[ch,0]!=0))
+
+                Model[ch,0,s_dirty_cut,s_dirty_cut]=model[:,:]
+                if CurrentNegMask is not None:
+                    indx,indy=np.where(CurrentNegMask[0,0]==1)
+                    nx,ny=Model[ch,0].shape
+                    Model[ch,0].flat[indx*ny+indy]=0
             
-            if CurrentNegMask is not None:
-                indx,indy=np.where(CurrentNegMask[0,0]==1)
-                nx,ny=Model[ch,0].shape
-                Model[ch,0].flat[indx*ny+indy]=0
+        elif self.GD["MultiSliceDeconv"]["Type"]=="Sara":
+            import pfb.deconv.sara as sara
+            s_dirty_cut=self.giveSliceCut(dirty,Nout)
+            s_psf_cut=self.giveSliceCut(psf,2*Nout)
+            s_residual=dirty[:,0,s_dirty_cut,s_dirty_cut].copy()
+            s_psf=psf[ch,0,s_psf_cut,s_psf_cut].copy()
+            s_model=np.zeros_like(s_residual)
+
+            NBands=dirty.shape[0]
+            sig_21=MAD(s_residual)*NBands
+            
+            model, dual, residual_mfs, weights21=sara(s_psf, s_model, s_residual, sig_21, 0.5)
+
+            for ch in range(nch):
+                Model[ch,0,s_dirty_cut,s_dirty_cut]=model[ich,:,:]
+                if CurrentNegMask is not None:
+                    indx,indy=np.where(CurrentNegMask[0,0]==1)
+                    nx,ny=Model[ch,0].shape
+                    Model[ch,0].flat[indx*ny+indy]=0
+            
+
+                    
             #print(Model[ch,0].max(),Model[ch,0],np.count_nonzero(Model[ch,0]!=0))
 
 
 
             #N0=model.shape[0]//2
             
-            Dty=fftconvolve(Model[ch,0,s_dirty_cut,s_dirty_cut],B, mode='same')#[s_dirty_cut,s_dirty_cut]
+            # Dty=fftconvolve(Model[ch,0,s_dirty_cut,s_dirty_cut],B, mode='same')#[s_dirty_cut,s_dirty_cut]
 
             #import scipy.signal
             #Dty=scipy.signal.convolve2d(model,B, mode='same')
