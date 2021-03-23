@@ -68,7 +68,7 @@ class ClassGaussFit():
         pylab.subplot(1,2,2)
         pylab.imshow(np.real(Ginv),interpolation="nearest")
         pylab.draw()
-        pylab.show(False)
+        pylab.show(block=False)
         stop
 
     def ListToDicoPars(self,pars):
@@ -368,11 +368,11 @@ class ClassGaussFit():
         pylab.subplot(1,3,2)
         pylab.imshow(G.reshape(nn,nn),interpolation="nearest",vmin=vmin,vmax=vmax)
         pylab.title("N=%i, iter=%i"%(self.Nsources,self.itera))
-        if G1!=None:
+        if G1 is not None:
             pylab.subplot(1,3,3)
             pylab.imshow(G1.reshape(nn,nn),interpolation="nearest",vmin=vmin,vmax=vmax)
         pylab.draw()
-        pylab.show(False)
+        pylab.show(block=False)
         self.itera+=1
 
     def plotIter3(self,x,y,zin,Gin,pars=None):
@@ -393,11 +393,11 @@ class ClassGaussFit():
         pylab.subplot(1,2,2)
         pylab.imshow(G,interpolation="nearest",vmin=vmin,vmax=vmax)
         pylab.title("N=%i, iter=%i"%(self.Nsources,self.itera))
-        # if G1!=None:
+        # if G1 is not None:
         #     pylab.subplot(1,3,3)
         #     pylab.imshow(G1.reshape(nn,nn),interpolation="nearest",vmin=vmin,vmax=vmax)
         pylab.draw()
-        pylab.show(False)
+        pylab.show(block=False)
         pylab.pause(0.1)
         self.itera+=1
 
@@ -413,12 +413,12 @@ class ClassGaussFit():
         pylab.scatter(x,y,c=z.tolist(),vmin=vmin,vmax=vmax,marker="s",alpha=0.5)
         pylab.subplot(1,2,2)
         pylab.scatter(x,y,c=G.tolist(),vmin=vmin,vmax=vmax,marker="s",alpha=0.5)
-        if pars!=None:
+        if pars is not None:
             l,m,s,dp=self.GetPars(pars)
             pylab.scatter(l,m,marker="+")
         pylab.title("iter=%i"%self.itera)
         pylab.draw()
-        pylab.show(False)
+        pylab.show(block=False)
         self.itera+=1
 
 

@@ -39,7 +39,7 @@ def test():
         pylab.colorbar()
         iplot+=2
     pylab.draw()
-    pylab.show(False)
+    pylab.show(block=False)
 
 def test2():
     l=[]
@@ -261,7 +261,7 @@ def ConvolveGaussian(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)]):
     # pylab.title("Convolved Model image")
     # pylab.colorbar()
     # pylab.draw()
-    # pylab.show(False)
+    # pylab.show(block=False)
     # pylab.pause(0.1)
 
     # print np.sum(if_fA)

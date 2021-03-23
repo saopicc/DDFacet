@@ -51,13 +51,18 @@ def IndivToPolygon(indiv,PolyCut):
     LPolygon=[]
     regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor)
     for iR,region in enumerate(regions):
-        polygon = vertices[region]
+        if vertices[region].shape[0] > 2:
+            polygon = vertices[region]
+        else:
+            import warnings
+            warnings.warn("One or more Voronoi regions is a 0 area polygon. Ignoring it.")
+            polygon = np.array([[0,0],[0,0],[0,0]])
+
         PP=(Polygon.Polygon(polygon) & Polygon.Polygon(PolyCut))
         if PP.area()>0:
             LPolygon.append(np.array(PP[0]))
         else:
             LPolygon.append(np.array(PP))
-
     return LPolygon
         
 def doOverlap(npP0,npP1):

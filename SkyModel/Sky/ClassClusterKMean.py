@@ -56,7 +56,7 @@ class ClassClusterKMean():
             xc,yc=self.InitLM
 
 
-        if self.PreCluster!=None:
+        if self.PreCluster is not None:
             xc1,yc1=self.PreCluster
             Npk=xc1.size
             xc[0:Npk]=xc1[:]
@@ -133,7 +133,7 @@ class ClassClusterKMean():
                 #pylab.scatter(xx,yy,c=c,s=ssz,vmin=0,vmax=Nk,lw=0)
                 pylab.scatter(xc,yc,c="black",marker="s")
 
-            if self.PreCluster!=None:
+            if self.PreCluster is not None:
                 xc1,yc1=self.PreCluster
                 Npk=xc1.size
                 xc[0:Npk]=xc1[:]
@@ -166,7 +166,7 @@ class ClassClusterKMean():
 
 
                 pylab.draw()
-                pylab.show(False)
+                pylab.show(block=False)
                 pylab.pause(0.1)
             condx=np.allclose(xc,xc0)
             condy=np.allclose(yc,yc0)
@@ -177,10 +177,10 @@ class ClassClusterKMean():
         
         if self.DoPlot:
             pylab.clf()
-            pylab.scatter(x,y,c=indk,s=ss,vmin=0,vmax=Nk,lw=0)
+            pylab.scatter(x,y,c=indk,vmin=0,vmax=Nk,lw=0)
             pylab.scatter(xc,yc,c="black",marker="s")
             pylab.draw()
-            pylab.show(False)
+            pylab.show(block=False)
             pylab.pause(0.1)
     
 

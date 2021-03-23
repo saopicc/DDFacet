@@ -297,7 +297,7 @@ class ClassPointFit():
         pylab.scatter(x,y,c=z.tolist(),vmin=vmin,vmax=vmax)
         pylab.subplot(1,2,2)
         pylab.scatter(x,y,c=G.tolist(),vmin=vmin,vmax=vmax)
-        if pars!=None:
+        if pars is not None:
             l,m,s,dp=self.GetPars(pars)
             pylab.scatter(l,m,marker="+")
         pylab.title("iter=%i"%self.itera)

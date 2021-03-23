@@ -300,7 +300,7 @@ class ClassPlotMachine():
         # mng.window.showMaximized()
         pylab.pause(0.1)
         pylab.draw()
-        pylab.show(False)
+        pylab.show(block=False)
             
 
         ######################
@@ -329,7 +329,7 @@ class ClassPlotMachine():
             
         pylab.pause(0.1)
         pylab.draw()
-        pylab.show(False)
+        pylab.show(block=False)
         
         # II=np.unique(ind)
         # NPerNode=np.zeros((xc.size,),np.float32)

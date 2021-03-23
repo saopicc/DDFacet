@@ -167,7 +167,7 @@ def Plot(points,regions, vertices):
     #plt.ylim(vor.min_bound[1] - 0.1, vor.max_bound[1] + 0.1)
     
     pylab.draw()
-    pylab.show(False)
+    pylab.show(block=False)
 
 if __name__=="__main__":
     test()

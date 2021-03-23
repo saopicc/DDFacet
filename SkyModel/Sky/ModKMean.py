@@ -39,6 +39,6 @@ def test():
             pylab.scatter(xx,yy,c=c,s=ss,vmin=0,vmax=Nk,lw=0)
             pylab.scatter(xc[iK],yc[iK],c="black",marker="s")
         pylab.draw()
-        pylab.show(False)
+        pylab.show(block=False)
         pylab.pause(0.1)
         print("caca")

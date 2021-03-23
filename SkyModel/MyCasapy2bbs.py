@@ -83,7 +83,7 @@ class MyCasapy2BBS():
         Fits=self.Fits
     
         self.Model=self.im.getdata()[0,0]
-        if self.XcYcDx!=None:
+        if self.XcYcDx is not None:
             xc,yc,dx=self.XcYcDx
             x0,x1=xc-dx,xc+dx
             y0,y1=yc-dx,yc+dx
@@ -96,11 +96,11 @@ class MyCasapy2BBS():
 
     # def setRestored(self):
     #     print "set restored image"
-    #     if self.ImRestoredName!=None:
+    #     if self.ImRestoredName is not None:
     #         print " read restored image"
     #         im=image(self.ImRestoredName)
     #         self.ImRestored=im.getdata()[0,0]
-    #     elif self.ImResidualName!=None:
+    #     elif self.ImResidualName is not None:
     #         print " convolve model image"
     #         nx,ny=self.Model.shape
             
@@ -136,7 +136,7 @@ class MyCasapy2BBS():
         import pylab
         xc=data.shape[0]//2
         pylab.clf()
-        if dx!=None:
+        if dx is not None:
             pylab.imshow(data[xc-dx:xc+dx,xc-dx:xc+dx],interpolation="nearest",cmap="gray")
         else:
             pylab.imshow(data,interpolation="nearest",cmap="gray")
@@ -271,7 +271,7 @@ class MyCasapy2BBS():
             # print ra,dec#,s
 
         
-        # if (self.Th!=None)&(self.ModelConv==None):
+        # if (self.Th is not None)&(self.ModelConv==None):
         #     Cat=Cat[np.abs(Cat.s)>(self.Th*np.max(np.abs(Cat.s)))]
 
         Cat=Cat[Cat.s!=0]

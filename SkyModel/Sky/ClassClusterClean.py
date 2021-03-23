@@ -84,7 +84,7 @@ class ClassClusterClean():
             pylab.xlim(x0,x1)
             pylab.ylim(y0,y1)
             pylab.draw()
-            pylab.show(False)
+            pylab.show(block=False)
             pylab.pause(1)
         for i in range(nk):
             ind=np.where(ss==np.max(ss))
