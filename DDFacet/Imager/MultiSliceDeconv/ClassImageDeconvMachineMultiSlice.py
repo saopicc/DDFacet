@@ -203,6 +203,8 @@ class ClassImageDeconvMachine():
         Model=np.zeros_like(dirty)
 
         _,_,xp,yp=np.where(self._MeanDirty==np.max(self._MeanDirty))
+        xp=xp[0]
+        yp=yp[0]
         self.PSFServer.setLocation(xp,yp)
         self.iFacet=self.PSFServer.iFacet
 

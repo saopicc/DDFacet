@@ -122,12 +122,12 @@ class ClassPSFServer():
         for iFacet in range(self.NFacets):
             l=CellSizeRad*(xp-nx//2)
             m=CellSizeRad*(yp-nx//2)
+            
             #lSol,mSol=self.DicoVariablePSF["Facets"][iFacet]["lmSol"]
             lSol,mSol=self.DicoVariablePSF["Facets"][iFacet]["l0m0"]
             #print "lsol, msol = ",lSol,mSol #,self.DicoVariablePSF[iFacet]["pixCentral"][0],self.DicoVariablePSF[iFacet]["pixCentral"][1]
 
             d=np.sqrt((l-lSol)**2+(m-mSol)**2)
-
             if d<dmin:
                 dmin=d
                 ClosestFacet=iFacet
