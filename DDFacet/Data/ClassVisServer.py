@@ -32,7 +32,6 @@ else:
     import cPickle
 import math, os, traceback
 
-
 from DDFacet.Data import ClassMS
 from DDFacet.Data.ClassStokes import ClassStokes
 from DDFacet.Other import ModColor

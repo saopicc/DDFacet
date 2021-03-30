@@ -31,6 +31,7 @@ from scipy.spatial import Voronoi, ConvexHull
 from SkyModel.Sky import ModVoronoi
 from DDFacet.Other import reformat
 from DDFacet.Other import ModColor
+from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 
 from DDFacet.Data.ClassJones import _parse_solsfile, _which_solsfile
 import os, glob
@@ -660,7 +661,36 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             lmin,mmin=X[indx[0],indy[0]],Y[indx[0],indy[0]]
             self.DicoImager[iFacet]["lm_min"]=lmin,mmin
             
+        if self.GD["Facets"]["FluxPaddingDicoModel"] is not None and self.GD["Facets"]["FluxPaddingScale"] is not None:
+            self.ModConstructor = ClassModModelMachine(self.GD)
+            ModelMachine = self.ModConstructor.GiveInitialisedMMFromFile(self.GD["Facets"]["FluxPaddingDicoModel"])
+            ModelImage=ModelMachine.GiveModelImage(np.array([self.VS.RefFreq]))
+            ModelImage=ModelImage[0,0]
+            
+            _,_,nx,ny=self.OutImShape
+            Dx=CellSizeRad * nx/2
+            Dy=CellSizeRad * ny/2
+            lg, mg = X, Y = np.mgrid[-Dx:Dx:nx * 1j, -Dy:Dy:ny * 1j]
+            XY = np.dstack((X, Y))
+            XY_flat = XY.reshape((-1, 2))
+            
+            for iFacet in self.DicoImager.keys():
+                #Create smoothned facet tessel mask:
+                vertices = self.DicoImager[iFacet]["Polygon"]
+                mpath = Path(vertices)  # the vertices of the polygon
+                mask_flat = mpath.contains_points(XY_flat)
+                mask = mask_flat.reshape(X.shape)
+                mpath = Path(self.CornersImageTot)
+                mask_flat2 = mpath.contains_points(XY_flat)
+                mask2 = mask_flat2.reshape(X.shape)
+                mask[mask2 == 0] = 0
+                R=np.sqrt(X**2+Y**2)
+                R[mask==0]=1e6
+                indx,indy=np.where(R==np.min(R))
+                lmin,mmin=X[indx[0],indy[0]],Y[indx[0],indy[0]]
+                self.DicoImager[iFacet]["lm_min"]=lmin,mmin
 
+            
         self.FacetDirCat = np.zeros((len(self.DicoImager),),
                                     dtype=[('Name', '|S200'),
                                            ('ra', np.float),

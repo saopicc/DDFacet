@@ -451,6 +451,10 @@ class ClassImagerDeconv():
         #self.DicoImagesPSF = SharedDict.dict_to_shm("FMPSF_AllImages",DicoImagesPSF)
         #del(DicoImagesPSF)
 
+        
+        self.DicoImagesPSF["DicoImager"]=copy.deepcopy((self.FacetMachinePSF.DicoImager or self.FacetMachinePSF.DicoImager))
+        self.DicoImagesPSF.reload()
+        
         # if we load a cached PSF, mark these as None so that we don't re-save a PSF image in _fitAndSavePSF()
         self._psfmean = self._psfcube = None
         self.FWHMBeam=self.DicoImagesPSF["FWHMBeam"]

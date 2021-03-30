@@ -27,6 +27,7 @@ from DDFacet.compatibility import range
 import numpy as np
 from DDFacet.Other import logger
 from DDFacet.ToolsDir import ClassSpectralFunctions
+from matplotlib.path import Path
 
 log= logger.getLogger("ClassPSFServer")
 
@@ -110,30 +111,65 @@ class ClassPSFServer():
                 dmin=d
                 ClosestFacet=iFacet
         return ClosestFacet
-                
+
+
+
+    
     def giveFacetID2(self,xp,yp):
         if self.blc is not None:
             x0,y0=self.blc
             xp,yp=x0+xp,y0+yp
 
+
+
+            
         dmin=1e6
         CellSizeRad=self.DicoVariablePSF["CellSizeRad"]
-        _,_,nx,_=self.DicoVariablePSF["OutImShape"]
+        _,_,nx,ny=self.DicoVariablePSF["OutImShape"]
+
+
+        DicoImager=self.DicoVariablePSF["DicoImager"]
+        def inPoly(iFacet,X,Y):
+            XY=np.array([X,Y])
+            XY_flat = XY.reshape((-1, 2))
+            vertices = DicoImager[iFacet]["Polygon"]
+            mpath = Path(vertices)  # the vertices of the polygon
+            mask_flat = mpath.contains_points(XY_flat)
+            mask = mask_flat.reshape(X.shape)
+            return mask.flat[0]
+        
+        ClosestFacet=-1
+        
         for iFacet in range(self.NFacets):
+            
             l=CellSizeRad*(xp-nx//2)
-            m=CellSizeRad*(yp-nx//2)
+            m=CellSizeRad*(yp-ny//2)
             
             #lSol,mSol=self.DicoVariablePSF["Facets"][iFacet]["lmSol"]
             lSol,mSol=self.DicoVariablePSF["Facets"][iFacet]["l0m0"]
             #print "lsol, msol = ",lSol,mSol #,self.DicoVariablePSF[iFacet]["pixCentral"][0],self.DicoVariablePSF[iFacet]["pixCentral"][1]
 
             d=np.sqrt((l-lSol)**2+(m-mSol)**2)
+            
+            if inPoly(iFacet,l,m):
+                ClosestFacet=iFacet
+                #break
+            
             if d<dmin:
                 dmin=d
-                ClosestFacet=iFacet
+                ClosestFacet0=iFacet
+
                 
-        # print "[%i, %i] ->  %i"%(xp,yp,ClosestFacet)
+        # print("[%i, %i] ->  %i"%(xp,yp,ClosestFacet))
+        # print("[%i, %i] ->  %i"%(xp,yp,ClosestFacet0))
+        
+        if ClosestFacet==-1:
+            ClosestFacet=ClosestFacet0
+
         return ClosestFacet
+
+
+    
 
     def setFacet(self,iFacet):
         #print "set facetloc"
