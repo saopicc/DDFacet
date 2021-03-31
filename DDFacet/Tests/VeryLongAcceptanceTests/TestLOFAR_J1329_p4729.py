@@ -27,6 +27,10 @@ from __future__ import print_function
 
 from DDFacet.compatibility import range
 import unittest
+from subprocess import Popen
+import os
+from os import path, getenv
+import subprocess
 
 import DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage
 
