@@ -31,6 +31,7 @@ from subprocess import Popen
 import os
 from os import path, getenv
 import subprocess
+import time
 
 import DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage
 
