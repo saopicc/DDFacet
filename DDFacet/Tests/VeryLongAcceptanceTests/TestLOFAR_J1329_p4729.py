@@ -30,29 +30,29 @@ import unittest
 
 import DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage
 
-
-def __run(cmdargs, timeout=600):
-    p = Popen(cmdargs, 
-              env=os.environ.copy())
-    
-    x = timeout
-    delay = 1.0
-    timeout = int(x / delay)
-    while p.poll() is None and timeout > 0:
-        time.sleep(delay)
-        timeout -= delay
-    #timeout reached, kill process if it is still rolling
-    ret = p.poll()
-    if ret is None:
-        p.kill()
-        ret = 99
-
-    if ret == 99:
-        raise RuntimeError("Test timeout reached. Killed process.")
-    elif ret != 0:
-        raise RuntimeError("{} exited with non-zero return code {}".format(cmdargs[0], ret))
-
 class TestLOFAR_J1329_p4729(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCompareFITSImage):
+    @classmethod
+    def __run(cls, cmdargs, timeout=600):
+        p = Popen(cmdargs, 
+                    env=os.environ.copy())
+
+        x = timeout
+        delay = 1.0
+        timeout = int(x / delay)
+        while p.poll() is None and timeout > 0:
+            time.sleep(delay)
+            timeout -= delay
+        #timeout reached, kill process if it is still rolling
+        ret = p.poll()
+        if ret is None:
+            p.kill()
+            ret = 99
+
+        if ret == 99:
+            raise RuntimeError("Test timeout reached. Killed process.")
+        elif ret != 0:
+            raise RuntimeError("{} exited with non-zero return code {}".format(cmdargs[0], ret))
+
     @classmethod
     def defineImageList(cls):
         """ Method to define set of reference images to be tested.
@@ -105,19 +105,19 @@ class TestLOFAR_J1329_p4729(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSI
         args = ['MakeMask.py',
                 '--RestoredIm={}'.format(restoredname),
                 '--Th=7']
-        __run(args)
+        cls.__run(args)
 
         args = ['MaskDicoModel.py',
                 '--InDicoModel={}.DicoModel'.format(basename),
                 '--OutDicoModel={}.DicoModel.Masked'.format(basename),
                 '--MaskName={}.mask.fits'.format(restoredname)]
-        __run(args)
+        cls.__run(args)
 
         # steps neeeded for autocluster
         args = ['MakeCatalog.py',
                 '--RestoredIm={}'.format(restoredname)]
-        __run(args)
-        
+        cls.__run(args)
+
         args = ['ClusterCat.py',
                 '--DoPlot=0',
                 '--NGen=100',
@@ -125,7 +125,7 @@ class TestLOFAR_J1329_p4729(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSI
                 '--NCluster=6',
                 '--FluxMin=0.0001'
                 '--SourceCat={}.pybdsm.srl.fits'.format(restoredname)]
-        __run(args)
+        cls.__run(args)
 
         # steps needed for manual cluster
         tagfilename = '{}.tagged.reg'.format(restoredname)
@@ -149,7 +149,7 @@ class TestLOFAR_J1329_p4729(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSI
               "--NCluster=7",
               "--DoPlot=0",
               "--BaseImageName={}".format(basename)]
-        __run(args)
+        cls.__run(args)
 
 
 if __name__ == '__main__':
