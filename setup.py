@@ -30,19 +30,11 @@ from distutils.command.build import build
 from setuptools.command.build_ext import build_ext
 from os.path import join as pjoin
 import sys
-import six
 
 pkg='DDFacet'
 skymodel_pkg='SkyModel'
 __version__ = "0.6.0.0"
 build_root=os.path.dirname(__file__)
-
-
-try:
-    import six
-except ImportError as e:
-    raise ImportError("six not installed. Please install Py2/3 backwards-compatibility layer six before running DDFacet install. "
-                      "You should not see this message unless you are not running pip install (19.x) -- run pip install!")
 
 try:
     import pybind11
@@ -55,12 +47,9 @@ def backend(compile_options):
         print("Compiling extension libraries with user defined options: '%s'"%compile_options)
     else:
         compile_options = ""
-    if six.PY3:
-        compile_options += " -DENABLE_PYTHON_2=OFF "
-        compile_options += " -DENABLE_PYTHON_3=ON "
-    else:
-        compile_options += " -DENABLE_PYTHON_2=ON "
-        compile_options += " -DENABLE_PYTHON_3=OFF "
+    
+    compile_options += " -DENABLE_PYTHON_2=OFF "
+    compile_options += " -DENABLE_PYTHON_3=ON "
 
     path = pjoin(build_root, pkg, 'cbuild')
     try:
