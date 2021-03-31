@@ -321,6 +321,7 @@ class ClassDDEGridMachine():
                  cf_dict=None, compute_cf=False,
                  wmax=None,   # must be supplied if compute_cf=True
                  bda_grid=None, bda_degrid=None,
+                 Padding=None,
                  ):
         """
 
@@ -368,7 +369,9 @@ class ClassDDEGridMachine():
 
         self.dtype = np.complex64
         T.timeit("0")
-        Padding = GD["Facets"]["Padding"]
+        if Padding is None:
+            Padding = GD["Facets"]["Padding"]
+        
         self.NonPaddedNpix, Npix = EstimateNpix(Npix, Padding)
         self.Padding = Npix/float(self.NonPaddedNpix)
         # self.Padding=Padding

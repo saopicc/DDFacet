@@ -452,7 +452,7 @@ class ClassImagerDeconv():
         #del(DicoImagesPSF)
 
         
-        self.DicoImagesPSF["DicoImager"]=copy.deepcopy((self.FacetMachinePSF.DicoImager or self.FacetMachinePSF.DicoImager))
+        self.DicoImagesPSF["DicoImager"]=copy.deepcopy((self.FacetMachinePSF.DicoImager or self.FacetMachine.DicoImager))
         self.DicoImagesPSF.reload()
         
         # if we load a cached PSF, mark these as None so that we don't re-save a PSF image in _fitAndSavePSF()
@@ -1118,6 +1118,8 @@ class ClassImagerDeconv():
                                " supported. Maybe you meant Output-StokesResidues"\
                                " instead?")
 
+        self.DicoImagesPSF["DicoImager"]=copy.deepcopy((self.FacetMachinePSF.DicoImager or self.FacetMachine.DicoImager))
+        self.DicoImagesPSF.reload()
         # This just keeps track of padded grid size for use in Hogbom-MultiScale (Can just use DicoImager instead? Is it passed in anywhere?)
         if self.GD["Deconv"]["Mode"] == "WSCMS" or self.GD["Deconv"]["Mode"] == "Hogbom":
             self.DicoImagesPSF["PaddedPSFInfo"] = {}

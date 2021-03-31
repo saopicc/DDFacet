@@ -282,6 +282,14 @@ class ClassFacetMachine():
                                          [-RadiusTot, RadiusTot]])
         self.setFacetsLocs()
 
+    def giveEffectivePadding(self,iFacet):
+        ThisFacetPadding=self.Padding
+        MaxFluxOverFacets=np.max([self.DicoImager[iFacet]["MaxFlux"] for iFacet in self.DicoImager.keys()])
+        if "MaxFlux" in self.DicoImager[iFacet].keys():
+            ThisFacetPadding=self.GD["Facets"]["FluxPaddingScale"]*self.Padding*self.DicoImager[iFacet]["MaxFlux"]/MaxFluxOverFacets
+            ThisFacetPadding=np.max([self.Padding,ThisFacetPadding])
+        return ThisFacetPadding
+        
     def AppendFacet(self, iFacet, l0, m0, diam):
         """
         Adds facet dimentions to info dict of facets (self.DicoImager[iFacet])
@@ -302,11 +310,14 @@ class ClassFacetMachine():
         # print>>log,"Facet %d l %f m %f RA %f Dec %f"%(iFacet, l0, m0, raFacet, decFacet)
 
         NpixFacet, _ = EstimateNpix(diam / self.CellSizeRad, Padding=1)
-        _, NpixPaddedGrid = EstimateNpix(NpixFacet, Padding=self.Padding)
+
+        Padding=self.giveEffectivePadding(iFacet)
+            
+        _, NpixPaddedGrid = EstimateNpix(NpixFacet, Padding=Padding)
 
         if NpixPaddedGrid // NpixFacet > self.Padding and not getattr(self, '_warned_small_ffts', False):
             print(ModColor.Str("WARNING: Your FFTs are too small. We will pad them by x%.2f "\
-                               "rather than x%.2f. Increase facet size and/or padding to get rid of this message." % (float(NpixPaddedGrid)/NpixFacet, self.Padding)),
+                               "rather than x%.2f. Increase facet size and/or padding to get rid of this message." % (float(NpixPaddedGrid)/NpixFacet, Padding)),
                                file=log)
             self._warned_small_ffts = True
 
@@ -342,7 +353,9 @@ class ClassFacetMachine():
                         "Nw": self.GD["CF"]["Nw"],
                         "WProj": True,
                         "DoDDE": self.DoDDE,
-                        "Padding": self.GD["Facets"]["Padding"]}
+                        "Padding": Padding}
+        
+        log.print("[%i] %f"%(iFacet,Padding))
 
         _, _, NpixOutIm, NpixOutIm = self.OutImShape
 
@@ -369,6 +382,7 @@ class ClassFacetMachine():
         # self.JonesDirCat.m[iFacet] = m
         # self.JonesDirCat.Cluster[iFacet] = iFacet
 
+        
     def setFacetsLocs(self):
         """
         Routine to split the image into a grid of squares.
@@ -716,7 +730,8 @@ class ClassFacetMachine():
         for iFacet in getattr(self.DicoImager, "iterkeys", self.DicoImager.keys)():
             facet_dict = self._CF.addSubdict(iFacet)
             APP.runJob("%s.InitCF.f%s"%(self._app_id, iFacet), self._initcf_worker,
-                            args=(iFacet, facet_dict.readwrite(), cachepath, cachevalid, wmax))
+                            args=(iFacet, facet_dict.readwrite(), cachepath, cachevalid, wmax),
+                       serial=True)
         #workers_res=APP.awaitJobResults("%s.InitCF.*"%self._app_id, progress="Init CFs")
 
 
@@ -832,6 +847,7 @@ class ClassFacetMachine():
             iFacet, self.SpheNorm, self.VS.NFreqBands,
             self.StokesConverter.AvailableCorrelationProductsIds(),
             self.StokesConverter.RequiredStokesProductsIds(),
+            Padding=FacetInfo["DicoConfigGM"]["Padding"],
             **kw)
 
     def ToCasaImage(self, ImageIn, Fits=True, ImageName=None,

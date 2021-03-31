@@ -45,6 +45,7 @@ import Polygon
 from DDFacet.ToolsDir import rad2hmsdms
 from DDFacet.Other import logger
 log = logger.getLogger("ClassFacetMachineTessel")
+from pyrap.images import image
 
 
 class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
@@ -583,8 +584,34 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         for iFacet in range(l_m_Diam.shape[0]):
             self.DicoImager[iFacet] = {}
-            self.DicoImager[iFacet]["Polygon"] = D[
-                l_m_Diam[iFacet, 3]]["Polygon"]
+            self.DicoImager[iFacet]["Polygon"] = D[l_m_Diam[iFacet, 3]]["Polygon"]
+            
+
+        if self.GD["Facets"]["FluxPaddingAppModel"] is not None:
+            NameModel=self.GD["Facets"]["FluxPaddingAppModel"]
+            log.print("Initialising model machine for facet-based flux density estimation...")
+            ModelImage=image(NameModel).getdata()
+            nch,npol,_,_=ModelImage.shape
+            ModelImage=np.mean(ModelImage[:,0,:,:],axis=0)
+            ModelImage=(ModelImage.T[::-1]).copy()
+            _,_,nx,ny=self.OutImShape
+            Dx=self.CellSizeRad * nx/2
+            Dy=self.CellSizeRad * ny/2
+            lg, mg = X, Y = np.mgrid[-Dx:Dx:nx * 1j, -Dy:Dy:ny * 1j]
+            XY = np.dstack((X, Y))
+            XY_flat = XY.reshape((-1, 2))
+            for iFacet in self.DicoImager.keys():
+                vertices = self.DicoImager[iFacet]["Polygon"]
+                mpath = Path(vertices)  # the vertices of the polygon
+                mask_flat = mpath.contains_points(XY_flat)
+                mask = mask_flat.reshape(X.shape)
+                Ft=np.max(ModelImage.flat[mask.ravel()])
+                log.print("Flux Facet [%.3i] = %f"%(iFacet,Ft))
+                self.DicoImager[iFacet]["MaxFlux"]=Ft
+                Ft=np.sum(ModelImage.flat[mask.ravel()])
+                self.DicoImager[iFacet]["TotalFlux"]=Ft
+
+        for iFacet in range(l_m_Diam.shape[0]):
             x0 = round(l_m_Diam[iFacet, 0] / self.CellSizeRad)
             y0 = round(l_m_Diam[iFacet, 1] / self.CellSizeRad)
             # if x0 % 2 == 0:
@@ -599,6 +626,10 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                     2] / self.CellSizeRad) * self.CellSizeRad
             # self.AppendFacet(iFacet,l0,m0,diam)
             self.AppendFacet(iFacet, l0, m0, diam)
+
+
+
+            
 
         # self.MakeMasksTessel()
 
@@ -660,35 +691,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             indx,indy=np.where(R==np.min(R))
             lmin,mmin=X[indx[0],indy[0]],Y[indx[0],indy[0]]
             self.DicoImager[iFacet]["lm_min"]=lmin,mmin
-            
-        if self.GD["Facets"]["FluxPaddingDicoModel"] is not None and self.GD["Facets"]["FluxPaddingScale"] is not None:
-            self.ModConstructor = ClassModModelMachine(self.GD)
-            ModelMachine = self.ModConstructor.GiveInitialisedMMFromFile(self.GD["Facets"]["FluxPaddingDicoModel"])
-            ModelImage=ModelMachine.GiveModelImage(np.array([self.VS.RefFreq]))
-            ModelImage=ModelImage[0,0]
-            
-            _,_,nx,ny=self.OutImShape
-            Dx=CellSizeRad * nx/2
-            Dy=CellSizeRad * ny/2
-            lg, mg = X, Y = np.mgrid[-Dx:Dx:nx * 1j, -Dy:Dy:ny * 1j]
-            XY = np.dstack((X, Y))
-            XY_flat = XY.reshape((-1, 2))
-            
-            for iFacet in self.DicoImager.keys():
-                #Create smoothned facet tessel mask:
-                vertices = self.DicoImager[iFacet]["Polygon"]
-                mpath = Path(vertices)  # the vertices of the polygon
-                mask_flat = mpath.contains_points(XY_flat)
-                mask = mask_flat.reshape(X.shape)
-                mpath = Path(self.CornersImageTot)
-                mask_flat2 = mpath.contains_points(XY_flat)
-                mask2 = mask_flat2.reshape(X.shape)
-                mask[mask2 == 0] = 0
-                R=np.sqrt(X**2+Y**2)
-                R[mask==0]=1e6
-                indx,indy=np.where(R==np.min(R))
-                lmin,mmin=X[indx[0],indy[0]],Y[indx[0],indy[0]]
-                self.DicoImager[iFacet]["lm_min"]=lmin,mmin
+
 
             
         self.FacetDirCat = np.zeros((len(self.DicoImager),),
