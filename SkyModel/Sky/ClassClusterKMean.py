@@ -55,10 +55,12 @@ class ClassClusterKMean():
         else:
             xc,yc=self.InitLM
 
-
         if self.PreCluster is not None:
             xc1,yc1=self.PreCluster
             Npk=xc1.size
+            if Npk > xc.size:
+                raise ValueError("NCluster is less than your pretagged number of regions")
+
             xc[0:Npk]=xc1[:]
             yc[0:Npk]=yc1[:]
         

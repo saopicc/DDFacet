@@ -1368,7 +1368,10 @@ class ClassMultiScaleMachine():
                 if self._dump_cols:
                     columns += self._dump_cols
                 CleanSolutionsDump.init(self.GD["Output"]["Name"] + ".clean.solutions", *columns)
-                CleanSolutionsDump.write(*[locals()[col] for col in columns])
+                dump = []
+                for col in columns:
+                    (col in locals().keys()) and dump.append(locals()[col])
+                CleanSolutionsDump.write(*dump)
 
 
             # P=set()
