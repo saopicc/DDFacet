@@ -134,7 +134,7 @@ class TestLOFAR_J1329_p4729(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSI
 
         # steps needed for manual cluster
         tagfilename = '{}.tagged.reg'.format(restoredname)
-        with open(tagfilename) as f:
+        with open(tagfilename, 'w+') as f:
             f.write('# Region file format: DS9 version 4.1')
             f.write('global color=green dashlist=8 3 width=1 font="helvetica 10 normal roman" select=1 highlite=1 dash=0 fixed=0 edit=1 move=1 delete=1 include=1 source=1')
             f.write('fk5')
