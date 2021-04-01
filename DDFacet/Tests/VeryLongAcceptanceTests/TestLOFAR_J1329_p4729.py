@@ -149,7 +149,7 @@ class TestLOFAR_J1329_p4729(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSI
             f.write('circle(13:11:10.167,+47:37:33.579,832.169")')
             f.write('circle(13:46:18.333,+48:11:13.511,832.169")')
 
-        args=["MakeModel.py"
+        args=["MakeModel.py",
               "--ds9PreClusterFile={}".format(tagfilename),
               "--NCluster=7",
               "--DoPlot=0",
