@@ -104,8 +104,8 @@ class TestLOFAR_J1329_p4729(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSI
 
     @classmethod
     def post_imaging_hook(cls):
-        basename = cls._outputDir+cls.__name__
-        restoredname = basename+".run.app.restored.fits"
+        basename = cls._outputDir+cls.__name__+".run"
+        restoredname = basename+".app.restored.fits"
         # steps neeeded for mask
         args = ['MakeMask.py',
                 '--RestoredIm={}'.format(restoredname),
