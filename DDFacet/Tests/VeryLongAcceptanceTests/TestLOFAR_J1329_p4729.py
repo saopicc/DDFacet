@@ -129,7 +129,7 @@ class TestLOFAR_J1329_p4729(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSI
                 '--NCPU=56',
                 '--NCluster=6',
                 '--FluxMin=0.0001',
-                '--SourceCat={}.pybdsm.srl.fits'.format(restoredname)]
+                '--SourceCat={}.pybdsm.srl.fits'.format(restoredname.replace(".fits", ""))]
         cls.__run(args)
 
         # steps needed for manual cluster
