@@ -162,6 +162,7 @@ class ClassPSFServer():
                 
         # print("[%i, %i] ->  %i"%(xp,yp,ClosestFacet))
         # print("[%i, %i] ->  %i"%(xp,yp,ClosestFacet0))
+
         
         if ClosestFacet==-1:
             ClosestFacet=ClosestFacet0

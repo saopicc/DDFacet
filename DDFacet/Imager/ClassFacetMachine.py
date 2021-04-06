@@ -284,9 +284,12 @@ class ClassFacetMachine():
 
     def giveEffectivePadding(self,iFacet):
         ThisFacetPadding=self.Padding
-        MaxFluxOverFacets=np.max([self.DicoImager[iFacet]["MaxFlux"] for iFacet in self.DicoImager.keys()])
+        if self.GD["Facets"]["FluxPaddingAppModel"] is None:
+            return ThisFacetPadding
+        MaxFluxOverFacets=np.max([self.DicoImager[iFacet]["MaxFlux"]+self.DicoImager[iFacet]["TotalFlux"] for iFacet in self.DicoImager.keys()])
         if "MaxFlux" in self.DicoImager[iFacet].keys():
-            ThisFacetPadding=self.GD["Facets"]["FluxPaddingScale"]*self.Padding*self.DicoImager[iFacet]["MaxFlux"]/MaxFluxOverFacets
+            F = self.DicoImager[iFacet]["MaxFlux"] + self.DicoImager[iFacet]["TotalFlux"]
+            ThisFacetPadding=self.GD["Facets"]["FluxPaddingScale"]*self.Padding*F/MaxFluxOverFacets
             ThisFacetPadding=np.max([self.Padding,ThisFacetPadding])
         return ThisFacetPadding
         
