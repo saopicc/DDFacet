@@ -57,6 +57,8 @@ RUN apt-get update
 RUN apt-get install -y $DEB_SETUP_DEPENDENCIES
 RUN apt-get install -y $DEB_DEPENCENDIES
 
+RUN python3 -m pip install -U pip setuptools wheel
+
 ENV PATH /usr/local/bin:$PATH
 ENV LD_LIBRARY_PATH /usr/local/lib:$LD_LIBRARY_PATH
 ENV PYTHONPATH /usr/local/lib/python2.7/site-packages:$PYTHONPATH
@@ -87,7 +89,7 @@ RUN rm v3.3.0.tar.gz
 RUN wget https://github.com/casacore/python-casacore/archive/v3.3.0.tar.gz
 RUN tar xvf v3.3.0.tar.gz
 WORKDIR /src/python-casacore-3.3.0
-RUN pip3 install .
+RUN python3 -m pip install .
 WORKDIR /
 RUN python3 -c "from pyrap.tables import table as tbl"
 
@@ -139,21 +141,21 @@ WORKDIR /src
 RUN wget https://github.com/ska-sa/owlcat/archive/v1.6.0.tar.gz
 RUN tar -xvf v1.6.0.tar.gz
 WORKDIR /src/owlcat-1.6.0
-RUN pip3 install .
+RUN python3 -m pip install .
 
 # kittens
 WORKDIR /src
 RUN wget https://github.com/ska-sa/kittens/archive/v1.4.3.tar.gz
 RUN tar -xvf v1.4.3.tar.gz
 WORKDIR /src/kittens-1.4.3
-RUN pip3 install .
+RUN python3 -m pip install .
 
 # purr
 WORKDIR /src
 RUN wget https://github.com/ska-sa/purr/archive/v1.5.0.tar.gz
 RUN tar -xvf v1.5.0.tar.gz
 WORKDIR /src/purr-1.5.0
-RUN pip3 install .
+RUN python3 -m pip install .
 
 # tigger-lsm
 WORKDIR /src
@@ -161,14 +163,14 @@ RUN rm v1.6.0.tar.gz
 RUN wget https://github.com/ska-sa/tigger-lsm/archive/v1.6.0.tar.gz
 RUN tar -xvf v1.6.0.tar.gz
 WORKDIR /src/tigger-lsm-1.6.0
-RUN pip3 install .
+RUN python3 -m pip install .
 
 # Cattery
 WORKDIR /src
 RUN wget https://github.com/ska-sa/meqtrees-cattery/archive/v1.7.0.tar.gz
 RUN tar -xvf v1.7.0.tar.gz
 WORKDIR /src/meqtrees-cattery-1.7.0
-RUN pip3 install .
+RUN python3 -m pip  install .
 
 # blitz
 WORKDIR /src
@@ -198,12 +200,12 @@ RUN rm v1.7.0.tar.gz
 RUN wget https://github.com/ska-sa/pyxis/archive/v1.7.0.tar.gz
 RUN tar -xvf v1.7.0.tar.gz
 WORKDIR /src/pyxis-1.7.0
-RUN pip3 install .
+RUN python3 -m pip install .
 RUN cp -r /src/pyxis-1.7.0/Pyxis/recipies /usr/local/lib/python3.6/dist-packages/Pyxis/
 
 # run test when built
 RUN apt-get install -y python3-pyqt4
-RUN pip3 install nose
+RUN python3 -m pip install nose
 WORKDIR /usr/local/lib/python3.6/dist-packages/Pyxis/recipies/meqtrees-batch-test
 RUN python3 -m "nose"
 
@@ -244,9 +246,6 @@ ADD .gitmodules /src/DDFacet/.gitmodules
 RUN cd /src/DDFacet/ && git submodule update --init --recursive && cd /
 # Finally install DDFacet
 RUN rm -rf /src/DDFacet/DDFacet/cbuild
-RUN pip3 install -U pip setuptools wheel
-RUN python3 -m pip install pybind11
-RUN python3 -m pip install tensorflow==1.8.0
 RUN python3 -m pip install -U "/src/DDFacet/[dft-support,moresane-support,testing-requirements,fits-beam-support,kms-support]"
 
 # Set MeqTrees Cattery path to installation directory
