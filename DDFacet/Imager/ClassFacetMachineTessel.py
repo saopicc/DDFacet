@@ -600,7 +600,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
             from DDFacet.Other import ClassTimeIt
             T=ClassTimeIt.ClassTimeIt("FluxPaddingAppModel")
-            T.disable()
+            #T.disable()
             lg, mg = X, Y = np.mgrid[-Dx:Dx:nx * 1j, -Dy:Dy:ny * 1j]
             for iFacet in self.DicoImager.keys():
                 vertices = self.DicoImager[iFacet]["Polygon"]
@@ -614,6 +614,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 
                 XY = np.dstack((X, Y))
                 XY_flat = XY.reshape((-1, 2))
+                T.timeit("build s")
                 
                 mpath = Path(vertices)  # the vertices of the polygon
                 mask_flat = mpath.contains_points(XY_flat)
