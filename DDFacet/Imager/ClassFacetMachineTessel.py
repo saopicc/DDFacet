@@ -597,20 +597,53 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             _,_,nx,ny=self.OutImShape
             Dx=self.CellSizeRad * nx/2
             Dy=self.CellSizeRad * ny/2
+
+            from DDFacet.Other import ClassTimeIt
+            T=ClassTimeIt.ClassTimeIt("FluxPaddingAppModel")
+            T.disable()
             lg, mg = X, Y = np.mgrid[-Dx:Dx:nx * 1j, -Dy:Dy:ny * 1j]
-            XY = np.dstack((X, Y))
-            XY_flat = XY.reshape((-1, 2))
             for iFacet in self.DicoImager.keys():
                 vertices = self.DicoImager[iFacet]["Polygon"]
+                lp,mp=vertices.T
+
+                indx=((lg>=lp.min())&(lg<lp.max()))
+                indy=((mg>=mp.min())&(mg<mp.max()))
+                ind=(indx&indy)
+                ModelImage_s=ModelImage[ind]
+                X,Y=lgs,mgs=lg[ind],mg[ind]
+                
+                XY = np.dstack((X, Y))
+                XY_flat = XY.reshape((-1, 2))
+                
                 mpath = Path(vertices)  # the vertices of the polygon
                 mask_flat = mpath.contains_points(XY_flat)
+                T.timeit("contains")
                 mask = mask_flat.reshape(X.shape)
-                Ft=np.max(ModelImage.flat[mask.ravel()])
+                Ft=np.max(ModelImage_s.flat[mask.ravel()])
                 log.print("Flux Facet [%.3i] = %f"%(iFacet,Ft))
                 self.DicoImager[iFacet]["MaxFlux"]=Ft
-                Ft=np.sum(ModelImage.flat[mask.ravel()])
+                Ft=np.sum(ModelImage_s.flat[mask.ravel()])
                 self.DicoImager[iFacet]["TotalFlux"]=Ft
+                T.timeit("rest")
 
+            # lg, mg = X, Y = np.mgrid[-Dx:Dx:nx * 1j, -Dy:Dy:ny * 1j]
+            # XY = np.dstack((X, Y))
+            # XY_flat = XY.reshape((-1, 2))
+            # for iFacet in self.DicoImager.keys():
+            #     vertices = self.DicoImager[iFacet]["Polygon"]
+            #     mpath = Path(vertices)  # the vertices of the polygon
+            #     mask_flat = mpath.contains_points(XY_flat)
+            #     T.timeit("contains")
+            #     mask = mask_flat.reshape(X.shape)
+            #     Ft=np.max(ModelImage.flat[mask.ravel()])
+            #     log.print("Flux Facet [%.3i] = %f"%(iFacet,Ft))
+            #     self.DicoImager[iFacet]["MaxFlux"]=Ft
+            #     Ft=np.sum(ModelImage.flat[mask.ravel()])
+            #     self.DicoImager[iFacet]["TotalFlux"]=Ft
+            #     T.timeit("rest")
+
+        ###############
+                
         for iFacet in range(l_m_Diam.shape[0]):
             x0 = round(l_m_Diam[iFacet, 0] / self.CellSizeRad)
             y0 = round(l_m_Diam[iFacet, 1] / self.CellSizeRad)

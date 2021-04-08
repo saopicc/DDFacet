@@ -259,6 +259,8 @@ class ClassFacetMachine():
         self.Cell = Cell
         self.CellSizeRad = (Cell / 3600.) * np.pi / 180.
         rac, decc = self.VS.ListMS[0].radec
+        
+
         self.MainRaDec = (rac, decc)
         self.nch = self.VS.NFreqBands
         # LB - this is unnecessary and only used in FacetMachine, replacing occurrences
@@ -266,6 +268,19 @@ class ClassFacetMachine():
         self.SumWeights = np.zeros((self.nch, self.npol), float)
 
         self.CoordMachine = ModCoord.ClassCoordConv(rac, decc)
+
+        # from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        # print(rad2hmsdms(rac,Type="ra").replace(" ",":"),rad2hmsdms(decc,Type="dec").replace(" ","."))
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+
+
         # get the closest fast fft size:
         Npix = self.GD["Image"]["NPix"]
         Padding = self.GD["Facets"]["Padding"]
@@ -286,11 +301,15 @@ class ClassFacetMachine():
         ThisFacetPadding=self.Padding
         if self.GD["Facets"]["FluxPaddingAppModel"] is None:
             return ThisFacetPadding
-        MaxFluxOverFacets=np.max([self.DicoImager[iFacet]["MaxFlux"]+self.DicoImager[iFacet]["TotalFlux"] for iFacet in self.DicoImager.keys()])
-        if "MaxFlux" in self.DicoImager[iFacet].keys():
-            F = self.DicoImager[iFacet]["MaxFlux"] + self.DicoImager[iFacet]["TotalFlux"]
-            ThisFacetPadding=self.GD["Facets"]["FluxPaddingScale"]*self.Padding*F/MaxFluxOverFacets
-            ThisFacetPadding=np.max([self.Padding,ThisFacetPadding])
+
+        FFacet=np.array([self.DicoImager[iFacet]["MaxFlux"]+self.DicoImager[iFacet]["TotalFlux"] for iFacet in self.DicoImager.keys()])
+        MaxFluxOverFacets=np.max(FFacet)
+        MedFluxOverFacets=np.median(FFacet)
+        
+        ThisFacetPadding=self.GD["Facets"]["FluxPaddingScale"]*self.Padding * (FFacet-MedFluxOverFacets)/MaxFluxOverFacets
+        
+        ThisFacetPadding=np.max([self.Padding,ThisFacetPadding[iFacet]])
+        
         return ThisFacetPadding
         
     def AppendFacet(self, iFacet, l0, m0, diam):
