@@ -606,9 +606,18 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 vertices = self.DicoImager[iFacet]["Polygon"]
                 lp,mp=vertices.T
 
-                indx=((lg>=lp.min())&(lg<lp.max()))
-                indy=((mg>=mp.min())&(mg<mp.max()))
-                ind=(indx&indy)
+                # indx=((lg>=lp.min())&(lg<lp.max()))
+                # indy=((mg>=mp.min())&(mg<mp.max()))
+                # ind=(indx&indy)
+                
+                lg1, mg1 = np.mgrid[-Dx:Dx:nx * 1j], np.mgrid[-Dy:Dy:ny * 1j]
+                indx=((lg1>=lp.min())&(lg1<lp.max()))
+                indy=((mg1>=mp.min())&(mg1<mp.max()))
+                ind1=(indx.reshape((-1,1))*indy.reshape((1,-1)))
+                # print(np.allclose(ind,ind1))
+                # stop
+                ind=ind1
+                
                 ModelImage_s=ModelImage[ind]
                 X,Y=lgs,mgs=lg[ind],mg[ind]
                 
