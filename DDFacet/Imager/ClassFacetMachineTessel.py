@@ -46,6 +46,7 @@ from DDFacet.ToolsDir import rad2hmsdms
 from DDFacet.Other import logger
 log = logger.getLogger("ClassFacetMachineTessel")
 from pyrap.images import image
+from DDFacet.Parset import ReadCFG
 
 
 class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
@@ -111,6 +112,59 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                     os.makedirs(DirName)
                 SolsFile = "%s/killMS.%s.sols.npz"%(DirName,SolsFile)
 
+        
+                
+                    
+        if SolsFile is not None:
+            PName=SolsFile[0:-4]+".parset"
+            GDkMS=ReadCFG.Parset(PName).DicoPars
+            
+            Ls=[]
+            
+            def CheckField(D0,k0,D1,k1):
+                try:
+                    v0=GDkMS[D0][k0]
+                    v1=self.GD[D1][k1]
+                    if v0=="": v0=None
+                    if v1=="": v1=None
+                    if v0!=v1:
+                        Ls.append("!!! kMS parameter [[%s][%s] = %s] differs from DDF [[%s][%s] = %s]"%(D0,k0,str(v0),D1,k1,str(v1)))
+                except:
+                    pass
+                
+            log.print(ModColor.Str("For your information, the following parameters are different in kMS/DDF, and you may think weither this has an effect or not..."))
+            
+            CheckField("Beam",'BeamModel',"Beam","Model")
+            CheckField("Beam",'NChanBeamPerMS',"Beam","NBand")
+            CheckField("Beam",'BeamAt', "Beam","At") # tessel/facet
+            CheckField("Beam",'LOFARBeamMode', "Beam","LOFARBeamMode")     # A/AE
+            CheckField("Beam",'DtBeamMin', "Beam","DtBeamMin")
+            CheckField("Beam",'CenterNorm', "Beam","CenterNorm")
+            CheckField("Beam",'FITSFile', "Beam","FITSFile")
+            CheckField("Beam",'FITSParAngleIncDeg', "Beam","FITSParAngleIncDeg")
+            CheckField("Beam",'FITSLAxis', "Beam","FITSLAxis")
+            CheckField("Beam",'FITSMAxis', "Beam","FITSMAxis")
+            CheckField("Beam",'FITSFeed', "Beam","FITSFeed") 
+            CheckField("Beam",'FITSVerbosity', "Beam","FITSVerbosity")
+            CheckField("Beam","FeedAngle", "Beam","FeedAngle")
+            CheckField("Beam",'ApplyPJones', "Beam","ApplyPJones")
+            CheckField("Beam",'FlipVisibilityHands', "Beam","FlipVisibilityHands")
+            CheckField("Beam",'FITSFeedSwap',"Beam","FITSFeedSwap")
+
+            CheckField("ImageSkyModel",'MaxFacetSize',"Facets","DiamMax")
+            CheckField("ImageSkyModel",'MinFacetSize',"Facets","DiamMin")
+            CheckField("SkyModel",'Decorrelation',"RIME","DecorrMode")
+
+            if len(Ls)>0:
+                log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
+                log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
+                log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
+                log.print(ModColor.Str("The following parameters should be mirrored in kMS/DDF"))
+                for l in Ls:
+                    log.print(ModColor.Str(l))
+                log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
+                log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
+                log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
 
 
 #        if "CatNodes" in self.GD.keys():
