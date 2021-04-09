@@ -600,7 +600,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
             from DDFacet.Other import ClassTimeIt
             T=ClassTimeIt.ClassTimeIt("FluxPaddingAppModel")
-            #T.disable()
+            T.disable()
             lg, mg = X, Y = np.mgrid[-Dx:Dx:nx * 1j, -Dy:Dy:ny * 1j]
             for iFacet in self.DicoImager.keys():
                 vertices = self.DicoImager[iFacet]["Polygon"]
