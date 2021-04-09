@@ -309,6 +309,9 @@ class ClassFacetMachine():
         ThisFacetPadding=self.GD["Facets"]["FluxPaddingScale"]*self.Padding * (FFacet-MedFluxOverFacets)/MaxFluxOverFacets
         
         ThisFacetPadding=np.max([self.Padding,ThisFacetPadding[iFacet]])
+
+        if ThisFacetPadding!=self.Padding:
+            log.print("Facet #%i padding %.2f -> %.2f"%(iFacet,self.Padding,ThisFacetPadding))
         
         return ThisFacetPadding
         
@@ -376,8 +379,9 @@ class ClassFacetMachine():
                         "WProj": True,
                         "DoDDE": self.DoDDE,
                         "Padding": Padding}
+
         
-        log.print("[%i] %f"%(iFacet,Padding))
+        #log.print("[%i] %f"%(iFacet,Padding))
 
         _, _, NpixOutIm, NpixOutIm = self.OutImShape
 
