@@ -125,12 +125,14 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 try:
                     v0=GDkMS[D0][k0]
                     v1=self.GD[D1][k1]
+                    if v0=="": v0=None
+                    if v1=="": v1=None
                     if v0!=v1:
                         Ls.append("!!! kMS parameter [[%s][%s] = %s] differs from DDF [[%s][%s] = %s]"%(D0,k0,str(v0),D1,k1,str(v1)))
                 except:
                     pass
                 
-            log.print(ModColor.Str("Checking that the beam parameters are the same in kMS/DDF..."))
+            log.print(ModColor.Str("For your information, the following parameters are different in kMS/DDF, and you may think weither this has an effect or not..."))
             
             CheckField("Beam",'BeamModel',"Beam","Model")
             CheckField("Beam",'NChanBeamPerMS',"Beam","NBand")
@@ -148,7 +150,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             CheckField("Beam",'ApplyPJones', "Beam","ApplyPJones")
             CheckField("Beam",'FlipVisibilityHands', "Beam","FlipVisibilityHands")
             CheckField("Beam",'FITSFeedSwap',"Beam","FITSFeedSwap")
-            
+
             CheckField("ImageSkyModel",'MaxFacetSize',"Facets","DiamMax")
             CheckField("ImageSkyModel",'MinFacetSize',"Facets","DiamMin")
             CheckField("SkyModel",'Decorrelation',"RIME","DecorrMode")
