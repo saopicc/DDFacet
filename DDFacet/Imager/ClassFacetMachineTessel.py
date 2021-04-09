@@ -132,7 +132,6 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 except:
                     pass
                 
-            log.print(ModColor.Str("For your information, the following parameters are different in kMS/DDF, and you may think weither this has an effect or not..."))
             
             CheckField("Beam",'BeamModel',"Beam","Model")
             CheckField("Beam",'NChanBeamPerMS',"Beam","NBand")
@@ -145,7 +144,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             CheckField("Beam",'FITSLAxis', "Beam","FITSLAxis")
             CheckField("Beam",'FITSMAxis', "Beam","FITSMAxis")
             CheckField("Beam",'FITSFeed', "Beam","FITSFeed") 
-            CheckField("Beam",'FITSVerbosity', "Beam","FITSVerbosity")
+            # CheckField("Beam",'FITSVerbosity', "Beam","FITSVerbosity")
             CheckField("Beam","FeedAngle", "Beam","FeedAngle")
             CheckField("Beam",'ApplyPJones', "Beam","ApplyPJones")
             CheckField("Beam",'FlipVisibilityHands', "Beam","FlipVisibilityHands")
@@ -159,12 +158,14 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
                 log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
                 log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
-                log.print(ModColor.Str("The following parameters should be mirrored in kMS/DDF"))
+                log.print(ModColor.Str("For your information, the following parameters are different in kMS/DDF, and you may think whether this has an effect or not..."))
                 for l in Ls:
                     log.print(ModColor.Str(l))
                 log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
                 log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
                 log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
+            else:
+                log.print(ModColor.Str("All kMS/DDF beam parameters are the same...",col="green"))
 
 
 #        if "CatNodes" in self.GD.keys():
@@ -684,7 +685,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 T.timeit("contains")
                 mask = mask_flat.reshape(X.shape)
                 Ft=np.max(ModelImage_s.flat[mask.ravel()])
-                log.print("Flux Facet [%.3i] = %f"%(iFacet,Ft))
+                # log.print("Flux Facet [%.3i] = %f"%(iFacet,Ft))
                 self.DicoImager[iFacet]["MaxFlux"]=Ft
                 Ft=np.sum(ModelImage_s.flat[mask.ravel()])
                 self.DicoImager[iFacet]["TotalFlux"]=Ft
