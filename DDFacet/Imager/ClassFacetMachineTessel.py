@@ -644,7 +644,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         if self.GD["Facets"]["FluxPaddingAppModel"] is not None:
             NameModel=self.GD["Facets"]["FluxPaddingAppModel"]
-            log.print("Initialising model machine for facet-based flux density estimation...")
+            log.print("Computing individual facet flux density for facet-dependent padding...")
             ModelImage=image(NameModel).getdata()
             nch,npol,_,_=ModelImage.shape
             ModelImage=np.mean(ModelImage[:,0,:,:],axis=0)
