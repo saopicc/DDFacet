@@ -1594,7 +1594,7 @@ class ClassFacetMachine():
         for iDir in range(self.AverageBeamMachine.NDir):
             APP.runJob("%s%d" % (JobName,iDir), 
                        self._SmoothAverageBeam_worker,
-                       args=(DATA.readonly(), iDir))
+                       args=(DATA.readonly(), iDir))#,serial=True)
 
 
     def finaliseSmoothBeam(self):

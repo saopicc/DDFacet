@@ -127,6 +127,7 @@ class ClassBeamMean():
         # JonesMachine=ClassJones.ClassJones(self.GD,MS,self.VS.FacetMachine)
         # JonesMachine.InitBeamMachine()
         DicoBeam=JonesMachine.EstimateBeam(beam_times, RAs[iDir:iDir+1], DECs[iDir:iDir+1], progressBar=False, quiet=True)
+
         T2.timeit("GetBeam 1")
         #DicoBeam=JonesMachine.EstimateBeam(beam_times, RAs[0:10], DECs[0:10],progressBar=False)
         #T2.timeit("GetBeam 10")
@@ -136,9 +137,10 @@ class ClassBeamMean():
         #pBAR.render(0, '%4i/%i' % (0,NTRange))
         T=ClassTimeIt.ClassTimeIt("Stacking")
         T.disable()
-
+        
         # DicoBeam["Jones"].shape = nt, nd, na, nch, _, _
 
+        
         for iTRange in range(DicoBeam["t0"].size):
         
             t0=DicoBeam["t0"][iTRange]
@@ -159,6 +161,10 @@ class ClassBeamMean():
             # This call is slow
             J0=J[:,A0s,:,:,:]
             J1=J[:,A1s,:,:,:]
+            J0=J0[:,:,DicoBeam["VisToJonesChanMapping"],:,:]
+            J1=J1[:,:,DicoBeam["VisToJonesChanMapping"],:,:]
+            
+            
             T.timeit("2")
             # ######################
 
@@ -177,6 +183,7 @@ class ClassBeamMean():
 
         
             JJ=(J0[:,:,:,0,0]*J1[:,:,:,0,0]+J0[:,:,:,1,1]*J1[:,:,:,1,1])/2.
+            
             T.timeit("3")
             
             WW=Ws**2
