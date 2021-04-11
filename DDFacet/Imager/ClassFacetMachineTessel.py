@@ -158,7 +158,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
                 log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
                 log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
-                log.print(ModColor.Str("For your information, the following parameters are different in kMS/DDF, and you may think whether this has an effect or not..."))
+                log.print(ModColor.Str("!!! The following parameters are different in kMS/DDF, and you may think whether this has an effect or not..."))
                 for l in Ls:
                     log.print(ModColor.Str(l))
                 log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
