@@ -81,7 +81,7 @@ class ClassArrayMethodSSD():
 
 
         #self.WeightMaxFunc["BIC"]=1.
-        #self.WeightMaxFunc["MinFlux"]=1.
+        self.WeightMaxFunc["MinFlux"]=10.
         #self.WeightMaxFunc["MaxFlux"]=1.
 
         #self.WeightMaxFunc["L0"]=1.
