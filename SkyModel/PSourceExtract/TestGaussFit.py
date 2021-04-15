@@ -48,7 +48,7 @@ def test():
     pylab.clf()
     pylab.imshow(z,interpolation="nearest")
     pylab.draw()
-    pylab.show(False)
+    pylab.show(block=False)
     #Fit=ClassGaussFit(x,y,z,psf=(dx,dx,0.),noise=noise,FreePars=["l", "m","s","Sm","SM","PA"])
     Fit=ClassGaussFit(x,y,z,psf=psfPars,noise=noise,FreePars=["l", "m","s","Sm","SM","PA"])
     Fit.DoAllFit()

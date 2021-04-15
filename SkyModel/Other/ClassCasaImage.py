@@ -71,7 +71,7 @@ class ClassCasaimage():
         RaDecRad=self.radec
         RefVal[-1][1]=RaDecRad[0]*180./np.pi*60
         RefVal[-1][0]=RaDecRad[1]*180./np.pi*60
-        if self.Freqs!=None:
+        if self.Freqs is not None:
             #print RefVal[0]
             RefVal[0]=self.Freqs[0]
             ich,ipol,xy=c.get_referencepixel()

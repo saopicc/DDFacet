@@ -93,7 +93,7 @@ def main(options=None):
         PMin*=Pfact
 
 
-    if PMaj!=None:
+    if PMaj is not None:
         print("Using psf (maj,min,pa)=(%6.2f, %6.2f, %6.2f) (mult. fact.=%6.2f)"%(PMaj,PMin,PPA,Pfact), file=log)
     else:
         print(ModColor.Str("No psf info could be gotten from anywhere"), file=log)

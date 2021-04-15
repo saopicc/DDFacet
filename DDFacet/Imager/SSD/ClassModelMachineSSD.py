@@ -451,8 +451,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def CleanMaskedComponants(self,MaskName,InvertMask=False):
         print("Cleaning model dictionary from masked components using %s [%i components]"%(MaskName,len(self.DicoSMStacked["Comp"])), file=log)
 
-        im=image(MaskName)
+        cwd = os.getcwd()
+        baseFitsFile = os.path.basename(MaskName)
+        dirname = os.path.dirname(os.path.abspath(MaskName))
+        os.chdir(dirname)
+        im=image(baseFitsFile)
         MaskArray=im.getdata()[0,0].T[::-1]
+        os.chdir(cwd)
         if InvertMask:
             print("  Inverting the mask", file=log)
             MaskArray=1-MaskArray
@@ -485,7 +490,12 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             ModelMap*=(BeamImage)
 
 
-        im=image(FitsFile)
+        cwd = os.getcwd()
+        baseFitsFile = os.path.basename(FitsFile)
+        dirname = os.path.dirname(os.path.abspath(FitsFile))
+        os.chdir(dirname)
+        im=image(baseFitsFile)
+        os.chdir(cwd)
         pol,freq,decc,rac=im.toworld((0,0,0,0))
 
         Lx,Ly=np.where(ModelMap[0,0]!=0)

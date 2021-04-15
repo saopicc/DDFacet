@@ -4,8 +4,8 @@ from __future__ import division, absolute_import, print_function
 import optparse
 import pickle
 import numpy as np
-from SkyModel.Other import MyLogger
-log=MyLogger.getLogger("MakeModel")
+from DDFacet.Other import logger
+log=logger.getLogger("MakeModel")
 from SkyModel.Sky import ClassSM
 from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 from DDFacet.Imager import ClassCasaImage

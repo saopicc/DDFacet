@@ -30,19 +30,11 @@ from distutils.command.build import build
 from setuptools.command.build_ext import build_ext
 from os.path import join as pjoin
 import sys
-import six
 
 pkg='DDFacet'
 skymodel_pkg='SkyModel'
 __version__ = "0.6.0.0"
 build_root=os.path.dirname(__file__)
-
-
-try:
-    import six
-except ImportError as e:
-    raise ImportError("six not installed. Please install Py2/3 backwards-compatibility layer six before running DDFacet install. "
-                      "You should not see this message unless you are not running pip install (19.x) -- run pip install!")
 
 try:
     import pybind11
@@ -55,12 +47,9 @@ def backend(compile_options):
         print("Compiling extension libraries with user defined options: '%s'"%compile_options)
     else:
         compile_options = ""
-    if six.PY3:
-        compile_options += " -DENABLE_PYTHON_2=OFF "
-        compile_options += " -DENABLE_PYTHON_3=ON "
-    else:
-        compile_options += " -DENABLE_PYTHON_2=ON "
-        compile_options += " -DENABLE_PYTHON_3=OFF "
+    
+    compile_options += " -DENABLE_PYTHON_2=OFF "
+    compile_options += " -DENABLE_PYTHON_3=ON "
 
     path = pjoin(build_root, pkg, 'cbuild')
     try:
@@ -129,63 +118,34 @@ def readme():
 
 def requirements():
     requirements = ["nose >= 1.3.7; python_version >= '3'", 
-                    "nose >= 1.3.7; python_version < '3'",
                     "Cython >= 0.25.2; python_version >= '3'", 
-                    "Cython >= 0.25.2; python_version < '3'",
                     "numpy >= 1.15.1; python_version >= '3'", 
-                    "numpy >= 1.15.1; python_version < '3'",
                     "sharedarray >= 3.2.0; python_version >= '3'", 
-                    "sharedarray >= 3.2.0; python_version < '3'",
                     "Polygon3 >= 3.0.8; python_version >= '3'", 
-                    "Polygon2 >= 2.0.8; python_version < '3'",
                     "pyFFTW >= 0.10.4; python_version >= '3'", 
-                    "pyFFTW >= 0.10.4; python_version < '3'",
                     "astropy >= 3.0; python_version >= '3'", 
-                    "astropy <= 2.0.11; python_version < '3'",
                     "deap >= 1.0.1; python_version >= '3'", 
-                    "deap >= 1.0.1; python_version < '3'",
                     "ptyprocess>=0.5; python_version >= '3'", 
-                    "ptyprocess<=0.5; python_version < '3'", #workaround for ipdb on py2
                     "ipdb >= 0.10.3; python_version >= '3'", 
-                    "ipdb <= 0.10.3; python_version < '3'",
                     "python-casacore >= 3.0.0; python_version >= '3'", 
-                    "python-casacore >= 3.0.0; python_version < '3'",
                     "pyephem >= 3.7.6.0; python_version >= '3'", 
-                    "pyephem >= 3.7.6.0; python_version < '3'",
                     "numexpr >= 2.6.2; python_version >= '3'", 
-                    "numexpr >= 2.6.2; python_version < '3'",
                     "matplotlib >= 2.0.0; python_version >= '3'", 
-                    "matplotlib >= 2.0.0; python_version < '3'",
                     "scipy >= 1.3.3; python_version >= '3'", 
-                    "scipy >= 0.16.0; python_version < '3'",
                     "astLib >= 0.8.0; python_version >= '3'", 
-                    "astLib >= 0.8.0; python_version < '3'",
                     "psutil >= 5.2.2; python_version >= '3'", 
-                    "psutil >= 5.2.2; python_version < '3'",
                     "py-cpuinfo >= 3.2.0; python_version >= '3'", 
-                    "py-cpuinfo >= 3.2.0; python_version < '3'",
                     "tables >= 3.6.0; python_version >= '3'", 
-                    "tables < 3.6.0; python_version < '3'",
                     "prettytable >= 0.7.2; python_version >= '3'", 
-                    "prettytable >= 0.7.2; python_version < '3'",
                     "pybind11 >= 2.2.2; python_version >= '3'", 
-                    "pybind11 >= 2.2.2; python_version < '3'",
                     "configparser >= 3.7.1; python_version >= '3'", 
-                    "configparser >= 3.7.1; python_version < '3'",
                     "pandas >=0.23.3; python_version >= '3'", 
-                    "pandas >=0.23.3; python_version < '3'",
                     "ruamel.yaml >= 0.15.92; python_version >= '3'", 
-                    "ruamel.yaml >= 0.15.92; python_version < '3'",
                     "pylru >= 1.1.0; python_version >= '3'", 
-                    "pylru >= 1.1.0; python_version < '3'",
                     "six >= 1.12.0; python_version >= '3'", 
-                    "six >= 1.12.0; python_version < '3'",
                     "pybind11 >= 2.2.2; python_version >= '3'", 
-                    "pybind11 >= 2.2.2; python_version < '3'",
                     "dask[array] >= 1.1.0; python_version >= '3'", 
-                    "dask[array] == 2.11.0; python_version < '3'",
                     "codex-africanus[dask] >= 0.2.10; python_version >= '3'", 
-                    "codex-africanus[dask]; python_version < '3'"
                     ] 
     install_requirements = requirements
 

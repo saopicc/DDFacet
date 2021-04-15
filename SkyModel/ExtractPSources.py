@@ -75,7 +75,7 @@ def main(options=None):
         PMin*=Pfact
 
 
-    if PMaj!=None:
+    if PMaj is not None:
         print(ModColor.Str(" - Using psf (maj,min,pa)=(%6.2f, %6.2f, %6.2f) (mult. fact.=%6.2f)"
                            %(PMaj,PMin,PPA,Pfact),col='green',Bold=False))
     else:

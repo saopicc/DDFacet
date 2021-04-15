@@ -100,7 +100,7 @@ class ClassIslands():
         except:
             pass
 
-        if self.FitIm!=None:
+        if self.FitIm is not None:
             ax6=pylab.subplot(2,3,2,sharex=ax1,sharey=ax1)
             ax6.imshow(self.FitIm,vmin=vmin,vmax=vmax,interpolation="nearest",cmap="gray",origin="lower")
             ax6.format_coord = lambda x,y : self.GiveVal(self.FitIm,x,y)
@@ -113,7 +113,7 @@ class ClassIslands():
             pylab.title("Fit Image + pos")
             pylab.xlim(0,self.A.shape[0]-1)
             pylab.ylim(0,self.A.shape[0]-1)
-            if self.FittedComps!=None:
+            if self.FittedComps is not None:
                 x,y,s=self.FittedComps
                 ax4.scatter(y,x,marker="o",color="red",s=3)
 
@@ -164,7 +164,7 @@ class ClassIslands():
 
         # N=self.Noise
         # T=self.T
-        # if T!=None:
+        # if T is not None:
         #     #self.plot()
         #     indx,indy=np.where((A/N)>T)
         #     Abool=((A/N)>T)
