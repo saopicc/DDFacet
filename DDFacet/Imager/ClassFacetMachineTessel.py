@@ -32,6 +32,7 @@ from SkyModel.Sky import ModVoronoi
 from DDFacet.Other import reformat
 from DDFacet.Other import ModColor
 from DDFacet.Imager.ModModelMachine import ClassModModelMachine
+from DDFacet.Other import Exceptions
 
 from DDFacet.Data.ClassJones import _parse_solsfile, _which_solsfile
 import os, glob
@@ -167,7 +168,10 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             else:
                 log.print(ModColor.Str("All kMS/DDF beam parameters are the same...",col="green"))
 
-
+        if (self.GD["Facets"]["CatNodes"] is not None) and (SolsFile is not None):
+            raise Exceptions.UserInputError(ModColor.Str("Both --Facets-CatNodes and --DDESolutions-DDSols are specified which might have different clusterings, please disable one or the other."))
+            
+                
 #        if "CatNodes" in self.GD.keys():
         regular_grid = False
         if self.GD["Facets"]["CatNodes"] is not None:
@@ -644,7 +648,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         if self.GD["Facets"]["FluxPaddingAppModel"] is not None:
             NameModel=self.GD["Facets"]["FluxPaddingAppModel"]
-            log.print("Initialising model machine for facet-based flux density estimation...")
+            log.print("Computing individual facet flux density for facet-dependent padding...")
             ModelImage=image(NameModel).getdata()
             nch,npol,_,_=ModelImage.shape
             ModelImage=np.mean(ModelImage[:,0,:,:],axis=0)
@@ -678,6 +682,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 
                 XY = np.dstack((X, Y))
                 XY_flat = XY.reshape((-1, 2))
+                T.timeit("build s")
                 
                 mpath = Path(vertices)  # the vertices of the polygon
                 mask_flat = mpath.contains_points(XY_flat)
