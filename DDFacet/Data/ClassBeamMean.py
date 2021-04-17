@@ -101,8 +101,6 @@ class ClassBeamMean():
         self.radec=ra,dec
         self.npix=npix
         self.NDir=ra.size
-        
-
 
     def StackBeam(self,ThisMSData,iDir):
         self.StackedBeamDict.reload()
@@ -161,8 +159,8 @@ class ClassBeamMean():
             # This call is slow
             J0=J[:,A0s,:,:,:]
             J1=J[:,A1s,:,:,:]
-            J0=J0[:,:,DicoBeam["VisToJonesChanMapping"],:,:]
-            J1=J1[:,:,DicoBeam["VisToJonesChanMapping"],:,:]
+            # J0=J0[:,:,DicoBeam["VisToJonesChanMapping"],:,:]
+            # J1=J1[:,:,DicoBeam["VisToJonesChanMapping"],:,:]
             
             
             T.timeit("2")
@@ -182,30 +180,37 @@ class ClassBeamMean():
             # T.timeit("2b")
 
         
-            JJ=(J0[:,:,:,0,0]*J1[:,:,:,0,0]+J0[:,:,:,1,1]*J1[:,:,:,1,1])/2.
+            JJ=(J0[:,:,:,0,0]*J1[:,:,:,0,0].conj()+J0[:,:,:,1,1]*J1[:,:,:,1,1].conj())/2.
             
             T.timeit("3")
             
-            WW=Ws**2
+            WWs=Ws**2
             T.timeit("4")
-            WW=WW.reshape((1,ind.size,MSnchan))
-            T.timeit("5")
-            JJsq=WW*JJ**2
-            T.timeit("6")
-            
-            SumWsqThisRange=np.sum(JJsq,axis=1)
-            T.timeit("7")
 
-            #self.SumJJsq+=SumWsqThisRange.reshape((self.npix,self.npix,self.MS.Nchan))
-            #T.timeit("8")
-            SumWsq=np.sum(WW,axis=1)
-            #self.SumWsq+=SumWsq
+            nchMax=50
+            nchChunk=np.max([1,MSnchan//nchMax])
+            chMinMax=np.int32(np.linspace(0,MSnchan,nchChunk+1))
+            for ch0,ch1 in zip(chMinMax[:-1],chMinMax[1:]):
+                
+                WW=WWs.reshape((1,ind.size,MSnchan))[:,:,ch0:ch1]
+                T.timeit("5")
+                JJsq=WW*(JJ**2)[:,:,DicoBeam["VisToJonesChanMapping"][ch0:ch1]]
+                T.timeit("6")
+                SumWsqThisRange=np.sum(JJsq,axis=1)
+                T.timeit("7")
+                # stop
+                
+                SumWsq=np.sum(WW,axis=1)
+                
+                #print("!!!!!",iDir,ch0,ch1)
+                for iBand in range(self.VS.NFreqBands):
+                    indFreqBand,=np.where(ChanToFreqBand[ch0:ch1]==iBand)
+                    if indFreqBand.size==0: continue
 
-            for iBand in range(self.VS.NFreqBands):
-                indFreqBand,=np.where(ChanToFreqBand==iBand)
-                if indFreqBand.size==0: continue
-                self.StackedBeamDict[iDir]["SumJJsq"][iBand]+=np.sum(SumWsqThisRange.reshape((MSnchan,))[indFreqBand])
-                self.StackedBeamDict[iDir]["SumWsq"][iBand]+=np.sum(SumWsq.reshape((MSnchan,))[indFreqBand])
+                    ThisNch=ch1-ch0
+                    self.StackedBeamDict[iDir]["SumJJsq"][iBand]+=np.sum(SumWsqThisRange.reshape((ThisNch,))[indFreqBand])
+                    self.StackedBeamDict[iDir]["SumWsq"][iBand]+=np.sum(SumWsq.reshape((ThisNch,))[indFreqBand])
+                
 
             #print SumWsq,self.SumWsq,self.SumJJsq.shape,J0.shape
             T.timeit("9")
