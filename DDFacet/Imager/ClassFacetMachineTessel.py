@@ -169,7 +169,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 log.print(ModColor.Str("All kMS/DDF beam parameters are the same...",col="green"))
 
         if (self.GD["Facets"]["CatNodes"] is not None) and (SolsFile is not None):
-            raise Exceptions.UserInputError(ModColor.Str("Both --Facets-CatNodes and --DDESolutions-DDSols are specified which might have different clusterings, please disable one or the other."))
+            log.print(ModColor.Str("Both --Facets-CatNodes and --DDESolutions-DDSols are specified which might have different clusterings..."))
+
             
                 
 #        if "CatNodes" in self.GD.keys():
