@@ -137,79 +137,83 @@ class ClassBeamMean():
         T.disable()
         
         # DicoBeam["Jones"].shape = nt, nd, na, nch, _, _
-
+        # [(x, y) for x in [1,2,3] for y in [3,1,4] if x != y]
         
         for iTRange in range(DicoBeam["t0"].size):
         
             t0=DicoBeam["t0"][iTRange]
             t1=DicoBeam["t1"][iTRange]
             J=np.abs(DicoBeam["Jones"][iTRange])
-            ind=np.where((times>=t0)&(times<t1))[0]
-            T.timeit("0")
-            A0s=A0[ind]
-            A1s=A1[ind]
-            fs=flags[ind]
-            Ws=W[ind]
-            MSnchan=Ws.shape[1]
-            T.timeit("1")
+            indt=np.where((times>=t0)&(times<t1))[0]
+            ThisT=np.sort(np.unique(times[indt]))
             
-            nd,na,nch,_,_=J.shape
+            for tt in ThisT:
+                ind=np.where(times==tt)[0]
+                T.timeit("0")
+                A0s=A0[ind]
+                A1s=A1[ind]
+                fs=flags[ind]
+                Ws=W[ind]
+                MSnchan=Ws.shape[1]
+                T.timeit("1")
             
-            # ######################
-            # This call is slow
-            J0=J[:,A0s,:,:,:]
-            J1=J[:,A1s,:,:,:]
-            # J0=J0[:,:,DicoBeam["VisToJonesChanMapping"],:,:]
-            # J1=J1[:,:,DicoBeam["VisToJonesChanMapping"],:,:]
+                nd,na,nch,_,_=J.shape
             
-            
-            T.timeit("2")
-            # ######################
-
-            # J0=np.zeros((nd,A0s.size,nch,2,2),dtype=J.dtype)
-            # #T.timeit("1a")
-            # J0List=[J[:,A0s[i],:,:,:] for i in range(A0s.size)]
-            # #T.timeit("1b")
-            # J1=np.zeros((nd,A0s.size,nch,2,2),dtype=J.dtype)
-            # #T.timeit("1c")
-            # J1List=[J[:,A1s[i],:,:,:] for i in range(A0s.size)]
-            # #T.timeit("1d")
-            # for i in range(A0s.size):
-            #     J0[:,i,:,:,:]=J0List[i]
-            #     J1[:,i,:,:,:]=J1List[i]
-            # T.timeit("2b")
-
-        
-            JJ=(J0[:,:,:,0,0]*J1[:,:,:,0,0].conj()+J0[:,:,:,1,1]*J1[:,:,:,1,1].conj())/2.
-            
-            T.timeit("3")
-            
-            WWs=Ws**2
-            T.timeit("4")
-
-            nchMax=50
-            nchChunk=np.max([1,MSnchan//nchMax])
-            chMinMax=np.int32(np.linspace(0,MSnchan,nchChunk+1))
-            for ch0,ch1 in zip(chMinMax[:-1],chMinMax[1:]):
+                # ######################
+                # This call is slow
+                J0=J[:,A0s,:,:,:]
+                J1=J[:,A1s,:,:,:]
+                # J0=J0[:,:,DicoBeam["VisToJonesChanMapping"],:,:]
+                # J1=J1[:,:,DicoBeam["VisToJonesChanMapping"],:,:]
                 
-                WW=WWs.reshape((1,ind.size,MSnchan))[:,:,ch0:ch1]
-                T.timeit("5")
-                JJsq=WW*(JJ**2)[:,:,DicoBeam["VisToJonesChanMapping"][ch0:ch1]]
-                T.timeit("6")
-                SumWsqThisRange=np.sum(JJsq,axis=1)
-                T.timeit("7")
-                # stop
                 
-                SumWsq=np.sum(WW,axis=1)
+                T.timeit("2")
+                # ######################
                 
-                #print("!!!!!",iDir,ch0,ch1)
-                for iBand in range(self.VS.NFreqBands):
-                    indFreqBand,=np.where(ChanToFreqBand[ch0:ch1]==iBand)
-                    if indFreqBand.size==0: continue
+                # J0=np.zeros((nd,A0s.size,nch,2,2),dtype=J.dtype)
+                # #T.timeit("1a")
+                # J0List=[J[:,A0s[i],:,:,:] for i in range(A0s.size)]
+                # #T.timeit("1b")
+                # J1=np.zeros((nd,A0s.size,nch,2,2),dtype=J.dtype)
+                # #T.timeit("1c")
+                # J1List=[J[:,A1s[i],:,:,:] for i in range(A0s.size)]
+                # #T.timeit("1d")
+                # for i in range(A0s.size):
+                #     J0[:,i,:,:,:]=J0List[i]
+                #     J1[:,i,:,:,:]=J1List[i]
+                # T.timeit("2b")
+                
+                
+                JJ=(J0[:,:,:,0,0]*J1[:,:,:,0,0].conj()+J0[:,:,:,1,1]*J1[:,:,:,1,1].conj())/2.
+                
+                T.timeit("3")
+                
+                WWs=Ws**2
+                T.timeit("4")
 
-                    ThisNch=ch1-ch0
-                    self.StackedBeamDict[iDir]["SumJJsq"][iBand]+=np.sum(SumWsqThisRange.reshape((ThisNch,))[indFreqBand])
-                    self.StackedBeamDict[iDir]["SumWsq"][iBand]+=np.sum(SumWsq.reshape((ThisNch,))[indFreqBand])
+                nchMax=100
+                nchChunk=np.max([1,MSnchan//nchMax])
+                chMinMax=np.int32(np.linspace(0,MSnchan,nchChunk+1))
+                for ch0,ch1 in zip(chMinMax[:-1],chMinMax[1:]):
+                    
+                    WW=WWs.reshape((1,ind.size,MSnchan))[:,:,ch0:ch1]
+                    T.timeit("5")
+                    JJsq=WW*(JJ**2)[:,:,DicoBeam["VisToJonesChanMapping"][ch0:ch1]]
+                    T.timeit("6")
+                    SumWsqThisRange=np.sum(JJsq,axis=1)
+                    T.timeit("7")
+                    # stop
+                    
+                    SumWsq=np.sum(WW,axis=1)
+                    
+                    #print("!!!!!",iDir,ch0,ch1)
+                    for iBand in range(self.VS.NFreqBands):
+                        indFreqBand,=np.where(ChanToFreqBand[ch0:ch1]==iBand)
+                        if indFreqBand.size==0: continue
+                        
+                        ThisNch=ch1-ch0
+                        self.StackedBeamDict[iDir]["SumJJsq"][iBand]+=np.sum(SumWsqThisRange.reshape((ThisNch,))[indFreqBand])
+                        self.StackedBeamDict[iDir]["SumWsq"][iBand]+=np.sum(SumWsq.reshape((ThisNch,))[indFreqBand])
                 
 
             #print SumWsq,self.SumWsq,self.SumJJsq.shape,J0.shape
