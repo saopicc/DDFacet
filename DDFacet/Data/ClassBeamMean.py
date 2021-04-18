@@ -187,7 +187,7 @@ class ClassBeamMean():
             WWs=Ws**2
             T.timeit("4")
 
-            nchMax=50
+            nchMax=10
             nchChunk=np.max([1,MSnchan//nchMax])
             chMinMax=np.int32(np.linspace(0,MSnchan,nchChunk+1))
             for ch0,ch1 in zip(chMinMax[:-1],chMinMax[1:]):
