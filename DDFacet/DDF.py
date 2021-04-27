@@ -281,6 +281,7 @@ def main(OP=None, messages=[]):
                                                   deconvolve=("Clean" in Mode))
 
     Imager.Init()
+        
 
     # Imager.testDegrid()
     # stop

@@ -61,7 +61,10 @@ import numexpr
 from DDFacet.Imager import ClassImageNoiseMachine
 from DDFacet.Data import ClassStokes
 from DDFacet.Imager import ClassGainMachine
+
 from DDFacet.Data.PointingProvider import PointingProvider
+from DDFacet.Other.CacheManager import CacheManager
+
 # from astropy import wcs
 # from astropy.io import fits
 #
@@ -177,19 +180,28 @@ class ClassImagerDeconv():
 
     def Init(self):
         DC = self.GD
-        mslist = ClassMS.expandMSList(DC["Data"]["MS"],
-                                      defaultDDID=DC["Selection"]["DDID"],
-                                      defaultField=DC["Selection"]["Field"],
-                                      defaultColumn=None)
+        if self.GD["Output"]["Mode"]!="CleanMinor":
+            mslist = ClassMS.expandMSList(DC["Data"]["MS"],
+                                          defaultDDID=DC["Selection"]["DDID"],
+                                          defaultField=DC["Selection"]["Field"],
+                                          defaultColumn=None)
+            
         AsyncProcessPool.init(ncpu=self.GD["Parallel"]["NCPU"],
                               affinity=self.GD["Parallel"]["Affinity"],
                               parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
                               verbose=self.GD["Debug"]["APPVerbose"],
                               pause_on_start=self.GD["Debug"]["PauseWorkers"])
 
-        self.VS = ClassVisServer.ClassVisServer(mslist,ColName=DC["Data"]["ColName"] if self.do_readcol else None,
-                                                TChunkSize=DC["Data"]["ChunkHours"],
-                                                GD=self.GD)
+        if self.GD["Output"]["Mode"]=="CleanMinor":
+            print>>log,"Initialising from DeconvMachine from cache..."
+            class VisServer(object): pass
+            self.VS=VisServer()
+            self.VS.maincache = CacheManager("%s.ddfcache"%self.GD["Data"]["MS"], cachedir=self.GD["Cache"]["Dir"], reset=self.GD["Cache"]["Reset"])
+            self.VS.NFreqBands
+        else:
+            self.VS = ClassVisServer.ClassVisServer(mslist,ColName=DC["Data"]["ColName"] if self.do_readcol else None,
+                                                    TChunkSize=DC["Data"]["ChunkHours"],
+                                                    GD=self.GD)
 
         self.NMajor=self.GD["Deconv"]["MaxMajorIter"]
         del(self.GD["Deconv"]["MaxMajorIter"])
@@ -243,7 +255,6 @@ class ClassImagerDeconv():
                                                                              DegridFreqs=self.VS.FreqBandChannelsDegrid,
                                                                              GridFreqs=self.VS.FreqBandCenters,
                                                                              MainCache=self.VS.maincache)
-        
         self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
         self.MaskMachine.setImageNoiseMachine(self.ImageNoiseMachine)
 
@@ -1237,6 +1248,10 @@ class ClassImagerDeconv():
             # stop
             # ###
 
+            if self.GD["Output"]["Mode"]=="CleanMinor":
+                print>> log, "Requested no residual image after minor cycle... exiting..."
+                return
+            
             ## returned with nothing done in minor cycle? Break out
             if not update_model or iMajor == NMajor:
                 continue_deconv = False
