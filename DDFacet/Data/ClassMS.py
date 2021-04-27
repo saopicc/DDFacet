@@ -1098,6 +1098,11 @@ class ClassMS():
             if self.ToRADEC == "align":
                 if first_ms is not None:
                     ranew, decnew = first_ms.rarad, first_ms.decrad
+                    # if (ranew, decnew)!=self.OriginalRadec:
+                    #     self.GD["Image"]["PhaseCenterRADEC"]=[rad2hmsdms(first_ms.rarad,Type="ra").replace(" ",":"),rad2hmsdms(first_ms.decrad,Type="dec").replace(" ",":")]
+                    #     log.print("PhaseCenterRADEC in 'align'")
+                    #     log.print("   set the PhaseCenterRADEC in the parset to be: %s"%str(self.GD["Image"]["PhaseCenterRADEC"]))
+
                 which = "the common phase centre"
             else:
                 which = "%s %s"%tuple(self.ToRADEC)
