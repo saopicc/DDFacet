@@ -81,9 +81,9 @@ These options can be overridden by specifying a subset of the parset options in 
 passed as the first commandline argument. These options will override the corresponding defaults.
 '''
 import DDFacet
-print "DDFacet version is",report_version()
-print "Using python package located at: " + os.path.dirname(DDFacet.__file__)
-print "Using driver file located at: " + __file__
+print("DDFacet version is",report_version())
+print("Using python package located at: " + os.path.dirname(DDFacet.__file__))
+print("Using driver file located at: " + __file__)
 global Parset
 Parset = ReadCFG.Parset("%s/DefaultParset.cfg" % os.path.dirname(DDFacet.Parset.__file__))
 
@@ -173,7 +173,7 @@ class ParamikoPool():
                         key_filename='/home/tasse/.ssh/id_rsa')
 
             S="source /media/tasse/data/Wirtinger_Pack/init.sh; cd %s; %s"%(self.WorkDir,Str)
-            print>>log,ModColor.Str("[%s] %s"%(NodeName,S),col="blue")
+            log.print(ModColor.Str("[%s] %s"%(NodeName,S),col="blue"))
             stdin, stdout, stderr = ssh.exec_command(S)
 #            stdin, stdout, stderr = ssh.exec_command("source /media/tasse/data/Wirtinger_Pack/init.sh; %s"%(Str))
             #print stdout.readlines()
@@ -191,7 +191,7 @@ class ParamikoPool():
             
         for Job in self.JobPool.keys():
             if JobPrefix in Job:
-                print>>log,ModColor.Str("Waiting for %s..."%Job,col="blue")
+                log.print(ModColor.Str("Waiting for %s..."%Job,col="blue"))
                 #self.JobPool[Job]["stdout"].channel.recv_exit_status()
                 STDOUT=self.JobPool[Job]["stdout"].read()
                 STDERR=self.JobPool[Job]["stderr"].read()
@@ -199,14 +199,14 @@ class ParamikoPool():
                 Cond0=("DDFacet has encountered an unexpected error" in STDERROUT)
                 Cond1=("There was a problem after" in STDERROUT)
                 if Cond0 or Cond1:
-                    print>>log,ModColor.Str("DDFacet produced an error")
-                    print>>log,STDERROUT
+                    log.print(ModColor.Str("DDFacet produced an error"))
+                    log.print(STDERROUT)
                     raise RuntimeError("DDFacet crashed")
                 else:
-                    print>>log,ModColor.Str("  Job %s finished sucessfully"%Job,col="green")
+                    log.print(ModColor.Str("  Job %s finished sucessfully"%Job,col="green"))
                     
                 self.JobPool[Job]["ssh"].close()
-                print >>log,"   [done] %s"%Job
+                log.print("   [done] %s"%Job)
                 del(self.JobPool[Job])
 
 
@@ -218,7 +218,7 @@ class DDFParallel():
     def __init__(self,OP=None, messages=[]):
         if OP is None:
             OP = MyPickle.Load(SaveFile)
-            print "Using settings from %s, then command line."%SaveFile
+            print("Using settings from %s, then command line."%SaveFile)
         self.OP=OP
         self.messages=messages
         self.GD=OP.DicoConfig
@@ -298,21 +298,21 @@ class DDFParallel():
                 DicoNodes[ThisNodeName]["DicoPSF"]={}
                 DicoNodes[ThisNodeName]["DicoPSF"]=DDFacet.Array.shared_dict.create("DicoPSF_%s"%ThisNodeName)
                 ThisCache="%s/PSF"%(DicoNodes[ThisNodeName]["Cache"])
-                print>>log,"Reading PSF cache of [%s] %s"%(ThisNodeName,ThisCache)
+                log.print("Reading PSF cache of [%s] %s"%(ThisNodeName,ThisCache))
                 DicoNodes[ThisNodeName]["DicoPSF"].restore(ThisCache)
                 LastCacheName_PSF=ThisCache
                 
             DicoNodes[ThisNodeName]["DicoDirty"]={}
             DicoNodes[ThisNodeName]["DicoDirty"]=DDFacet.Array.shared_dict.create("DicoDirty_%s"%ThisNodeName)
             ThisCache="%s/Dirty"%(DicoNodes[ThisNodeName]["Cache"])
-            print>>log,"Reading Dirty cache of [%s] %s"%(ThisNodeName,ThisCache)
+            log.print("Reading Dirty cache of [%s] %s"%(ThisNodeName,ThisCache))
             DicoNodes[ThisNodeName]["DicoDirty"].restore(ThisCache)
             LastCacheName_Dirty=ThisCache
 
         # ############################################
         # Creating cache where we will store the results
         # for the Dirty image / cube
-        print>>log,"Computing the average of the residual images..."
+        log.print("Computing the average of the residual images...")
         DicoStackDirty=DDFacet.Array.shared_dict.create("DicoStackDirty_%s"%ThisNodeName)
         DicoStackDirty.restore(LastCacheName_Dirty)
         Cube=DicoStackDirty["ImageCube"]
@@ -341,7 +341,7 @@ class DDFParallel():
         MainCache="%s.ddfcache"%self.GD["Data"]["MS"]
         os.system("mkdir -p %s"%MainCache)
         DirtyCacheName="%s/Dirty"%MainCache
-        print>>log,"Saving the cache of the average residual image in %s"%DirtyCacheName
+        log.print("Saving the cache of the average residual image in %s"%DirtyCacheName)
         DicoStackDirty.save(DirtyCacheName)
 
         DicoStackDirty.save("HackyParallel.Dirty.ddfcache")
@@ -391,7 +391,7 @@ class DDFParallel():
         MainCache="%s.ddfcache"%self.GD["Data"]["MS"]
         os.system("mkdir -p %s"%MainCache)
         PSFCacheName="%s/PSF"%MainCache
-        print>>log,"Saving the cache of the average residual image in %s"%PSFCacheName
+        log.print("Saving the cache of the average residual image in %s"%PSFCacheName)
         DicoStackPSF.save(PSFCacheName)
 
         
@@ -455,15 +455,15 @@ if __name__ == "__main__":
         new_parset = OP.DicoConfig["Output"]["Name"] + ".parset"
         if os.path.exists(new_parset) and os.path.samefile(ParsetFile, new_parset):
             if OP.DicoConfig["Output"]["Clobber"]:
-                print>> log, ModColor.Str("WARNING: will overwrite existing parset, since --Output-Clobber is specified.")
+                log.print(ModColor.Str("WARNING: will overwrite existing parset, since --Output-Clobber is specified."))
             else:
-                print>> log, ModColor.Str("Your --Output-Name setting is the same as the base name of the parset, which would\n"
-                                          "mean overwriting the parset. I'm sorry, Dave, I'm afraid I can't do that.\n"
-                                          "Please re-run with the --Output-Clobber option if you're sure this is what\n"
-                                          "you want to do, or set a different --Output-Name.")
+                log.print(ModColor.Str("Your --Output-Name setting is the same as the base name of the parset, which would\n"
+                          "mean overwriting the parset. I'm sorry, Dave, I'm afraid I can't do that.\n"
+                          "Please re-run with the --Output-Clobber option if you're sure this is what\n"
+                          "you want to do, or set a different --Output-Name."))
                 sys.exit(1)
     elif len(args):
-        print args
+        print(args)
         OP.ExitWithError("Incorrect number of arguments. Use -h for help.")
         sys.exit(1)
 
