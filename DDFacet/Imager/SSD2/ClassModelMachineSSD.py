@@ -59,25 +59,30 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # self.GainMachine=GainMachine
         # self.DicoSMStacked["Comp"]={}
         if self.GD is not None:
-            NOrderPoly=self.GD["SSD2"]["PolyFreqOrder"]
-            SolveParamType=self.GD["SSD2"]["SolvePars"]
-
-            SolveParam=[]
-            if "Poly" in SolveParamType:
-                for iOrder in range(NOrderPoly): SolveParam.append("Poly%i"%iOrder)
-            if "GSig" in SolveParamType: 
-                SolveParam.append("GSig")
-            
-                #self.PolyOrder=NOrderPoly#np.sum([("Poly" in key) for key in SolveParam])
-        
-            self.SolveParam=SolveParam
-
-            
-            print("Solved parameters: %s"%(str(self.SolveParam)), file=log)
-            self.NParam=len(self.SolveParam)
+            self.setParams()
         self.RefFreq=None
         self.DicoSMStacked={}
         self.DicoSMStacked["Type"]="SSD2"
+
+
+    def setParams(self):
+        NOrderPoly=self.GD["SSD2"]["PolyFreqOrder"]
+        SolveParamType=self.GD["SSD2"]["SolvePars"]
+        
+        SolveParam=[]
+        if "Poly" in SolveParamType:
+            for iOrder in range(NOrderPoly): SolveParam.append("Poly%i"%iOrder)
+        if "GSig" in SolveParamType: 
+            SolveParam.append("GSig")
+            
+        #self.PolyOrder=NOrderPoly#np.sum([("Poly" in key) for key in SolveParam])
+        
+        self.SolveParam=SolveParam
+        
+        
+        print("Solved parameters: %s"%(str(self.SolveParam)), file=log)
+        self.NParam=len(self.SolveParam)
+        
 
     def setRefFreq(self,RefFreq,Force=False):#,AllFreqs):
         if self.RefFreq is not None and not Force:

@@ -107,6 +107,11 @@ class ClassImageDeconvMachine():
         
         self.GD["MultiSliceDeconv"]["PolyFitOrder"]=self.GD["SSD2"]["PolyFreqOrder"]
 
+        # In case PolyFreqOrder=0 in the parset, it has to be set to NFreqBands
+        self.ModelMachine.GD["SSD2"]["PolyFreqOrder"]=self.GD["SSD2"]["PolyFreqOrder"]
+        self.ModelMachine.setParams()
+
+        
         ListInitType=self.GD["GAClean"]["InitType"]
         if isinstance(ListInitType,str):
             ListInitType=[self.GD["GAClean"]["InitType"]]
@@ -574,7 +579,6 @@ class ClassImageDeconvMachine():
             
             ListOrder=[iIsland,FacetID,JonesNorm.flat[0],self.RMS**2,island_dict.path,iIslandInit]
 
-
             work_queue.put(ListOrder)
             T.timeit("Put")
 
@@ -826,7 +830,7 @@ class WorkerDeconvIsland(multiprocessing.Process):
 
             ThisPixList = island_dict["Island"].tolist()
             IslandBestIndiv = island_dict["BestIndiv"]
-            
+
             PSF=self.CubeVariablePSF[FacetID]
             NGen=self.GD["GAClean"]["NMaxGen"]
             NIndiv=self.GD["GAClean"]["NSourceKin"]
