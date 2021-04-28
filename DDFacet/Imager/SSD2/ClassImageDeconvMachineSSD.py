@@ -103,6 +103,8 @@ class ClassImageDeconvMachine():
             stop
             
         if self.GD["SSD2"]["PolyFreqOrder"]==0:
+            # that works but I prefer to forbid it since it's a bit dangerous
+            stop
             self.GD["SSD2"]["PolyFreqOrder"]=NFreqBands
         
         self.GD["MultiSliceDeconv"]["PolyFitOrder"]=self.GD["SSD2"]["PolyFreqOrder"]
@@ -519,7 +521,7 @@ class ClassImageDeconvMachine():
 
 
     def DeconvListIsland(self,ListIslands,ParallelMode="OverIslands",ListInitIslands=None):
-        # ================== Parallel part
+*        # ================== Parallel part
         
         NIslands=len(ListIslands)
         if NIslands==0: return
