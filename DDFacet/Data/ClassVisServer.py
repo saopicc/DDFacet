@@ -212,8 +212,7 @@ class ClassVisServer():
         
         max_freq_Cube, min_freq_Cube = max_freq_Data, min_freq_Data
         bandwidth_Cube = max_freq_Cube - min_freq_Cube
-        print>>log, "Total bandwidth is %g MHz (%g to %g MHz), with %d channels" % (
-            bandwidth_Cube*1e-6, min_freq_Data*1e-6, max_freq_Data*1e-6, len(global_freqs))
+        log.print("Total bandwidth is %g MHz (%g to %g MHz), with %d channels" % (bandwidth_Cube*1e-6, min_freq_Data*1e-6, max_freq_Data*1e-6, len(global_freqs)))
 
         # print>>log,"GlobalFreqs: %d: %s"%(len(self.GlobalFreqs),repr(self.GlobalFreqs))
 
