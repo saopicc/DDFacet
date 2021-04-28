@@ -309,6 +309,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         print("Saving Nodes catalog in %s" % NodeFile, file=log)
         np.save(NodeFile, NodesCat)
 
+        
         for iFacet, polygon0 in zip(range(len(LPolygon)), LPolygon):
             # polygon0 = vertices[region]
             P = polygon0.tolist()
@@ -647,7 +648,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             self.DicoImager[iFacet]["Polygon"] = D[l_m_Diam[iFacet, 3]]["Polygon"]
             
 
-        if self.GD["Facets"]["FluxPaddingAppModel"] is not None:
+        if self.GD["Facets"].get("FluxPaddingAppModel",None) is not None:
             NameModel=self.GD["Facets"]["FluxPaddingAppModel"]
             log.print("Computing individual facet flux density for facet-dependent padding...")
             ModelImage=image(NameModel).getdata()
