@@ -271,16 +271,7 @@ class ClassVisServer():
         freq_to_grid_band = dict(zip(self.GlobalFreqs, grid_band))
         # print>>log,sorted(freq_to_grid_band.items())
 
-<<<<<<< HEAD
-        self.FreqBandCenters = min_freq+grid_bw/2 + np.arange(0, self.NFreqBands)*grid_bw
-=======
-### not sure why linspace is here and not arange?
-# <<<<<<< HEAD
         self.FreqBandCenters = np.linspace(min_freq_Cube+grid_bw/2, max_freq_Cube-grid_bw/2,self.NFreqBands)
-# =======
-#        self.FreqBandCenters = min_freq+grid_bw/2 + np.arange(0, self.NFreqBands)*grid_bw
-#>>>>>>> master
->>>>>>> HackyParallel
 
         self.FreqBandChannels = []
         # freq_to_grid_band_chan: mapping from frequency to channel number

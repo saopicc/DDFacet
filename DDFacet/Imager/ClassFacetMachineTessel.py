@@ -97,6 +97,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         if isinstance(SolsFile, list):
             SolsFile = self.GD["DDESolutions"]["DDSols"][0]
 
+        if SolsFile=="": SolsFile=None
+
+
         if SolsFile and (not (".npz" in SolsFile)) and (not (".h5" in SolsFile)):
             Method = SolsFile
             # ThisMSName = reformat.reformat(
