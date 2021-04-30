@@ -497,6 +497,7 @@ class ClassImagerDeconv():
         self.DicoImagesPSF = FacetMachinePSF.FacetsToIm(NormJones=True)
         FacetMachinePSF.releaseGrids()
         self._psfmean, self._psfcube = self.DicoImagesPSF["MeanImage"], self.DicoImagesPSF["ImageCube"]  # this is only for the casa image saving
+        self.DicoImagesPSF["DicoImager"]=copy.deepcopy((self.FacetMachinePSF.DicoImager or self.FacetMachine.DicoImager))
         self.HasFittedPSFBeam = False
         self.fit_stat = self.FitPSF()
         if cachepath:
@@ -1129,8 +1130,8 @@ class ClassImagerDeconv():
                                " supported. Maybe you meant Output-StokesResidues"\
                                " instead?")
 
-        self.DicoImagesPSF["DicoImager"]=copy.deepcopy((self.FacetMachinePSF.DicoImager or self.FacetMachine.DicoImager))
         self.DicoImagesPSF.reload()
+        self.DicoImagesPSF["DicoImager"]=copy.deepcopy((self.FacetMachinePSF.DicoImager or self.FacetMachine.DicoImager))
         # This just keeps track of padded grid size for use in Hogbom-MultiScale (Can just use DicoImager instead? Is it passed in anywhere?)
         if self.GD["Deconv"]["Mode"] == "WSCMS" or self.GD["Deconv"]["Mode"] == "Hogbom":
             self.DicoImagesPSF["PaddedPSFInfo"] = {}
@@ -1402,6 +1403,7 @@ class ClassImagerDeconv():
             # was PSF re-generated?
             if do_psf:
                 self._finalizeComputedPSF(self.FacetMachinePSF, cachepath=None)
+                
                 self._fitAndSavePSF(self.FacetMachinePSF, cycle=iMajor)
                 deconvmachine_init = False  # force re-init above
 
