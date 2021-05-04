@@ -30,7 +30,7 @@ import multiprocessing
 import time
 from DDFacet.Other import logger
 from DDFacet.Other import ModColor
-log=logger.getLogger("ClassImageDeconvMachine")
+log=logger.getLogger("ClassImageDeconvMachineSSD2")
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Imager.ClassPSFServer import ClassPSFServer
 from DDFacet.Other.progressbar import ProgressBar
@@ -114,9 +114,9 @@ class ClassImageDeconvMachine():
         self.ModelMachine.setParams()
 
         
-        ListInitType=self.GD["GAClean"]["InitType"]
+        ListInitType=self.GD["SSD2"]["InitType"]
         if isinstance(ListInitType,str):
-            ListInitType=[self.GD["GAClean"]["InitType"]]
+            ListInitType=[self.GD["SSD2"]["InitType"]]
         if ListInitType is None:
             ListInitType=[]
         self.ListInitMachine=[]
@@ -124,14 +124,14 @@ class ClassImageDeconvMachine():
         for InitType in ListInitType:
             if InitType == "HMP":
                 from . import ClassInitSSDModelHMP
-                log.print(ModColor.Str("Initialisation of sourcekins using HMP",col="blue"))
+                print(ModColor.Str("Initialisation of sourcekins using HMP",col="blue"),file=log)
                 self.ListInitMachine.append( ClassInitSSDModelHMP.ClassInitSSDModelParallel(self.GD,
                                                                                             NFreqBands,RefFreq,
                                                                                             MainCache=self.maincache,
                                                                                             IdSharedMem=self.IdSharedMem) )
             elif InitType == "MORESANE":
                 from . import ClassInitSSDModelMoresane
-                log.print(ModColor.Str("Initialisation of sourcekins using MORESANE",col="blue"))
+                print(ModColor.Str("Initialisation of sourcekins using MORESANE",col="blue"),file=log)
                 self.ListInitMachine.append( ClassInitSSDModelMoresane.ClassInitSSDModelParallel(self.GD,
                                                                                                  NFreqBands, RefFreq,
                                                                                                  NCPU=self.NCPU,
@@ -142,7 +142,7 @@ class ClassImageDeconvMachine():
                 _,SubType=InitType.split(":")
                 GD["MultiSliceDeconv"]["Type"]=SubType
                 from . import ClassInitSSDModelMultiSlice
-                log.print(ModColor.Str("Initialisation of sourcekins using MultiSlice/%s"%GD["MultiSliceDeconv"]["Type"],col="blue"))
+                print(ModColor.Str("Initialisation of sourcekins using MultiSlice/%s"%GD["MultiSliceDeconv"]["Type"],col="blue"),file=log)
                 self.ListInitMachine.append( ClassInitSSDModelMultiSlice.ClassInitSSDModelParallel(GD,
                                                                                                    NFreqBands, RefFreq,
                                                                                                    NCPU=self.NCPU,
@@ -433,9 +433,12 @@ class ClassImageDeconvMachine():
         print("      Sidelobe-based threshold = %10.6f Jy [sidelobe  = %.3f of peak; cycle factor %.1f]"%(Fluxlimit_Sidelobe,self.SideLobeLevel,self.CycleFactor), file=log)
         print("      Peak-based threshold     = %10.6f Jy [%.3f of peak]"%(Fluxlimit_Peak,self.PeakFactor), file=log)
         print("      Absolute threshold       = %10.6f Jy"%(self.FluxThreshold), file=log)
+        if self.GD["SSD2"]["AlwaysAll"]:
+            print("    ... overriding these values with zero (AlwaysAll=True)", file=log)
+            StopFlux=0.
         print("    Stopping flux              = %10.6f Jy [%.3f of peak ]"%(StopFlux,StopFlux/MaxDirty), file=log)
 
-
+        
         MaxModelInit=np.max(np.abs(self.ModelImage))
 
         

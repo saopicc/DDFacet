@@ -44,6 +44,7 @@ from DDFacet.Array import shared_dict
 from DDFacet.Other.AsyncProcessPool import APP
 from DDFacet.Other import reformat
 import six
+import DDFacet.Other.PrintList
 if six.PY3:
     from DDFacet.cbuild.Gridder import _pyGridderSmearPols3x as _pyGridderSmearPols
 else:
@@ -344,17 +345,28 @@ class ClassVisServer():
 
             print("%s   Bandwidth is %g MHz (%g to %g MHz), gridding bands are %s" % (
                 MS, bw*1e-6, min_freq*1e-6, max_freq*1e-6, ", ".join(map(str, set(bands)))), file=log)
-            print("Grid band mapping: %s" % (" ".join(map(str, bands))), file=log)
-            print("Grid chan mapping: %s" % (
-                " ".join(map(str, self.DicoMSChanMappingChan[iMS]))), file=log)
-            print("Degrid chan mapping: %s" % (
-                " ".join(map(str, self.DicoMSChanMappingDegridding[iMS]))), file=log)
-            print("Degrid frequencies: %s" % (" ".join(
-                                                         ["%.2f" %
-                                                          (x * 1e-6)
-                                                          for x in self.FreqBandChannelsDegrid
-                                                          [iMS]])), file=log)
 
+            
+            
+            # print("Grid band mapping: %s" % (" ".join(map(str, bands))), file=log)
+            # print("Grid chan mapping: %s" % (
+            #     " ".join(map(str, self.DicoMSChanMappingChan[iMS]))), file=log)
+            # print("Degrid chan mapping: %s" % (
+            #     " ".join(map(str, self.DicoMSChanMappingDegridding[iMS]))), file=log)
+            # print("Degrid frequencies: %s" % (" ".join(
+            #                                              ["%.2f" %
+            #                                               (x * 1e-6)
+            #                                               for x in self.FreqBandChannelsDegrid
+            #                                               [iMS]])), file=log)
+
+            print("Grid band mapping: %s" % DDFacet.Other.PrintList.ListToStr(bands), file=log)
+            print("Grid chan mapping: %s" % DDFacet.Other.PrintList.ListToStr(self.DicoMSChanMappingChan[iMS]), file=log)
+            print("Degrid chan mapping: %s" % DDFacet.Other.PrintList.ListToStr(self.DicoMSChanMappingDegridding[iMS]), file=log)
+            s=" ".join(["%.2f" % (x * 1e-6) for x in self.FreqBandChannelsDegrid[iMS]])
+            print("Degrid frequencies: %s" % DDFacet.Other.PrintList.ListToStr(s.split(" ")), file=log)
+
+
+            
 #            print>>log,MS
 
             # print>>log,"FreqBandChannelsDegrid %s"%repr(self.FreqBandChannelsDegrid[iMS])
@@ -522,8 +534,8 @@ class ClassVisServer():
         DATA["ChanMappingDegrid"] = self.DicoMSChanMappingDegridding[iMS]
         DATA["FreqMappingDegrid"] = self.FreqBandChannelsDegrid[iMS]
 
-        print("  channel Mapping Gridding  : %s" % str(DATA["ChanMapping"]), file=log)
-        print("  channel Mapping DeGridding: %s" % str(DATA["ChanMappingDegrid"]), file=log)
+        print("  channel Mapping Gridding  : %s" % DDFacet.Other.PrintList.ListToStr(DATA["ChanMapping"]), file=log)
+        print("  channel Mapping DeGridding: %s" % DDFacet.Other.PrintList.ListToStr(DATA["ChanMappingDegrid"]), file=log)
 
         if freqs.size > 1:
             DATA["freqs"] = np.float64(freqs)

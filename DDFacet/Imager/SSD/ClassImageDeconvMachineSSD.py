@@ -97,13 +97,14 @@ class ClassImageDeconvMachine():
 
         self.DeconvMode="GAClean"
 
-        if self.GD["GAClean"]["InitType"] == "HMP":
+        InitType=self.GD["SSDClean"]["InitType"]
+        if InitType == "HMP":
             from . import ClassInitSSDModelHMP
             self.InitMachine = ClassInitSSDModelHMP.ClassInitSSDModelParallel(self.GD,
                                                                          NFreqBands,RefFreq,
                                                                          MainCache=self.maincache,
                                                                          IdSharedMem=self.IdSharedMem)
-        elif self.GD["GAClean"]["InitType"] == "MORESANE":
+        elif InitType == "MORESANE":
             from . import ClassInitSSDModelMoresane
             self.InitMachine = ClassInitSSDModelMoresane.ClassInitSSDModelParallel(self.GD,
                                                                                    NFreqBands, RefFreq,
