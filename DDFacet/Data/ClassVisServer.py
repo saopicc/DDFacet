@@ -220,8 +220,8 @@ class ClassVisServer():
         # if this is 0, then looks at NFreqBands parameter
         grid_bw = self.GD["Freq"]["BandMHz"]*1e+6
         
-        if self.GD["Freq"]["FMinMHz"]: min_freq_Cube=self.GD["Freq"]["FMinMHz"]*1e6
-        if self.GD["Freq"]["FMaxMHz"]: max_freq_Cube=self.GD["Freq"]["FMaxMHz"]*1e6
+        if self.GD["Freq"].get("FMinMHz",None): min_freq_Cube=self.GD["Freq"]["FMinMHz"]*1e6
+        if self.GD["Freq"].get("FMaxMHz",None): max_freq_Cube=self.GD["Freq"]["FMaxMHz"]*1e6
         bandwidth_Cube =  max_freq_Cube - min_freq_Cube
         
         if grid_bw:

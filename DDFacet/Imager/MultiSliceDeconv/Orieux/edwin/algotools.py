@@ -102,7 +102,7 @@ class Trace(collections.abc.Sequence):
                                    axis=0)
 
     def __ilshift__(self, value):
-        """Use <<= as a affectation or Trace \gets value meaning"""
+        """Use <<= as a affectation or Trace gets value meaning"""
         self.last = value
         return self
 

@@ -26,14 +26,15 @@
 
 # Commentary:
 
-"""Unitary discrete Fourier transform and utilities
+"""
+Unitary discrete Fourier transform and utilities
 
 This module implement unitary discrete Fourier transform, that is
 ortho-normal. They are specially usefull for convolution [1]: they
 respect the parseval equality, the value of the null frequency is
 equal to
 
-.. math:: \frac{1}{\sqrt{n}} \sum_i x_i.
+.. math:: frac{1}{sqrt{n}} sum_i x_i.
 
 If the pyfftw module is present, his function are used. pyfftw wrap fftw
 C library. Otherwise, numpy.fft functions are used.
