@@ -241,8 +241,8 @@ class ClassATCABeam():
             C=self.ChansToCoefs[ich]
             bf0=self.beamfreq0
             Dnu=d/self.MS.ChanFreq.flat[ich]*bf0[ich]
-            B=1./np.polynomial.polynomial.polyval(Dnu,C)
-            #B[d>self.xNull[ich]]=self.yNull[ich]
+            B=1./np.sqrt(np.polynomial.polynomial.polyval(Dnu,C))
+            B[d>self.xNull[ich]]=self.yNull[ich]
             B=B.reshape((-1,1))
             Beam[:,:,ich,0,0]=B[:,:]
             Beam[:,:,ich,1,1]=B[:,:]
