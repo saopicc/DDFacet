@@ -462,7 +462,7 @@ class ClassJones():
             DicoClusterDirs, DicoSols, VisToJonesChanMapping = self.GiveKillMSSols_SingleFile(
                 File, GlobalMode=ThisGlobalMode, JonesMode=ThisJonesMode)
 
-            print("  VisToJonesChanMapping: %s" % DDFacet.Other.PrintList(VisToJonesChanMapping), file=log)
+            print("  VisToJonesChanMapping: %s" % DDFacet.Other.PrintList.ListToStr(VisToJonesChanMapping), file=log)
             ListDicoSols.append(DicoSols)
             #if isol==1: stop
             #isol+=1
@@ -475,7 +475,7 @@ class ClassJones():
         for DicoJones1 in ListDicoSols[1::]:
             DicoJones = self.MergeJones(DicoJones1, DicoJones)
             VisToJonesChanMapping = self.GiveVisToJonesChanMapping(DicoJones["FreqDomains"])
-            print("  VisToJonesChanMapping: %s" % DDFacet.Other.PrintList(VisToJonesChanMapping), file=log)
+            print("  VisToJonesChanMapping: %s" % DDFacet.Other.PrintList.ListToStr(VisToJonesChanMapping), file=log)
         #stop
         DicoJones["VisToJonesChanMapping"] = VisToJonesChanMapping
 

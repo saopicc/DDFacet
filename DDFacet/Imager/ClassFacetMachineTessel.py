@@ -47,7 +47,6 @@ from DDFacet.ToolsDir import rad2hmsdms
 from DDFacet.Other import logger
 log = logger.getLogger("ClassFacetMachineTessel")
 from pyrap.images import image
-from DDFacet.Parset import ReadCFG
 
 
 class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
@@ -117,11 +116,12 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 SolsFile = "%s/killMS.%s.sols.npz"%(DirName,SolsFile)
 
         
-                
-                    
+        
+        
         if SolsFile is not None:
+            from killMS.Parset import ReadCFG as ReadCFGkMS
             PName=SolsFile[0:-4]+".parset"
-            GDkMS=ReadCFG.Parset(PName).DicoPars
+            GDkMS=ReadCFGkMS.Parset(PName).DicoPars
             
             Ls=[]
             
@@ -133,6 +133,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                     if v1=="": v1=None
                     if v0!=v1:
                         Ls.append("!!! kMS parameter [[%s][%s] = %s] differs from DDF [[%s][%s] = %s]"%(D0,k0,str(v0),D1,k1,str(v1)))
+                        
                 except:
                     pass
                 
