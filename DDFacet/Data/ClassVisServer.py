@@ -725,7 +725,7 @@ class ClassVisServer():
         if self.GD["Misc"]["ConserveMemory"]:
             APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event)
         else:
-            APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event)
+            APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event)#,serial=True)
         # APP.awaitEvents(self._calcweights_event)
 
     def _CalcWeights_handler(self):
@@ -762,7 +762,7 @@ class ClassVisServer():
                 msw = msweights[ichunk]
                 APP.runJob("LoadWeights:%d:%d"%(ims,ichunk), self._loadWeights_handler,
                            args=(msw.writeonly(), ims, ichunk, self._ignore_vis_weights),
-                           counter=self._weightjob_counter, collect_result=False)
+                           counter=self._weightjob_counter, collect_result=False)#,serial=True)
         # wait for results
         APP.awaitJobCounter(self._weightjob_counter, progress="Load weights")
         self._weight_dict.reload()
@@ -904,54 +904,63 @@ class ClassVisServer():
                 return
             msw["uv"] = uv
             msw["flags"] = rowflags
+            
             # now read the weights
             weight = msw.addSharedArray("weight", (nrows, ms.Nchan), np.float32)
-            weight_col = self.GD["Weight"]["ColName"]
-            if weight_col == "WEIGHT_SPECTRUM":
-                w = tab.getcol(weight_col, row0, nrows)[:, chanslice]
-    #            print>> log, "  reading column %s for the weights, shape is %s" % (weight_col, w.shape)
-                if ms._reverse_channel_order:
-                    w = w[:, ::-1, :]
-                # take mean weight across correlations and apply this to all
-                weight[...] = w.mean(axis=2)
-            elif weight_col == "None" or weight_col == None:
-                #            print>> log, "  Selected weights columns is None, filling weights with ones"
-                weight.fill(1)
-            elif weight_col == "Lucky_kMS" and self.GD["DDESolutions"]["DDSols"]:
-                ID=row0
-                SolsName=self.GD["DDESolutions"]["DDSols"]
-                SolsDir=self.GD["DDESolutions"]["SolsDir"]
-                if SolsDir is None:
-                    FileName="%skillMS.%s.Weights.%i.npy"%(reformat.reformat(ms.MSName),SolsName,ID)
+            List_weight_col = self.GD["Weight"]["ColName"]
+            if not isinstance(List_weight_col,list):
+                List_weight_col=[List_weight_col]
+            weight.fill(1.)
+
+            for weight_col in List_weight_col:
+                print("reading weighting column %s"%weight_col, file=log)
+                if weight_col == "WEIGHT_SPECTRUM":
+                    w = tab.getcol(weight_col, row0, nrows)[:, chanslice]
+        #            print>> log, "  reading column %s for the weights, shape is %s" % (weight_col, w.shape)
+                    if ms._reverse_channel_order:
+                        w = w[:, ::-1, :]
+                    # take mean weight across correlations and apply this to all
+                    weight[...] *= w.mean(axis=2)
+                elif weight_col == "None" or weight_col == None:
+                    #            print>> log, "  Selected weights columns is None, filling weights with ones"
+                    pass#weight.fill(1)
+                elif weight_col == "Lucky_kMS" and self.GD["DDESolutions"]["DDSols"]:
+                    ID=row0
+                    SolsName=self.GD["DDESolutions"]["DDSols"]
+                    SolsDir=self.GD["DDESolutions"]["SolsDir"]
+                    if SolsDir is None:
+                        FileName="%skillMS.%s.Weights.%i.npy"%(reformat.reformat(ms.MSName),SolsName,ID)
+                    else:
+                        _MSName=reformat.reformat(ms.MSName).split("/")[-2]
+                        DirName=os.path.abspath("%s%s"%(reformat.reformat(SolsDir),_MSName))
+                        if not os.path.isdir(DirName):
+                            os.makedirs(DirName)
+                        FileName="%s/killMS.%s.Weights.%i.npy"%(DirName,SolsName,ID)
+                    log.print( "  loading weights from file: %s"%FileName)
+                    w=np.load(FileName)
+                    weight[...] *= w
+                elif ".npy" in weight_col:
+                    ID=row0
+                    FileName=weight_col
+                    log.print( "  loading weights from file: %s"%FileName)
+                    w=np.load(FileName)
+                    weight[...] *= w[row0:row0+nrows,...]
+                elif weight_col == "WEIGHT":
+                    w = tab.getcol(weight_col, row0, nrows)
+        #            print>> log, "  reading column %s for the weights, shape is %s, will expand frequency axis" % (weight_col, w.shape)
+                    # take mean weight across correlations, and expand to have frequency axis
+                    weight[...] *= w.mean(axis=1)[:, np.newaxis]
                 else:
-                    _MSName=reformat.reformat(ms.MSName).split("/")[-2]
-                    DirName=os.path.abspath("%s%s"%(reformat.reformat(SolsDir),_MSName))
-                    if not os.path.isdir(DirName):
-                        os.makedirs(DirName)
-                    FileName="%s/killMS.%s.Weights.%i.npy"%(DirName,SolsName,ID)
-                log.print( "  loading weights from file: %s"%FileName)
-                w=np.load(FileName)
-                weight[...] = w
-            elif ".npy" in weight_col:
-                ID=row0
-                FileName=weight_col
-                log.print( "  loading weights from file: %s"%FileName)
-                w=np.load(FileName)
-                weight[...] = w[row0:row0+nrows,...]
-            elif weight_col == "WEIGHT":
-                w = tab.getcol(weight_col, row0, nrows)
-    #            print>> log, "  reading column %s for the weights, shape is %s, will expand frequency axis" % (weight_col, w.shape)
-                # take mean weight across correlations, and expand to have frequency axis
-                weight[...] = w.mean(axis=1)[:, np.newaxis]
-            else:
-                # in all other cases (i.e. IMAGING_WEIGHT) assume a column
-                # of shape NRow,NFreq to begin with, check for this:
-                w = tab.getcol(weight_col, row0, nrows)[:, chanslice]
-    #            print>> log, "  reading column %s for the weights, shape is %s" % (weight_col, w.shape)
-                if w.shape != valid.shape:
-                    raise TypeError("weights column expected to have shape of %s" %
-                        (valid.shape,))
-                weight[...] = w
+                    # in all other cases (i.e. IMAGING_WEIGHT) assume a column
+                    # of shape NRow,NFreq to begin with, check for this:
+                    w = tab.getcol(weight_col, row0, nrows)[:, chanslice]
+        #            print>> log, "  reading column %s for the weights, shape is %s" % (weight_col, w.shape)
+                    if w.shape != valid.shape:
+                        raise TypeError("weights column expected to have shape of %s" %
+                            (valid.shape,))
+                    weight[...] *= w
+                # end for wieghcol loop
+            
             # flagged points get zero weight
             weight *= valid
             nullweight = (weight==0).all()
