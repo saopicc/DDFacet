@@ -21,7 +21,7 @@ log=logger.getLogger("ClassInitSSDModelMultiSlice")
 import traceback
 from DDFacet.Other import ModColor
 from .ClassConvMachine import ClassConvMachineImages
-from .ClassTaylorToPower import ClassTaylorToPower
+#from .ClassTaylorToPower import ClassTaylorToPower
 from DDFacet.Array import shared_dict
 import psutil
 from DDFacet.Other.progressbar import ProgressBar
@@ -32,7 +32,7 @@ SilentModules=["ClassPSFServer",
                "GiveModelMachine",
                "ClassImageDeconvMachineMultiSlice",
                "ClassModelMachineMultiSlice",
-               "ClassTaylorToPower",
+               #"ClassTaylorToPower",
                "ClassModelMachineSSD"]
 
 class ClassInitSSDModelParallel():
