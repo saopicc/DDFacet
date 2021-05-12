@@ -121,6 +121,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         if SolsFile is not None:
             from killMS.Parset import ReadCFG as ReadCFGkMS
             PName=SolsFile[0:-4]+".parset"
+            if not os.path.isfile(PName):
+                raise RuntimeError("File %s does not exist..."%PName)
+            print("reading %s"%PName,file=log)
             GDkMS=ReadCFGkMS.Parset(PName).DicoPars
             
             Ls=[]

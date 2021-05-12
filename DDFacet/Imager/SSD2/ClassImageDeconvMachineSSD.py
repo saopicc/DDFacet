@@ -156,6 +156,8 @@ class ClassImageDeconvMachine():
             stop
         self._init_machine_initialized = False
 
+    def setMaxMajorIter(self,MaxMajorIter):
+        self.MaxMajorIter=MaxMajorIter
 
     def setMaskMachine(self,MaskMachine):
         self.MaskMachine=MaskMachine
@@ -440,7 +442,7 @@ class ClassImageDeconvMachine():
         elif self.GD["SSD2"]["CycleStategy"]=="AlwaysAll":
             print(ModColor.Str("    ... overriding these values with zero (CycleStategy=AlwaysAll)",col="green"), file=log)
             StopFlux=0.
-        elif self.GD["SSD2"]["CycleStategy"]=="LastAll" and self._CurrentMajorIter==self.GD["Deconv"]["MaxMajorIter"]:
+        elif self.GD["SSD2"]["CycleStategy"]=="LastAll" and self._CurrentMajorIter==self.MaxMajorIter:
             print(ModColor.Str("    ... overriding these values with zero (CycleStategy=LastAll)",col="green"), file=log)
             StopFlux=0.
             

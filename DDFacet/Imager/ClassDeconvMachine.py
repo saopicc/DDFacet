@@ -284,6 +284,7 @@ class ClassImagerDeconv():
                 self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(MainCache=self.VS.maincache,
                                                                                       MinorCycleConfig=MinorCycleConfig,
                                                                                       **MinorCycleConfig)
+                self.DeconvMachine.setMaxMajorIter(self.NMajor)
                 print("Using SSD2 with %s Minor Cycle algorithm"%self.GD["SSDClean"]["IslandDeconvMode"], file=log)
             elif self.GD["Deconv"]["Mode"] == "Hogbom":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
