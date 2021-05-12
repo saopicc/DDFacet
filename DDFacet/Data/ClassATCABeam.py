@@ -215,7 +215,7 @@ class ClassATCABeam():
             if np.sum(Dnu>self.xNull[ich])>0:
                 nuconstx=np.min(Dnu[Dnu>self.xNull[ich]])
             if nuconstx!=1e6 or nuconstb!=1e6:
-                nuconst=np.min(nuconstx,nuconstb)
+                nuconst=np.min([nuconstx,nuconstb])
                 B[Dnu>nuconst]=np.mean(B[Dnu==nuconst])*np.exp( -(Dnu[Dnu>nuconst]-nuconst)**2/100. )
             B=B.reshape((-1,1))
             Beam[:,:,ich,0,0]=B[:,:]
