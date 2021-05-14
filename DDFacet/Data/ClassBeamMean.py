@@ -264,14 +264,18 @@ class ClassBeamMean():
         
         
         for iBand in range(self.VS.NFreqBands):
-            values=np.log(np.abs(self.SumJJsq[:,:,iBand].flatten()))
-            # values=self.SumJJsq[:,:,iBand].flatten()
-            S = griddata(points, values, (grid_x, grid_y), method='cubic')
-            S=np.exp(S)
-            # To avoid negative values in the interpolation
-            #Sm=S.max()
-            #SCut=1e-6*Sm
-            #S[S<SCut]=SCut
+            if self.GD["Beam"]["SmoothInterpMode"].lower()=="log":
+                values=np.log(np.abs(self.SumJJsq[:,:,iBand].flatten()))
+                S = griddata(points, values, (grid_x, grid_y), method='cubic')
+                S=np.exp(S)
+            elif self.GD["Beam"]["SmoothInterpMode"].lower()=="linear":
+                values=self.SumJJsq[:,:,iBand].flatten()
+                S = griddata(points, values, (grid_x, grid_y), method='cubic')
+                # To avoid negative values in the interpolation
+                Sm=S.max()
+                SCut=1e-6*Sm
+                S[S<SCut]=SCut
+                
             SmoothBeam[iBand] = S
 
             
