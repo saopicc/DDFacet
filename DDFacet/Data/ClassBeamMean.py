@@ -260,14 +260,18 @@ class ClassBeamMean():
         points[:,0]=self.lBeam.ravel()
         points[:,1]=self.mBeam.ravel()
         SmoothBeam=np.zeros((self.VS.NFreqBands,nx,nx),np.float32)
+        
+        
+        
         for iBand in range(self.VS.NFreqBands):
-            values=self.SumJJsq[:,:,iBand].flatten()
+            values=np.log(np.abs(self.SumJJsq[:,:,iBand].flatten()))
+            # values=self.SumJJsq[:,:,iBand].flatten()
             S = griddata(points, values, (grid_x, grid_y), method='cubic')
-
+            S=np.exp(S)
             # To avoid negative values in the interpolation
-            Sm=S.max()
-            SCut=1e-6*Sm
-            S[S<SCut]=SCut
+            #Sm=S.max()
+            #SCut=1e-6*Sm
+            #S[S<SCut]=SCut
             SmoothBeam[iBand] = S
 
             
