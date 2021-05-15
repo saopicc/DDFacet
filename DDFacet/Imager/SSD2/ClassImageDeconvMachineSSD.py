@@ -440,7 +440,7 @@ class ClassImageDeconvMachine():
         DoZeroTh=False
         # if self.GD["SSD2"]["NLastCyclesDeconvAll"]=="Always":
         #     DoZeroTh=True
-        if isinstance(int,self.GD["SSD2"]["NLastCyclesDeconvAll"]):
+        if isinstance(self.GD["SSD2"]["NLastCyclesDeconvAll"],int):
             N=self.GD["SSD2"]["NLastCyclesDeconvAll"]
             if self._CurrentMajorIter>(self.MaxMajorIter-N):
                 DoZeroTh=True
