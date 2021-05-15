@@ -223,9 +223,6 @@ class ClassATCABeam():
         
         return Beam
 
-    def evaluateBeam(self,*args,**kwargs):
-        return self.GiveInstrumentBeam(*args,**kwargs)
-
     def GiveInstrumentBeam(self,*args,**kwargs):
         
         T=ClassTimeIt.ClassTimeIt("GiveInstrumentBeam")
