@@ -429,6 +429,9 @@ class ClassImageDeconvMachine():
         # work out uper threshold
         StopFlux = max(Fluxlimit_Peak, Fluxlimit_RMS, Fluxlimit_Sidelobe, Fluxlimit_Peak, self.FluxThreshold)
 
+        self._CurrentMajorIter+=1
+        NLastCyclesDeconvAll=self.GD["SSD2"]["NLastCyclesDeconvAll"]
+        print("SSD2 Cycle %i/%i, NLastCyclesDeconvAll=%i)"%(self._CurrentMajorIter,self.MaxMajorIter,NLastCyclesDeconvAll), file=log)
         print("    Dirty image peak flux      = %10.6f Jy [(min, max) = (%.3g, %.3g) Jy]"%(MaxDirty,mm0,mm1), file=log)
         print("      RMS-based threshold      = %10.6f Jy [rms = %.3g Jy; RMS factor %.1f]"%(Fluxlimit_RMS, RMS, self.RMSFactor), file=log)
         print("      Sidelobe-based threshold = %10.6f Jy [sidelobe  = %.3f of peak; cycle factor %.1f]"%(Fluxlimit_Sidelobe,self.SideLobeLevel,self.CycleFactor), file=log)
@@ -436,14 +439,12 @@ class ClassImageDeconvMachine():
         print("      Absolute threshold       = %10.6f Jy"%(self.FluxThreshold), file=log)
 
 
-        self._CurrentMajorIter+=1
         DoZeroTh=False
         # if self.GD["SSD2"]["NLastCyclesDeconvAll"]=="Always":
         #     DoZeroTh=True
-        if isinstance(self.GD["SSD2"]["NLastCyclesDeconvAll"],int):
-            N=self.GD["SSD2"]["NLastCyclesDeconvAll"]
-            if self._CurrentMajorIter>(self.MaxMajorIter-N):
-                DoZeroTh=True
+        
+        if self._CurrentMajorIter>(self.MaxMajorIter-NLastCyclesDeconvAll):
+            DoZeroTh=True
 
         if DoZeroTh:
             print(ModColor.Str("    ... overwriting these values with zero",col="green"), file=log)
