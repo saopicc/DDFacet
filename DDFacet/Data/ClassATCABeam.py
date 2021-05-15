@@ -243,4 +243,3 @@ class ClassATCABeam():
 
         return MeanBeam
 
-
