@@ -437,13 +437,16 @@ class ClassImageDeconvMachine():
 
 
         self._CurrentMajorIter+=1
-        if self.GD["SSD2"]["CycleStategy"]=="Normal":
-            pass
-        elif self.GD["SSD2"]["CycleStategy"]=="AlwaysAll":
-            print(ModColor.Str("    ... overriding these values with zero (CycleStategy=AlwaysAll)",col="green"), file=log)
-            StopFlux=0.
-        elif self.GD["SSD2"]["CycleStategy"]=="LastAll" and self._CurrentMajorIter==self.MaxMajorIter:
-            print(ModColor.Str("    ... overriding these values with zero (CycleStategy=LastAll)",col="green"), file=log)
+        DoZeroTh=False
+        # if self.GD["SSD2"]["NLastCyclesDeconvAll"]=="Always":
+        #     DoZeroTh=True
+        if isinstance(int,self.GD["SSD2"]["NLastCyclesDeconvAll"]):
+            N=self.GD["SSD2"]["NLastCyclesDeconvAll"]
+            if self._CurrentMajorIter>(self.MaxMajorIter-N):
+                DoZeroTh=True
+
+        if DoZeroTh:
+            print(ModColor.Str("    ... overwriting these values with zero",col="green"), file=log)
             StopFlux=0.
             
         print("    Stopping flux              = %10.6f Jy [%.3f of peak ]"%(StopFlux,StopFlux/MaxDirty), file=log)

@@ -1192,12 +1192,12 @@ class ClassImagerDeconv():
                     self.FacetMachine.ToCasaImage(np.float32(self.ImageNoiseMachine.NoiseMapReShape),
                                                   ImageName="%s.noise%2.2i"%(self.BaseName,iMajor),Fits=True,
                                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-                    self.FacetMachine.ToCasaImage(np.float32(self.ImageNoiseMachine.Restored),
-                                                  ImageName="%s.brutalRestored%2.2i"%(self.BaseName,iMajor),Fits=True,
-                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-                    self.FacetMachine.ToCasaImage(np.float32(self.ImageNoiseMachine.ModelConv),
-                                                  ImageName="%s.brutalModelConv%2.2i"%(self.BaseName,iMajor),Fits=True,
-                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                    # self.FacetMachine.ToCasaImage(np.float32(self.ImageNoiseMachine.Restored),
+                    #                               ImageName="%s.brutalRestored%2.2i"%(self.BaseName,iMajor),Fits=True,
+                    #                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                    # self.FacetMachine.ToCasaImage(np.float32(self.ImageNoiseMachine.ModelConv),
+                    #                               ImageName="%s.brutalModelConv%2.2i"%(self.BaseName,iMajor),Fits=True,
+                    #                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
             # now, finally, initialize the deconv machine (this may also be RAM-heavy thanks to HMP,
             # so we only do this after the mask machine has done its business)
