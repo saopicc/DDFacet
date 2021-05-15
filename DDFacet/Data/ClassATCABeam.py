@@ -183,7 +183,9 @@ class ClassATCABeam():
         self.beamfreq0=beamfreq0
 
 
-        
+    def evaluateBeam(self,*args,**kwargs):		
+        return self.GiveInstrumentBeam(*args,**kwargs)
+    
     def GiveRawBeam(self,time,ra,dec):
         nch=self.MS.ChanFreq.size
         Beam=np.zeros((ra.shape[0],self.MS.na,self.MS.NSPWChan,2,2),dtype=np.complex)
