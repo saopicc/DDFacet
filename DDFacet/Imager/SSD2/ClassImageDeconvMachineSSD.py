@@ -88,7 +88,7 @@ class ClassImageDeconvMachine():
         self.ModelMachine = ModelMachine
         if self.ModelMachine.DicoSMStacked["Type"]!="SSD2":
             raise ValueError("ModelMachine Type should be SSD2")
-
+        self._CurrentMajorIter=0
         ## If the Model machine was already initialised, it will ignore it in the setRefFreq method
         ## and we need to set the reference freq in PSFServer
         #self.ModelMachine.setRefFreq(self.RefFreq)#,self.PSFServer.AllFreqs)
@@ -156,6 +156,8 @@ class ClassImageDeconvMachine():
             stop
         self._init_machine_initialized = False
 
+    def setMaxMajorIter(self,MaxMajorIter):
+        self.MaxMajorIter=MaxMajorIter
 
     def setMaskMachine(self,MaskMachine):
         self.MaskMachine=MaskMachine
@@ -385,7 +387,6 @@ class ClassImageDeconvMachine():
         self.Dirty=self._MeanDirty[ch]
         self.ModelImage=self._ModelImage[ch]
 
-
     def GiveThreshold(self,Max):
         return ((self.CycleFactor-1.)/4.*(1.-self.SideLobeLevel)+self.SideLobeLevel)*Max if self.CycleFactor else 0
 
@@ -433,9 +434,18 @@ class ClassImageDeconvMachine():
         print("      Sidelobe-based threshold = %10.6f Jy [sidelobe  = %.3f of peak; cycle factor %.1f]"%(Fluxlimit_Sidelobe,self.SideLobeLevel,self.CycleFactor), file=log)
         print("      Peak-based threshold     = %10.6f Jy [%.3f of peak]"%(Fluxlimit_Peak,self.PeakFactor), file=log)
         print("      Absolute threshold       = %10.6f Jy"%(self.FluxThreshold), file=log)
-        if self.GD["SSD2"]["AlwaysAll"]:
-            print("    ... overriding these values with zero (AlwaysAll=True)", file=log)
+
+
+        self._CurrentMajorIter+=1
+        if self.GD["SSD2"]["CycleStategy"]=="Normal":
+            pass
+        elif self.GD["SSD2"]["CycleStategy"]=="AlwaysAll":
+            print(ModColor.Str("    ... overriding these values with zero (CycleStategy=AlwaysAll)",col="green"), file=log)
             StopFlux=0.
+        elif self.GD["SSD2"]["CycleStategy"]=="LastAll" and self._CurrentMajorIter==self.MaxMajorIter:
+            print(ModColor.Str("    ... overriding these values with zero (CycleStategy=LastAll)",col="green"), file=log)
+            StopFlux=0.
+            
         print("    Stopping flux              = %10.6f Jy [%.3f of peak ]"%(StopFlux,StopFlux/MaxDirty), file=log)
 
         

@@ -684,7 +684,9 @@ class ClassMS():
                     del visdata1
                     print("sorting took %.1fs"%(time.time()-t0), file=log)
                 else:
+                    #print(self.ColName, visdata.shape, visdata.dtype, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                     table_all.getcolslicenp(self.ColName, visdata, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
+                    #visdata[...]=table_all.getcolslice(self.ColName, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                 if self._reverse_channel_order:
                     visdata[:,:,:]= visdata[:,::-1,:]
   

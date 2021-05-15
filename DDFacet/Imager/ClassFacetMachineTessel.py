@@ -118,9 +118,12 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         
         
         
-        if SolsFile is not None:
+        if SolsFile is not None and not ".h5" in SolsFile:
             from killMS.Parset import ReadCFG as ReadCFGkMS
             PName=SolsFile[0:-4]+".parset"
+            if not os.path.isfile(PName):
+                raise RuntimeError("File %s does not exist..."%PName)
+            print("reading %s"%PName,file=log)
             GDkMS=ReadCFGkMS.Parset(PName).DicoPars
             
             Ls=[]
@@ -473,6 +476,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         # VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green",labels=[str(i) for i in range(len(LPolygonNew))])
 
         DicoPolygon = {}
+        # import pylab
+        # Lx,Ly=[],[]
         for iFacet in range(len(LPolygonNew)):
             DicoPolygon[iFacet] = {}
             poly = LPolygonNew[iFacet]
@@ -483,8 +488,28 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             xc, yc = np.mean(poly[:, 0]), np.mean(poly[:, 1])
             DicoPolygon[iFacet]["xyc"] = xc, yc
             dSol = np.sqrt((xc - lFacet) ** 2 + (yc - mFacet) ** 2)
-            DicoPolygon[iFacet]["iSol"] = np.where(dSol == np.min(dSol))[0]
+            ind=np.where(dSol == np.min(dSol))[0][0:1]
+            DicoPolygon[iFacet]["iSol"] = ind
+            # if ind.size==2: stop
+            # Lx.append(xc)
+            # Ly.append(yc)
+            # print(iFacet,DicoPolygon[iFacet]["iSol"])
+            
 
+        # for iFacet in list(DicoPolygon.keys()):
+        #     pylab.clf()
+        #     pylab.scatter(lFacet,mFacet,c="red")
+        #     pylab.scatter(Lx,Ly,c="blue")
+        #     ind=DicoPolygon[iFacet]["iSol"]
+        #     pylab.scatter(lFacet[ind],mFacet[ind],c="green")
+        #     pylab.scatter(Lx[iFacet],Ly[iFacet],c="black")
+        #     pylab.draw()
+        #     pylab.show(block=False)
+        #     pylab.pause(0.1)
+        #     if ind.size==2: stop
+
+
+            
         for iFacet in sorted(DicoPolygon.keys()):
             diam = DicoPolygon[iFacet]["diamMin"]
             #print(iFacet,diam,DiamMin)
