@@ -210,14 +210,18 @@ class ClassATCABeam():
                     beam0=np.sqrt(np.abs(np.polynomial.polynomial.polyval(Dnu0,np.array(DicoCoefs[band0]["C"]))))
                     beam1=np.sqrt(np.abs(np.polynomial.polynomial.polyval(Dnu1,np.array(DicoCoefs[band0]["C"]))))
                     B = (deltafreq0*beam0 + deltafreq1*beam1) / (deltafreq0 + deltafreq1)
-            nuconstx=1e6
-            nuconstb=1e6
+            donuconstx=False
+            donuconstb=False
+            nuconstx=0
+            nuconstb=0
             if np.sum(B<0.01)>0:
                 nuconstb=np.min(Dnu[B<0.01])
+                donuconstb=True
             if np.sum(Dnu>self.xNull[ich])>0:
                 nuconstx=np.min(Dnu[Dnu>self.xNull[ich]])
-            if nuconstx!=1e6 or nuconstb!=1e6:
-                nuconst=np.min([nuconstx,nuconstb])
+                donuconstx=True
+            if donuconstx==True or donuconstb==True:
+                nuconst=np.min(np.nonzero([nuconstx,nuconstb]))
                 B[Dnu>nuconst]=np.mean(B[Dnu==nuconst])*np.exp( -(Dnu[Dnu>nuconst]-nuconst)**2/100. )
             B=B.reshape((-1,1))
             Beam[:,:,ich,0,0]=B[:,:]
