@@ -440,8 +440,8 @@ class ClassImageDeconvMachine():
 
 
         DoZeroTh=False
-        # if self.GD["SSD2"]["NLastCyclesDeconvAll"]=="Always":
-        #     DoZeroTh=True
+        if self.GD["SSD2"]["NLastCyclesDeconvAll"]==-1:
+            DoZeroTh=True
         
         if self._CurrentMajorIter>(self.MaxMajorIter-NLastCyclesDeconvAll):
             DoZeroTh=True

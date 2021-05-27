@@ -286,6 +286,8 @@ class ClassImagerDeconv():
                                                                                       **MinorCycleConfig)
                 self.DeconvMachine.setMaxMajorIter(self.NMajor)
                 print("Using SSD2 with %s Minor Cycle algorithm"%self.GD["SSDClean"]["IslandDeconvMode"], file=log)
+                if self.NMajor>3:
+                    print(ModColor.Str("  Your number of major iterations (%i) seem too high for SSD2, we advice using a maximum of 3..."%self.NMajor), file=log)
             elif self.GD["Deconv"]["Mode"] == "Hogbom":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                     raise NotImplementedError("Multi-polarization CLEAN is not supported in Hogbom")
