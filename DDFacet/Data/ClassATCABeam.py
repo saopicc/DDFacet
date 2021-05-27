@@ -170,6 +170,7 @@ class ClassATCABeam():
                     band0.append(iBand)
             band0,band1=np.max(band0),np.min(band1)
             xNull[ich]=100.
+            yNull[ich]=0.0036
             chanBand0[ich]=band0
             chanBand1[ich]=band1
             NoMatch=False
@@ -205,28 +206,23 @@ class ClassATCABeam():
                 deltafreq0=np.abs(self.MS.ChanFreq.flat[ich]-DicoCoefs[band0]["f0"])
                 deltafreq1=np.abs(self.MS.ChanFreq.flat[ich]-DicoCoefs[band1]["f0"])
                 if deltafreq0==0 and deltafreq1==0:
+                    # This case does not require interpolation
                     B=np.sqrt(np.abs(np.polynomial.polynomial.polyval(Dnu,np.array(DicoCoefs[band0]["C"]))))
+                    self.yNull[ich]=np.sqrt(np.abs(np.polynomial.polynomial.polyval(100.,np.array(DicoCoefs[band0]["C"]))))
                 else:
+                    # Perform interpolation
                     beam0=np.sqrt(np.abs(np.polynomial.polynomial.polyval(Dnu0,np.array(DicoCoefs[band0]["C"]))))
-                    beam1=np.sqrt(np.abs(np.polynomial.polynomial.polyval(Dnu1,np.array(DicoCoefs[band0]["C"]))))
+                    beam1=np.sqrt(np.abs(np.polynomial.polynomial.polyval(Dnu1,np.array(DicoCoefs[band1]["C"]))))
                     B = (deltafreq0*beam0 + deltafreq1*beam1) / (deltafreq0 + deltafreq1)
-            donuconstx=False
-            donuconstb=False
-            nuconstx=0
-            nuconstb=0
-            if np.sum(B<0.01)>0:
-                nuconstb=np.min(Dnu[B<0.01])
-                donuconstb=True
-            if np.sum(Dnu>self.xNull[ich])>0:
-                nuconstx=np.min(Dnu[Dnu>self.xNull[ich]])
-                donuconstx=True
-            if donuconstx==True or donuconstb==True:
-                nuconst=np.min(np.nonzero([nuconstx,nuconstb]))
-                B[Dnu>nuconst]=np.mean(B[Dnu==nuconst])*np.exp( -(Dnu[Dnu>nuconst]-nuconst)**2/100. )
+                    beam0=np.sqrt(np.abs(np.polynomial.polynomial.polyval(100.,np.array(DicoCoefs[band0]["C"]))))
+                    beam1=np.sqrt(np.abs(np.polynomial.polynomial.polyval(100.,np.array(DicoCoefs[band1]["C"]))))
+                    self.yNull[ich] = (deltafreq0*beam0 + deltafreq1*beam1) / (deltafreq0 + deltafreq1)
+                B[Dnu>self.xNull[ich]]=self.yNull[ich]/( (Dnu[Dnu>self.xNull[ich]]-self.yNull[ich]) )
             B=B.reshape((-1,1))
             Beam[:,:,ich,0,0]=B[:,:]
             Beam[:,:,ich,1,1]=B[:,:]
         
+
         return Beam
 
     def GiveInstrumentBeam(self,*args,**kwargs):
