@@ -76,6 +76,7 @@ class ClassATCABeam():
         MeanFreqJonesChan=(FreqDomains[:,0]+FreqDomains[:,1])/2.
         DFreq=np.abs(self.MS.ChanFreq.reshape((self.MS.NSPWChan,1))-MeanFreqJonesChan.reshape((1,NChanJones)))
         self.VisToJonesChanMapping=np.argmin(DFreq,axis=1)
+
         self.calcCoefs()
 
         
@@ -233,11 +234,28 @@ class ClassATCABeam():
         nd,na,nch,_,_=Beam.shape
         T.timeit("0")
         MeanBeam=np.zeros((nd,na,self.NChanJones,2,2),dtype=Beam.dtype)
-
+        #L_ichZero=[]
         for ich in range(self.NChanJones):
             indCh=np.where(self.VisToJonesChanMapping==ich)[0]
+            # if indCh.size==0:
+            #     L_ichZero.append(ich)
+            #     continue
+            
             MeanBeam[:,:,ich,:,:]=np.mean(Beam[:,:,indCh,:,:],axis=2)
 
+        # # to deal with this weird MS
+        # print(self.VisToJonesChanMapping)
+        # print(self.VisToJonesChanMapping)
+        # print(self.VisToJonesChanMapping)
+        # if len(L_ichZero)>0:
+        #     M=np.mean(MeanBeam[:,:,:,0,0],axis=-1)
+        #     for ich in L_ichZero:
+        #         for iAnt in range(na):
+        #             for iDir in range(nd):
+        #                 j=M[iDir,iAnt]
+        #                 MeanBeam[iDir,iAnt,ich,0,0]=j
+        #                 MeanBeam[iDir,iAnt,ich,1,1]=j
+            
         T.timeit("1")
 
         return MeanBeam

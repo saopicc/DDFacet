@@ -936,6 +936,7 @@ class ClassImagerDeconv():
             FixedModelImage = ClassCasaImage.FileToArray(modelfile,True)
             nch,npol,_,NPix=self.FacetMachine.OutImShape
             nchModel,npolModel,_,NPixModel=FixedModelImage.shape
+            
             if NPixModel!=NPix:
                 print(ModColor.Str("Model image spatial shape does not match DDFacet settings [%i vs %i]"%(FixedModelImage.shape[-1],NPix)), file=log)
                 CA=ClassAdaptShape(FixedModelImage)
@@ -952,12 +953,12 @@ class ClassImagerDeconv():
                                    "image size (%d). Cannot continue." % (nx, npixest))
             if npol != 1:
                 raise RuntimeError("Unsupported: Polarization prediction is not defined")
-            for msi in self.VS.FreqBandChannelsDegrid:
-                nband = self.GD["Freq"]["NDegridBand"] if self.GD["Freq"]["NDegridBand"] != 0 \
-                                                       else len(self.VS.FreqBandChannelsDegrid[msi])
-                if nch != nband:
-                    raise RuntimeError("Number of predict frequency bands (%d) do not correspond to number of "
-                                       "frequency bands (%d) in input FITS file. Cannot continue." % (nband, nch))
+            # for msi in self.VS.FreqBandChannelsDegrid:
+            #     nband = self.GD["Freq"]["NDegridBand"] if self.GD["Freq"]["NDegridBand"] != 0 \
+            #                                            else len(self.VS.FreqBandChannelsDegrid[msi])
+            #     if nch != nband:
+            #         raise RuntimeError("Number of predict frequency bands (%d) do not correspond to number of "
+            #                            "frequency bands (%d) in input FITS file. Cannot continue." % (nband, nch))
         else:
             FixedModelImage = None
 
@@ -1008,7 +1009,8 @@ class ClassImagerDeconv():
                             ThisChFixedModelImage=FixedModelImage[0:nch].copy()
                         else:
                             print(ModColor.Str("  Replicating %i-times the 1st channel"%(nch)), file=log)
-                            ThisChFixedModelImage=FixedModelImage[0].reshape((1,npol,NPix,NPix))*np.ones((DATA["ChanMappingDegrid"].size,1,1,1))
+                            ThisChFixedModelImage=FixedModelImage[0].reshape((1,npol,NPix,NPix))*np.ones((np.unique(DATA["ChanMappingDegrid"]).size,1,1,1))
+
                         self.FacetMachine.ToCasaImage(ThisChFixedModelImage,
                                                       ImageName="%s.cube.model"%(self.BaseName),
                                                       Fits=True,
