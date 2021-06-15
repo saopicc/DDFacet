@@ -1167,7 +1167,7 @@ class ClassFacetMachine():
 
             ## OMS: see issue #484. Restructuring this to use shm, and less of it. Note that the only user
             ## of this structure is ClassSpectralFunctions and ClassPSFServer
-            ## [iMS][iFacet,0,:] is the sum of the per-channel weights
+            ## [iMS][iFacet,0,:] is the sum of the per-channel Jones
             ## [iMS][iFacet,1,:] is the sum of the per-channel weights squared
             ListSumJonesChan = DicoImages.addSubdict("SumJonesChan")
             for iMS in range(self.VS.nMS):
@@ -1175,7 +1175,10 @@ class ClassFacetMachine():
                 ThisMSSumJonesChan = ListSumJonesChan.addSharedArray(iMS, (len(facets), 2, nVisChan), np.float64)
                 for iFacet in facets:
                     sumjones = self.DicoImager[iFacet]["SumJonesChan"][iMS]
-                    sumjones[sumjones == 0] = 1.
+                    if np.all(sumjones==0):
+                        log.print(ModColor.Str("MS #%i facet #%i has zero SumJonesChan for all channels"%(iMS,iFacet)))
+                        
+                    # sumjones[sumjones == 0] = 1.
                     ThisMSSumJonesChan[iFacet,:] = sumjones[:]
 
             DicoImages["ChanMappingGrid"] = self.VS.DicoMSChanMapping
