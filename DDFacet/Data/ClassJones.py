@@ -35,8 +35,9 @@ from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Data import ClassLOFARBeam
 from DDFacet.Data import ClassFITSBeam
 from DDFacet.Data import ClassGMRTBeam
-from DDFacet.Data import ClassATCABeamGalvin as ClassATCABeam
+from DDFacet.Data import ClassATCABeam as ClassATCABeam
 # import ClassSmoothJones is not used anywhere, should be able to remove it
+
 import tables
 import glob
 from scipy.interpolate import interp1d
