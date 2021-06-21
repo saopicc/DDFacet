@@ -59,7 +59,7 @@ def main(options=None):
         R.Read()
         Cat=R.CatSel
         NDir=Cat.ra.size
-        ClusterCat=np.zeros((NDir,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),("Cluster",int)])
+        ClusterCat=np.zeros((NDir,),dtype=[('Name','|S200'),('ra',float),('dec',float),('SumI',float),("Cluster",int)])
         ClusterCat=ClusterCat.view(np.recarray)
         ClusterCat.ra[:]=Cat.ra[:]
         ClusterCat.dec[:]=Cat.dec[:]

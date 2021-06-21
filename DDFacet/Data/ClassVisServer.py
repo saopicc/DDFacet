@@ -873,7 +873,7 @@ class ClassVisServer():
             tab = ms.GiveMainTable()
     #        print>>log,"  %d.%d reading %s UVW" % (ims+1, ichunk+1, ms.MSName)
             uvw = tab.getcol("UVW", row0, nrows)
-            flags = np.empty((nrows, len(ms.ChanFreq), len(ms.CorrelationIds)), np.bool)
+            flags = np.empty((nrows, len(ms.ChanFreq), len(ms.CorrelationIds)), bool)
             # print>>log,(ms.cs_tlc,ms.cs_brc,ms.cs_inc,flags.shape)
     #        print>>log,"  reading FLAG"
             tab.getcolslicenp("FLAG", flags, ms.cs_tlc, ms.cs_brc, ms.cs_inc, row0, nrows)

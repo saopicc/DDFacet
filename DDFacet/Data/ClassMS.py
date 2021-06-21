@@ -384,7 +384,7 @@ class ClassMS():
             row1=self.nbl
         A0=self.F_A0[row0:row1]
         A1=self.F_A1[row0:row1]
-        MapOut=np.ones((self.nbl,),dtype=np.bool)
+        MapOut=np.ones((self.nbl,),dtype=bool)
         if FlagAutoCorr:
             ind=np.where(A0==A1)[0]
             MapOut[ind]=False
@@ -698,7 +698,7 @@ class ClassMS():
                     np.save(datapath, visdata)
                     self.cache.saveCache("Data.npy")
         # create flag array (if flagbuf is not None, array uses memory of buffer)
-        flags = DATA.addSharedArray("flags", shape=datashape, dtype=np.bool)
+        flags = DATA.addSharedArray("flags", shape=datashape, dtype=bool)
         # check cache for flags
         if use_cache:
             flagpath, flagvalid = self.cache.checkCache("Flags.npy", dict(time=self._start_time), ignore_key=(use_cache=="force"))

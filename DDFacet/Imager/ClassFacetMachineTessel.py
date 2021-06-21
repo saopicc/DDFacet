@@ -242,10 +242,10 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         NodesCat = np.zeros(
             (raSols.size,),
-            dtype=[('ra', np.float),
-                   ('dec', np.float),
-                   ('l', np.float),
-                   ('m', np.float)])
+            dtype=[('ra', np.float32),
+                   ('dec', np.float32),
+                   ('l', np.float32),
+                   ('m', np.float32)])
         NodesCat = NodesCat.view(np.recarray)
         NodesCat.ra = raSols
         NodesCat.dec = decSols
@@ -596,13 +596,13 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.JonesDirCat = np.zeros(
             (NodesCat.shape[0],),
             dtype=[('Name', '|S200'),
-                   ('ra', np.float),
-                   ('dec', np.float),
-                   ('SumI', np.float),
+                   ('ra', np.float32),
+                   ('dec', np.float32),
+                   ('SumI', np.float32),
                    ("Cluster", int),
-                   ("l", np.float),
-                   ("m", np.float),
-                   ("I", np.float)])
+                   ("l", np.float32),
+                   ("m", np.float32),
+                   ("I", np.float32)])
         self.JonesDirCat = self.JonesDirCat.view(np.recarray)
         self.JonesDirCat.I = 1
         self.JonesDirCat.SumI = 1
@@ -829,13 +829,13 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             
         self.FacetDirCat = np.zeros((len(self.DicoImager),),
                                     dtype=[('Name', '|S200'),
-                                           ('ra', np.float),
-                                           ('dec', np.float),
-                                           ('SumI', np.float),
+                                           ('ra', np.float32),
+                                           ('dec', np.float32),
+                                           ('SumI', np.float32),
                                            ("Cluster", int),
-                                           ("l", np.float),
-                                           ("m", np.float),
-                                           ("I", np.float)])
+                                           ("l", np.float32),
+                                           ("m", np.float32),
+                                           ("I", np.float32)])
         self.FacetDirCat = self.FacetDirCat.view(np.recarray)
         self.FacetDirCat.I = 1
         self.FacetDirCat.SumI = 1

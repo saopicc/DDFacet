@@ -1170,15 +1170,20 @@ class ClassFacetMachine():
             ## [iMS][iFacet,0,:] is the sum of the per-channel Jones
             ## [iMS][iFacet,1,:] is the sum of the per-channel weights squared
             ListSumJonesChan = DicoImages.addSubdict("SumJonesChan")
+
+            HasNoBeam = ((self.GD["Beam"]["Model"] is None) or (self.GD["Beam"]["Model"]==""))
+            HasNoDDESolutions = ((self.GD["DDESolutions"]["DDSols"] is None) or (self.GD["DDESolutions"]["DDSols"]==""))
+            
             for iMS in range(self.VS.nMS):
                 nVisChan = self.VS.ListMS[iMS].ChanFreq.size
                 ThisMSSumJonesChan = ListSumJonesChan.addSharedArray(iMS, (len(facets), 2, nVisChan), np.float64)
                 for iFacet in facets:
                     sumjones = self.DicoImager[iFacet]["SumJonesChan"][iMS]
+
+                    if HasNoBeam and HasNoDDESolutions:
+                        sumjones[sumjones == 0] = 1.
                     if np.all(sumjones==0):
                         log.print(ModColor.Str("MS #%i facet #%i has zero SumJonesChan for all channels"%(iMS,iFacet)))
-                        
-                    # sumjones[sumjones == 0] = 1.
                     ThisMSSumJonesChan[iFacet,:] = sumjones[:]
 
             DicoImages["ChanMappingGrid"] = self.VS.DicoMSChanMapping
