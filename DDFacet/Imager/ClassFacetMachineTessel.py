@@ -380,7 +380,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             xc, yc = np.mean(poly[:, 0]), np.mean(poly[:, 1])
             DicoPolygon[iFacet]["xyc"] = xc, yc
             dSol = np.sqrt((xc - lFacet) ** 2 + (yc - mFacet) ** 2)
-            DicoPolygon[iFacet]["iSol"] = np.where(dSol == np.min(dSol))[0]
+            ind=np.where(dSol == np.min(dSol))[0][0:1]
+            DicoPolygon[iFacet]["iSol"] = ind
 
         for iFacet in sorted(DicoPolygon.keys()):
             diam = DicoPolygon[iFacet]["diamMin"]
@@ -463,6 +464,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         ###########################################
 
         NFacets = len(LPolygonNew)
+
         NJonesDir=NodesCat.shape[0]
         self.JonesDirCat = np.zeros(
             (NodesCat.shape[0],),
