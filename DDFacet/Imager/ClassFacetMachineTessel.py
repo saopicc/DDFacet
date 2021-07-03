@@ -121,60 +121,64 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         if SolsFile is not None and not ".h5" in SolsFile:
             from killMS.Parset import ReadCFG as ReadCFGkMS
             PName=SolsFile[0:-4]+".parset"
-            if not os.path.isfile(PName):
-                raise RuntimeError("File %s does not exist..."%PName)
-            print("reading %s"%PName,file=log)
-            GDkMS=ReadCFGkMS.Parset(PName).DicoPars
-            
-            Ls=[]
-            
-            def CheckField(D0,k0,D1,k1):
-                try:
-                    v0=GDkMS[D0][k0]
-                    v1=self.GD[D1][k1]
-                    if v0=="": v0=None
-                    if v1=="": v1=None
-                    if v0!=v1:
-                        Ls.append("!!! kMS parameter [[%s][%s] = %s] differs from DDF [[%s][%s] = %s]"%(D0,k0,str(v0),D1,k1,str(v1)))
-                        
-                except:
-                    pass
+            DoCheckParset=os.path.isfile(PName)
+            if not DoCheckParset:
+                log.print(ModColor.Str("File %s does not exist - can't check parset consistencies"%PName))
+                # raise RuntimeError("File %s does not exist..."%PName)
+            else:
+                print("reading %s"%PName,file=log)
+                GDkMS=ReadCFGkMS.Parset(PName).DicoPars
+                DoCheckParset=False
                 
             
-            CheckField("Beam",'BeamModel',"Beam","Model")
-            CheckField("Beam",'NChanBeamPerMS',"Beam","NBand")
-            CheckField("Beam",'BeamAt', "Beam","At") # tessel/facet
-            CheckField("Beam",'LOFARBeamMode', "Beam","LOFARBeamMode")     # A/AE
-            CheckField("Beam",'DtBeamMin', "Beam","DtBeamMin")
-            CheckField("Beam",'CenterNorm', "Beam","CenterNorm")
-            CheckField("Beam",'FITSFile', "Beam","FITSFile")
-            CheckField("Beam",'FITSParAngleIncDeg', "Beam","FITSParAngleIncDeg")
-            CheckField("Beam",'FITSLAxis', "Beam","FITSLAxis")
-            CheckField("Beam",'FITSMAxis', "Beam","FITSMAxis")
-            CheckField("Beam",'FITSFeed', "Beam","FITSFeed") 
-            # CheckField("Beam",'FITSVerbosity', "Beam","FITSVerbosity")
-            CheckField("Beam","FeedAngle", "Beam","FeedAngle")
-            CheckField("Beam",'ApplyPJones', "Beam","ApplyPJones")
-            CheckField("Beam",'FlipVisibilityHands', "Beam","FlipVisibilityHands")
-            CheckField("Beam",'FITSFeedSwap',"Beam","FITSFeedSwap")
-
-            CheckField("ImageSkyModel",'MaxFacetSize',"Facets","DiamMax")
-            CheckField("ImageSkyModel",'MinFacetSize',"Facets","DiamMin")
-            CheckField("SkyModel",'Decorrelation',"RIME","DecorrMode")
-
-            if len(Ls)>0:
-                log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
-                log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
-                log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
-                log.print(ModColor.Str("!!! The following parameters are different in kMS/DDF, and you may think whether this has an effect or not..."))
-                for l in Ls:
-                    log.print(ModColor.Str(l))
-                log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
-                log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
-                log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
-            else:
-                log.print(ModColor.Str("All kMS/DDF beam parameters are the same...",col="green"))
-
+                Ls=[]
+            
+                def CheckField(D0,k0,D1,k1):
+                    try:
+                        v0=GDkMS[D0][k0]
+                        v1=self.GD[D1][k1]
+                        if v0=="": v0=None
+                        if v1=="": v1=None
+                        if v0!=v1:
+                            Ls.append("!!! kMS parameter [[%s][%s] = %s] differs from DDF [[%s][%s] = %s]"%(D0,k0,str(v0),D1,k1,str(v1)))
+                    except:
+                        pass
+                
+            
+                CheckField("Beam",'BeamModel',"Beam","Model")
+                CheckField("Beam",'NChanBeamPerMS',"Beam","NBand")
+                CheckField("Beam",'BeamAt', "Beam","At") # tessel/facet
+                CheckField("Beam",'LOFARBeamMode', "Beam","LOFARBeamMode")     # A/AE
+                CheckField("Beam",'DtBeamMin', "Beam","DtBeamMin")
+                CheckField("Beam",'CenterNorm', "Beam","CenterNorm")
+                CheckField("Beam",'FITSFile', "Beam","FITSFile")
+                CheckField("Beam",'FITSParAngleIncDeg', "Beam","FITSParAngleIncDeg")
+                CheckField("Beam",'FITSLAxis', "Beam","FITSLAxis")
+                CheckField("Beam",'FITSMAxis', "Beam","FITSMAxis")
+                CheckField("Beam",'FITSFeed', "Beam","FITSFeed") 
+                # CheckField("Beam",'FITSVerbosity', "Beam","FITSVerbosity")
+                CheckField("Beam","FeedAngle", "Beam","FeedAngle")
+                CheckField("Beam",'ApplyPJones', "Beam","ApplyPJones")
+                CheckField("Beam",'FlipVisibilityHands', "Beam","FlipVisibilityHands")
+                CheckField("Beam",'FITSFeedSwap',"Beam","FITSFeedSwap")
+    
+                CheckField("ImageSkyModel",'MaxFacetSize',"Facets","DiamMax")
+                CheckField("ImageSkyModel",'MinFacetSize',"Facets","DiamMin")
+                CheckField("SkyModel",'Decorrelation',"RIME","DecorrMode")
+    
+                if len(Ls)>0:
+                    log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
+                    log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
+                    log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
+                    log.print(ModColor.Str("!!! The following parameters are different in kMS/DDF, and you may think whether this has an effect or not..."))
+                    for l in Ls:
+                        log.print(ModColor.Str(l))
+                    log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
+                    log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
+                    log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
+                else:
+                    log.print(ModColor.Str("All kMS/DDF beam parameters are the same...",col="green"))
+    
         if (self.GD["Facets"]["CatNodes"] is not None) and (SolsFile is not None):
             log.print(ModColor.Str("Both --Facets-CatNodes and --DDESolutions-DDSols are specified which might have different clusterings..."))
 
