@@ -4,8 +4,8 @@ from __future__ import division, absolute_import, print_function
 import optparse
 import pickle
 import numpy as np
-from SkyModel.Other import MyLogger
-log=MyLogger.getLogger("MakeModel")
+from DDFacet.Other import logger
+log=logger.getLogger("MakeModel")
 from SkyModel.Sky import ClassSM
 from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 from DDFacet.Imager import ClassCasaImage
@@ -59,7 +59,8 @@ def main(options=None):
         R.Read()
         Cat=R.CatSel
         NDir=Cat.ra.size
-        ClusterCat=np.zeros((NDir,),dtype=[('Name','|S200'),('ra',float),('dec',float),('SumI',float),("Cluster",int)])
+        ClusterCat=np.zeros((NDir,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),("Cluster",int)])
+
         ClusterCat=ClusterCat.view(np.recarray)
         ClusterCat.ra[:]=Cat.ra[:]
         ClusterCat.dec[:]=Cat.dec[:]

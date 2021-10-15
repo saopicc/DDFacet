@@ -65,9 +65,13 @@ class ClassFITSBeam (object):
         self.feedangle = opts["FeedAngle"]
         self.applyrotation = (opts["FITSParAngleIncDeg"] or opts["DtBeamMin"]) and opts["ApplyPJones"]
         self.applyantidiagonal = opts["FlipVisibilityHands"]
+        self._frame = opts["FITSFrame"]
 
-        # make masure for zenith
-        self.zenith = dm.direction('AZEL','0deg','90deg')
+        # make measure for zenith
+        if self._frame == "altaz":
+            self.zenith = dm.direction('AZEL','0deg','90deg')
+        else: # for azelgeo frames or the newly incorporated unstearable zenith mode
+            self.zenith = dm.direction('AZELGEO','0deg','90deg')
         # make position measure from antenna 0
         # NB: in the future we may want to treat position of each antenna separately. For
         # a large enough array, the PA w.r.t. each antenna may change! But for now, use
@@ -173,7 +177,7 @@ class ClassFITSBeam (object):
                                max(self.freqs[-1] - vb._freqgrid[-1], 0)
                     beamlist.append((distance, vb, filenames))
                 # select beams with smallest distance
-                dist0, vb, filenames = sorted(beamlist)[0]
+                dist0, vb, filenames = sorted(beamlist, key=lambda beam: beam[0])[0]
                 if len(beamlist) > 1:
                     if dist0 == 0:
                         print("beam patterns %s %s overlap the frequency coverage" % filenames, file=log)
@@ -232,35 +236,50 @@ class ClassFITSBeam (object):
         Output: a complex array of shape [Ndir,Nant,Nfreq,2,2] giving the Jones matrix per antenna, direction and frequency
         """
 
-        # put antenna0 position as reference frame. NB: in the future may want to do it per antenna
-        dm.do_frame(self.pos0);
-        # put time into reference frame
-        dm.do_frame(dm.epoch("UTC",dq.quantity(t0,"s")))
-        # compute PA 
-        parad = dm.posangle(self.field_centre,self.zenith).get_value("rad")
-        import math
+        # setup reference frame and compute PA
+        if self._frame != "equatorial":
+            # put antenna0 position as reference frame. NB: in the future may want to do it per antenna
+            dm.do_frame(self.pos0)
+            # put time into reference frame
+            dm.do_frame(dm.epoch("UTC",dq.quantity(t0,"s")))
+            # compute PA
+            parad = dm.posangle(self.field_centre,self.zenith).get_value("rad")
+        else:
+            parad = 0
         # print("time %f, position angle %f"%(t0, parad*180/math.pi), file=log)
 
         # compute l,m per direction
         ndir = len(ra)
-        l0 = numpy.zeros(ndir,float)
-        m0 = numpy.zeros(ndir,float)
-        for i,(r1,d1) in enumerate(zip(ra,dec)):
-          l0[i], m0[i] = self.ms.radec2lm_scalar(r1,d1,original=True)
-        # print(ra*180/np.pi,dec*180/np.pi, file=log)
-        # print(l0*180/np.pi,m0*180/np.pi, file=log)
-        # rotate each by parallactic angle
-        r = numpy.sqrt(l0*l0+m0*m0)
-        angle = numpy.arctan2(m0,l0)
-        l = r*numpy.cos(angle + parad + np.deg2rad(self.feedangle))
-        m = r*numpy.sin(angle + parad + np.deg2rad(self.feedangle))
+        l = numpy.zeros(ndir,float)
+        m = numpy.zeros(ndir,float)
 
+        if self._frame == "altaz" or self._frame == "equatorial" or self._frame == "altazgeo":
+            # convert each ra/dec to l/m
+            for i,(r1,d1) in enumerate(zip(ra,dec)):
+                l[i], m[i] = self.ms.radec2lm_scalar(r1,d1,original=True)
+            # for alt-az mounts, rotate by PA
+            if self._frame == "altaz" or self._frame == "altazgeo":
+                # rotate each by parallactic angle
+                r = numpy.sqrt(l*l+m*m)
+                angle = numpy.arctan2(m, l)
+                l = r*numpy.cos(angle + parad + np.deg2rad(self.feedangle))
+                m = r*numpy.sin(angle + parad + np.deg2rad(self.feedangle))
+        elif self._frame == "zenith":
+            az = numpy.zeros(ndir, float)
+            el = numpy.zeros(ndir, float)
+            for i, (r1,d1) in enumerate(zip(ra,dec)):
+                dir_j2000 = dm.direction('J2000', dq.quantity(r1, "rad"), dq.quantity(d1, "rad"))
+                dir_azel = dm.measure(dir_j2000, "AZELGEO")
+                dir_azel_val = dm.get_value(dir_azel)
+                az[i], el[i] = dir_azel_val[0].get_value(), dir_azel_val[1].get_value()
 
+            r = numpy.cos(el)
+            l = r*numpy.sin(az)   # az=0 is North, l=0, M>0
+            m = r*numpy.cos(az)   # az=90 is East, m=0, l>0
+        else:
+            raise RuntimeError("unknown FITSFrame {}".format(self._frame))
 
-        # # print("Beam evaluated for l,m", file=log)
-        # print(l, file=log)
-        # print(m, file=log)
-        # print("time %f, position angle %f"%(t0, parad*180/math.pi), file=log)
+        log(2).print("Beam evaluated for l,m {}, {}".format(l, m))
 
         # get interpolated values. Output shape will be [ndir,nfreq]
         if self.use_unity_ejones:
@@ -320,7 +339,6 @@ class ClassFITSBeam (object):
             E_vec[i,:,:] = np.dot(Pjones, np.dot(E_vec[i, :, :], feedswap_jones))
 
         return E_vec.reshape(ndir, self.ms.na, len(self.freqs), 2, 2)
-
 
 
 

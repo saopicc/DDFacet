@@ -332,14 +332,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             freqsDask = da.from_array(np.array(self.GridFreqs).astype(np.float64), chunks=(self.Nchan))
 
             alpha, varalpha, Iref, varIref = fit_spi_components(FitCubeDask, weightsDask,
-                                                                freqsDask, self.RefFreq,
-                                                                dtype=np.float64).compute()
+                                                                freqsDask, self.RefFreq).compute()
         except Exception as e:
-            traceback_str = traceback.format_exc(e)
-            print("Warning - Failed at importing africanus spi fitter. This could be an issue with the dask " \
-                        "version. Falling back to (slow) scipy version", file=log)
-            print("Original traceback - ", traceback_str, file=log)
-            alpha, varalpha, Iref, varIref = self.FreqMachine.FitSPIComponents(FitCube, self.GridFreqs, self.RefFreq)
+            raise(e)
 
         _, _, nx, ny = ModelImage.shape
         alphamap = np.zeros([nx, ny])

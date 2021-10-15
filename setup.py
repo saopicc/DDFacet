@@ -21,41 +21,35 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import subprocess
 import os
+import sys
 import warnings
 from setuptools import setup
 from setuptools.command.install import install
 from setuptools.command.sdist import sdist
 from distutils.command.build import build
+from setuptools.command.build_ext import build_ext
 from os.path import join as pjoin
 import sys
 
 pkg='DDFacet'
 skymodel_pkg='SkyModel'
-__version__ = "0.5.3.1"
+__version__ = "0.6.0.0"
 build_root=os.path.dirname(__file__)
 
-try:
-    import six
-except ImportError as e:
-    raise ImportError("Six not installed. Please install Python 2.x compatibility package six before running DDFacet install. "
-                        "You should not see this message unless you are not running pip install (19.x) -- run pip install!")
 try:
     import pybind11
 except ImportError as e:
     raise ImportError("Pybind11 not installed. Please install C++ binding package pybind11 before running DDFacet install. "
-                        "You should not see this message unless you are not running pip install (19.x) -- run pip install!")
+                      "You should not see this message unless you are not running pip install (19.x) -- run pip install!")
 
 def backend(compile_options):
     if compile_options is not None:
         print("Compiling extension libraries with user defined options: '%s'"%compile_options)
     else:
         compile_options = ""
-    if six.PY3:
-        compile_options += " -DENABLE_PYTHON_2=OFF "
-        compile_options += " -DENABLE_PYTHON_3=ON "
-    elif six.PY2:
-        compile_options += " -DENABLE_PYTHON_2=ON "
-        compile_options += " -DENABLE_PYTHON_3=OFF "
+    
+    compile_options += " -DENABLE_PYTHON_2=OFF "
+    compile_options += " -DENABLE_PYTHON_3=ON "
 
     path = pjoin(build_root, pkg, 'cbuild')
     try:
@@ -91,6 +85,18 @@ class custom_build(build):
         backend(self.compopts)
         build.run(self)
 
+class custom_build_ext(build_ext):
+    build.user_options = build.user_options + [
+        ('compopts=', None, 'Any additional compile options passed to CMake')
+    ]
+    def initialize_options(self):
+        build_ext.initialize_options(self)
+        self.compopts = None
+
+    def run(self):
+        backend(self.compopts)
+        build_ext.run(self)
+
 class custom_sdist(sdist):
     def run(self):
         bpath = pjoin(build_root, pkg, 'cbuild')
@@ -111,42 +117,37 @@ def readme():
         return f.read()
 
 def requirements():
-
-    requirements = [("nose >= 1.3.7", "nose >= 1.3.7"),
-                    ("Cython >= 0.25.2", "Cython >= 0.25.2"),
-                    ("numpy >= 1.15.1", "numpy >= 1.15.1"), #Ubuntu 18.04
-                    ("sharedarray >= 3.2.0", "sharedarray >= 3.2.0"),
-                    ("Polygon3 >= 3.0.8", "Polygon2 >= 2.0.8"),
-                    ("pyFFTW >= 0.10.4", "pyFFTW >= 0.10.4"),
-                    ("astropy >= 3.0", "astropy <= 2.0.11"),
-                    ("deap >= 1.0.1", "deap >= 1.0.1"),
-                    ("ptyprocess>=0.5", "ptyprocess<=0.5"), #workaround for ipdb on py2
-                    ("ipdb >= 0.10.3", "ipdb <= 0.10.3"),
-                    ("python-casacore >= 3.0.0", "python-casacore >= 3.0.0"),
-                    ("pyephem >= 3.7.6.0", "pyephem >= 3.7.6.0"),
-                    ("numexpr >= 2.6.2", "numexpr >= 2.6.2"),
-                    ("matplotlib >= 2.0.0", "matplotlib >= 2.0.0"),
-                    ("scipy >= 1.3.3", "scipy >= 0.16.0"),
-                    ("astLib >= 0.8.0", "astLib >= 0.8.0"),
-                    ("psutil >= 5.2.2", "psutil >= 5.2.2"),
-                    ("py-cpuinfo >= 3.2.0", "py-cpuinfo >= 3.2.0"),
-                    ("tables >= 3.6.0", "tables < 3.6.0"),
-                    ("prettytable >= 0.7.2", "prettytable >= 0.7.2"),
-                    ("pybind11 >= 2.2.2", "pybind11 >= 2.2.2"),
-                    ("pyfits >= 3.5", "pyfits >= 3.5"), #kittens dependency, do not remove
-                    ("configparser >= 3.7.1", "configparser >= 3.7.1"),
-                    ("pandas >=0.23.3", "pandas >=0.23.3"),
-                    ("ruamel.yaml >= 0.15.92", "ruamel.yaml >= 0.15.92"),
-                    ("pylru >= 1.1.0", "pylru >= 1.1.0"),
-                    ("six >= 1.12.0", "six >= 1.12.0"),
-                    ("pybind11 >= 2.2.2", "pybind11 >= 2.2.2"),
-                    ("dask[array] >= 1.1.0", "dask[array] == 2.11.0"),
-                    ("codex-africanus[dask] <= 0.1.8", "codex-africanus[dask]"),
-                    ("bdsf > 1.8.15", "bdsf<=1.8.15") # SkyModel / kms dependency
+    requirements = ["nose >= 1.3.7; python_version >= '3'", 
+                    "Cython >= 0.25.2; python_version >= '3'", 
+                    "numpy >= 1.15.1; python_version >= '3'", 
+                    "sharedarray >= 3.2.0; python_version >= '3'", 
+                    "Polygon3 >= 3.0.8; python_version >= '3'", 
+                    "pyFFTW >= 0.10.4; python_version >= '3'", 
+                    "astropy >= 3.0; python_version >= '3'", 
+                    "deap >= 1.0.1; python_version >= '3'", 
+                    "ptyprocess>=0.5; python_version >= '3'", 
+                    "ipdb >= 0.10.3; python_version >= '3'", 
+                    "python-casacore >= 3.0.0; python_version >= '3'", 
+                    "pyephem >= 3.7.6.0; python_version >= '3'", 
+                    "numexpr >= 2.6.2; python_version >= '3'", 
+                    "matplotlib >= 2.0.0; python_version >= '3'", 
+                    "scipy >= 1.3.3; python_version >= '3'", 
+                    "astLib >= 0.8.0; python_version >= '3'", 
+                    "psutil >= 5.2.2; python_version >= '3'", 
+                    "py-cpuinfo >= 3.2.0; python_version >= '3'", 
+                    "tables >= 3.6.0; python_version >= '3'", 
+                    "prettytable >= 0.7.2; python_version >= '3'", 
+                    "pybind11 >= 2.2.2; python_version >= '3'", 
+                    "configparser >= 3.7.1; python_version >= '3'", 
+                    "pandas >=0.23.3; python_version >= '3'", 
+                    "ruamel.yaml >= 0.15.92; python_version >= '3'", 
+                    "pylru >= 1.1.0; python_version >= '3'", 
+                    "six >= 1.12.0; python_version >= '3'", 
+                    "pybind11 >= 2.2.2; python_version >= '3'", 
+                    "dask[array] >= 1.1.0; python_version >= '3'", 
+                    "codex-africanus[dask] >= 0.2.10; python_version >= '3'", 
                     ] 
-
-    py3_requirements, py2_requirements = zip(*requirements)
-    install_requirements = py2_requirements if six.PY2 else py3_requirements
+    install_requirements = requirements
 
     return install_requirements
 
@@ -168,9 +169,10 @@ setup(name=pkg,
       license='GNU GPL v2',
       cmdclass={'install': custom_install,
                 'sdist': custom_sdist,
-                'build': custom_build
+                'build': custom_build,
+                'build_ext': custom_build_ext
                },
-      #python_requires='<3.0',
+      python_requires='>=3.0,<3.7',
       packages=[pkg, skymodel_pkg],
       install_requires=requirements(),
       include_package_data=True,
@@ -182,5 +184,6 @@ setup(name=pkg,
           'moresane-support': ['pymoresane >= 0.3.0'],
           'testing-requirements': ['nose >= 1.3.7'],
           'fits-beam-support': ['meqtrees-cattery'],
+          'kms-support': ['bdsf > 1.8.15']
       }
 )

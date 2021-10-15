@@ -115,7 +115,7 @@ class VoronoiToReg():
             if len(polygon0)==0: continue
             polygon=np.array(P+[P[0]])
             ThisText=""
-            if labels!=None:
+            if labels is not None:
                 lmean0=np.mean(polygon[:,0])
                 mmean0=np.mean(polygon[:,1])
 

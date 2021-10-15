@@ -301,7 +301,6 @@ class ClassPlotMachine():
         pylab.draw()
         pylab.show(block=False)
         pylab.pause(0.1)
-        
 
         ######################
         

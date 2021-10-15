@@ -74,6 +74,7 @@ class ClassVisServer():
         if APP is not None:
             APP.registerJobHandlers(self)
             self._weightjob_counter = APP.createJobCounter("VisWeights")
+            self._taperjob_counter = APP.createJobCounter("TaperWeights")
             self._calcweights_event = APP.createEvent("VisWeights")
             self._app_id = "VS"
 
@@ -91,6 +92,12 @@ class ClassVisServer():
         self.Super = GD["Weight"]["SuperUniform"]
         self.VisWeights = None
         
+        self.EnableSigmoidTaper = GD["Weight"]["EnableSigmoidTaper"]
+        self.SigmoidInCut = GD["Weight"]["SigmoidTaperInnerCutoff"]
+        self.SigmoidOutCut = GD["Weight"]["SigmoidTaperOuterCutoff"]
+        self.SigmoidInRoll = GD["Weight"]["SigmoidTaperInnerRolloffStrength"]
+        self.SigmoidOutRoll = GD["Weight"]["SigmoidTaperOuterRolloffStrength"]
+
         self.ColName = ColName
         self.CountPickle = 0
         self.DicoSelectOptions = GD["Selection"]
@@ -728,6 +735,60 @@ class ClassVisServer():
             APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event)#,serial=True)
         # APP.awaitEvents(self._calcweights_event)
 
+    def _sigtaper(self, msw, chanfreq, inner_cut, outer_cut, outer_taper_strength, inner_taper_strength): 
+        u = msw["uv"][:, 0]
+        v = msw["uv"][:, 1]
+        visweights = msw["weight"]
+        if chanfreq.size != visweights.shape[1]:
+            raise ValueError("Visibility weight channels don't match provided measurement frequencies")
+        if visweights.ndim != 2:
+            raise ValueError("Provided visibility weights must be of form nrow x nchan")
+        uvdist = np.sqrt(u**2 + v**2)
+        uvdistlda = np.outer(uvdist, 1 / (299792458.0 / chanfreq))
+        if visweights.shape != uvdistlda.shape:
+            raise ValueError("Visibility weights shape does not match number of rows in the UVW coords")
+        inner_cut = np.abs(inner_cut)
+        outer_cut = np.abs(outer_cut)
+        if inner_cut >= outer_cut:
+            raise ValueError("Taper inner cut exceeds outer cut or outer cut left unset")
+        outer_taper_strength = max(1.0e-6, 1 - np.cos(min(np.abs(outer_taper_strength), 1.0) * np.pi / 2))
+        inner_taper_strength = max(1.0e-6, 1 - np.cos(min(np.abs(inner_taper_strength), 1.0) * np.pi / 2))
+        def __sigmoid(x): 
+            d = (1 + np.exp(-x))
+            d[d == 0] = 1.0e-10
+            return 1 / d
+        y = (__sigmoid(-uvdistlda * outer_taper_strength + outer_cut * outer_taper_strength) +
+                __sigmoid(+uvdistlda * inner_taper_strength - inner_cut * inner_taper_strength) +
+                __sigmoid(+uvdistlda * outer_taper_strength + outer_cut * outer_taper_strength) + 
+                __sigmoid(-uvdistlda * inner_taper_strength - inner_cut * inner_taper_strength)) - 2.0
+        visweights *= (y / y.max())
+
+    def _CalcSigmoidTaper(self):
+        """
+            Sets up the UV crafter using Sigmoids to taper inner and outer
+            The cuts are specified in uvlambda and the rolloff tuning parameter will be clamped to
+            0 < tuner <= 1.0.
+
+            Provide visibility weights of the form nrow x nchan (by now they should be padded
+            to that form either way by the visreader)
+        """
+        if self.EnableSigmoidTaper:
+            print("Tapering visibilities with the uv-crafter:", file=log)
+            print("\t Inner Cutoff {0:.2f} klda".format(self.SigmoidInCut * 1.0e-3), file=log)
+            print("\t Outer Cutoff {0:.2f} klda".format(self.SigmoidOutCut * 1.0e-3), file=log)
+            print("\t Inner Rolloff Strength {0:.2f}".format(self.SigmoidInRoll), file=log)
+            print("\t Outer Rolloff Strength {0:.2f}".format(self.SigmoidOutRoll), file=log)
+            for ims, ms in enumerate(self.ListMS):
+                for ichunk in range(len(ms.getChunkRow0Row1())):
+                    # APP will handle any serialization if NCPU == 1
+                    APP.runJob("SigmoidTaper:%d:%d" % (ims, ichunk), self._sigtaper,
+                            args=(self._weight_dict[ims][ichunk].readwrite(),
+                                    ms.ChanFreq,
+                                    self.SigmoidInCut, self.SigmoidOutCut, 
+                                    self.SigmoidOutRoll, self.SigmoidInRoll),
+                            counter=self._weightjob_counter, collect_result=False)
+            APP.awaitJobCounter(self._weightjob_counter, progress="Sigmoid Tapering")
+
     def _CalcWeights_handler(self):
         self._weight_dict = shared_dict.create("VisWeights")
         # check for wmax in cache
@@ -791,9 +852,14 @@ class ClassVisServer():
             return
         if not self._uvmax:
             UserWarning("data appears to be fully flagged: can't compute imaging weights")
+        
+        # compute and apply tapers
+        self._CalcSigmoidTaper()
+
         # in natural mode, leave the weights as is. In other modes, setup grid for calculations
         self._weight_grid = shared_dict.create("VisWeights.Grid")
-        cell = npix = npixx = nbands = xymax = None
+        cell = npix = npixx = nbands = xymax = None    
+
         if self.Weighting != "natural":
             nch, npol, npixIm, _ = self.FullImShape
             FOV = self.CellSizeRad * npixIm
@@ -833,6 +899,7 @@ class ClassVisServer():
                     avgW = (grid1 ** 2).sum() / grid1.sum()
                     sSq = numeratorSqrt ** 2 / avgW
                     grid1[...] = 1 + grid1 * sSq
+
         # launch jobs to finalize weights and save them to the cache
         for ims, ms in enumerate(self.ListMS):
             for ichunk in range(len(ms.getChunkRow0Row1())):

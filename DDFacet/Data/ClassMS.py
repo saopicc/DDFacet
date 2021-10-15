@@ -27,7 +27,9 @@ from DDFacet.compatibility import range
 import os, re, glob
 import pyrap.measures as pm
 import pyrap.quanta as qa
+from astropy.time import Time
 from pyrap.tables import table
+from datetime import datetime as dt
 
 import ephem
 import numpy as np
@@ -976,7 +978,8 @@ class ClassMS():
         tp = table(table_all.getkeyword('POLARIZATION'),ack=False)
         # get list of corrype enums for first row of polarization table, and convert to strings via MS_STOKES_ENUMS. 
         # self.CorrelationNames will be a list of strings
-        self.CorrelationIds = tp.getcol('CORR_TYPE',0,1)[0]
+        self.CorrelationIds = tp.getcol('CORR_TYPE',self._polid,1)[0]
+
         self.CorrelationNames = [ (ctype >= 0 and ctype < len(MS_STOKES_ENUMS) and MS_STOKES_ENUMS[ctype]) or
                 None for ctype in self.CorrelationIds ]
         self.Ncorr = len(self.CorrelationNames)
@@ -1220,12 +1223,14 @@ class ClassMS():
             flags[(duv < d0) | (duv > d1),:,:] = True
 
         if self.DicoSelectOptions["TimeRange"]:
-            t0 = times[0]
-            tt = (times - t0) / 3600.
-            st0, st1 = self.DicoSelectOptions["TimeRange"]
-            print("  selecting uv data in time range [%.4f~%5.4f] hours" % (st0, st1), file=log)
-            ind = np.where((tt >= st0) & (tt < st1))[0]
-            flags[ind, :, :] = True
+            st0, st1 = list(map(lambda x: dt.utcfromtimestamp(qa.quantity(x).to_unix_time()),
+                                self.DicoSelectOptions["TimeRange"]))
+            print("  imaging only uv data in time range [{}~{}] UTC".format(st0, st1), file=log)
+            st0, st1 = list(map(lambda x: qa.quantity(x).to_unix_time(),
+                                self.DicoSelectOptions["TimeRange"]))
+            times_utc = np.array(list(map(lambda x: qa.quantity("{}s".format(x)).to_unix_time(), times)))
+            sel = np.logical_or(times_utc < st0, times_utc > st1)
+            flags[sel, :, :] = True
 
         if self.DicoSelectOptions["DistMaxToCore"]:
             DMax = self.DicoSelectOptions["DistMaxToCore"] * 1e3
@@ -1346,6 +1351,10 @@ class ClassMS():
                 if len(vis.shape)==3:
                     vis0 = np.zeros((nrow,vis.shape[1],vis.shape[2]),vis.dtype)
                 elif len(vis.shape)==2:
+                    import warnings
+                    warnings.warn("Your dataset does not conform to NRAO MS v2 specification (memo 229) and only "
+                                  "contains 2D axis. We will assume this means nrow x nchan x (ncorr == 1). "
+                                  "Please notify your observatory of this issue.")
                     vis0 = np.zeros((nrow,vis.shape[1]),vis.dtype)
                     
                 vis0[sort_index,...] = vis

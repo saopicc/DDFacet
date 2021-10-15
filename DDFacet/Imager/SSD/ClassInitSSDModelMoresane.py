@@ -12,6 +12,7 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 from DDFacet.Imager.ClassPSFServer import ClassPSFServer
 from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 import multiprocessing
+import queue
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other.progressbar import ProgressBar
 import time
@@ -98,40 +99,45 @@ class ClassInitSSDModelParallel():
                 workerlist[ii].run()  # just run until all work is completed
 
         self.DicoInitIndiv={}
-        while iResult < NJobs:
-            DicoResult = None
-            if result_queue.qsize() != 0:
-                try:
-                    DicoResult = result_queue.get()
-                except:
-                    pass
+        success = True
+        try:
+            while iResult < NJobs:
+                DicoResult = None
+                if result_queue.qsize() != 0:
+                    try:
+                        DicoResult = result_queue.get()
+                    except queue.Empty:
+                        continue # sync call above
+                    except Exception as e:
+                        print("The following unhandled exception occured.", file=log)
+                        import traceback
+                        traceback.print_tb(e.__traceback__, file=log)
+                        success = False
+                        break
 
-            if DicoResult == None:
-                time.sleep(0.5)
-                continue
+                if DicoResult["Success"]:
+                    iResult+=1
+                    NDone=iResult
 
-            if DicoResult["Success"]:
-                iResult+=1
-                NDone=iResult
+                    pBAR.render(NDone,NJobs)
 
-                pBAR.render(NDone,NJobs)
-
-                iIsland=DicoResult["iIsland"]
-                NameDico="%sDicoInitIsland_%5.5i"%(self.IdSharedMem,iIsland)
-                Dico=NpShared.SharedToDico(NameDico)
-                self.DicoInitIndiv[iIsland]=copy.deepcopy(Dico)
-                NpShared.DelAll(NameDico)
+                    iIsland=DicoResult["iIsland"]
+                    NameDico="%sDicoInitIsland_%5.5i"%(self.IdSharedMem,iIsland)
+                    Dico=NpShared.SharedToDico(NameDico)
+                    self.DicoInitIndiv[iIsland]=copy.deepcopy(Dico)
+                    NpShared.DelAll(NameDico)
 
 
-
-        if Parallel:
-            for ii in range(NCPU):
-                workerlist[ii].shutdown()
-                workerlist[ii].terminate()
-                workerlist[ii].join()
+        finally:
+            if Parallel:
+                for ii in range(NCPU):
+                    workerlist[ii].shutdown()
+                    workerlist[ii].terminate()
+                    workerlist[ii].join()
         
-        #MyLogger.setLoud(["pymoresane.main"])
-        #MyLogger.setLoud(["ClassImageDeconvMachineMSMF","ClassPSFServer","ClassMultiScaleMachine","GiveModelMachine","ClassModelMachineMSMF"])
+        if not success:
+            raise RuntimeError("Some parallel jobs have failed. Check your log and report the issue if "
+                               "not a memory issue. Bus errors indicate memory allocation errors")
         return self.DicoInitIndiv
 
 ######################################################################################################
@@ -526,20 +532,30 @@ class WorkerInitMSMF(multiprocessing.Process):
 
 
     def run(self):
+        success = True
         while not self.kill_received and not self.work_queue.empty():
-            
-            DicoJob = self.work_queue.get()
-            # self.initIsland(DicoJob)
             try:
+                DicoJob = self.work_queue.get()
                 self.initIsland(DicoJob)
-            except:
-                print(traceback.format_exc())
+            except queue.Empty:
+                continue # sync call above
+            except Exception as e:
+                print("The following unhandled exception occured.", file=log)
+                import traceback
+                traceback.print_tb(e.__traceback__, file=log)
+                success = False
+                
+                print("More information on this exception:", file=log)
                 iIsland=DicoJob["iIsland"]
-                FileOut="errIsland_%6.6i.npy"%iIsland
-                print(ModColor.Str("...... on island %i, saving to file %s"%(iIsland,FileOut)))
+                FileOut="errIsland_%6.6i.npy" % iIsland
+                print(ModColor.Str("...... on island %i, saving to file %s"%(iIsland,FileOut)), file=log)
                 np.save(FileOut,np.array(self.ListIsland[iIsland]))
-                print()
-
+                
+                break
+            
+        if not success:
+            raise RuntimeError("Some parallel jobs have failed. Check your log and report the issue if "
+                               "not a memory issue. Bus errors indicate memory allocation errors")
 
 
 

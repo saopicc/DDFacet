@@ -1531,7 +1531,9 @@ class ClassFacetMachine():
         # Create Jones Matrices Dictionary
         DicoJonesMatrices = None
         Apply_killMS = self.GD["DDESolutions"]["DDSols"]
-        Apply_Beam = self.GD["Beam"]["Model"] is not None
+        Apply_Beam = self.GD["Beam"]["Model"] is not None and \
+                     self.GD["Beam"]["Model"] != "" and \
+                     self.GD["Beam"]["Model"] != 0
 
         if Apply_killMS or Apply_Beam:
             DicoJonesMatrices = {}
@@ -1722,9 +1724,6 @@ class ClassFacetMachine():
         APP.awaitJobResults(self._fft_job_id+"*", progress=("FFT PSF" if self.DoPSF else "FFT"))
         self._fft_job_id = None
 
-
-
-        
     def _set_model_grid_worker(self, iFacet, model_dict, cf_dict, ChanSel, ToSHMDict=False,ToGrid=False,ApplyNorm=True,DoReturn=True):
         # We get the psf dict directly from the shared dict name (not from the .path of a SharedDict)
         # because this facet machine is not necessarilly the one where we have computed the PSF

@@ -84,29 +84,6 @@ widely supported containerization framework, called Docker. This package is on P
 
         (stimelavenv)$ deactivate
         
-
-Installing locally with conda as the packaging manager:
-==========================================================
-Using conda as the packaging manager may be more conducive to your workflow. It's superior to vitrualenv in many ways (https://jakevdp.github.io/blog/2016/08/25/conda-myths-and-misconceptions/).
-The recommended way to do this:
-
-1. Install miniconda (or conda if you like) from (https://conda.io/miniconda.html)
-
-2. Make a python 2.7 env ```conda create -n ddfacet python=2.7```
-
-3. Activate the env ```source activate ddfacet```
-    
-    3a. Install all dependencies with ```pip```
-        
-4. Clone the repo (possibly swithc branch) ```cd ~/git; git clone https://github.com/cyriltasse/DDFacet.git```
-
-5. Ensure ```gcc>=5``` is loaded. You may be able to do something like ```module load gcc/5.4```
-    
-6. ```cd DDFacet; python setup.py install```
-
-    If it does not find the correct GCC you can specify it like this e.g. ```CC=/usr/local/bin/gcc-5.4 python setup.py install```
-    
-    Note if you need to recompile that you should first ```rm -r DDFacet/cbuild```
         
 (Users / PyPI alternative) Virtual environment and pip:
 ==========================================================
@@ -114,32 +91,30 @@ We prefer that users use DDFacet though Docker. However, if this is not availabl
 environments) we recommend you use a virtual environment. If you install it directly into your system packages you're
 on your own -- be warned!!
 
-1. You need to add in the KERN 3 ppa if you don't already have it::
+1. You need to add in the KERN 5 ppa if you don't already have it::
 
-        add-apt-repository -y -s ppa:kernsuite/kern-3
+        add-apt-repository -y -s ppa:kernsuite/kern-5
 
 2. Install each of the debian dependencies. The latest full list of apt dependencies can be be found in the Dockerfile <https://github.com/saopicc/DDFacet/blob/master/Dockerfile>
 
 3. Create a virtual environment somewhere on your system and activate::
 
-        virtualenv --system-site-packages ddfacet
+        virtualenv ddfacet
         source ddfacet/bin/activate
-        
-   Adding the `--system-site-packages` directive ensures that the virtualenv has access to system packages (such as meqtrees).
         
 4. Then, install directly from the Python Package Index (PyPI) using pip - **ensure your venv is activated**::
 
         pip install -U pip setuptools
-        pip install DDFacet --force-reinstall -U
+        pip install DDFacet -U
 
 5. When you're done with your imaging business::
 
         deactivate
         
-(Users/Optional) FitsBeam, Montblanc, Moresane support
+(Users/Optional) FitsBeam, Montblanc, Moresane, Killms support
 ==========================================================
 Optional requirements like the FITS beam can be installed by specifying them in brackets.
-E.g. pip install "/src/DDFacet/[dft-support,moresane-support,testing-requirements,fits-beam-support]"
+E.g. pip install "/src/DDFacet/[dft-support,moresane-support,testing-requirements,fits-beam-support,kms-support]"
 
 (Users/Troubleshooting) Configure max shared memory
 ==========================================================
@@ -172,15 +147,11 @@ compopts=""
 To setup your local development environment navigate clone DDFacet and run::
 
         (ddfvenv) $ git clone https://github.com/cyriltasse/DDFacet
-        (ddfvenv) $ cd DDFacet
-        (ddfvenv) $ git submodule update --init --recursive
-        (ddfvenv) $ cd ..
         (ddfvenv) $ pip install -e DDFacet/
-        #To (re-)build the backend in your checked out folder:
-        (ddfvenv) $ cd DDFacet
-        (ddfvenv) $ python setup.py build
 
-**IMPORTANT NOTE: You may need to remove the development version before running PIP when installing**
+**IMPORTANT NOTE: You may need to remove the development version before running PIP when installing. If you
+are switching between release and debug versions of the backend you should remove the DDFacet/DDFacet/cbuild
+directory and everything in it**
 
 (Developers/Testing) Docker-based build
 ==========================================================

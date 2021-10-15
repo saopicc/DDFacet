@@ -154,6 +154,14 @@ class ClassCompareFITSImage(unittest.TestCase):
         return 21600
 
     @classmethod
+    def pre_imaging_hook(cls):
+        pass
+
+    @classmethod
+    def post_imaging_hook(cls):
+        pass
+
+    @classmethod
     def setUpClass(cls):
         unittest.TestCase.setUpClass()
         cls._inputDir = getenv('DDFACET_TEST_DATA_DIR','./')+"/"
@@ -224,18 +232,12 @@ class ClassCompareFITSImage(unittest.TestCase):
             '--Log-Boring=1',
             '--Output-Name=%s' % cls._imagePrefix,
             '--Cache-Dir=.']
+
+        cls.pre_imaging_hook()
         
-        #not necessary
-        #stdout_file = open(cls._stdoutLogFile, 'w')
-        #stderr_file = open(cls._stderrLogFile, 'w')
-
-        #with stdout_file, stderr_file:
-
         p = Popen(args, 
-                    env=os.environ.copy())
-        #not necessary
-        #          stdout=stdout_file, 
-        #         stderr=stderr_file)
+                  env=os.environ.copy())
+        
         x = cls.timeoutsecs()
         delay = 1.0
         timeout = int(x / delay)
@@ -253,6 +255,7 @@ class ClassCompareFITSImage(unittest.TestCase):
         elif ret != 0:
             raise RuntimeError("DDF exited with non-zero return code %d" % ret)
 
+        cls.post_imaging_hook()
 
         #Finally open up output FITS files for testing and build a dictionary of them
         for ref_id in cls.defineImageList():

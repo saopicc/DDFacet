@@ -631,7 +631,6 @@ class ClassJones():
 
             lm, radec = [], []
             for solset in apply_solsets:
-
                 _solset = getattr(H.root, solset)
 
                 dirnames_solset = _solset.source[:]['name'] # keep track to re-arrange order of solutions later
@@ -639,11 +638,7 @@ class ClassJones():
                 lFacet, mFacet = self.FacetMachine.CoordMachine.radec2lm(raNode, decNode)
                 radec.append(np.stack([raNode, decNode], axis=1))
                 lm.append(np.stack([lFacet, mFacet], axis=1))
-                # freqs=self.FacetMachine.VS.GlobalFreqs.reshape((1,1,1,-1))
-                freqs = self.MS.ChanFreq.ravel()
-                Nf = freqs.size
 
-                solset_gains = []
                 for soltab, v in apply_map.items():
                     if not v:
                         continue
@@ -961,7 +956,6 @@ class ClassJones():
         elif GD["Beam"]["Model"] == "ATCA":
             self.BeamMachine = ClassATCABeam.ClassATCABeam(self.MS,GD["Beam"])
             self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam
-        
             # self.DtBeamDeg = GD["Beam"]["FITSParAngleIncrement"]
             # print>>log, "  Estimating FITS beam model every %5.1f min."%DtBeamMin
         else:

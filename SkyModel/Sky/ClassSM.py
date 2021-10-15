@@ -55,7 +55,7 @@ class ClassSM():
             Cat=Cat.view(np.recarray)
         elif Tigger:
             Cat=ModTigger.ReadTiggerModel(infile)
-        elif FromExt!=None:
+        elif FromExt is not None:
             
             Cat=ModSMFromNp.ReadFromNp(FromExt)
         else:
@@ -117,7 +117,7 @@ class ClassSM():
         infile=self.infile
         print(ModColor.Str(" SkyModel PROPERTIES: "))
         print("   - SkyModel File Name: %s"%ModColor.Str(infile,col="green"))
-        if self.REGFile!=None: print("   - ds9 region file: %s"%ModColor.Str(self.REGFile,col="green"))
+        if self.REGFile is not None: print("   - ds9 region file: %s"%ModColor.Str(self.REGFile,col="green"))
         npext=""
         if not(".npy" in infile): npext=".npy"
         self.NpFile="%s%s"%(infile,npext)
@@ -156,7 +156,7 @@ class ClassSM():
             PreClusterCat=None
             ExcludeCat=None
 
-        if ExcludeCat!=None:
+        if ExcludeCat is not None:
             for j in range(ExcludeCat.shape[0]):
                 d=np.sqrt((self.SourceCat.ra-ExcludeCat.ra[j])**2+(self.SourceCat.dec-ExcludeCat.dec[j])**2)
                 self.SourceCat.Exclude[d<ExcludeCat.Radius[j]]=True
@@ -224,7 +224,7 @@ class ClassSM():
         NPreCluster=0
 
         # #######################################
-        # if (PreClusterCat!=None)&(FromClusterCat==""):
+        # if (PreClusterCat is not None)&(FromClusterCat==""):
         #     N=PreClusterCat.shape[0]
         #     Ns=self.SourceCat.ra.shape[0]
         #     for iReg in range(N):
@@ -273,7 +273,7 @@ class ClassSM():
         elif self.ClusterMethod==3:
             CM=ClassClusterRadial(x,y,s,nk,DoPlot=DoPlot)
         elif self.ClusterMethod==4:
-            if PreClusterCat!=None:
+            if PreClusterCat is not None:
                 l0,m0=self.radec2lm_scalar(PreClusterCat.ra,PreClusterCat.dec)
                 CM=ClassClusterKMean(x,y,s,nk,DoPlot=DoPlot,PreCluster=(l0,m0))
             else:
@@ -337,7 +337,7 @@ class ClassSM():
                 DictNode["%3.3i"%iCluster]["ListCluster"]=ind.tolist()
                 # pylab.scatter(x[ind],y[ind],c=np.ones((ind.size,))*iCluster,vmin=0,vmax=Nc,lw=0)
                 # pylab.draw()
-                # pylab.show(False)
+                # pylab.show(block=False)
             
 
 
@@ -361,7 +361,7 @@ class ClassSM():
 
 
 
-        # if PreClusterCat!=None:
+        # if PreClusterCat is not None:
         #     SourceCat=np.concatenate((SourceCatPreCluster,SourceCat))
         #     SourceCat=SourceCat.view(np.recarray)
 

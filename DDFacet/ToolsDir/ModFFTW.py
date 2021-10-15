@@ -461,7 +461,12 @@ class FFTW_Manager(object):
             import cPickle
         from os.path import expanduser
         self.wisdom_cache_path = self.GD["Cache"]["DirWisdomFFTW"]
-        cpuname = cpuinfo.get_cpu_info()["brand"].replace(" ", "")
+        cpudict = cpuinfo.get_cpu_info()
+        if 'brand' in cpudict:
+            cpuname=cpudict["brand"].replace(" ","")
+        else:
+            cpuname=cpudict["brand_raw"].replace(" ","") 
+        
         if "~" in self.wisdom_cache_path:
             home = expanduser("~")
             self.wisdom_cache_path = self.wisdom_cache_path.replace("~", home)

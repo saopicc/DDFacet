@@ -523,14 +523,22 @@ def GiveBlocksRowsListBL_old(a0, a1, DATA, dPhi, l, channel_mapping):
     du = u[1::] - u[0:-1]
     dv = v[1::] - v[0:-1]
     dw = w[1::] - w[0:-1]
-
+    assert du.size == dv.size
+    assert dv.size == dw.size
+    
+    if du.size < 1: 
+        # delta uvw is just an epsilon off the uvw
+        # derivative is undefined
+        du = np.concatenate((du, [1e-30]))
+        dv = np.concatenate((dv, [1e-30]))
+        dw = np.concatenate((dw, [1e-30]))
+    
     du = np.concatenate((du, [du[-1]]))
     dv = np.concatenate((dv, [dv[-1]]))
     dw = np.concatenate((dw, [dw[-1]]))
 
     Duv = C*(dPhi)/(np.pi*l*nu0)
     duvtot = 0
-
 #    print Duv
 
     CurrentRows = []
@@ -542,7 +550,12 @@ def GiveBlocksRowsListBL_old(a0, a1, DATA, dPhi, l, channel_mapping):
     for iRowBL in range(ind.size):
         CurrentRows.append(ind[iRowBL])   # add to list of rows
         # Frequency Block
-        uv = np.sqrt(u[iRowBL]**2+v[iRowBL]**2+w[iRowBL]**2)+1e-10   # uvw distance for this row
+        uv = np.sqrt(u[iRowBL]**2+v[iRowBL]**2+w[iRowBL]**2)   # uvw distance for this row
+        # solves issue where non-autocorrelations are set to uv = 0 and unflagged
+        # ?? seems to be an observatory specific issue (solution is perhaps to run
+        # CASA fixvis on the dataset to regenerate uv coordinates)
+        uv = max(uv, 1e-10)
+
         dnu = (C/np.pi)*dPhi/(uv*l)                            # delta-nu for this row
         NChanBlock = dnu/dFreq                                 # size of averaging block, in channels
         if NChanBlock < NChanBlockMax:                         # min size of channel averaging block for this time block

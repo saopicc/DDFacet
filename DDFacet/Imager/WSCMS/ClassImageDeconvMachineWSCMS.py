@@ -162,6 +162,7 @@ class ClassImageDeconvMachine():
         else:  # Make sure mask is correct shape
             if self.MaskArray.shape != (1, 1, self.Npix, self.Npix):
                 raise ValueError("Mask is incorrect shape. Expected %s but got %s" % ((1,1,self.Npix, self.Npix), self.MaskArray.shape))
+
         self.ModelMachine.setScaleMachine(self.PSFServer, NCPU=self.NCPU, MaskArray=self.MaskArray,
                                           cachepath=cachepath, MaxBaseline=kwargs["MaxBaseline"] / minlambda)
 
@@ -170,12 +171,16 @@ class ClassImageDeconvMachine():
         pass
 
     def setMaskMachine(self,MaskMachine):
-        self.MaskMachine = MaskMachine
-        self.MaskMachine.readExternalMaskFromFits()
-        if hasattr(self.MaskMachine, 'ExternalMask'):
-            self.MaskArray = self.MaskMachine.ExternalMask
-        else:
-            self.MaskArray = None  # need to set this to None here since we don't yet know the image size etc.
+        self.MaskMachine=MaskMachine
+        if self.MaskMachine.ExternalMask is not None:
+            print("Applying external mask", file=log)
+            MaskArray=self.MaskMachine.ExternalMask
+            nch,npol,_,_=MaskArray.shape
+            self.MaskArray=np.zeros(MaskArray.shape,np.bool8)
+            for ch in range(nch):
+                for pol in range(npol):
+                    self.MaskArray[ch,pol,:,:]=np.bool8(1-MaskArray[ch,pol].copy())[:,:]
+            self.MaskArray = np.ascontiguousarray(self.MaskArray)
 
 
     def SetModelRefFreq(self, RefFreq):
@@ -281,14 +286,16 @@ class ClassImageDeconvMachine():
         x0d, x1d, y0d, y1d = Aedge
         x0p, x1p, y0p, y1p = Bedge
 
-        self._Dirty[:, :, x0d:x1d, y0d:y1d] -= LocalSM[:, :, x0p:x1p, y0p:y1p]
+        cube, sm = self._Dirty[:,:,x0d:x1d,y0d:y1d], LocalSM[:,:,x0p:x1p,y0p:y1p]
+        numexpr.evaluate('cube-sm',out=cube,casting="unsafe")
 
         # Subtract from the average
-        if self.MultiFreqMode:  # If multiple frequencies are present construct the weighted mean
-            self._MeanDirty[:, 0, x0d:x1d, y0d:y1d] -= np.sum(LocalSM[:, :, x0p:x1p, y0p:y1p] * self.WeightsChansImages,
-                                                              axis=0)  # Sum over freq
+        meanimage = self._MeanDirty[:, :, x0d:x1d, y0d:y1d]
+        if self.MultiFreqMode:
+            W = self.WeightsChansImages.reshape((self.Nchan,1,1,1))
+            meanimage[...] = (cube*W).sum(axis=0) #Sum over frequency
         else:
-            self._MeanDirty = self._Dirty
+            meanimage[0,...] = cube[0,...]
 
     def track_progress(self, i, ThisFlux):
         # This is used to track Cleaning progress
@@ -310,6 +317,7 @@ class ClassImageDeconvMachine():
         # Find position and intensity of first peak
         x, y, MaxDirty = NpParallel.A_whereMax(self._MeanDirty, NCPU=self.NCPU,
                                                DoAbs=self.GD["Deconv"]["AllowNegative"], Mask=self.MaskArray)
+
 
         # Get peak factor stopping criterion
         Fluxlimit_Peak = MaxDirty*self.PeakFactor
@@ -413,14 +421,14 @@ class ClassImageDeconvMachine():
                 # compute the new mean image from the weighted sum of over frequency
                 self._MeanDirty = np.sum(self._Dirty * self.WeightsChansImages, axis=0, keepdims=True)
 
-                ThisRMS = np.std(self._MeanDirty)
+                ThisRMS = np.std(self._MeanDirty * ~self.MaskArray)
 
                 # check for and retire scales that cause stalls
-                if np.abs((TrackRMS - ThisRMS)/TrackRMS) < self.GD['WSCMS']['MinorStallThreshold']:
+                if np.abs(TrackRMS - ThisRMS) < self.GD['WSCMS']['MinorStallThreshold']:
                     scale_stall_count.setdefault(iScale, 0)
                     scale_stall_count[iScale] += 1
                     # retire scale if it causes a stall more than x number of times
-                    if scale_stall_count[iScale] > 10:
+                    if scale_stall_count[iScale] > 5:
                         self.ModelMachine.ScaleMachine.retired_scales.append(iScale)
                         scales_stalled[iScale] = 1
                         print("Retired scale %i because it was stalling." % iScale, file=log)

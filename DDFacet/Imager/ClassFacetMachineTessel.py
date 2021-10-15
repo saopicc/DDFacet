@@ -37,6 +37,9 @@ from DDFacet.Other import Exceptions
 from DDFacet.Data.ClassJones import _parse_solsfile, _which_solsfile
 import os, glob
 
+from DDFacet.Data.ClassJones import _parse_solsfile
+import os
+
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 import tables
 
@@ -204,6 +207,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
             h5files, apply_solsets, apply_map = _parse_solsfile(SolsFile)
             print("Parsing h5file pattern {}".format(h5files), file=log)
+            import glob
             h5file = glob.glob(h5files)[0]
             print( "Taking facet directions from H5parm: {}, solsets: {}".format(h5file, apply_solsets), file=log)
             with tables.open_file(h5file) as H:
@@ -317,7 +321,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         # VM.ToReg(regFile,lFacet,mFacet,radius=.1)
 
         NodeFile = "%s.NodesCat.npy" % self.GD["Output"]["Name"]
-        print("Saving Nodes catalog in %s" % NodeFile, file=log)
+        print("Saving Nodes catalog in %s (Nfacets:%i)" % (NodeFile, NFacets), file=log)
         np.save(NodeFile, NodesCat)
 
         
@@ -867,53 +871,3 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             ss = "%s, %s, %f, %f" % (sra, sdec,ra,dec)
             f.write(ss+'\n')
         f.close()
-
-# <<<<<<< HEAD
-# #===============================================
-# #===============================================
-# #===============================================
-# #===============================================
-
-
-# class WorkerImager(ClassFacetMachine.WorkerImager):
-#     def init(self, DicoJob):
-#         iFacet=DicoJob["iFacet"]
-#         #Create smoothned facet tessel mask:
-#         Npix = self.DicoImager[iFacet]["NpixFacetPadded"]
-#         l0, l1, m0, m1 = self.DicoImager[iFacet]["lmExtentPadded"]
-#         X, Y = np.mgrid[l0:l1:Npix * 1j, m0:m1:Npix * 1j]
-#         XY = np.dstack((X, Y))
-#         XY_flat = XY.reshape((-1, 2))
-#         vertices = self.DicoImager[iFacet]["Polygon"]
-#         mpath = Path(vertices)  # the vertices of the polygon
-#         mask_flat = mpath.contains_points(XY_flat)
-
-
-
-#         mask = mask_flat.reshape(X.shape)
-
-#         mpath = Path(self.CornersImageTot)
-#         mask_flat2 = mpath.contains_points(XY_flat)
-#         mask2 = mask_flat2.reshape(X.shape)
-#         mask[mask2 == 0] = 0
-
-
-#         GaussPars = (10, 10, 0)
-
-#         SpacialWeigth = np.float32(mask.reshape((1, 1, Npix, Npix)))
-#         SpacialWeigth = ModFFTW.ConvolveGaussian(SpacialWeigth, CellSizeRad=1, GaussPars=[GaussPars])
-#         SpacialWeigth = SpacialWeigth.reshape((Npix, Npix))
-#         SpacialWeigth /= np.max(SpacialWeigth)
-#         NameSpacialWeigth = "%sSpacialWeight.Facet_%3.3i" % (self.FacetDataCache, iFacet)
-#         NpShared.ToShared(NameSpacialWeigth, SpacialWeigth)
-#         #Initialize a grid machine per facet:
-#         self.GiveGM(iFacet)
-#         self.result_queue.put({"Success": True, "iFacet": iFacet})
-
-
-
-
-
-# =======
-# >>>>>>> issue-255
-

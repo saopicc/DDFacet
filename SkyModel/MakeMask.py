@@ -620,7 +620,7 @@ class ClassMakeMask():
         #     pylab.plot([ThisTh,ThisTh],[0,1],color="black")
         #     pylab.plot(Xr,Yr,color="black",lw=2,ls="--")
         #     pylab.draw()
-        #     pylab.show(False)
+        #     pylab.show(block=False)
         #     pylab.pause(0.1)
         #     import time
         #     time.sleep(1)
@@ -674,7 +674,7 @@ class ClassMakeMask():
     #         pylab.plot(X,Y,color="black",ls="--",lw=2)
 
     #         pylab.draw()
-    #         pylab.show(False)
+    #         pylab.show(block=False)
     #         pylab.pause(0.1)
 
     #     #     Im0=self.GiveIm(x,y,s)
@@ -694,7 +694,7 @@ class ClassMakeMask():
     #     #     pylab.subplot(1,3,3)
     #     #     pylab.imshow(ImMask,interpolation="nearest")
     #     #     pylab.draw()
-    #     #     pylab.show(False)
+    #     #     pylab.show(block=False)
     #     #     pylab.pause(0.1)
     #     #     import time
     #     #     time.sleep(1)
@@ -715,7 +715,7 @@ class ClassMakeMask():
     #     # #     pylab.plot([ThisTh,ThisTh],[0,1],color="black")
     #     # #     pylab.plot(Xr,Yr,color="black",lw=2,ls="--")
     #     # #     pylab.draw()
-    #     # #     pylab.show(False)
+    #     # #     pylab.show(block=False)
     #     # #     pylab.pause(0.1)
     #     # #     import time
     #     # #     time.sleep(1)
@@ -799,7 +799,7 @@ class ClassMakeMask():
         pylab.ylim(0,self.A.shape[0]-1)
 
         pylab.draw()
-        pylab.show(False)
+        pylab.show(block=False)
 
 def main(options=None):
     
@@ -848,5 +848,5 @@ def test():
     # pylab.subplot(1,2,2,sharex=ax,sharey=ax)
     # pylab.imshow(Conv.IslandsMachine.ImIsland,cmap="gray")
     # pylab.draw()
-    # pylab.show(False)
+    # pylab.show(block=False)
     # stop

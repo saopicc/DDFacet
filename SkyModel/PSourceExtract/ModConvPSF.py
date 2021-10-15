@@ -44,7 +44,7 @@ def test():
     pylab.subplot(1,3,3)
     pylab.imshow(z2,interpolation="nearest")
     pylab.draw()
-    pylab.show(False)
+    pylab.show(block=False)
     
 
 

@@ -47,7 +47,7 @@ class ClassModModelMachine():
         self.SSD2MM = None
         self.MSMFMM = None
         self.MultiSliceMM = None
-        self.MUFFINMM = None
+        self.MORSANEMM = None
         self.HOGBOMMM = None
         self.WSCMSMM = None
 
@@ -141,14 +141,6 @@ class ClassModModelMachine():
             else:
                 print("MultiSlice model machine already initialised", file=log)
             return self.MultiSliceMM
-        elif Mode == "MUFFIN":
-            if self.MUFFINMM is None:
-                print("Initialising MUFFIN model machine", file=log)
-                from DDFacet.Imager.MUFFIN import ClassModelMachineMUFFIN
-                self.MUFFINMM = ClassModelMachineMUFFIN.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.get_instance())
-            else:
-                print("MUFFIN model machine already initialised", file=log)
-            return self.MUFFINMM
         elif Mode == "Hogbom":
             if self.HOGBOMMM is None:
                 print("Initialising HOGBOM model machine", file=log)

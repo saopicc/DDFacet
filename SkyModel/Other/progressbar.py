@@ -109,7 +109,7 @@ class ProgressBar(object):
         if self.silent==1: return
         if self.disableTag: return
 
-        if (self.Title!=None)&(self.HasRendered==False):
+        if (self.Title is not None)&(self.HasRendered==False):
             #print
             #print "  %s"%self.Title
             self.HasRendered=True
