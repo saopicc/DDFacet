@@ -76,7 +76,7 @@ class ClassMaskMachine():
         if not self.DoMask: return
         print("Computing Mask", file=log)
         
-        if self.GD["Mask"]["Auto"] and self.GD["Deconv"]["Mode"] in ["HMP", "SSD"]:
+        if self.GD["Mask"]["Auto"] and self.GD["Deconv"]["Mode"] in ["HMP", "SSD", "SSD2"]:
             self.ImageNoiseMachine.calcNoiseMap(DicoResidual)
             self.NoiseMask=(self.ImageNoiseMachine.FluxImage>self.GD["Mask"]["SigTh"]*self.ImageNoiseMachine.NoiseMapReShape)
         elif self.GD["Mask"]["Auto"]:
