@@ -37,6 +37,7 @@ from matplotlib.path import Path
 from astropy.io import fits
 
 def PutDataInNewImage(oldfits,newfits,data):
+    log.print("writting image %s"%oldfits)
     hdu=fits.open(oldfits)
     hdu[0].data=data
     hdu.writeto(newfits+'.fits',overwrite=True)
@@ -753,7 +754,7 @@ class ClassMakeMask():
             self.MaskSelectedDS9()
 
         ExternalAndMask=self.options.ExternalMask
-        if ExternalAndMask is not None and ExternalAndMask is not "":
+        if ExternalAndMask is not None and ExternalAndMask != "":
             from DDFacet.Imager import ClassCasaImage
             CleanMaskImageName=ExternalAndMask
             print("Use mask image %s"%CleanMaskImageName, file=log)

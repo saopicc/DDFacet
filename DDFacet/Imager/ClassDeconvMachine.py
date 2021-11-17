@@ -319,9 +319,9 @@ class ClassImagerDeconv():
             self.FacetMachine.setAverageBeamMachine(AverageBeamMachine)
             if self.StokesFacetMachine:
                 self.StokesFacetMachine.setAverageBeamMachine(AverageBeamMachine)
-        # tell VisServer to not load weights
-        if self.do_predict_only:
-            self.VS.IgnoreWeights()
+        # # tell VisServer to not load weights
+        # if self.do_predict_only:
+        #     self.VS.IgnoreWeights()
 
         # all internal state initialized -- start the worker threads
         APP.startWorkers()
@@ -925,7 +925,7 @@ class ClassImagerDeconv():
 
         modelfile = self.GD["Predict"]["FromImage"]
         # if model image is specified, we'll use that, rather than the ModelMachine
-        if modelfile is not None and modelfile is not "":
+        if modelfile is not None and modelfile != "":
             print(ModColor.Str("Reading image file for the predict: %s" % modelfile), file=log)
             FixedModelImage = ClassCasaImage.FileToArray(modelfile,True)
             nch,npol,_,NPix=self.FacetMachine.OutImShape

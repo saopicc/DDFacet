@@ -98,7 +98,13 @@ class ClassVisServer():
         self.SigmoidInRoll = GD["Weight"]["SigmoidTaperInnerRolloffStrength"]
         self.SigmoidOutRoll = GD["Weight"]["SigmoidTaperOuterRolloffStrength"]
 
+        SubColName=None
+        
+        if ColName is not None and "-" in ColName:
+            Spl=ColName.split("-")
+            ColName,SubColName=Spl[0],Spl[1:]
         self.ColName = ColName
+        self.SubColName = SubColName
         self.CountPickle = 0
         self.DicoSelectOptions = GD["Selection"]
         self.TaQL = self.DicoSelectOptions.get("TaQL", None)
@@ -151,7 +157,10 @@ class ClassVisServer():
             else:
                 msname, ddid, field, column = msspec, self.DicoSelectOptions["DDID"], self.DicoSelectOptions["Field"], self.ColName
             MS = ClassMS.ClassMS(
-                msname, Col=column or self.ColName, DoReadData=False,
+                msname,
+                Col=column or self.ColName,
+                SubCol=self.SubColName,
+                DoReadData=False,
                 AverageTimeFreq=(1, 3),
                 Field=field, DDID=ddid, TaQL=self.TaQL,
                 TimeChunkSize=self.TMemChunkSize, ChanSlice=chanslice,
@@ -585,7 +594,7 @@ class ClassVisServer():
             print(ModColor.Str("This chunk is all flagged or has zero weight."), file=log)
             return
         
-        if DATA["sort_index"] is not None and DATA["Weights"] is not 1:
+        if DATA["sort_index"] is not None and DATA["Weights"] != 1:
             DATA["Weights"] = DATA["Weights"][DATA["sort_index"]]
 
         self.computeBDAInBackground(dictname, ms, DATA,

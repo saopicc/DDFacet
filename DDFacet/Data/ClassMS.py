@@ -61,7 +61,10 @@ from DDFacet.Other.progressbar import ProgressBar
 
 
 class ClassMS():
-    def __init__(self,MSname,Col="DATA",zero_flag=True,ReOrder=False,EqualizeFlag=False,DoPrint=True,DoReadData=True,
+    def __init__(self,MSname,
+                 Col="DATA",
+                 SubCol=None,
+                 zero_flag=True,ReOrder=False,EqualizeFlag=False,DoPrint=True,DoReadData=True,
                  TimeChunkSize=None,GetBeam=False,RejectAutoCorr=False,SelectSPW=None,DelStationList=None,
                  AverageTimeFreq=None,
                  Field=0,DDID=0,TaQL=None,ChanSlice=None,GD=None,
@@ -103,6 +106,8 @@ class ClassMS():
         self.MSName = MSName = reformat.reformat(os.path.abspath(MSname), LastSlash=False)
         
         self.ColName=Col
+        self.SubColName=SubCol
+        
         self.ChanSlice = ChanSlice or slice(None)
         self.zero_flag=zero_flag
         self.ReOrder=ReOrder
@@ -680,14 +685,27 @@ class ClassMS():
                 if sort_index is not None:
                     visdata1 = np.ndarray(shape=datashape, dtype=np.complex64)
                     table_all.getcolslicenp(self.ColName, visdata1, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
+                    if self.SubColName is not None:
+                        for SubCol in self.SubColName:
+                            print("  substracting MS visibilities from column %s" % SubCol, file=log)
+                            visdata2 = np.ndarray(shape=datashape, dtype=np.complex64)
+                            table_all.getcolslicenp(SubCol, visdata2, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
+                            visdata1-=visdata2
+                        
                     print("sorting visibilities", file=log)
                     t0 = time.time()
                     visdata[...] = visdata1[sort_index]
-                    del visdata1
+                    del visdata1,visdata2
                     print("sorting took %.1fs"%(time.time()-t0), file=log)
                 else:
                     #print(self.ColName, visdata.shape, visdata.dtype, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                     table_all.getcolslicenp(self.ColName, visdata, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
+                    if self.SubColName is not None:
+                        for SubCol in self.SubColName:
+                            print("  substracting MS visibilities from column %s" % SubCol, file=log)
+                            visdata2 = np.ndarray(shape=datashape, dtype=np.complex64)
+                            table_all.getcolslicenp(SubCol, visdata2, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
+                            visdata-=visdata2
                     #visdata[...]=table_all.getcolslice(self.ColName, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                 if self._reverse_channel_order:
                     visdata[:,:,:]= visdata[:,::-1,:]
@@ -1500,6 +1518,9 @@ class ClassMS():
         # elif (ColName in t.colnames() and self.GD["Predict"]["Overwrite"]):
         #     t.removecols(ColName)
         if ColDesc is None:
+            if "-" in LikeCol:
+                LikeCol=LikeCol.split("-")[0]
+
             desc=t.getcoldesc(LikeCol)
         else:
             desc=ColDesc

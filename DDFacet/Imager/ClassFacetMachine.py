@@ -126,7 +126,7 @@ class ClassFacetMachine():
         self.Oversize = Oversize
 
         DecorrMode=self.GD["RIME"]["DecorrMode"]
-        if DecorrMode is not None and DecorrMode is not "":
+        if DecorrMode is not None and DecorrMode != "":
             print(ModColor.Str("Using decorrelation mode %s"%DecorrMode), file=log)
         self.AverageBeamMachine=None
         self.SmoothJonesNorm=None
@@ -731,6 +731,7 @@ class ClassFacetMachine():
         else:
             wmax = self.VS.getMaxW()
             print("max w=%.6g from MS (--CF-wmax=0)"%wmax, file=log)
+
         # subprocesses will place W-terms etc. here. Reset this first.
         self._CF = shared_dict.create("CFPSF" if self.DoPSF else "CF")
         # check if w-kernels, spacial weights, etc. are cached
