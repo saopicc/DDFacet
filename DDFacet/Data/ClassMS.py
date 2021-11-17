@@ -691,11 +691,11 @@ class ClassMS():
                             visdata2 = np.ndarray(shape=datashape, dtype=np.complex64)
                             table_all.getcolslicenp(SubCol, visdata2, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                             visdata1-=visdata2
-                        
+                            del visdata2
                     print("sorting visibilities", file=log)
                     t0 = time.time()
                     visdata[...] = visdata1[sort_index]
-                    del visdata1,visdata2
+                    del visdata1
                     print("sorting took %.1fs"%(time.time()-t0), file=log)
                 else:
                     #print(self.ColName, visdata.shape, visdata.dtype, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
@@ -706,6 +706,7 @@ class ClassMS():
                             visdata2 = np.ndarray(shape=datashape, dtype=np.complex64)
                             table_all.getcolslicenp(SubCol, visdata2, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                             visdata-=visdata2
+                            del visdata2
                     #visdata[...]=table_all.getcolslice(self.ColName, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                 if self._reverse_channel_order:
                     visdata[:,:,:]= visdata[:,::-1,:]
