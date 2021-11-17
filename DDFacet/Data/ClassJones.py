@@ -1027,6 +1027,7 @@ class ClassJones():
         rac,decc=self.MS.OriginalRadec
         pBAR= ProgressBar(Title="  Init E-Jones ")#, HeaderSize=10,TitleSize=13)
         if not progressBar: pBAR.disable()
+        # pBAR.disable()
         pBAR.render(0, Tm.size)
         for itime in range(Tm.size):
             DicoBeam["t0"][itime]=T0s[itime]
