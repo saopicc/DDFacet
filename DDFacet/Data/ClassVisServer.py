@@ -91,6 +91,7 @@ class ClassVisServer():
         self.Super = GD["Weight"]["SuperUniform"]
         self.VisWeights = None
         
+        self.HasPrintedTaperingSettings = False
         self.EnableSigmoidTaper = GD["Weight"]["EnableSigmoidTaper"]
         self.SigmoidInCut = GD["Weight"]["SigmoidTaperInnerCutoff"]
         self.SigmoidOutCut = GD["Weight"]["SigmoidTaperOuterCutoff"]
@@ -729,7 +730,7 @@ class ClassVisServer():
                 __sigmoid(-uvdistlda * inner_taper_strength - inner_cut * inner_taper_strength)) - 2.0
         visweights *= (y / y.max())
 
-    def _CalcSigmoidTaper(self):
+    def _CalcSigmoidTaper(self, ims, ms, ichunk):
         """
             Sets up the UV crafter using Sigmoids to taper inner and outer
             The cuts are specified in uvlambda and the rolloff tuning parameter will be clamped to
@@ -739,20 +740,20 @@ class ClassVisServer():
             to that form either way by the visreader)
         """
         if self.EnableSigmoidTaper:
-            print("Tapering visibilities with the uv-crafter:", file=log)
-            print("\t Inner Cutoff {0:.2f} klda".format(self.SigmoidInCut * 1.0e-3), file=log)
-            print("\t Outer Cutoff {0:.2f} klda".format(self.SigmoidOutCut * 1.0e-3), file=log)
-            print("\t Inner Rolloff Strength {0:.2f}".format(self.SigmoidInRoll), file=log)
-            print("\t Outer Rolloff Strength {0:.2f}".format(self.SigmoidOutRoll), file=log)
-            for ims, ms in enumerate(self.ListMS):
-                for ichunk in range(len(ms.getChunkRow0Row1())):
-                    # APP will handle any serialization if NCPU == 1
-                    APP.runJob("SigmoidTaper:%d:%d" % (ims, ichunk), self._sigtaper,
-                            args=(self._weight_dict[ims][ichunk].readwrite(),
-                                    ms.ChanFreq,
-                                    self.SigmoidInCut, self.SigmoidOutCut, 
-                                    self.SigmoidOutRoll, self.SigmoidInRoll),
-                            counter=self._weightjob_counter, collect_result=False)
+            if not self.HasPrintedTaperingSettings:
+                print("Tapering visibilities with the uv-crafter:", file=log)
+                print("\t Inner Cutoff {0:.2f} klda".format(self.SigmoidInCut * 1.0e-3), file=log)
+                print("\t Outer Cutoff {0:.2f} klda".format(self.SigmoidOutCut * 1.0e-3), file=log)
+                print("\t Inner Rolloff Strength {0:.2f}".format(self.SigmoidInRoll), file=log)
+                print("\t Outer Rolloff Strength {0:.2f}".format(self.SigmoidOutRoll), file=log)
+                self.HasPrintedTaperingSettings = True
+            # APP will handle any serialization if NCPU == 1
+            APP.runJob("SigmoidTaper:%d:%d" % (ims, ichunk), self._sigtaper,
+                        args=(self._weight_dict[ims][ichunk].readwrite(),
+                                ms.ChanFreq,
+                                self.SigmoidInCut, self.SigmoidOutCut, 
+                                self.SigmoidOutRoll, self.SigmoidInRoll),
+                        counter=self._weightjob_counter, collect_result=False)
             APP.awaitJobCounter(self._weightjob_counter, progress="Sigmoid Tapering")
 
     def _CalcWeights_handler(self):
@@ -818,9 +819,6 @@ class ClassVisServer():
             return
         if not self._uvmax:
             UserWarning("data appears to be fully flagged: can't compute imaging weights")
-        
-        # compute and apply tapers
-        self._CalcSigmoidTaper()
 
         # in natural mode, leave the weights as is. In other modes, setup grid for calculations
         self._weight_grid = shared_dict.create("VisWeights.Grid")
@@ -869,6 +867,7 @@ class ClassVisServer():
         # launch jobs to finalize weights and save them to the cache
         for ims, ms in enumerate(self.ListMS):
             for ichunk in range(len(ms.getChunkRow0Row1())):
+                self._CalcSigmoidTaper(ims, ms, ichunk)
                 APP.runJob("FinalizeWeights:%d:%d" % (ims, ichunk), self._finalizeWeights_handler,
                            args=(self._weight_grid.readonly(),
                                  self._weight_dict[ims][ichunk].readwrite(),
@@ -1135,6 +1134,15 @@ class ClassVisServer():
             npix = npixx * npixy
             print("Calculating imaging weights on an [%i,%i]x%i grid with cellsize %g" % (npixx, npixy, nbands, cell), file=log)
             self._weight_grid.addSharedArray("grid", (nbands, npix), np.float64)
+        else:
+            nbands = self.NFreqBands
+            nch, npol, npixIm, _ = self.FullImShape
+            FOV = self.CellSizeRad * npixIm
+            cell = 1. / (self.Super * FOV)
+            xymax = int(math.floor(self._uvmax / cell)) + 1
+            npixx = xymax * 2 + 1
+            npixy = xymax + 1
+            npix = npixx * npixy
 
         # scan through MSs one by one
         for ims, ms in enumerate(self.ListMS):
@@ -1154,16 +1162,16 @@ class ClassVisServer():
 
                 # in Natural mode, we're done: dump weights out
                 if self.Weighting == "natural":
-                    self._finalizeWeights_handler(None, msw, ims, ichunk, 0)
+                    self._CalcSigmoidTaper(ims, ms, ichunk)
+                    self._finalizeWeights_handler(None, msw,
+                                                  ims, ichunk, ms.ChanFreq, cell, 
+                                                  npix, npixx, nbands, xymax)
                 # else accumulate onto uv grid
                 else:
                     self._accumulateWeights_handler(self._weight_grid, msw,
-                                         ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax)
-                    # delete to save memory
-                    for field in "weight", "uv", "flags", "index":
-                        if field in msw:
-                            msw.delete_item(field)
-                            
+                                         ims, ichunk, ms.ChanFreq, cell,
+                                         npix, npixx, nbands, xymax)
+                                    
         # save wmax to cache
         cPickle.dump(wmax, open(wmax_path, "wb"))
         self.maincache.saveCache("wmax")
@@ -1200,11 +1208,23 @@ class ClassVisServer():
                         continue
                     print("reloading weights %d.%d" % (ims, ichunk), file=log)
                     self._loadWeights_handler(msw, ims, ichunk, self._ignore_vis_weights)
+                    self._CalcSigmoidTaper(ims, ms, ichunk)
                     self._finalizeWeights_handler(self._weight_grid, msw,
                                                       ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax)
 
             if self._weight_grid is not None:
                 self._weight_grid.delete()
+
+        # free memory
+        for ims, ms in enumerate(self.ListMS):
+            msweights = self._weight_dict[ims]
+            for ichunk in range(len(ms.getChunkRow0Row1())):
+                msw = msweights[ichunk]
+                # delete to save memory
+                if self.Weighting != "natural":
+                    for field in "weight", "uv", "flags", "index":
+                        if field in msw:
+                            msw.delete_item(field)
 
         # mark caches as valid
         for ims, ms in enumerate(self.ListMS):
