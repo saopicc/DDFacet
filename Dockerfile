@@ -124,10 +124,11 @@ RUN makems WSRT_makems.cfg
 ## BUILD CASArest from source
 #####################################################################
 WORKDIR /src
-RUN git clone https://github.com/casacore/casarest
-WORKDIR /src/casarest
+RUN wget https://github.com/casacore/casarest/archive/v1.7.0.tar.gz
+RUN tar xvf v1.7.0.tar.gz
+WORKDIR /src/casarest-1.7.0
 RUN mkdir -p build
-WORKDIR /src/casarest/build
+WORKDIR /src/casarest-1.7.0/build
 RUN cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release ../
 RUN make -j 4
 RUN make install
@@ -168,7 +169,7 @@ RUN python3 -m pip install .
 # Cattery
 WORKDIR /src
 RUN wget https://github.com/ska-sa/meqtrees-cattery/archive/v1.7.0.tar.gz
-RUN tar -xvf v1.7.0.tar.gz
+RUN tar -xvf v1.7.0.tar.gz.1
 WORKDIR /src/meqtrees-cattery-1.7.0
 RUN python3 -m pip  install .
 
