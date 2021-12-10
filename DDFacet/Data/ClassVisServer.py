@@ -146,7 +146,7 @@ class ClassVisServer():
         self._chunk_shape = [0, 0, 0]
 
         for msspec in self.MSList:
-            if type(msspec) is not str:
+            if not isinstance(msspec,str):
                 msname, ddid, field, column = msspec
             else:
                 msname, ddid, field, column = msspec, self.DicoSelectOptions["DDID"], self.DicoSelectOptions["Field"], self.ColName

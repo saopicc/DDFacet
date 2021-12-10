@@ -196,7 +196,7 @@ class ClassArrayMethodSSD():
 
     def ToConvArray(self,V,OutMode="Data",Noise=False):
         A=self.PM.GiveModelArray(V)
-        if Noise is not False:
+        if Noise:
             A+=np.random.randn(*A.shape)*Noise
         A=self.ConvMachine.Convolve(A,OutMode=OutMode)
         return A
