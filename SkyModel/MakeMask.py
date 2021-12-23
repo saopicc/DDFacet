@@ -487,7 +487,10 @@ class ClassMakeMask():
                 _,_,dec,ra=self.CasaIm.toworld((0,0,jpix,ipix))
                 #d=np.sqrt((ra-rac)**2+(dec-decc)**2)
                 d=self.GiveAngDist(ra,dec,rac,decc)
-                if d<Radius:
+                
+                Cx=(ipix>=0) and (ipix<self.ImMask.shape[1])
+                Cy=(jpix>=0) and (jpix<self.ImMask.shape[0])
+                if d<Radius and Cx and Cy:
                     self.ImMask[jpix,ipix]=0
         
 

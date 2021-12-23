@@ -6,9 +6,10 @@ import numpy as np
 
 def ReadBBSModel(infile,infile_cluster=""):
     ifile  = open(infile, "rb")
-    Header=ifile.readline().strip()
+    Header=ifile.readline().strip().decode("ascii")
     ifile.close()
-    
+
+    print(Header)
     if Header[0]=="#":
         print("Using old SM format")
         return ReadBBSModelOld(infile,infile_cluster="")
@@ -27,6 +28,7 @@ def ReadBBSModelNew(infile,infile_cluster=""):
     dtype_str=[]
     default=[]
     killhere=0
+
     for i in range(len(F)):
         ss=F[i].lower()
         if ss.count("=")>0:
@@ -84,7 +86,8 @@ def ReadBBSModelNew(infile,infile_cluster=""):
             #print "%3i, %30s, %s"%(icat,F[i],L[i])
             if F[i]=="name":
                 SName=L[i]
-                Cat.Name[icat]=(L[i]).decode("ascii")
+                #print(type(L[i]))
+                Cat.Name[icat]=(L[i])#.decode("ascii")
                 continue
             if F[i]=="ra":
                 SRa=L[i]
@@ -234,7 +237,16 @@ def ReadBBSModelNew(infile,infile_cluster=""):
 
 
 def ReadBBSModelOld(infile,infile_cluster=""):
-    ifile  = open(infile, "rb")
+    # ifile  = open(infile, "r")
+    # reader = csv.reader(ifile)
+    # F = next(reader)
+    # F[0]=F[0].lower().replace(" ","").strip()
+    # F[0]=F[0][7::]
+    # dtype_str=[]
+    # default=[]
+    # killhere=0
+    
+    ifile  = open(infile, "r")
     reader = csv.reader(ifile)
     F = next(reader)
     F[0]=F[0].lower().replace(" ","").split("(")[-1]
@@ -297,7 +309,7 @@ def ReadBBSModelOld(infile,infile_cluster=""):
             #print "%3i, %30s, %s"%(icat,F[i],L[i])
             if F[i]=="name":
                 SName=L[i]
-                Cat.Name[icat]=L[i]
+                Cat.Name[icat]=(L[i])#.decode("ascii")
                 continue
             if F[i]=="ra":
                 SRa=L[i]

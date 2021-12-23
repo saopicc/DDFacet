@@ -12,6 +12,7 @@ from DDFacet.Imager import ClassCasaImage
 from pyrap.images import image
 from SkyModel.Sky import ModRegFile
 from SkyModel.Other import ModColor
+from SkyModel.Array import RecArrayOps
 
 SaveName="last_MakeModel.obj"
 
@@ -36,6 +37,7 @@ def read_options():
     group.add_option('--DoPrint',help='Deprecated',default="0")
     group.add_option('--CMethod',help='Clustering method [1,2,3,4] - look at the code for detail. Default is %default',default="4")
     group.add_option('--ds9PreClusterFile',help='For manual clustering. Do a ds9 .reg file with green circles (should be default) - and these will ne the nodes of the clustering',default="")
+    group.add_option('--NoGaussian',help='Replace all gaussian with points',type=int,default=0)
     
     group.add_option('--FromClusterCat',help='To use an external .ClusterCat.npy file.',type=str,default="")
     group.add_option('--ApparantFlux',type="int",help='Cluster the sources optimising the apparant flux. Default is %default',default=1)
@@ -79,12 +81,16 @@ def main(options=None):
         SMList=SkyModel.split(",")
         print("Concatenating SkyModels %s"%(str(SMList)), file=log)
         ThisCat=np.load(SMList[0])
+        ThisCat=RecArrayOps.RemoveField(ThisCat, "X")
+        ThisCat=RecArrayOps.RemoveField(ThisCat, "Y")
         ThisCat=ThisCat.view(np.recarray)
         ThisNDir=len(list(set(ThisCat.Cluster.tolist())))
         CurrentMaxCluster=ThisNDir
         CatList=[ThisCat]
         for SM in SMList[1::]:
             ThisCat=np.load(SM)
+            ThisCat=RecArrayOps.RemoveField(ThisCat, "X")
+            ThisCat=RecArrayOps.RemoveField(ThisCat, "Y")
             ThisCat=ThisCat.view(np.recarray)
             ThisNDir=len(list(set(ThisCat.Cluster.tolist())))
             ThisCat.Cluster+=CurrentMaxCluster
@@ -100,6 +106,7 @@ def main(options=None):
                            DoREG=True,
                            SaveNp=True)
         SM.Rename()
+        SM.MakeREG()
         SM.Save()
 
         return
@@ -115,9 +122,10 @@ def main(options=None):
 
         ModConstructor = ClassModModelMachine()
         MM=ModConstructor.GiveInitialisedMMFromFile(FileDicoModel)
-
+        
         SqrtNormImage=None
-        if options.ApparantFlux:
+        
+        if options.ApparantFlux and MM.GD["Beam"]["Model"] is not None:            
             FileSqrtNormImage="%s.Norm.fits"%options.BaseImageName
             imSqrtNormImage=image(FileSqrtNormImage)
             SqrtNormImage=imSqrtNormImage.getdata()
@@ -140,8 +148,14 @@ def main(options=None):
         SkyModel=options.BaseImageName+".npy"
         # reproduce code from old ClassModelMachine
         RefFreq=MM.DicoSMStacked["RefFreq"]
-        f0=RefFreq/1.5
-        f1=RefFreq*1.5
+        
+        if MM.GD["Deconv"]["Mode"]=="Hogbom": # Otherwise produce a "division by zero error"
+            f0=RefFreq/1.05
+            f1=RefFreq*1.05
+        else:
+            f0=RefFreq/1.5
+            f1=RefFreq*1.5
+        
         try:
             MM.setFreqMachine([f0,f1],[MM.RefFreq])
         except:
@@ -186,7 +200,7 @@ def main(options=None):
                        DoREG=True,SaveNp=True,
                        SelSource=DoSelect,ClusterMethod=CMethod)
 
-    if True:
+    if False:#True:
         print("Removing fake gaussians", file=log)
         Cat=SM.SourceCat
         
@@ -213,6 +227,9 @@ def main(options=None):
         #np.save(SkyModel,Cat)
         print("  done", file=log)
 
+    if options.NoGaussian:
+        SM.SourceCat["Type"]=0
+        
     PreCluster=options.ds9PreClusterFile
     SM.Cluster(NCluster=NCluster,DoPlot=DoPlot,PreCluster=PreCluster,FromClusterCat=options.FromClusterCat)
     SM.MakeREG()

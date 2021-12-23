@@ -277,8 +277,10 @@ def Give_dn(l0, m0, rad=1., order=4):
     dl = dl.flatten()
     dm = dm.flatten()
     mll=np.max(np.abs((dl+l0)**2+(dm+m0)**2))
+    ddd=np.sqrt(l**2+m**2)
     if mll>1.:
-        return 0., 0., np.ones((order+1, order+1), np.float32).flatten()
+        log.print(ModColor.Str("The lm_max is greater than one, pixel out of the sphere [mll=%f, lm = %.2f -> %.2f]..."%(mll,ddd.min(),ddd.max())))
+        return 0., 0., np.zeros((order+1, order+1), np.float32).flatten()
     y = np.sqrt(1-(dl+l0)**2-(dm+m0)**2)-np.sqrt(1-l0**2-m0**2)
     coef = ModFitPoly2D.polyfit2d(dl, dm, y, order=order)
     Corig = coef.copy()
@@ -438,7 +440,11 @@ class ClassWTermModified():
         if lmShift is not None:
             l0, m0 = lmShift
 
+        radmax=(1.-np.sqrt(l0**2+m0**2))/np.sqrt(2)
         rad = 3*lrad
+        rad=np.min([rad,0.99*radmax])
+        rad=np.max([rad,lrad])
+        
         # print "do FIT"
         self.Cv, self.Cu, CoefPoly = Give_dn(l0, m0, rad=rad, order=5)
         # print self.IDFacet,l0,m0,self.Cv,self.Cu

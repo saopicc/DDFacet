@@ -23,12 +23,12 @@ from DDFacet.ToolsDir import ModCoord
 class ClassSM():
     def __init__(self,infile,infile_cluster="",killdirs=[],invert=False,DoPrintCat=False,\
                      ReName=False,DoREG=False,SaveNp=False,NCluster=0,DoPlot=True,Tigger=False,\
-                     FromExt=None,ClusterMethod=1,SelSource=False):
+                     FromExt=None,ClusterMethod=1,SelSource=False,DoPrint=True):
         self.ClusterMethod=ClusterMethod
         self.infile_cluster=infile_cluster
         self.TargetList=infile
         self.Type="Catalog"
-        self.DoPrint=True
+        self.DoPrint=DoPrint
         if (type(infile).__name__=="instance") or (type(infile).__name__=="ClassImageSM") or (type(infile).__name__=="ClassSM"):
             Cat=infile.SourceCat.copy()
             Cat=Cat.view(np.recarray)
@@ -107,11 +107,17 @@ class ClassSM():
                     Name=self.SourceCat.Name[i]
                     if "byte" in type(Name).__name__: Name=Name.decode("utf-8")
                     if StrPiece in Name: self.SourceCat.kill[i]=1
+                    
         if invert:
             ind0=np.where(self.SourceCat.kill==0)[0]
             ind1=np.where(self.SourceCat.kill==1)[0]
             self.SourceCat.kill[ind0]=1
             self.SourceCat.kill[ind1]=0
+
+        # print(self.SourceCat.Name)
+        # print(self.SourceCat.kill)
+            
+        #log.print(ModColor.Str())
 
     def Save(self):
         infile=self.infile
@@ -141,6 +147,9 @@ class ClassSM():
         #print "   - Cluster File Name: %s"%self.infile_cluster
         print("   - Number of Sources  = ",self.SourceCat.shape[0])
         print("   - Number of Directions  = ",self.NDir)
+        Np=np.count_nonzero(self.SourceCat.Type==0)
+        Ng=np.count_nonzero(self.SourceCat.Type==1)
+        print("   - Number of [ POINT | GAUSSIANS ] : [ %i | %i ]"%(Np,Ng))
         print()
 
     def Cluster(self,NCluster=1,DoPlot=True,PreCluster="",FromClusterCat=""):

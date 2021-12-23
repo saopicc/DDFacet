@@ -568,7 +568,7 @@ class ClassVisServer():
         weights = self.GetVisWeights(iMS, iChunk)
         DATA["Weights"] = weights
         
-        if self.GD["Weight"]["OutColName"]:
+        if self.GD["Weight"]["OutColName"] and self.GD["Output"]["Mode"]!="Predict":
             # When the MS doesn't have an IMAGING_WEIGHT column
             ColDesc={'valueType': 'float',
                      'dataManagerType': 'StandardStMan',

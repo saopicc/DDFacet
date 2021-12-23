@@ -319,9 +319,10 @@ class ClassImagerDeconv():
             self.FacetMachine.setAverageBeamMachine(AverageBeamMachine)
             if self.StokesFacetMachine:
                 self.StokesFacetMachine.setAverageBeamMachine(AverageBeamMachine)
-        # # tell VisServer to not load weights
-        # if self.do_predict_only:
-        #     self.VS.IgnoreWeights()
+                
+        # tell VisServer to not load weights
+        if self.do_predict_only and self.GD["CF"]["wmax"]!=0: # if wmax==0 the wmax of the data is not computed, and the CFs are not properly set
+            self.VS.IgnoreWeights()
 
         # all internal state initialized -- start the worker threads
         APP.startWorkers()

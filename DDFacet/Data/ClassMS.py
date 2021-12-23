@@ -1113,6 +1113,17 @@ class ClassMS():
 
         ta=table(table_all.getkeyword('FIELD'),ack=False)
         rarad,decrad=ta.getcol('PHASE_DIR')[self.Field][0]
+        if np.abs(decrad)>=np.pi/2:
+            log.print(ModColor.Str("BE CAREFUL SOME SOFTWARE HAVE BEEN SHOWN TO NOT PROPERLY MANAGE DEC=90 DEGREES"))
+            log.print(ModColor.Str("   ... will slightly move the assumed phase center..."))
+            U,V,W=table_all.getcol("UVW").T
+            d=np.max(np.sqrt(U**2+V**2))
+            wavelmin=3e8/self.ChanFreq.max()
+            ddecrad=(wavelmin/d)/100
+            decrad-=ddecrad
+            ddec_arcsec=ddecrad*180/np.pi*3600
+            log.print(ModColor.Str("   ... moving phase center by 1/100th of a resolution element... (%.3f arcsec))"%ddec_arcsec))
+            
         if rarad<0.: rarad+=2.*np.pi
         self.OriginalRadec = self.OldRadec = rarad,decrad
 
@@ -1362,6 +1373,10 @@ class ClassMS():
             except RuntimeError:
                 vis0 = t.getcol("DATA", row0, nrow)
             vis0[:, self.ChanSlice, ...] = vis[reverse_index, :, ...]
+            IsNan=np.isnan(vis0)
+            if np.count_nonzero(IsNan)>0:
+                log.print(ModColor.Str("There are NaNs in the array to be put in %s, replacing by zeros..."%colname))
+                vis0[IsNan]=0
             t.putcol(colname, vis0, row0, nrow)
         else:
             if sort_index is None:
@@ -1375,8 +1390,12 @@ class ClassMS():
                                   "contains 2D axis. We will assume this means nrow x nchan x (ncorr == 1). "
                                   "Please notify your observatory of this issue.")
                     vis0 = np.zeros((nrow,vis.shape[1]),vis.dtype)
-                    
                 vis0[sort_index,...] = vis
+
+            IsNan=np.isnan(vis0)
+            if np.count_nonzero(IsNan)>0:
+                log.print(ModColor.Str("  There are NaNs in the array to be put in %s, replacing by zeros..."%colname))
+                vis0[IsNan]=0
             t.putcol(colname, vis0, row0, nrow)
         t.close()
 
