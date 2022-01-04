@@ -753,7 +753,7 @@ class ClassMakeMask():
             self.MaskSelectedDS9()
 
         ExternalAndMask=self.options.ExternalMask
-        if ExternalAndMask is not None and ExternalAndMask is not "":
+        if ExternalAndMask:
             from DDFacet.Imager import ClassCasaImage
             CleanMaskImageName=ExternalAndMask
             print("Use mask image %s"%CleanMaskImageName, file=log)

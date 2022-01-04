@@ -191,7 +191,7 @@ class ClassStokes:
                  index of dependency (0 or 1) to be used as right-most value in the expressions listed above (compulsory
                         if binary operator was specified)
         """
-        if type(exp) is not list or len(exp) < 2:
+        if not isinstance(exp,list) or len(exp) < 2:
             raise ValueError("Expected stokes dependency of the form x0 [x1 ... xN] expr")
         deps = exp[0:len(exp)-1]
         combExp = exp[len(exp)-1]
