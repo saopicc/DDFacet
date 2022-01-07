@@ -204,7 +204,9 @@ class ClassJones():
 
             self.HasKillMSSols = True
 
-        ApplyBeam=(GD["Beam"]["Model"] is not None) and (GD["Beam"]["Model"] != "")
+
+        ApplyBeam=(GD["Beam"]["Model"] is not None) and (GD["Beam"]["Model"]!="")
+
         if ApplyBeam:
             self.ApplyCal = True
             valid=False

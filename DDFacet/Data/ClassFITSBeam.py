@@ -57,7 +57,7 @@ class ClassFITSBeam (object):
         self.ms = ms
         # filename is potentially a list (frequencies will be matched)
         self.beamsets = opts["FITSFile"]
-        if type(self.beamsets) is not list:
+        if not isinstance(self.beamsets,list):
             self.beamsets = self.beamsets.split(',')
         self.pa_inc = opts["FITSParAngleIncDeg"]
         self.time_inc = opts["DtBeamMin"]
