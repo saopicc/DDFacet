@@ -1735,9 +1735,9 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
     Ultimately, returns a list of (MSName, ddid, field) tuples, where MSName is a proper MS path, and ddid
     and field are indices.
     """
-    if type(MSName) is list:
+    if isinstance(MSName,list):
         print("multi-MS mode", file=log)
-    elif type(MSName) is not str:
+    elif not isinstance(MSName,str):
         raise TypeError("MSName parameter must be a list or a filename")
     elif MSName.endswith(".txt"):
         MSName0 = MSName
