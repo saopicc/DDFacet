@@ -686,12 +686,19 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             
 
         if self.GD["Facets"].get("FluxPaddingAppModel",None) is not None:
+            # if os.environ.get("PYTHONHASHSEED",None)!=0:
+            #     raise RuntimeError("PYTHONHASHSEED environment variable should be set to 0")
+            
+            
             NameModel=self.GD["Facets"]["FluxPaddingAppModel"]
             log.print("Computing individual facet flux density for facet-dependent padding...")
             ModelImage=image(NameModel).getdata()
             nch,npol,_,_=ModelImage.shape
             ModelImage=np.mean(ModelImage[:,0,:,:],axis=0)
             ModelImage=(ModelImage.T[::-1]).copy()
+
+            # Hash_ModelImage=hash(a.data.tobytes())
+            
             _,_,nx,ny=self.OutImShape
             Dx=self.CellSizeRad * nx/2
             Dy=self.CellSizeRad * ny/2
@@ -699,7 +706,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             from DDFacet.Other import ClassTimeIt
             T=ClassTimeIt.ClassTimeIt("FluxPaddingAppModel")
             T.disable()
+            
             lg, mg = X, Y = np.mgrid[-Dx:Dx:nx * 1j, -Dy:Dy:ny * 1j]
+            
             for iFacet in self.DicoImager.keys():
                 vertices = self.DicoImager[iFacet]["Polygon"]
                 lp,mp=vertices.T
@@ -774,6 +783,16 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         # self.MakeMasksTessel()
 
+        DicoImager={}
+        iFacet=0
+        for iFacetIn in sorted(list(self.DicoImager.keys())):
+            l0,m0=self.DicoImager[iFacetIn]["lmShift"]
+            if l0**2+m0**2<1:
+                DicoImager[iFacet]=self.DicoImager[iFacetIn]
+                iFacet+=1
+                
+        self.DicoImager=DicoImager
+        
         NpixMax = np.max([self.DicoImager[iFacet]["NpixFacet"]
                           for iFacet in sorted(self.DicoImager.keys())])
         NpixMaxPadded = np.max(
@@ -782,6 +801,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.PaddedGridShape = (1, 1, NpixMaxPadded, NpixMaxPadded)
         self.FacetShape = (1, 1, NpixMax, NpixMax)
 
+            
         dmin = 1
         for iFacet in range(len(self.DicoImager)):
             l, m = self.DicoImager[iFacet]["l0m0"]
@@ -790,7 +810,11 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 dmin = d
                 iCentralFacet = iFacet
         self.iCentralFacet = iCentralFacet
+
+            
+        
         self.NFacets = len(self.DicoImager)
+        LPolygonNew=[self.DicoImager[iFacet]["Polygon"] for iFacet in range(self.NFacets)]
         # regFile="%s.tessel.reg"%self.GD["Output"]["Name"]
         labels = [
             (self.DicoImager[i]["lmShift"][0],

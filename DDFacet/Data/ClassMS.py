@@ -1261,7 +1261,24 @@ class ClassMS():
             times_utc = np.array(list(map(lambda x: qa.quantity("{}s".format(x)).to_unix_time(), times)))
             sel = np.logical_or(times_utc < st0, times_utc > st1)
             flags[sel, :, :] = True
+            
+        if self.DicoSelectOptions["TimeRangeFromStartMin"]:
+            st0, st1 = self.DicoSelectOptions["TimeRangeFromStartMin"]
+            print("  imaging only uv data in time range [{}~{}] minutes since start".format(st0, st1), file=log)
+            st0*=60
+            st1*=60
+            dt=times-times[0]
+            C0=(dt<st0)
+            C1=(dt>=st1)
+            sel = (C0|C1)
+            flags[sel, :, :] = True
 
+        # print("JJJJJJJ")
+        # iAnt=23
+        # sel=np.logical_not(((A0==iAnt)|(A1==iAnt)))
+        # flags[sel, :, :] = True
+        # print("JJJJJJJ")
+        
         if self.DicoSelectOptions["DistMaxToCore"]:
             DMax = self.DicoSelectOptions["DistMaxToCore"] * 1e3
             X, Y, Z = self.StationPos.T

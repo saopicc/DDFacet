@@ -4,6 +4,11 @@ from __future__ import division, absolute_import, print_function
 import numpy as np
 from . import ModTigger
 from . import ModSMFromNp
+from . import ModSMFromFITS
+import ephem
+from astropy.time import Time
+from DDFacet.Other import logger
+log=logger.getLogger("ClassSM")
 
 from SkyModel.Other import rad2hmsdms
 from SkyModel.Other import ModColor
@@ -11,11 +16,15 @@ from SkyModel.Array import RecArrayOps
 from SkyModel.Sky.ClassClusterClean import ClassClusterClean
 from SkyModel.Sky.ClassClusterTessel import ClassClusterTessel
 from SkyModel.Sky.ClassClusterRadial import ClassClusterRadial
+from SkyModel.Sky.ClassClusterSquareRadial import ClassClusterSquareRadial
 from SkyModel.Sky.ClassClusterKMean import ClassClusterKMean
 #import ModClusterRadial
 from pyrap.images import image
 import scipy.linalg
-from .ModBBS2np import ReadBBSModel
+from SkyModel.Sky.ModBBS2np import ReadBBSModel
+#from SkyModel.Sky.ModSMFromFITS import ReadSMFromFITS
+import DDFacet.Other.MyPickle
+
 from . import ModRegFile
 import time
 from DDFacet.ToolsDir import ModCoord
@@ -23,66 +32,112 @@ from DDFacet.ToolsDir import ModCoord
 class ClassSM():
     def __init__(self,infile,infile_cluster="",killdirs=[],invert=False,DoPrintCat=False,\
                      ReName=False,DoREG=False,SaveNp=False,NCluster=0,DoPlot=True,Tigger=False,\
-                     FromExt=None,ClusterMethod=1,SelSource=False,DoPrint=True):
+                     FromExt=None,ClusterMethod=1,SelSource=False,DoPrint=True,ListBody=None):
         self.ClusterMethod=ClusterMethod
         self.infile_cluster=infile_cluster
         self.TargetList=infile
         self.Type="Catalog"
         self.DoPrint=DoPrint
+        self.D_FITS=None
+
+        self.InputCatIsEmpty=False
         if (type(infile).__name__=="instance") or (type(infile).__name__=="ClassImageSM") or (type(infile).__name__=="ClassSM"):
             Cat=infile.SourceCat.copy()
             Cat=Cat.view(np.recarray)
             self.DoPrint=0
-# =======
-#         if "instance" in str(type(infile)):
-#             ClusterCat=infile.ClusterCat.copy()
-#             NN=ClusterCat.shape[0]
-#             Cat=np.zeros((NN,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('Sref',np.float),('I',np.float),('Q',np.float),\
-#                                                        ('U',np.float),('V',np.float),('RefFreq',np.float),('alpha',np.float),('ESref',np.float),\
-#                                                        ('Ealpha',np.float),('kill',np.int),('Cluster',np.int),('Type',np.int),('Gmin',np.float),\
-#                                                        ('Gmaj',np.float),('Gangle',np.float),("Select",np.int),('l',np.float),('m',np.float),
-#                                                        ("Exclude",bool)])
-#             Cat=Cat.view(np.recarray)
-#             Cat.RefFreq=1.
-#             Cat.ra[:]=ClusterCat.ra
-#             Cat.dec[:]=ClusterCat.dec
-#             Cat.I[:]=ClusterCat.SumI[:]
-#             Cat.Cluster=np.arange(NN)
-#             Cat.Sref[:]=ClusterCat.SumI[:]
-# >>>>>>> TestASKAP
         elif ".npy" in infile:
             Cat=np.load(infile)
             Cat=Cat.view(np.recarray)
+        elif infile=="Empty":
+            Cat=np.zeros((0,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('Sref',np.float),('I',np.float),('Q',np.float),\
+                                     ('U',np.float),('V',np.float),('RefFreq',np.float),('alpha',np.float),('ESref',np.float),\
+                                     ('Ealpha',np.float),('kill',np.int),('Cluster',np.int),('Type',np.int),('Gmin',np.float),\
+                                     ('Gmaj',np.float),('Gangle',np.float),("Select",np.int),('l',np.float),('m',np.float),("Exclude",bool)])
+            Cat=Cat.view(np.recarray)
+            self.InputCatIsEmpty=True
+        elif ".pickle" in infile:
+            D=DDFacet.Other.MyPickle.Load(infile)
+            Cat=D["SourceCat"].view(np.recarray)
+            self.D_FITS=D["D_FITS"]
         elif Tigger:
             Cat=ModTigger.ReadTiggerModel(infile)
         elif FromExt is not None:
-            
             Cat=ModSMFromNp.ReadFromNp(FromExt)
+        elif ".fits"==infile[-5:]:
+            Cat,self.D_FITS=ModSMFromFITS.ReadSMFromFITS(infile)
         else:
             Cat=ReadBBSModel(infile,infile_cluster=infile_cluster)
+            
+
+            
         self.SourceCat=Cat
         self.killdirs=killdirs
         self.invert=invert
         self.infile=infile
         self.REGFile=None
-        self.Dirs=sorted(list(set(self.SourceCat.Cluster.tolist())))
-        self.NDir=np.max(self.SourceCat.Cluster)+1
-        self.NSources=Cat.shape[0]
-
+        if not self.InputCatIsEmpty:
+            self.Dirs=sorted(list(set(self.SourceCat.Cluster.tolist())))
+            self.NDir=np.max(self.SourceCat.Cluster)+1
+            self.NSources=Cat.shape[0]
+        else:
+            self.Dirs=[]
+            self.NDir=0
+            self.NSources=0
+            
+        self.rarad=self.decrad=None
         try:
-            SourceCat=self.SourceCat
-            indIMax=np.argmax(SourceCat.I)
-            self.rarad=SourceCat.ra[indIMax]#np.sum(SourceCat.I*SourceCat.ra)/np.sum(SourceCat.I)
-            self.decrad=np.sum(SourceCat.I*SourceCat.dec)/np.sum(SourceCat.I)
+            if self.D_FITS is None:
+                SourceCat=self.SourceCat
+                indIMax=np.argmax(SourceCat.I)
+                log.print(("Computing lm of the center at flux-weighted mean rac/dec"))
+                #self.rarad=SourceCat.ra[indIMax]#
+                self.rarad=np.sum(SourceCat.I*SourceCat.ra)/np.sum(SourceCat.I)
+                self.decrad=np.sum(SourceCat.I*SourceCat.dec)/np.sum(SourceCat.I)
+            else:
+                print(("Reading lm of the center from FITS"))
+                #self.rarad=SourceCat.ra[indIMax]#
+                self.rarad=self.D_FITS["rac"]
+                self.decrad=self.D_FITS["decc"]
+                
             self.CoordMachine = ModCoord.ClassCoordConv(self.rarad, self.decrad)
         except:
             pass
 
-
+        if ListBody is not None:
+            for Body in ListBody:
+                tm = Time(Body["Time"] / 86400.0, scale="utc", format='mjd')
+                if Body["Name"]=="Sun": 
+                    B=ephem.Sun()
+                    B.compute(tm.iso)
+                    log.print("[%s] On %s, position is ra/dec = %s %s"%(Body["Name"],tm.datetime,B.ra,B.dec))
+                    A = np.zeros((1,),dtype=self.SourceCat.dtype)
+                    A=A.view(np.recarray)
+                    A.ra=float(B.ra)
+                    A.dec=float(B.dec)
+                    A.I=1000.
+                    A.Sref=A.I
+                    if not self.InputCatIsEmpty:
+                        A.RefFreq=self.SourceCat.RefFreq[0]
+                        C=np.max(self.SourceCat.Cluster)+1
+                    else:
+                        A.RefFreq=100e6
+                        C=0
+                        
+                    A.Cluster=C
+                    A.Type=2
+                    A.Gmaj=30./60*np.pi/180
+                    A.Gmin=A.Gmaj
+                    A.Name="c%is%i."%(C,0)
+                    
+                    self.SourceCat=np.hstack([self.SourceCat,A])
+                    self.SourceCat=self.SourceCat.view(np.recarray)
+                    
         self.BuildClusterCat()
+        self.Dirs=sorted(list(set(self.SourceCat.Cluster.tolist())))
         self.NDir=np.max(self.SourceCat.Cluster)+1
         self.NSources=Cat.shape[0]
         self.SetSelection()
+
         if self.DoPrint: self.PrintBasics()
 
 
@@ -135,6 +190,23 @@ class ClassSM():
 
         self.PrintBasics()
 
+    def SavePickle(self):
+        infile=self.infile
+        print(ModColor.Str(" SkyModel PROPERTIES: "))
+        npext=""
+        if not(".pickle" in infile): npext=".pickle"
+        self.NpFile="%s%s"%(infile,npext)
+        D={"SourceCat":self.SourceCat,
+           "D_FITS":self.D_FITS,
+           "ClusterCat":self.ClusterCat}
+        print("   - SkyModel File Name: %s"%ModColor.Str(self.NpFile,col="green"))
+        DDFacet.Other.MyPickle.Save(D,self.NpFile)
+        if self.REGFile is not None: print("   - ds9 region file: %s"%ModColor.Str(self.REGFile,col="green"))
+
+
+        self.PrintBasics()
+
+        
     def PrintBasics(self):
         infile=self.infile
         # if "instance" in str(type(infile)): return
@@ -153,7 +225,6 @@ class ClassSM():
         print()
 
     def Cluster(self,NCluster=1,DoPlot=True,PreCluster="",FromClusterCat=""):
-
 
         if PreCluster!="":
             R=ModRegFile.RegToNp(PreCluster)
@@ -264,14 +335,21 @@ class ClassSM():
 
         indIMax=np.argmax(SourceCat.I)
 
-        self.rarad=SourceCat.ra[indIMax]#np.sum(SourceCat.I*SourceCat.ra)/np.sum(SourceCat.I)
-        self.decrad=np.sum(SourceCat.I*SourceCat.dec)/np.sum(SourceCat.I)
-
-        self.CoordMachine = ModCoord.ClassCoordConv(self.rarad, self.decrad)
-
-
+        # This is already defined in __init__
+        if self.rarad is None:
+            self.rarad=SourceCat.ra[indIMax]#np.sum(SourceCat.I*SourceCat.ra)/np.sum(SourceCat.I)
+            self.decrad=np.sum(SourceCat.I*SourceCat.dec)/np.sum(SourceCat.I)
+            self.CoordMachine = ModCoord.ClassCoordConv(self.rarad, self.decrad)
+        
         x,y,s=SourceCat.ra,SourceCat.dec,SourceCat.I
         x,y=self.radec2lm_scalar(x,y)
+
+        # import pylab
+        # pylab.clf()
+        # pylab.scatter(x,y)
+        # pylab.draw()
+        # pylab.show()
+
         
         SourceCat.Cluster=0
 
@@ -306,6 +384,8 @@ class ClassSM():
                 nk=l0.size
 
                 CM=ClassClusterKMean(x,y,s,nk,DoPlot=DoPlot,InitLM=(l0,m0))
+        elif self.ClusterMethod==5:
+            CM=ClassClusterSquareRadial(x,y,s,nk,DoPlot=DoPlot,D_FITS=self.D_FITS)
 
 
         REGFile="%s.tessel.reg"%self.TargetList

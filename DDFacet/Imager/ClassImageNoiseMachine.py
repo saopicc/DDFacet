@@ -59,7 +59,7 @@ class ClassImageNoiseMachine():
         self.GD["Deconv"]["PeakFactor"]=0#0.01
         self.GD["Deconv"]["PSFBox"] = "full"
         self.GD["Deconv"]["MaxMinorIter"] = 10000
-        self.GD["Deconv"]["RMSFactor"] = 3.
+        self.GD["Deconv"]["RMSFactor"] = self.GD["Mask"]["AutoRMSFactor"]
         # self.GD["HMP"]["Scales"]=[0]
         self.GD["HMP"]["Ratios"] = []
         # self.GD["MultiScale"]["Ratios"]=[]

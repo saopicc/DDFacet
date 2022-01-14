@@ -125,8 +125,9 @@ def main(options=None):
         
         SqrtNormImage=None
         
-        if options.ApparantFlux and MM.GD["Beam"]["Model"] is not None:            
+        if options.ApparantFlux and MM.GD["Beam"]["Model"] is not None:
             FileSqrtNormImage="%s.Norm.fits"%options.BaseImageName
+            log.print("Open %s"%FileSqrtNormImage)
             imSqrtNormImage=image(FileSqrtNormImage)
             SqrtNormImage=imSqrtNormImage.getdata()
             nchan,npol,_,_=SqrtNormImage.shape
@@ -160,7 +161,11 @@ def main(options=None):
             MM.setFreqMachine([f0,f1],[MM.RefFreq])
         except:
             pass # this is an old version of DDF which doesn't need this
-        MM.ToNPYModel(FitsFile,SkyModel,BeamImage=SqrtNormImage)
+        
+        MM.ToNPYModel(FitsFile,
+                      SkyModel,
+                      BeamImage=SqrtNormImage),
+                      #AtFreq=140.72113037e6)
 
         # SkyModel="tmpSourceCat.npy"
         # ModelImage=MM.GiveModelImage()

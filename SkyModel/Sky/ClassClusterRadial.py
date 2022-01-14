@@ -56,7 +56,7 @@ class ClassClusterRadial():
                 cond_th=(th_s>th0)&(th_s<th1)
                 ind=np.where(cond_r&cond_th)[0]
 
-                thline=np.linspace(th0,th1,100.)
+                thline=np.linspace(th0,th1,100)
                 #print "ts: ",r0,r1,th0,th1
                 rr=np.array([r0,r1])
                 if DoPlot:

@@ -330,6 +330,10 @@ class ClassFacetMachine():
         self.DicoImager[iFacet]["lmShift"] = lmShift
         # CellRad=(Cell/3600.)*np.pi/180.
 
+        d=np.sqrt(l0**2+m0**2)
+        if d>1:
+            return
+        
         raFacet, decFacet = self.CoordMachine.lm2radec(
                             np.array([lmShift[0]]), np.array([lmShift[1]]))
         # print>>log,"Facet %d l %f m %f RA %f Dec %f"%(iFacet, l0, m0, raFacet, decFacet)
@@ -454,7 +458,7 @@ class ClassFacetMachine():
                                    -lcenter_max:lcenter_max:self.GD["Facets"]["NFacets"] * 1j]
         lFacet = lFacet.flatten()
         mFacet = mFacet.flatten()
-
+        
         self.lmSols = lFacet, mFacet
 
         raSols, decSols = self.CoordMachine.lm2radec(lFacet.copy(), mFacet.copy())
