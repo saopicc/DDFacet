@@ -106,9 +106,10 @@ class ClassSM():
             pass
 
         if ListBody is not None:
+            log.print("Append sources to the sky model:")
             CAS=ClassAppendSource.ClassAppendSource(self,ListBody)
             CAS.appendAll()
-            
+
         self.BuildClusterCat()
         self.Dirs=sorted(list(set(self.SourceCat.Cluster.tolist())))
         self.NDir=np.max(self.SourceCat.Cluster)+1

@@ -9,12 +9,12 @@ def ReadBBSModel(infile,infile_cluster=""):
     Header=ifile.readline().strip().decode("ascii")
     ifile.close()
 
-    print(Header)
+    #print(Header)
     if Header[0]=="#":
-        print("Using old SM format")
+        #print("Using old SM format")
         return ReadBBSModelOld(infile,infile_cluster="")
     else:
-        print("Using new SM format")
+        #print("Using new SM format")
         return ReadBBSModelNew(infile,infile_cluster="")
         
     
@@ -156,7 +156,7 @@ def ReadBBSModelNew(infile,infile_cluster=""):
                 SType=L[i]
                 if SType=="POINT":
                     Cat.Type[icat]=0
-                elif SType=="GAUSS":
+                elif SType=="GAUSSIAN":
                     Cat.Type[icat]=1
                 elif SType=="BOX":
                     Cat.Type[icat]=2
@@ -388,7 +388,7 @@ def ReadBBSModelOld(infile,infile_cluster=""):
                 SType=L[i]
                 if SType=="POINT":
                     Cat.Type[icat]=0
-                elif SType=="GAUSS":
+                elif SType=="GAUSSIAN":
                     Cat.Type[icat]=1
                 elif SType=="BOX":
                     Cat.Type[icat]=2
