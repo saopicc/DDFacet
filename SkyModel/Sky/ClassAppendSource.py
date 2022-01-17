@@ -53,7 +53,9 @@ class ClassAppendSource():
                 
             elif Body["Name"]=="CygA" or Body["Name"]=="CasA" or Body["Name"]=="VirA":
                 path = os.path.dirname(os.path.abspath(__file__))
-                A=ReadBBSModel("%s/Models/LOFAR/%s.txt"%(path,Body["Name"]))
+                FName="%s/Models/LOFAR/%s.txt"%(path,Body["Name"])
+                A=ReadBBSModel(FName)
+                log.print("  [%s] Reading file %s"%(Body["Name"],FName))
                 ra,dec=np.mean(A.ra),np.mean(A.dec)
                 d=angDist(self.SM.rarad,ra,self.SM.decrad,dec)*180/np.pi
                 ras  = rad2hmsdms(ra,Type="ra").replace(" ",":")
