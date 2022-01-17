@@ -154,7 +154,14 @@ def ReadBBSModelNew(infile,infile_cluster=""):
                 continue
             if F[i]=="type":
                 SType=L[i]
-                Cat.Type[icat]=(SType!="POINT")
+                if SType=="POINT":
+                    Cat.Type[icat]=0
+                elif SType=="GAUSS":
+                    Cat.Type[icat]=1
+                elif SType=="BOX":
+                    Cat.Type[icat]=2
+                
+                
                 continue
             if F[i]=="majoraxis":
                 Smaj=L[i]
@@ -375,9 +382,19 @@ def ReadBBSModelOld(infile,infile_cluster=""):
                 Cat.kill[icat]=int(L[i])
                 continue
             if F[i]=="type":
+                # SType=L[i]
+                # Cat.Type[icat]=(SType!="POINT")
+                
                 SType=L[i]
-                Cat.Type[icat]=(SType!="POINT")
+                if SType=="POINT":
+                    Cat.Type[icat]=0
+                elif SType=="GAUSS":
+                    Cat.Type[icat]=1
+                elif SType=="BOX":
+                    Cat.Type[icat]=2
                 continue
+
+            
             if F[i]=="majoraxis":
                 Smaj=L[i]
                 Cat.Gmaj[icat]=(float(Smaj)/3600.)*(np.pi/180.)/(2.*np.sqrt(2.*np.log(2)))
