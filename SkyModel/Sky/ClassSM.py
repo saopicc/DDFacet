@@ -5,8 +5,6 @@ import numpy as np
 from . import ModTigger
 from . import ModSMFromNp
 from . import ModSMFromFITS
-import ephem
-from astropy.time import Time
 from DDFacet.Other import logger
 log=logger.getLogger("ClassSM")
 
@@ -68,6 +66,9 @@ class ClassSM():
         else:
             Cat=ReadBBSModel(infile,infile_cluster=infile_cluster)
             
+            Cat.Gmaj[Cat.Type==2]*=2.*np.sqrt(2.*np.log(2))
+            Cat.Gmin[Cat.Type==2]*=2.*np.sqrt(2.*np.log(2))
+
 
             
         self.SourceCat=Cat
@@ -104,33 +105,6 @@ class ClassSM():
             pass
 
         if ListBody is not None:
-            for Body in ListBody:
-                tm = Time(Body["Time"] / 86400.0, scale="utc", format='mjd')
-                if Body["Name"]=="Sun": 
-                    B=ephem.Sun()
-                    B.compute(tm.iso)
-                    log.print("[%s] On %s, position is ra/dec = %s %s"%(Body["Name"],tm.datetime,B.ra,B.dec))
-                    A = np.zeros((1,),dtype=self.SourceCat.dtype)
-                    A=A.view(np.recarray)
-                    A.ra=float(B.ra)
-                    A.dec=float(B.dec)
-                    A.I=1000.
-                    A.Sref=A.I
-                    if not self.InputCatIsEmpty:
-                        A.RefFreq=self.SourceCat.RefFreq[0]
-                        C=np.max(self.SourceCat.Cluster)+1
-                    else:
-                        A.RefFreq=100e6
-                        C=0
-                        
-                    A.Cluster=C
-                    A.Type=2
-                    A.Gmaj=30./60*np.pi/180
-                    A.Gmin=A.Gmaj
-                    A.Name="c%is%i."%(C,0)
-                    
-                    self.SourceCat=np.hstack([self.SourceCat,A])
-                    self.SourceCat=self.SourceCat.view(np.recarray)
                     
         self.BuildClusterCat()
         self.Dirs=sorted(list(set(self.SourceCat.Cluster.tolist())))
