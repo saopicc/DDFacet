@@ -12,6 +12,7 @@ from SkyModel.Other import rad2hmsdms
 from SkyModel.Other import ModColor
 from SkyModel.Array import RecArrayOps
 from SkyModel.Sky.ClassClusterClean import ClassClusterClean
+from SkyModel.Sky import ClassAppendSource
 from SkyModel.Sky.ClassClusterTessel import ClassClusterTessel
 from SkyModel.Sky.ClassClusterRadial import ClassClusterRadial
 from SkyModel.Sky.ClassClusterSquareRadial import ClassClusterSquareRadial
@@ -105,7 +106,9 @@ class ClassSM():
             pass
 
         if ListBody is not None:
-                    
+            CAS=ClassAppendSource.ClassAppendSource(self,ListBody)
+            CAS.appendAll()
+            
         self.BuildClusterCat()
         self.Dirs=sorted(list(set(self.SourceCat.Cluster.tolist())))
         self.NDir=np.max(self.SourceCat.Cluster)+1
