@@ -221,7 +221,8 @@ class ClassSM():
         print("   - Number of Directions  = ",self.NDir)
         Np=np.count_nonzero(self.SourceCat.Type==0)
         Ng=np.count_nonzero(self.SourceCat.Type==1)
-        print("   - Number of [ POINT | GAUSSIANS ] : [ %i | %i ]"%(Np,Ng))
+        Nb=np.count_nonzero(self.SourceCat.Type==2)
+        print("   - Number of [ POINT | GAUSSIANS | BOX ] : [ %i | %i | %i ]"%(Np,Ng,Nb))
         print()
 
     def Cluster(self,NCluster=1,DoPlot=True,PreCluster="",FromClusterCat=""):
