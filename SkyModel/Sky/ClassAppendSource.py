@@ -51,7 +51,7 @@ class ClassAppendSource():
 
 
                 
-            elif Body["Name"]=="CygA" or Body["Name"]=="CasA" or Body["Name"]=="VirA":
+            elif Body["Name"]=="CygA" or Body["Name"]=="CasA" or Body["Name"]=="VirA" or Body["Name"]=="TauA":
                 path = os.path.dirname(os.path.abspath(__file__))
                 FName="%s/Models/LOFAR/%s.txt"%(path,Body["Name"])
                 A=ReadBBSModel(FName)
@@ -60,7 +60,7 @@ class ClassAppendSource():
                 d=angDist(self.SM.rarad,ra,self.SM.decrad,dec)*180/np.pi
                 ras  = rad2hmsdms(ra,Type="ra").replace(" ",":")
                 decs = rad2hmsdms(dec,Type="dec").replace(" ",".")
-                log.print("  [%s] Position is ra/dec = %s %s [%.2f deg from target]"%(Body["Name"],ras,decs,d))
+                log.print("         Position is ra/dec = %s %s [%.2f deg from target]"%(ras,decs,d))
 
 
                 if not self.SM.InputCatIsEmpty:
