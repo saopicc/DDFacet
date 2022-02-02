@@ -821,12 +821,11 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
              self.DicoImager[i]["lmShift"][1],
              "[F%i_S%i]" % (i, self.DicoImager[i]["iSol"]))
             for i in range(len(LPolygonNew))]
-        VM.PolygonToReg(
-            regFile,
-            LPolygonNew,
-            radius=0.1,
-            Col="green",
-            labels=labels)
+        VM.PolygonToReg(regFile,
+                        LPolygonNew,
+                        radius=0.1,
+                        Col="green",
+                        labels=labels)
 
         self.WriteCoordFacetFile()
 

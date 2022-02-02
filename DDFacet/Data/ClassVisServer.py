@@ -1001,19 +1001,27 @@ class ClassVisServer():
                     pass#weight.fill(1)
                 elif weight_col == "Lucky_kMS" and self.GD["DDESolutions"]["DDSols"]:
                     ID=row0
-                    SolsName=self.GD["DDESolutions"]["DDSols"]
+                    LSolsName=self.GD["DDESolutions"]["DDSols"]
                     SolsDir=self.GD["DDESolutions"]["SolsDir"]
-                    if SolsDir is None:
-                        FileName="%skillMS.%s.Weights.%i.npy"%(reformat.reformat(ms.MSName),SolsName,ID)
-                    else:
-                        _MSName=reformat.reformat(ms.MSName).split("/")[-2]
-                        DirName=os.path.abspath("%s%s"%(reformat.reformat(SolsDir),_MSName))
-                        if not os.path.isdir(DirName):
-                            os.makedirs(DirName)
-                        FileName="%s/killMS.%s.Weights.%i.npy"%(DirName,SolsName,ID)
-                    log.print( "  loading weights from file: %s"%FileName)
-                    w=np.load(FileName)
-                    weight[...] *= w
+                    w=None
+                    if isinstance(LSolsName,str):
+                        LSolsName=[LSolsName]
+                    for SolsName in LSolsName:
+                        print("SolsName",SolsName)
+                        if SolsDir is None:
+                            FileName="%skillMS.%s.Weights.%i.npy"%(reformat.reformat(ms.MSName),SolsName,ID)
+                        else:
+                            _MSName=reformat.reformat(ms.MSName).split("/")[-2]
+                            DirName=os.path.abspath("%s%s"%(reformat.reformat(SolsDir),_MSName))
+                            if not os.path.isdir(DirName):
+                                os.makedirs(DirName)
+                            FileName="%s/killMS.%s.Weights.%i.npy"%(DirName,SolsName,ID)
+                        log.print( "  loading weights from file: %s"%FileName)
+                        if w is None: 
+                            w=np.load(FileName)
+                        else:
+                            w*=np.load(FileName)
+                        weight[...] *= w
                 elif ".npy" in weight_col:
                     ID=row0
                     FileName=weight_col

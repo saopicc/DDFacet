@@ -1756,14 +1756,19 @@ class ClassFacetMachine():
         nch,_,_,_=self._model_dict["Image"].shape
         ChanSel=range(nch)
         ToSHMDict=True
+
+        STot=0
+        for iFacet in self.DicoImager.keys():
+            nx=self.DicoImager[iFacet]["NpixFacetPadded"]
+            STot+=nx**2*nch*8/1024**3
         
+        log.print("Total grid size expected to be %.2f GB (complex64)"%STot)
         self._set_model_grid_job_id = "%s.MakeGridModel:" % (self._app_id)
-        
         for iFacet in self.DicoImager.keys():
             APP.runJob("%sF%d" % (self._set_model_grid_job_id, iFacet), 
                        self._set_model_grid_worker,
                        args=(iFacet, self._model_dict.readwrite(), self._CF[iFacet].readonly(),
-                             ChanSel,ToSHMDict,ToGrid,ApplyNorm,False))
+                             ChanSel,ToSHMDict,ToGrid,ApplyNorm,False))#,serial=True)
         APP.awaitJobResults(self._set_model_grid_job_id + "*", progress="Make model grids")
         del(self._model_dict["Image"])
 

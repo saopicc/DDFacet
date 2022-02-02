@@ -607,6 +607,7 @@ class AsyncProcessPool (object):
                 self._io_queues[io].put(jobitem)
         # serial mode: process job in this process, and raise any exceptions up
         else:
+            print("enqueueing job %s: %s"%(job_id, handler_desc), file=log)
             self._dispatch_job(jobitem, reraise=True)
 
     def awaitJobCounter (self, counter, progress=None, total=None, timeout=10):

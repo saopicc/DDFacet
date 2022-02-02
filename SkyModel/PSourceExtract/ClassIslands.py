@@ -11,8 +11,14 @@ log=logger.getLogger("ClassIsland")
 
 
 class ClassIslands():
-    def __init__(self,A,T=None,box=(100,100),MinPerIsland=4,DeltaXYMin=2,Boost=3,DoPlot=False,FillNoise=True,
-                 MaskImage=None,NoiseImage=None):
+    def __init__(self,A,T=None,box=(100,100),
+                 MinPerIsland=4,
+                 DeltaXYMin=2,
+                 Boost=3,
+                 DoPlot=False,
+                 FillNoise=True,
+                 MaskImage=None,
+                 NoiseImage=None):
         self.A=A
         self.T=T
         self.MaskImage=MaskImage
@@ -157,6 +163,8 @@ class ClassIslands():
         A=self.A
         if (self.Noise is None) and (self.MaskImage is None):
             self.ComputeNoiseMap()
+        elif self.MaskImage is not None:
+            pass
         elif self.Noise is not None:
             self.MaskImage=((A/self.Noise)>self.T)
         

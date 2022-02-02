@@ -23,6 +23,7 @@ import scipy.linalg
 from SkyModel.Sky.ModBBS2np import ReadBBSModel
 #from SkyModel.Sky.ModSMFromFITS import ReadSMFromFITS
 import DDFacet.Other.MyPickle
+from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 
 from . import ModRegFile
 import time
@@ -30,8 +31,10 @@ from DDFacet.ToolsDir import ModCoord
 
 class ClassSM():
     def __init__(self,infile,infile_cluster="",killdirs=[],invert=False,DoPrintCat=False,\
-                     ReName=False,DoREG=False,SaveNp=False,NCluster=0,DoPlot=True,Tigger=False,\
-                     FromExt=None,ClusterMethod=1,SelSource=False,DoPrint=True,ListBody=None):
+                 ReName=False,
+                 DoREG=False,SaveNp=False,NCluster=0,DoPlot=True,Tigger=False,\
+                 FromExt=None,ClusterMethod=1,SelSource=False,DoPrint=True,ListBody=None,
+                 radecCenter=None):
         self.ClusterMethod=ClusterMethod
         self.infile_cluster=infile_cluster
         self.TargetList=infile
@@ -88,28 +91,36 @@ class ClassSM():
             
         self.rarad=self.decrad=None
         try:
-            if self.D_FITS is None:
+            if radecCenter is not None:
+                log.print(("Computing lm of the center at externaly specified rac/dec..."))
+                self.rarad,self.decrad=radecCenter
+            elif self.D_FITS is not None:
+                print(("Reading lm of the center from FITS"))
+                #self.rarad=SourceCat.ra[indIMax]#
+                self.rarad=self.D_FITS["rac"]
+                self.decrad=self.D_FITS["decc"]
+            else:
                 SourceCat=self.SourceCat
                 indIMax=np.argmax(SourceCat.I)
                 log.print(("Computing lm of the center at flux-weighted mean rac/dec"))
                 #self.rarad=SourceCat.ra[indIMax]#
                 self.rarad=np.sum(SourceCat.I*SourceCat.ra)/np.sum(SourceCat.I)
                 self.decrad=np.sum(SourceCat.I*SourceCat.dec)/np.sum(SourceCat.I)
-            else:
-                print(("Reading lm of the center from FITS"))
-                #self.rarad=SourceCat.ra[indIMax]#
-                self.rarad=self.D_FITS["rac"]
-                self.decrad=self.D_FITS["decc"]
                 
             self.CoordMachine = ModCoord.ClassCoordConv(self.rarad, self.decrad)
         except:
             pass
 
+        self.NDirMain=self.NDir
+        
         if ListBody is not None:
             log.print("Append sources to the sky model:")
             CAS=ClassAppendSource.ClassAppendSource(self,ListBody)
             CAS.appendAll()
 
+        self.Dirs=sorted(list(set(self.SourceCat.Cluster.tolist())))
+        self.NDir=np.max(self.SourceCat.Cluster)+1
+        self.NSources=Cat.shape[0]
         self.BuildClusterCat()
         self.Dirs=sorted(list(set(self.SourceCat.Cluster.tolist())))
         self.NDir=np.max(self.SourceCat.Cluster)+1
@@ -131,15 +142,29 @@ class ClassSM():
         #     self.print_sm(Cat)
 
         self.SourceCat.kill=1
-
         if killdirs!=[]:
             self.SourceCat.kill=0
-            for i in range(len(self.SourceCat)):
-                for StrPiece in killdirs:
-                    if StrPiece=="": continue
-                    Name=self.SourceCat.Name[i]
-                    if "byte" in type(Name).__name__: Name=Name.decode("utf-8")
-                    if StrPiece in Name: self.SourceCat.kill[i]=1
+            for StrPiece in killdirs:
+                if StrPiece=="":
+                    continue
+                elif "x" in StrPiece:
+                    if np.all(self.SourceCat.l==0):
+                        self.Calc_LM(self.rarad,self.decrad)
+                    snpix,scell =StrPiece.split("x")
+                    Npix, _ = EstimateNpix(float(snpix), Padding=1)
+                    Cell=float(scell)/3600*np.pi/180
+                    Cx0 = (self.SourceCat.l>(-Npix//2*Cell))
+                    Cx1 = (self.SourceCat.l<(Npix//2*Cell))
+                    Cy0 = (self.SourceCat.m>(-Npix//2*Cell))
+                    Cy1 = (self.SourceCat.m<(Npix//2*Cell))
+                    ind=np.where(Cx0&Cx1&Cy0&Cy1)[0]
+                    self.SourceCat.kill[ind]=1
+                else:
+                    for i in range(len(self.SourceCat)):
+                        Name=self.SourceCat.Name[i]
+                        if "byte" in type(Name).__name__: Name=Name.decode("utf-8")
+                        if StrPiece in Name: self.SourceCat.kill[i]=1
+                    
                     
         if invert:
             ind0=np.where(self.SourceCat.kill==0)[0]
@@ -147,6 +172,7 @@ class ClassSM():
             self.SourceCat.kill[ind0]=1
             self.SourceCat.kill[ind1]=0
 
+            
         # print(self.SourceCat.Name)
         # print(self.SourceCat.kill)
             
@@ -201,6 +227,8 @@ class ClassSM():
         Ng=np.count_nonzero(self.SourceCat.Type==1)
         Nb=np.count_nonzero(self.SourceCat.Type==2)
         print("   - Number of [ POINT | GAUSSIANS | BOX ] : [ %i | %i | %i ]"%(Np,Ng,Nb))
+        NSub=np.count_nonzero(self.SourceCat.kill)
+        print("   - Selected for subtraction: %i/%i"%(NSub,self.SourceCat.kill.size))
         print()
 
     def Cluster(self,NCluster=1,DoPlot=True,PreCluster="",FromClusterCat=""):
@@ -422,7 +450,7 @@ class ClassSM():
         for key in list(DictNode.keys()):
             ind=np.array(DictNode[key]["ListCluster"])
             if ind.size==0: 
-                print("Direction %i is empty"%int(key))
+                log.print("Direction %i is empty"%int(key))
                 continue
             self.SourceCat["Cluster"][indSubSel[ind]]=iK
             iK+=1
@@ -531,7 +559,7 @@ class ClassSM():
             Cat=RecArrayOps.AppendField(Cat,'l',float)
             Cat=RecArrayOps.AppendField(Cat,'m',float)
 
-        Cat.l,Cat.m=self.radec2lm_scalar(self.SourceCat.ra,self.SourceCat.dec,rac,decc)
+        Cat.l[:],Cat.m[:]=self.radec2lm_scalar(self.SourceCat.ra,self.SourceCat.dec,rac,decc)
         self.SourceCat=Cat
         self.SourceCatKeepForSelector=self.SourceCat.copy()
 
