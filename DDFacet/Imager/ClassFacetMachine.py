@@ -94,9 +94,12 @@ class ClassFacetMachine():
             self.stitchedType = np.float32  # cleaning requires float32
         elif Precision == "D":
             self.dtype = np.complex128
-            self.CType = np.complex64
+            self.CType = np.complex128
             self.FType = np.float64
             self.stitchedType = np.float32  # cleaning requires float32
+
+        if int(GD["CF"]["Nw"]) <= 1:
+            print("Disabling W-projection. Enabling AIPS-style faceting", file=log)
 
         self.DoDDE = False
         if Sols is not None:
@@ -332,7 +335,6 @@ class ClassFacetMachine():
         self.DicoImager[iFacet]["lmSol"] = lSol[iSol], mSol[iSol]
         self.DicoImager[iFacet]["radecSol"] = raSol[iSol], decSol[iSol]
         self.DicoImager[iFacet]["iSol"] = iSol
-
         DicoConfigGM = {"NPix": NpixFacet,
                         "Cell": self.GD["Image"]["Cell"],
                         "ChanFreq": self.ChanFreq,

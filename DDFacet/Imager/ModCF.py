@@ -292,7 +292,6 @@ def Give_dn(l0, m0, rad=1., order=4):
 
     return Cl, Cm, C.flatten()
 
-
 class ClassWTermModified():
     def __init__(self, Cell=10, Sup=15, Nw=11, wmax=30000, Npix=101, Freqs=np.array([100.e6]), OverS=11, lmShift=None,
                  mode="compute",
@@ -315,8 +314,8 @@ class ClassWTermModified():
                         "dict" to load CFs from store_dict
             IDFacet:
         """
-
         self.Nw = int(Nw)
+        self.Nw = max(1, Nw)
         self.Cell = Cell
         self.Sup = Sup
         self.Nw = Nw
@@ -334,6 +333,8 @@ class ClassWTermModified():
         if compute_cf:
             cf_dict["wmax"] = self.wmax = wmax
             self.InitSphe()
+            # enable only AIPS faceting
+            # we are using linspace so linspace(...,...,0) will result int a real-valued AA filter
             self.InitW()
             dS = np.float32
             cf_dict["Sphe"] = dS(self.ifzfCF.real)
@@ -444,114 +445,18 @@ class ClassWTermModified():
         # print self.IDFacet,l0,m0,self.Cv,self.Cu
 
         # print "done FIT"
-
-        for i in range(Nw):
-            #print>>log, "%i/%i"%(i,Nw)
-            if not(Sups[i] % 2):
-                Sups[i] += 1
-            dummy, dymmy, ThisSphe = self.SpheM.MakeSphe(Sups[i])
-            wl = w[i]/waveMin
-
-            # ##############
-            # l,m=np.mgrid[-lrad:lrad:Npix*1j,-lrad:lrad:Npix*1j]
-            # n_1=np.sqrt(1.-l**2-m**2)-1
-            # WTrue=np.exp(-2.*1j*np.pi*wl*(n_1))*self.ifzfCF
-            # ##############
-
-            DX = 2*lrad/Sups[i]
-            l, m = np.mgrid[-lrad+DX/2:lrad-DX/2:Sups[i]
-                            * 1j, -lrad+DX/2:lrad-DX/2:Sups[i]*1j]
-            # l,m=np.mgrid[-lrad:lrad:Sups[i]*1j,-lrad:lrad:Sups[i]*1j]
-            # n_1=np.sqrt(1.-l**2-m**2)-1
-            n_1 = ModFitPoly2D.polyval2d(l, m, CoefPoly)
-            # n_1=n_1.T[::-1,:]
-            T.timeit("3a")
-
-            # stop
-            # n_1=np.sqrt(1.-(l-l0)**2-(m-m0)**2)-1
-            # n_1=(1./np.sqrt(1.-l0**2-m0**2))*(l0*l+m0*m)
-            W = np.exp(-2.*1j*np.pi*wl*(n_1))
-            #import pylab
-
-            # pylab.clf()
-            # pylab.imshow(np.angle(W),interpolation="nearest",extent=(l.min(),l.max(),m.min(),m.max()),vmin=-np.pi,vmax=np.pi)
-            # pylab.draw()
-            # pylab.show(False)
-            # pylab.pause(0.1)
-            # T.timeit("3b")
-
-            # ####
-            # W.fill(1.)
-            # ####
-            W *= np.abs(ThisSphe)
-
-            # # ####################
-            # # fW=fft2(W)
-            # # zfW=ZeroPad(fW,outshape=Npix)
-            # # WFull=ifft2(zfW)
-
-            # # # #fW=ifft2(W)
-            # # # print W.shape
-            # fWTrue=fft2(WTrue)
-            # cfWTrue=fft2(np.conj(WTrue))
-            # nc,_=fWTrue.shape
-            # xc=(nc-1)/2
-            # dx=(Sups[i]-1)/2
-            # x0,x1=xc-dx,xc+dx+1
-            # #ZfWTrue=np.zeros_like(fWTrue)
-            # #ZfWTrue[x0:x1,x0:x1]=fWTrue[x0:x1,x0:x1]
-            # fzW=fWTrue[x0:x1,x0:x1]
-            # fzWconj=cfWTrue[x0:x1,x0:x1]
-
-            # if_fzW=ifft2(fzW)
-            # cif_fzW=ifft2(fzWconj)
-            # z_if_fzW=ZeroPad(if_fzW,outshape=if_fzW.shape[0]*self.OverS)
-            # z_cif_fzW=ZeroPad(cif_fzW,outshape=if_fzW.shape[0]*self.OverS)
-            # f_z_if_fzW=fft2(z_if_fzW)
-            # f_z_cif_fzW=fft2(z_cif_fzW)
-            # # ifZfWTrue=ifft2(ZfWTrue)
-
-            # # iffWTrue=ifft2(fWTrue[x0:x1,x0:x1])
-            # # iffW=ifft2(fW)
-
-            # # pylab.clf()
-            # # pylab.subplot(1,2,1)
-            # # pylab.imshow(np.real(fzW),interpolation="nearest")#,extent=(l.min(),l.max(),m.min(),m.max()),vmin=-np.pi,vmax=np.pi)
-            # # pylab.subplot(1,2,2)
-            # # pylab.imshow(np.real(f_z_if_fzW),interpolation="nearest")#,extent=(l.min(),l.max(),m.min(),m.max()),vmin=-np.pi,vmax=np.pi)
-            # # pylab.draw()
-            # # pylab.show(False)
-            # # pylab.pause(0.1)
-            # # fzW=f_z_if_fzW
-            # # fzWconj=f_z_cif_fzW
-            # # # ####################
-
-            # T.timeit("3c")
-
-            # # W=ThisSphe
-
+        if Nw <= 1:
+            if not(Sups[0] % 2):
+                    Sups[0] += 1
+            dummy, dymmy, ThisSphe = self.SpheM.MakeSphe(Sups[0])
+            W = np.abs(ThisSphe)
             zW = ZeroPad(W, outshape=W.shape[0]*self.OverS)
-
-            # T.timeit("3d")
-
-            # ####
-            # # W=np.abs(W)
-            # ####
-
             zWconj = np.conj(zW)
-
-            # #FFTWMachine=ModFFTW.FFTW_2Donly(W.shape,W.dtype, ncores = 1)
-            # #W=FFTWMachine.fft(W)
-            # #Wconj=FFTWMachine.fft(Wconj)
             fzW = fft2(zW)
             fzWconj = fft2(zWconj)
 
-            # T.timeit("3e")
             fzW = np.complex64(fzW).copy()
             fzWconj = np.complex64(fzWconj).copy()
-
-            # fzW.fill(2+3*1j)
-            # fzWconj.fill(2+3*1j)
 
             fzW = self.GiveReorgCF(fzW)
             fzWconj = self.GiveReorgCF(fzWconj)
@@ -560,7 +465,123 @@ class ClassWTermModified():
             fzWconj = np.require(fzWconj.copy(), requirements=["A", "C"])
             Wplanes.append(fzW)
             WplanesConj.append(fzWconj)
-            # T.timeit("3f")
+        else:
+            for i in range(Nw):
+                #print>>log, "%i/%i"%(i,Nw)
+                if not(Sups[i] % 2):
+                    Sups[i] += 1
+                dummy, dymmy, ThisSphe = self.SpheM.MakeSphe(Sups[i])
+                wl = w[i]/waveMin
+
+                # ##############
+                # l,m=np.mgrid[-lrad:lrad:Npix*1j,-lrad:lrad:Npix*1j]
+                # n_1=np.sqrt(1.-l**2-m**2)-1
+                # WTrue=np.exp(-2.*1j*np.pi*wl*(n_1))*self.ifzfCF
+                # ##############
+
+                DX = 2*lrad/Sups[i]
+                l, m = np.mgrid[-lrad+DX/2:lrad-DX/2:Sups[i]
+                                * 1j, -lrad+DX/2:lrad-DX/2:Sups[i]*1j]
+                # l,m=np.mgrid[-lrad:lrad:Sups[i]*1j,-lrad:lrad:Sups[i]*1j]
+                # n_1=np.sqrt(1.-l**2-m**2)-1
+                n_1 = ModFitPoly2D.polyval2d(l, m, CoefPoly)
+                # n_1=n_1.T[::-1,:]
+                T.timeit("3a")
+
+                # stop
+                # n_1=np.sqrt(1.-(l-l0)**2-(m-m0)**2)-1
+                # n_1=(1./np.sqrt(1.-l0**2-m0**2))*(l0*l+m0*m)
+                W = np.exp(-2.*1j*np.pi*wl*(n_1))
+                #import pylab
+
+                # pylab.clf()
+                # pylab.imshow(np.angle(W),interpolation="nearest",extent=(l.min(),l.max(),m.min(),m.max()),vmin=-np.pi,vmax=np.pi)
+                # pylab.draw()
+                # pylab.show(False)
+                # pylab.pause(0.1)
+                # T.timeit("3b")
+
+                # ####
+                # W.fill(1.)
+                # ####
+                W *= np.abs(ThisSphe)
+                
+                # # ####################
+                # # fW=fft2(W)
+                # # zfW=ZeroPad(fW,outshape=Npix)
+                # # WFull=ifft2(zfW)
+
+                # # # #fW=ifft2(W)
+                # # # print W.shape
+                # fWTrue=fft2(WTrue)
+                # cfWTrue=fft2(np.conj(WTrue))
+                # nc,_=fWTrue.shape
+                # xc=(nc-1)/2
+                # dx=(Sups[i]-1)/2
+                # x0,x1=xc-dx,xc+dx+1
+                # #ZfWTrue=np.zeros_like(fWTrue)
+                # #ZfWTrue[x0:x1,x0:x1]=fWTrue[x0:x1,x0:x1]
+                # fzW=fWTrue[x0:x1,x0:x1]
+                # fzWconj=cfWTrue[x0:x1,x0:x1]
+
+                # if_fzW=ifft2(fzW)
+                # cif_fzW=ifft2(fzWconj)
+                # z_if_fzW=ZeroPad(if_fzW,outshape=if_fzW.shape[0]*self.OverS)
+                # z_cif_fzW=ZeroPad(cif_fzW,outshape=if_fzW.shape[0]*self.OverS)
+                # f_z_if_fzW=fft2(z_if_fzW)
+                # f_z_cif_fzW=fft2(z_cif_fzW)
+                # # ifZfWTrue=ifft2(ZfWTrue)
+
+                # # iffWTrue=ifft2(fWTrue[x0:x1,x0:x1])
+                # # iffW=ifft2(fW)
+
+                # # pylab.clf()
+                # # pylab.subplot(1,2,1)
+                # # pylab.imshow(np.real(fzW),interpolation="nearest")#,extent=(l.min(),l.max(),m.min(),m.max()),vmin=-np.pi,vmax=np.pi)
+                # # pylab.subplot(1,2,2)
+                # # pylab.imshow(np.real(f_z_if_fzW),interpolation="nearest")#,extent=(l.min(),l.max(),m.min(),m.max()),vmin=-np.pi,vmax=np.pi)
+                # # pylab.draw()
+                # # pylab.show(False)
+                # # pylab.pause(0.1)
+                # # fzW=f_z_if_fzW
+                # # fzWconj=f_z_cif_fzW
+                # # # ####################
+
+                # T.timeit("3c")
+
+                # # W=ThisSphe
+
+                zW = ZeroPad(W, outshape=W.shape[0]*self.OverS)
+
+                # T.timeit("3d")
+
+                # ####
+                # # W=np.abs(W)
+                # ####
+
+                zWconj = np.conj(zW)
+
+                # #FFTWMachine=ModFFTW.FFTW_2Donly(W.shape,W.dtype, ncores = 1)
+                # #W=FFTWMachine.fft(W)
+                # #Wconj=FFTWMachine.fft(Wconj)
+                fzW = fft2(zW)
+                fzWconj = fft2(zWconj)
+
+                # T.timeit("3e")
+                fzW = np.complex64(fzW).copy()
+                fzWconj = np.complex64(fzWconj).copy()
+
+                # fzW.fill(2+3*1j)
+                # fzWconj.fill(2+3*1j)
+
+                fzW = self.GiveReorgCF(fzW)
+                fzWconj = self.GiveReorgCF(fzWconj)
+
+                fzW = np.require(fzW.copy(), requirements=["A", "C"])
+                fzWconj = np.require(fzWconj.copy(), requirements=["A", "C"])
+                Wplanes.append(fzW)
+                WplanesConj.append(fzWconj)
+                # T.timeit("3f")
 
         self.Wplanes = Wplanes
         self.WplanesConj = WplanesConj
