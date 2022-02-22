@@ -68,8 +68,9 @@ namespace DDF {
 	}
       }
   }
-
-  void pyGridderWPol(py::array_t<std::complex<float>, py::array::c_style>& np_grid,
+  
+  template<typename gridtype>
+  void pyGridderWPol(py::array_t<std::complex<gridtype>, py::array::c_style>& np_grid,
 		    const py::array_t<std::complex<float>, py::array::c_style>& vis,
 		    const py::array_t<double, py::array::c_style>& uvw,
 		    const py::array_t<bool, py::array::c_style>& flags,
@@ -89,8 +90,7 @@ namespace DDF {
 		    const py::list& LSmearing,
 		    const py::array_t<int32_t, py::array::c_style>& np_ChanMapping,
 		    const py::array_t<uint16_t, py::array::c_style>& LDataCorrFormat,
-		    const py::array_t<uint16_t, py::array::c_style>& LExpectedOutStokes
-		    )
+		    const py::array_t<uint16_t, py::array::c_style>& LExpectedOutStokes)
   {
     using svec = vector<string>;
     const svec stokeslookup = {"undef","I","Q","U","V","RR","RL","LR","LL","XX","XY","YX","YY"};
@@ -111,10 +111,13 @@ namespace DDF {
 	throw std::invalid_argument("Only accepts I,Q,U,V as polarization output type");
       expstokes[i] = stokeslookup[polid];
       }
-    #define callgridder(stokesgrid, nVisPol) \
+    #define callgridder32(stokesgrid, nVisPol) \
       {\
-      gridder::gridder<readcorr, mulaccum, stokesgrid>(np_grid, vis, uvw, flags, weights, sumwt, bool(dopsf), Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping, Sparsification, LOptimisation,LSmearing,np_ChanMapping, expstokes); \
-      done=true;\
+            gridder::gridder<readcorr, mulaccum, stokesgrid, gridtype>(np_grid, vis, uvw, flags, weights, sumwt,\
+                                                                       bool(dopsf), Lcfs, LcfsConj, WInfos, increment,\
+                                                                       freqs, Lmaps, LJones, SmearMapping, Sparsification,\
+                                                                       LOptimisation,LSmearing,np_ChanMapping, expstokes); \
+            done=true;\
       }
     using namespace DDF::gridder::policies;
     bool done=false;
@@ -123,15 +126,15 @@ namespace DDF {
       #define readcorr gridder::policies::Read_4Corr
       #define mulaccum gridder::policies::Mulaccum_4Corr
       if (expstokes==svec{"I"})
-	callgridder(I_from_XXXYYXYY, 1)
+	callgridder32(I_from_XXXYYXYY, 1)
       else if (expstokes==svec{"I", "Q"})
-	callgridder(IQ_from_XXXYYXYY, 2)
+	callgridder32(IQ_from_XXXYYXYY, 2)
       else if (expstokes==svec{"I", "V"})
-	callgridder(IV_from_XXXYYXYY, 2)
+	callgridder32(IV_from_XXXYYXYY, 2)
       else if (expstokes==svec{"Q", "U"})
-	callgridder(QU_from_XXXYYXYY, 2)
+	callgridder32(QU_from_XXXYYXYY, 2)
       else if (expstokes==svec{"I", "Q", "U", "V"})
-	callgridder(IQUV_from_XXXYYXYY, 4)
+	callgridder32(IQUV_from_XXXYYXYY, 4)
       #undef readcorr
       #undef mulaccum
       }
@@ -140,15 +143,15 @@ namespace DDF {
       #define readcorr gridder::policies::Read_4Corr
       #define mulaccum gridder::policies::Mulaccum_4Corr
       if (expstokes==svec{"I"})
-	callgridder(I_from_RRRLLRLL, 1)
+	callgridder32(I_from_RRRLLRLL, 1)
       else if (expstokes==svec{"I", "Q"})
-	callgridder(IQ_from_RRRLLRLL, 2)
+	callgridder32(IQ_from_RRRLLRLL, 2)
       else if (expstokes==svec{"I", "V"})
-	callgridder(IV_from_RRRLLRLL, 2)
+	callgridder32(IV_from_RRRLLRLL, 2)
       else if (expstokes==svec{"Q", "U"})
-	callgridder(QU_from_RRRLLRLL, 2)
+	callgridder32(QU_from_RRRLLRLL, 2)
       else if (expstokes==svec{"I", "Q", "U", "V"})
-	callgridder(IQUV_from_RRRLLRLL, 4)
+	callgridder32(IQUV_from_RRRLLRLL, 4)
       #undef readcorr
       #undef mulaccum
       }
@@ -157,9 +160,9 @@ namespace DDF {
       #define readcorr gridder::policies::Read_2Corr_Pad
       #define mulaccum gridder::policies::Mulaccum_2Corr_Unpad
       if (expstokes==svec{"I"})
-	callgridder(I_from_XXYY, 1)
+	callgridder32(I_from_XXYY, 1)
       else if (expstokes==svec{"I", "Q"})
-	callgridder(IQ_from_XXYY, 2)
+	callgridder32(IQ_from_XXYY, 2)
       #undef readcorr
       #undef mulaccum
       }
@@ -168,9 +171,9 @@ namespace DDF {
       #define readcorr gridder::policies::Read_2Corr_Pad
       #define mulaccum gridder::policies::Mulaccum_2Corr_Unpad
       if (expstokes==svec{"I"})
-	callgridder(I_from_RRLL, 1)
+	callgridder32(I_from_RRLL, 1)
       else if (expstokes==svec{"I", "V"})
-	callgridder(IV_from_RRLL, 2)
+	callgridder32(IV_from_RRLL, 2)
       #undef readcorr
       #undef mulaccum
       }
@@ -179,13 +182,14 @@ namespace DDF {
       #define readcorr gridder::policies::Read_1Corr_Pad
       #define mulaccum gridder::policies::Mulaccum_1Corr_Unpad
       if (expstokes==svec{"I"})
-	callgridder(I_from_I, 1)
+	callgridder32(I_from_I, 1)
       #undef readcorr
       #undef mulaccum
       }
     if (!done)
       throw std::invalid_argument("Cannot convert input correlations to desired output Stokes parameters.");
   }
+
 
   py::array_t<std::complex<float>, py::array::c_style> & pyDeGridderWPol(
 			    const py::array_t<std::complex<float>, py::array::c_style>& np_grid,
@@ -263,8 +267,10 @@ namespace DDF {
 	  &pyAccumulateWeightsOntoGrid);
     m.def("pyAccumulateWeightsOntoGridNoSem",
 	  &pyAccumulateWeightsOntoGridNoSem);
-    m.def("pyGridderWPol",
-	  &pyGridderWPol);
+    m.def("pyGridderWPol32",
+	  &pyGridderWPol<float>);
+    m.def("pyGridderWPol64",
+	  &pyGridderWPol<double>);
     m.def("pyDeGridderWPol",
 	  &pyDeGridderWPol,
 	  py::return_value_policy::take_ownership);
