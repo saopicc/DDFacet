@@ -367,7 +367,6 @@ class ClassDDEGridMachine():
         elif Precision == "D":
             self.dtype = np.complex128
 
-        self.dtype = np.complex64
         T.timeit("0")
         if Padding is None:
             Padding = GD["Facets"]["Padding"]
@@ -787,32 +786,37 @@ class ClassDDEGridMachine():
                 ChanEquidistant,
                 self.SkyType,
                 self.PolModeID]
-            _pyGridderSmear.pyGridderWPol(Grid,
-                                          vis,
-                                          uvw,
-                                          flag,
-                                          W,
-                                          SumWeigths,
-                                          DoPSF,
-                                          self.WTerm.Wplanes,
-                                          self.WTerm.WplanesConj,
-                                          np.array([self.WTerm.RefWave,
-                                                    self.WTerm.wmax,
-                                                    len(self.WTerm.Wplanes),
-                                                    self.WTerm.OverS],
-                                                   dtype=np.float64),
-                                          self.incr.astype(np.float64),
-                                          freqs,
-                                          [self.PolMap,
-                                              FacetInfos],
-                                          ParamJonesList,
-                                          self._bda_grid,
-                                          sparsification if sparsification is not None else np.array([], dtype=bool),
-                                          OptimisationInfos,
-                                          self.LSmear,
-                                          np.int32(ChanMapping),
-                                          np.array(self.DataCorrelationFormat).astype(np.uint16),
-                                          np.array(self.ExpectedOutputStokes).astype(np.uint16))
+            if self.dtype == np.complex64:
+                gridfun = _pyGridderSmear.pyGridderWPol32
+            else:
+                gridfun = _pyGridderSmear.pyGridderWPol64
+            gridfun(Grid,
+                    vis,
+                    uvw,
+                    flag,
+                    W,
+                    SumWeigths,
+                    DoPSF,
+                    self.WTerm.Wplanes,
+                    self.WTerm.WplanesConj,
+                    np.array([self.WTerm.RefWave,
+                            self.WTerm.wmax,
+                            len(self.WTerm.Wplanes),
+                            self.WTerm.OverS],
+                            dtype=np.float64),
+                    self.incr.astype(np.float64),
+                    freqs,
+                    [self.PolMap,
+                        FacetInfos],
+                    ParamJonesList,
+                    self._bda_grid,
+                    sparsification if sparsification is not None else np.array([], dtype=np.bool),
+                    OptimisationInfos,
+                    self.LSmear,
+                    np.int32(ChanMapping),
+                    np.array(self.DataCorrelationFormat).astype(np.uint16),
+                    np.array(self.ExpectedOutputStokes).astype(np.uint16))
+        #endif BDA-grid
 
             T.timeit("gridder")
             T.timeit("grid %d" % self.IDFacet)
@@ -822,6 +826,8 @@ class ClassDDEGridMachine():
                 ChanEquidistant,
                 self.SkyType,
                 self.PolModeID]
+            if self.dtype != np.complex64:
+                raise RuntimeError("Classic BDA does not support double accumulation gridding")
             _pyGridderSmearClassic.pyGridderWPol(Grid,
                                           vis,
                                           uvw,
@@ -866,7 +872,7 @@ class ClassDDEGridMachine():
         A1=None,
         Jones=None):
         if not isinstance(Grid, type(None)):
-            if not(Grid.dtype == np.complex64):
+            if not(Grid.dtype == self.dtype):
                 raise NameError(
                     'Grid.dtype %s %s' %
                     (str(

@@ -75,8 +75,9 @@ namespace DDF {
 	  Vis[0] += VisMeas[0]*Weight;
 	}
     }
-    template<policies::ReadCorrType readcorr, policies::MulaccumType mulaccum, policies::StokesGridType stokesgrid>
-    void gridder(py::array_t<std::complex<float>, py::array::c_style>& grid,
+    template<policies::ReadCorrType readcorr, policies::MulaccumType mulaccum, policies::StokesGridType stokesgrid, 
+			 typename accum_grid_type>
+    void gridder(py::array_t<std::complex<accum_grid_type>, py::array::c_style>& grid,
 		const py::array_t<std::complex<float>, py::array::c_style>& vis,
 		const py::array_t<double, py::array::c_style>& uvw,
 		const py::array_t<bool, py::array::c_style>& flags,
@@ -118,7 +119,7 @@ namespace DDF {
       const int nGridY    = int(grid.shape(2));
       const int nGridPol  = int(grid.shape(1));
       const int nGridChan = int(grid.shape(0));
-      fcmplx *griddata = grid.mutable_data(0);
+      std::complex<accum_grid_type> *griddata = grid.mutable_data(0);
 
       const fcmplx *visdata = vis.data(0);
 
@@ -355,7 +356,7 @@ namespace DDF {
 	  const size_t goff = size_t((gridChan*nGridPol + ipol) * nGridX*nGridY);
 	  const dcmplx VisVal =stokes_vis[ipol];
 	  const fcmplx* __restrict__ cf0 = cfsdata + cfoff;
-	  fcmplx* __restrict__ gridPtr = griddata + goff + (locy-supy)*nGridX + locx;
+	  std::complex<accum_grid_type>* __restrict__ gridPtr = griddata + goff + (locy-supy)*nGridX + locx;
 	  for (int sy=-supy; sy<=supy; ++sy, gridPtr+=nGridX)
 	    for (int sx=-supx; sx<=supx; ++sx)
 	      gridPtr[sx] += VisVal * dcmplx(*cf0++);
