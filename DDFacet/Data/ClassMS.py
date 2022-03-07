@@ -680,14 +680,15 @@ class ClassMS():
                 visdata[...] = np.load(datapath)
                 #self.RotateType=["uvw"]
             else:
-                print("reading MS visibilities from column %s" % self.ColName, file=log)
+                print("reading MS visibilities", file=log)
+                print("  data = %s" % self.ColName, file=log)
                 table_all = table_all or self.GiveMainTable()
                 if sort_index is not None:
                     visdata1 = np.ndarray(shape=datashape, dtype=np.complex64)
                     table_all.getcolslicenp(self.ColName, visdata1, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                     if self.SubColName is not None:
                         for SubCol in self.SubColName:
-                            print("  substracting MS visibilities from column %s" % SubCol, file=log)
+                            print("  data-= %s" % SubCol, file=log)
                             visdata2 = np.ndarray(shape=datashape, dtype=np.complex64)
                             table_all.getcolslicenp(SubCol, visdata2, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                             visdata1-=visdata2

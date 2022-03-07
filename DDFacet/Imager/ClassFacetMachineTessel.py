@@ -33,6 +33,7 @@ from DDFacet.Other import reformat
 from DDFacet.Other import ModColor
 from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 from DDFacet.Other import Exceptions
+from killMS.Other import ClassGiveSolsFile
 
 from DDFacet.Data.ClassJones import _parse_solsfile, _which_solsfile
 import os, glob
@@ -50,6 +51,20 @@ from DDFacet.ToolsDir import rad2hmsdms
 from DDFacet.Other import logger
 log = logger.getLogger("ClassFacetMachineTessel")
 from pyrap.images import image
+
+def AngDist(ra0,dec0,ra1,dec1):
+    AC=np.arccos
+    C=np.cos
+    S=np.sin
+    D=S(dec0)*S(dec1)+C(dec0)*C(dec1)*C(ra0-ra1)
+    if type(D).__name__=="ndarray":
+        D[D>1.]=1.
+        D[D<-1.]=-1.
+    else:
+        if D>1.: D=1.
+        if D<-1.: D=-1.
+    return AC(D)
+
 
 
 class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
@@ -95,10 +110,73 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         MSName = self.VS.ListMS[0].MSName
 
+        
+        def GiveSolsFile(SolsFile):
+            # SolsDir=self.GD["DDESolutions"]["SolsDir"]
+            # if SolsDir is None or SolsDir=="":
+            #     ThisMSName = reformat.reformat(os.path.abspath(MSName), LastSlash=False)
+            #     SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, Method)
+            # else:
+            #     _MSName=reformat.reformat(os.path.abspath(MSName).split("/")[-1])
+            #     DirName=os.path.abspath("%s%s"%(reformat.reformat(SolsDir),_MSName))
+            #     if not os.path.isdir(DirName): os.makedirs(DirName)
+            #     SolsFile = "%s/killMS.%s.sols.npz"%(DirName,SolsFile)
+            #     return SolsFile
+            CGiveSaveFileName=ClassGiveSolsFile.ClassGive_kMSFileName(GD=self.GD)
+            return CGiveSaveFileName.GiveFileName(SolsFile,Type="Sols")
+            
         SolsFile = self.GD["DDESolutions"]["DDSols"]
+        
         if isinstance(SolsFile, list):
-            SolsFile = self.GD["DDESolutions"]["DDSols"][0]
+            # SolsFile=self.GD["DDESolutions"]["DDSols"][0]
+            ListNDir=[]
+            for SolsFile in self.GD["DDESolutions"]["DDSols"]:
+                S=np.load(GiveSolsFile(SolsFile))
+                ListNDir.append(S["ClusterCat"].size)
+                
+            ListNDir=np.array(ListNDir)
+            if np.all(ListNDir==ListNDir[0]):
+                SRef=np.load(GiveSolsFile(self.GD["DDESolutions"]["DDSols"][0]))
+                for SolsFile in self.GD["DDESolutions"]["DDSols"][1:]:
+                    S=np.load(GiveSolsFile(SolsFile))
+                    for iNode in range(S["ClusterCat"]["ra"].size):
+                        ra0,dec0=SRef["ClusterCat"]["ra"][iNode],SRef["ClusterCat"]["dec"][iNode]
+                        ra1,dec1=S["ClusterCat"]["ra"][iNode],S["ClusterCat"]["dec"][iNode]
+                        d=AngDist(ra0,dec0,ra1,dec1)
+                        dCut=1
+                        if d*180/np.pi*3600>dCut:
+                            raise RuntimeError("Angular distance between nodes greater than %f arcsec"%dCut)
+                log.print(ModColor.Str("Directions in various solution files are aligned...",col="green"))
+                SolsFile = self.GD["DDESolutions"]["DDSols"][0]
+                log.print(ModColor.Str("Taking tessels directions from %s"%(GiveSolsFile(SolsFile)),col="green"))
+            else:
+                iNMax=np.where(ListNDir==ListNDir.max())[0][0]
+                SRef = GiveSolsFile(self.GD["DDESolutions"]["DDSols"][iNMax])
+                NMax=ListNDir.max()
+                NDirLeft=np.unique(ListNDir).tolist()
+                NDirLeft.remove(1)
+                NDirLeft.remove(NMax)
+                if len(NDirLeft)>0:
+                    raise RuntimeError("Something is wrong, solution files should either contain 1 or N directions"%dCut)
+                
+                for iSol,SolsFile in enumerate(self.GD["DDESolutions"]["DDSols"]):
+                    if iSol==iNMax: continue
+                    S=np.load(GiveSolsFile(SolsFile))
+                    ThisNDir=S["ClusterCat"].size
+                    if ThisNDir==1: continue
+                    for iNode in range(ThisNDir):
+                        ra0,dec0=SRef["ClusterCat"]["ra"],SRef["ClusterCat"]["dec"]
+                        ra1,dec1=S["ClusterCat"]["ra"][iNode],S["ClusterCat"]["dec"][iNode]
+                        d=AngDist(ra0,dec0,ra1,dec1)
+                        dCut=1
+                        if d*180/np.pi*3600>dCut:
+                            raise RuntimeError("Angular distance between nodes greater than %f arcsec"%dCut)
+                log.print(ModColor.Str("Ok either 1 or %i directions, and the rest are aligned"%NMax,col="green"))
+                SolsFile = self.GD["DDESolutions"]["DDSols"][iNMax]
+                log.print(ModColor.Str("Taking tessels directions from %s"%(GiveSolsFile(SolsFile)),col="green"))
+                            
 
+                        
         if SolsFile=="": SolsFile=None
 
 
@@ -107,16 +185,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             # ThisMSName = reformat.reformat(
             #     os.path.abspath(MSName), LastSlash=False)
             # SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, Method)
-            SolsDir=self.GD["DDESolutions"]["SolsDir"]
-            if SolsDir is None or SolsDir=="":
-                ThisMSName = reformat.reformat(os.path.abspath(MSName), LastSlash=False)
-                SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, Method)
-            else:
-                _MSName=reformat.reformat(os.path.abspath(MSName).split("/")[-1])
-                DirName=os.path.abspath("%s%s"%(reformat.reformat(SolsDir),_MSName))
-                if not os.path.isdir(DirName):
-                    os.makedirs(DirName)
-                SolsFile = "%s/killMS.%s.sols.npz"%(DirName,SolsFile)
+            SolsFile=GiveSolsFile(SolsFile)
 
         
         

@@ -188,14 +188,32 @@ class ClassJonesDomains():
         fm1=np.mean(DicoJ1["FreqDomains"],axis=1)
         fmOut=np.mean(DicoOut["FreqDomains"],axis=1)
 
+        ###########
+        _,nd0,_,_,_,_=DicoJ0["Jones"].shape
+        _,nd1,_,_,_,_=DicoJ1["Jones"].shape
+        if nd0==1 and nd0!=nd1:
+            DicoJ0["Jones"]=DicoJ0["Jones"]*np.ones((1,nd1,1,1,1,1))
+        _,nd0,_,_,_,_=DicoJ0["Jones"].shape
+        _,nd1,_,_,_,_=DicoJ1["Jones"].shape
+        if nd1==1 and nd0!=nd1:
+            DicoJ1["Jones"]=DicoJ1["Jones"]*np.ones((1,nd0,1,1,1,1))
+        ###########
+        
         _,nd,na,_,_,_=DicoJ0["Jones"].shape
         nt=DicoOut["tm"].size
+
+
+            
+
 
         nchOut=fmOut.size
 
         DicoOut["Jones"]=np.zeros((nt,nd,na,nchOut,2,2),np.complex64)
         DicoOut["Jones"][:,:,:,:,0,0]=1.
         DicoOut["Jones"][:,:,:,:,1,1]=1.
+
+        
+        
 
         iG0_t=np.argmin(np.abs(DicoOut["tm"].reshape((nt,1))-DicoJ0["tm"].reshape((1,nt0))),axis=1)
         iG1_t=np.argmin(np.abs(DicoOut["tm"].reshape((nt,1))-DicoJ1["tm"].reshape((1,nt1))),axis=1)

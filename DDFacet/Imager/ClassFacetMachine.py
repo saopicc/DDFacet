@@ -525,7 +525,7 @@ class ClassFacetMachine():
         self.JonesDirCat.m=NodesCat.m
         self.JonesDirCat.Cluster = range(NJonesDir)
 
-        print("Sizes (%i facets):" % (self.JonesDirCat.shape[0]), file=log)
+        print("Sizes: %i facets / %i tessels:" % (len(self.DicoImager),self.JonesDirCat.shape[0]), file=log)
         print("   - Main field :   [%i x %i] pix" % (self.Npix, self.Npix), file=log)
 
         for iFacet in range(lFacet.size):

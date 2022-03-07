@@ -50,6 +50,7 @@ if six.PY3:
 else:
     from DDFacet.cbuild.Gridder import _pyGridderSmearPols27 as _pyGridderSmearPols
 import copy
+from killMS.Other import ClassGiveSolsFile
 
 log = logger.getLogger("ClassVisServer")
 
@@ -1007,15 +1008,20 @@ class ClassVisServer():
                     if isinstance(LSolsName,str):
                         LSolsName=[LSolsName]
                     for SolsName in LSolsName:
-                        print("SolsName",SolsName)
-                        if SolsDir is None:
-                            FileName="%skillMS.%s.Weights.%i.npy"%(reformat.reformat(ms.MSName),SolsName,ID)
-                        else:
-                            _MSName=reformat.reformat(ms.MSName).split("/")[-2]
-                            DirName=os.path.abspath("%s%s"%(reformat.reformat(SolsDir),_MSName))
-                            if not os.path.isdir(DirName):
-                                os.makedirs(DirName)
-                            FileName="%s/killMS.%s.Weights.%i.npy"%(DirName,SolsName,ID)
+                        
+                        # print("SolsName",SolsName)
+                        # if SolsDir is None:
+                        #     FileName="%skillMS.%s.Weights.%i.npy"%(reformat.reformat(ms.MSName),SolsName,ID)
+                        # else:
+                        #     _MSName=reformat.reformat(ms.MSName).split("/")[-2]
+                        #     DirName=os.path.abspath("%s%s"%(reformat.reformat(SolsDir),_MSName))
+                        #     if not os.path.isdir(DirName):
+                        #         os.makedirs(DirName)
+                        #     FileName="%s/killMS.%s.Weights.%i.npy"%(DirName,SolsName,ID)
+
+                        CGiveSaveFileName=ClassGiveSolsFile.ClassGive_kMSFileName(GD=GD)
+                        FileName=CGiveSaveFileName.GiveFileName(Type="Weights",ROW0=ID)
+                        
                         log.print( "  loading weights from file: %s"%FileName)
                         if w is None: 
                             w=np.load(FileName)
