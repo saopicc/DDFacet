@@ -284,6 +284,7 @@ def main(options=None):
     #SM=ClassSM.ClassSM(Osm,ReName=True,SaveNp=True,DoPlot=DoPlot,FromExt=Cat)
     SM.MakeREG()
     SM.D_FITS=D_FITS
+    SM.Rename()
     SM.SavePickle()
     return SM
 
