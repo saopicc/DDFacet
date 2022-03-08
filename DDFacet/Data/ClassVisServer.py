@@ -358,9 +358,14 @@ class ClassVisServer():
                 (MS.ChanFreq - min_freq)/degrid_bw).astype(int)
 
             # calculate center frequency of each degridding band
-            edges = np.arange(min_freq, max_freq+degrid_bw, degrid_bw)
+            
+            # There was a problem with the above line for some MS, NDegridBand=3, DegridBandMHz=0 (due to rounding issues) was returning
+            # edges with size 5, using linspace instead of arange 
+            # edges = np.arange(min_freq, max_freq+degrid_bw, degrid_bw)
+            edges = np.linspace(min_freq, max_freq, NChanDegrid+1) 
+            
             self.FreqBandChannelsDegrid[iMS] = (edges[:-1] + edges[1:])/2
-
+            
             print("%s   Bandwidth is %g MHz (%g to %g MHz), gridding bands are %s" % (
                 MS, bw*1e-6, min_freq*1e-6, max_freq*1e-6, ", ".join(map(str, set(bands)))), file=log)
 
