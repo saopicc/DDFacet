@@ -639,10 +639,10 @@ class ClassSM():
             log.print(ModColor.Str("All directions have been kept in the solve"))
         else:
             log.print(ModColor.Str("There are %i directions left in the solve"%self.NDir))
-
-
+        
+        
             
-
+        
         
     def BuildClusterCat(self):
         ClusterCat=np.zeros((len(self.Dirs),),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),("Cluster",int)])
@@ -661,8 +661,8 @@ class ClassSM():
             icat+=1
         #print ClusterCat.ra
         self.ClusterCat=ClusterCat
-
-
+        
+        
 
     def radec2lm_scalar(self,ra,dec,rarad0=None,decrad0=None):
         if rarad0==None:
