@@ -143,6 +143,7 @@ class ClassSM():
             log.print("Append sources to the sky model:")
             CAS=ClassAppendSource.ClassAppendSource(self,ListBody)
             CAS.appendAll()
+            self.ClusterCat=None
 
         if self.ClusterCat is None:
             self.Dirs=sorted(list(set(self.SourceCat.Cluster.tolist())))
@@ -152,7 +153,7 @@ class ClassSM():
             self.Dirs=sorted(list(set(self.SourceCat.Cluster.tolist())))
             self.NDir=np.max(self.SourceCat.Cluster)+1
             self.NSources=Cat.shape[0]
-            
+
         self.SetSelection()
 
         if self.DoPrint: self.PrintBasics()
