@@ -663,8 +663,7 @@ class ClassMS():
             if sort_index is not None:
                 weights = weights[sort_index]
             DATA["weights"] = weights
-
-        #self.RotateType=["uvw","vis"]
+        # self.RotateType=["uvw","vis"]
 
         DATA["uvw"]   = uvw
         visdata = DATA.addSharedArray("data", shape=datashape, dtype=np.complex64)

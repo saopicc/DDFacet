@@ -122,7 +122,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             #     if not os.path.isdir(DirName): os.makedirs(DirName)
             #     SolsFile = "%s/killMS.%s.sols.npz"%(DirName,SolsFile)
             #     return SolsFile
-            CGiveSaveFileName=ClassGiveSolsFile.ClassGive_kMSFileName(GD=self.GD)
+            CGiveSaveFileName=ClassGiveSolsFile.ClassGive_kMSFileName(MSName,GD=self.GD)
             return CGiveSaveFileName.GiveFileName(SolsFile,Type="Sols")
             
         SolsFile = self.GD["DDESolutions"]["DDSols"]

@@ -793,7 +793,7 @@ class ClassJones():
             #             os.makedirs(DirName)
             #         SolsFile="%s/killMS.%s.sols.npz"%(DirName,SolsFile)
                     
-            CGiveSaveFileName=ClassGiveSolsFile.ClassGive_kMSFileName(GD=self.GD)
+            CGiveSaveFileName=ClassGiveSolsFile.ClassGive_kMSFileName(self.MS.MSName,GD=self.GD)
             SolsFile=CGiveSaveFileName.GiveFileName(SolsFile,Type="Sols")
 
                     
