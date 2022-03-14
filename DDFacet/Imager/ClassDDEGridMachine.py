@@ -716,6 +716,9 @@ class ClassDDEGridMachine():
         else:
             ChanEquidistant = 0
 
+
+        
+            
         if ChanMapping is None:
             ChanMapping = np.zeros((visIn.shape[1],), np.int64)
         self.ChanMappingGrid = ChanMapping
