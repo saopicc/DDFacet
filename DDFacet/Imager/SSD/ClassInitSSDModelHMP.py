@@ -406,7 +406,6 @@ class ClassInitSSDModel():
         ## OMS: no need for this, surely -- RefFreq is set from ModelMachine in the first place?
         self.ModelMachine.setRefFreq(self.RefFreq,Force=True)
 
-
         ## this doesn't seem to be needed or used outside of __init__, so why assign to it?
         # self.MinorCycleConfig["ModelMachine"] = ModelMachine
         self.ModelMachine.setModelShape(self.SubDirty.shape)
@@ -418,8 +417,7 @@ class ClassInitSSDModel():
         self.DeconvMachine.updateModelMachine(ModelMachine)
         self.DeconvMachine.resetCounter()
         T.timeit("update")
-        #print "update"
-        #time.sleep(30)
+
         self.DeconvMachine.Deconvolve(UpdateRMS=False)
         #self.DeconvMachine.Plot()
         T.timeit("deconv %s"%str(self.DicoSubDirty["ImageCube"].shape))
@@ -509,4 +507,5 @@ class ClassInitSSDModel():
         T.timeit("spec index")
 
         return SModel,AModel
+
 

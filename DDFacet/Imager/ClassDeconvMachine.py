@@ -61,7 +61,10 @@ import numexpr
 from DDFacet.Imager import ClassImageNoiseMachine
 from DDFacet.Data import ClassStokes
 from DDFacet.Imager import ClassGainMachine
+
 from DDFacet.Data.PointingProvider import PointingProvider
+from DDFacet.Other.CacheManager import CacheManager
+
 # from astropy import wcs
 # from astropy.io import fits
 #
@@ -177,19 +180,28 @@ class ClassImagerDeconv():
 
     def Init(self):
         DC = self.GD
-        mslist = ClassMS.expandMSList(DC["Data"]["MS"],
-                                      defaultDDID=DC["Selection"]["DDID"],
-                                      defaultField=DC["Selection"]["Field"],
-                                      defaultColumn=None)
+        if self.GD["Output"]["Mode"]!="CleanMinor":
+            mslist = ClassMS.expandMSList(DC["Data"]["MS"],
+                                          defaultDDID=DC["Selection"]["DDID"],
+                                          defaultField=DC["Selection"]["Field"],
+                                          defaultColumn=None)
+            
         AsyncProcessPool.init(ncpu=self.GD["Parallel"]["NCPU"],
                               affinity=self.GD["Parallel"]["Affinity"],
                               parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
                               verbose=self.GD["Debug"]["APPVerbose"],
                               pause_on_start=self.GD["Debug"]["PauseWorkers"])
 
-        self.VS = ClassVisServer.ClassVisServer(mslist,ColName=DC["Data"]["ColName"] if self.do_readcol else None,
-                                                TChunkSize=DC["Data"]["ChunkHours"],
-                                                GD=self.GD)
+        if self.GD["Output"]["Mode"]=="CleanMinor":
+            print>>log,"Initialising from DeconvMachine from cache..."
+            class VisServer(object): pass
+            self.VS=VisServer()
+            self.VS.maincache = CacheManager("%s.ddfcache"%self.GD["Data"]["MS"], cachedir=self.GD["Cache"]["Dir"], reset=self.GD["Cache"]["Reset"])
+            self.VS.NFreqBands
+        else:
+            self.VS = ClassVisServer.ClassVisServer(mslist,ColName=DC["Data"]["ColName"] if self.do_readcol else None,
+                                                    TChunkSize=DC["Data"]["ChunkHours"],
+                                                    GD=self.GD)
 
         self.NMajor=self.GD["Deconv"]["MaxMajorIter"]
         del(self.GD["Deconv"]["MaxMajorIter"])
@@ -240,9 +252,9 @@ class ClassImagerDeconv():
 
 
         self.ImageNoiseMachine=ClassImageNoiseMachine.ClassImageNoiseMachine(self.GD,self.ModelMachine,
-                                                                        DegridFreqs=self.VS.FreqBandChannelsDegrid,
-                                                                        GridFreqs=self.VS.FreqBandCenters,
-                                                                        MainCache=self.VS.maincache)
+                                                                             DegridFreqs=self.VS.FreqBandChannelsDegrid,
+                                                                             GridFreqs=self.VS.FreqBandCenters,
+                                                                             MainCache=self.VS.maincache)
         self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
         self.MaskMachine.setImageNoiseMachine(self.ImageNoiseMachine)
 
@@ -262,20 +274,32 @@ class ClassImagerDeconv():
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                     raise NotImplementedError("Multi-polarization is not supported in SSD")
                 from DDFacet.Imager.SSD import ClassImageDeconvMachineSSD
-                self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
+                self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(MainCache=self.VS.maincache,
+                                                                                      **MinorCycleConfig)
                 print("Using SSD with %s Minor Cycle algorithm"%self.GD["SSDClean"]["IslandDeconvMode"], file=log)
+            elif self.GD["Deconv"]["Mode"]=="SSD2":
+                if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
+                    raise NotImplementedError("Multi-polarization is not supported in SSD")
+                from DDFacet.Imager.SSD2 import ClassImageDeconvMachineSSD
+                self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(MainCache=self.VS.maincache,
+                                                                                      MinorCycleConfig=MinorCycleConfig,
+                                                                                      **MinorCycleConfig)
+                self.DeconvMachine.setMaxMajorIter(self.NMajor)
+                print("Using SSD2 with %s Minor Cycle algorithm"%self.GD["SSDClean"]["IslandDeconvMode"], file=log)
+                if self.NMajor>3:
+                    print(ModColor.Str("  Your number of major iterations (%i) seem too high for SSD2, we advice using a maximum of 3..."%self.NMajor), file=log)
             elif self.GD["Deconv"]["Mode"] == "Hogbom":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                     raise NotImplementedError("Multi-polarization CLEAN is not supported in Hogbom")
                 from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
                 self.DeconvMachine=ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(**MinorCycleConfig)
                 print("Using Hogbom algorithm", file=log)
-            elif self.GD["Deconv"]["Mode"]=="MORESANE":
+            elif self.GD["Deconv"]["Mode"]=="MultiSlice":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
-                    raise NotImplementedError("Multi-polarization is not supported in MORESANE")
-                from DDFacet.Imager.MORESANE import ClassImageDeconvMachineMoresane
-                self.DeconvMachine=ClassImageDeconvMachineMoresane.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
-                print("Using MORESANE algorithm", file=log)
+                    raise NotImplementedError("Multi-polarization is not supported in MultiSlice")
+                from DDFacet.Imager.MultiSliceDeconv import ClassImageDeconvMachineMultiSlice
+                self.DeconvMachine=ClassImageDeconvMachineMultiSlice.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
+                print("Using MultiSlice algorithm", file=log)
             elif self.GD["Deconv"]["Mode"]=="WSCMS":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                     raise NotImplementedError("Multi-polarization is not supported in WSCMS")
@@ -295,8 +319,9 @@ class ClassImagerDeconv():
             self.FacetMachine.setAverageBeamMachine(AverageBeamMachine)
             if self.StokesFacetMachine:
                 self.StokesFacetMachine.setAverageBeamMachine(AverageBeamMachine)
+                
         # tell VisServer to not load weights
-        if self.do_predict_only:
+        if self.do_predict_only and self.GD["CF"]["wmax"]!=0: # if wmax==0 the wmax of the data is not computed, and the CFs are not properly set
             self.VS.IgnoreWeights()
 
         # all internal state initialized -- start the worker threads
@@ -435,6 +460,10 @@ class ClassImagerDeconv():
         #self.DicoImagesPSF = SharedDict.dict_to_shm("FMPSF_AllImages",DicoImagesPSF)
         #del(DicoImagesPSF)
 
+        
+        self.DicoImagesPSF["DicoImager"]=copy.deepcopy((self.FacetMachinePSF.DicoImager or self.FacetMachine.DicoImager))
+        self.DicoImagesPSF.reload()
+        
         # if we load a cached PSF, mark these as None so that we don't re-save a PSF image in _fitAndSavePSF()
         self._psfmean = self._psfcube = None
         self.FWHMBeam=self.DicoImagesPSF["FWHMBeam"]
@@ -466,6 +495,7 @@ class ClassImagerDeconv():
         self.DicoImagesPSF = FacetMachinePSF.FacetsToIm(NormJones=True)
         FacetMachinePSF.releaseGrids()
         self._psfmean, self._psfcube = self.DicoImagesPSF["MeanImage"], self.DicoImagesPSF["ImageCube"]  # this is only for the casa image saving
+        self.DicoImagesPSF["DicoImager"]=copy.deepcopy((self.FacetMachinePSF.DicoImager or self.FacetMachine.DicoImager))
         self.HasFittedPSFBeam = False
         self.fit_stat = self.FitPSF()
         if cachepath:
@@ -897,11 +927,13 @@ class ClassImagerDeconv():
         modelfile = self.GD["Predict"]["FromImage"]
         
         # if model image is specified, we'll use that, rather than the ModelMachine
+
         if modelfile:
             print(ModColor.Str("Reading image file for the predict: %s" % modelfile), file=log)
             FixedModelImage = ClassCasaImage.FileToArray(modelfile,True)
             nch,npol,_,NPix=self.FacetMachine.OutImShape
             nchModel,npolModel,_,NPixModel=FixedModelImage.shape
+            
             if NPixModel!=NPix:
                 print(ModColor.Str("Model image spatial shape does not match DDFacet settings [%i vs %i]"%(FixedModelImage.shape[-1],NPix)), file=log)
                 CA=ClassAdaptShape(FixedModelImage)
@@ -918,12 +950,12 @@ class ClassImagerDeconv():
                                    "image size (%d). Cannot continue." % (nx, npixest))
             if npol != 1:
                 raise RuntimeError("Unsupported: Polarization prediction is not defined")
-            for msi in self.VS.FreqBandChannelsDegrid:
-                nband = self.GD["Freq"]["NDegridBand"] if self.GD["Freq"]["NDegridBand"] != 0 \
-                                                       else len(self.VS.FreqBandChannelsDegrid[msi])
-                if nch != nband:
-                    raise RuntimeError("Number of predict frequency bands (%d) do not correspond to number of "
-                                       "frequency bands (%d) in input FITS file. Cannot continue." % (nband, nch))
+            # for msi in self.VS.FreqBandChannelsDegrid:
+            #     nband = self.GD["Freq"]["NDegridBand"] if self.GD["Freq"]["NDegridBand"] != 0 \
+            #                                            else len(self.VS.FreqBandChannelsDegrid[msi])
+            #     if nch != nband:
+            #         raise RuntimeError("Number of predict frequency bands (%d) do not correspond to number of "
+            #                            "frequency bands (%d) in input FITS file. Cannot continue." % (nband, nch))
         else:
             FixedModelImage = None
 
@@ -974,7 +1006,8 @@ class ClassImagerDeconv():
                             ThisChFixedModelImage=FixedModelImage[0:nch].copy()
                         else:
                             print(ModColor.Str("  Replicating %i-times the 1st channel"%(nch)), file=log)
-                            ThisChFixedModelImage=FixedModelImage[0].reshape((1,npol,NPix,NPix))*np.ones((DATA["ChanMappingDegrid"].size,1,1,1))
+                            ThisChFixedModelImage=FixedModelImage[0].reshape((1,npol,NPix,NPix))*np.ones((np.unique(DATA["ChanMappingDegrid"]).size,1,1,1))
+
                         self.FacetMachine.ToCasaImage(ThisChFixedModelImage,
                                                       ImageName="%s.cube.model"%(self.BaseName),
                                                       Fits=True,
@@ -1099,6 +1132,8 @@ class ClassImagerDeconv():
                                " supported. Maybe you meant Output-StokesResidues"\
                                " instead?")
 
+        self.DicoImagesPSF.reload()
+        self.DicoImagesPSF["DicoImager"]=copy.deepcopy((self.FacetMachinePSF.DicoImager or self.FacetMachine.DicoImager))
         # This just keeps track of padded grid size for use in Hogbom-MultiScale (Can just use DicoImager instead? Is it passed in anywhere?)
         if self.GD["Deconv"]["Mode"] == "WSCMS" or self.GD["Deconv"]["Mode"] == "Hogbom":
             self.DicoImagesPSF["PaddedPSFInfo"] = {}
@@ -1148,6 +1183,7 @@ class ClassImagerDeconv():
             self.ImageNoiseMachine.setPSF(self.DicoImagesPSF)
             # now update the mask - it will eventually call for ImageNoiseMachine to compute a noise image
             self.MaskMachine.updateMask(self.DicoDirty)
+            
             if self.MaskMachine.CurrentMask is not None:
                 if "k" in self._saveims:
                     self.FacetMachine.ToCasaImage(np.float32(self.MaskMachine.CurrentMask),
@@ -1215,6 +1251,10 @@ class ClassImagerDeconv():
             # stop
             # ###
 
+            if self.GD["Output"]["Mode"]=="CleanMinor":
+                print>> log, "Requested no residual image after minor cycle... exiting..."
+                return
+            
             ## returned with nothing done in minor cycle? Break out
             if not update_model or iMajor == NMajor:
                 continue_deconv = False
@@ -1365,6 +1405,7 @@ class ClassImagerDeconv():
             # was PSF re-generated?
             if do_psf:
                 self._finalizeComputedPSF(self.FacetMachinePSF, cachepath=None)
+                
                 self._fitAndSavePSF(self.FacetMachinePSF, cycle=iMajor)
                 deconvmachine_init = False  # force re-init above
 

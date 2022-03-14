@@ -24,8 +24,8 @@ class ClassCoordConv():
 
     def lm2radec(self,l_list,m_list):
 
-        ra_list=np.zeros(l_list.shape,dtype=np.float)
-        dec_list=np.zeros(l_list.shape,dtype=np.float)
+        ra_list=np.zeros(l_list.shape,dtype=np.float32)
+        dec_list=np.zeros(l_list.shape,dtype=np.float32)
         
         for i in range(l_list.shape[0]):
             l=l_list[i]

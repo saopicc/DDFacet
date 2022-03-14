@@ -27,6 +27,7 @@ def read_options():
     group.add_option('--MaskName',help='Name of the fits mask, default is %default',default=None)
     group.add_option('--NPixOut',help='Name of the fits mask, default is %default',default=None)
     group.add_option('--FilterNegComp',help='Name of the fits mask, default is %default',type="int",default=0)
+    group.add_option('--InvertMask',help='Invert Mask, default is %default',type="int",default=0)
     opt.add_option_group(group)
 
     options, arguments = opt.parse_args()
@@ -44,7 +45,7 @@ def main(options=None):
     ModConstructor = ClassModModelMachine()
     MM=ModConstructor.GiveInitialisedMMFromFile(options.InDicoModel)
     if options.MaskName:
-        MM.CleanMaskedComponants(options.MaskName)
+        MM.CleanMaskedComponants(options.MaskName,InvertMask=options.InvertMask)
 
     if options.FilterNegComp:
         MM.RemoveNegComponants()

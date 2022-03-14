@@ -179,7 +179,7 @@ class ClassClusterKMean():
         
         if self.DoPlot:
             pylab.clf()
-            pylab.scatter(x,y,c=indk,vmin=0,vmax=Nk,lw=0)
+            pylab.scatter(x,y,c=indk,s=s,vmin=0,vmax=Nk,lw=0)
             pylab.scatter(xc,yc,c="black",marker="s")
             pylab.draw()
             pylab.show(block=False)

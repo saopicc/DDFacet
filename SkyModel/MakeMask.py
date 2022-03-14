@@ -37,9 +37,11 @@ from matplotlib.path import Path
 from astropy.io import fits
 
 def PutDataInNewImage(oldfits,newfits,data):
+    outim=newfits+'.fits'
+    log.print("writting image %s"%outim)
     hdu=fits.open(oldfits)
     hdu[0].data=data
-    hdu.writeto(newfits+'.fits',overwrite=True)
+    hdu.writeto(outim,overwrite=True)
 
 def read_options():
     desc=""" cyril.tasse@obspm.fr"""
@@ -213,7 +215,7 @@ class ClassMakeMask():
             
         MaskBright=np.zeros((nx,nx),np.float32)
         MaskFaint=np.zeros((nx,nx),np.float32)
-        for iSol in list(DicoDir.keys()):
+        for iSol in sorted(list(DicoDir.keys())):#[0:5]:
             print("===================== Processing direction %2.2i/%2.2i ====================="%(iSol,len(DicoDir)), file=log)
             ThisFacetMask=np.zeros_like(Mask)-1
             for iFacet in DicoDir[iSol]:
@@ -256,24 +258,33 @@ class ClassMakeMask():
             DFlux=np.zeros((len(ListIslands),),np.float32)
             for iIsland,Island in enumerate(ListIslands):
                 x,y=np.array(Island).T
-                DFlux[iIsland]=np.sum(self.Restored[0,0,x,y])
-
+                s=np.abs(self.Restored[0,0,x,y])
+                xc,yc=np.sum(s*x)/np.sum(s),np.sum(s*y)/np.sum(s)
+                d=np.sqrt((x-xc)**2+(y-yc)**2)
+                Size=np.sum(s*d)/np.sum(s)
+                Size=np.max([10,Size])
+                #DFlux[iIsland]=(np.max(self.Restored[0,0,x,y])+np.sum(self.Restored[0,0,x,y]))/Size**2
+                DFlux[iIsland]=np.max(self.Restored[0,0,x,y])/Size**2
+                #print(iIsland,DFlux[iIsland],x,y,Size)
             iIsland_bright=np.argmax(DFlux)
+            #print("!!!!!!!!!!!",iIsland_bright)
             
             for iIsland,Island in enumerate(ListIslands):
                 x,y=np.array(Island).T
                 if iIsland==iIsland_bright:
+                    #print("fffffffffffff %i"%iIsland)
                     MaskBright[x,y]=1
+                    #print(MaskBright[x,y],x,y)
                 else:
                     MaskFaint[x,y]=1
 
         OutTest="%s.bright_mask"%self.FitsFile
         ImWrite=MaskBright.reshape((1,1,nx,nx))
-        PutDataInNewImage(self.FitsFile,"%s.fits"%OutTest,np.float32(ImWrite))
+        PutDataInNewImage(self.FitsFile,"%s"%OutTest,np.float32(ImWrite))
  
         OutTest="%s.faint_mask"%self.FitsFile
         ImWrite=MaskFaint.reshape((1,1,nx,nx))
-        PutDataInNewImage(self.FitsFile,"%s.fits"%OutTest,np.float32(ImWrite))
+        PutDataInNewImage(self.FitsFile,"%s"%OutTest,np.float32(ImWrite))
 
         
 
@@ -476,7 +487,10 @@ class ClassMakeMask():
                 _,_,dec,ra=self.CasaIm.toworld((0,0,jpix,ipix))
                 #d=np.sqrt((ra-rac)**2+(dec-decc)**2)
                 d=self.GiveAngDist(ra,dec,rac,decc)
-                if d<Radius:
+                
+                Cx=(ipix>=0) and (ipix<self.ImMask.shape[1])
+                Cy=(jpix>=0) and (jpix<self.ImMask.shape[0])
+                if d<Radius and Cx and Cy:
                     self.ImMask[jpix,ipix]=0
         
 
@@ -753,6 +767,7 @@ class ClassMakeMask():
             self.MaskSelectedDS9()
 
         ExternalAndMask=self.options.ExternalMask
+
         if ExternalAndMask:
             from DDFacet.Imager import ClassCasaImage
             CleanMaskImageName=ExternalAndMask
@@ -807,6 +822,7 @@ def main(options=None):
         f = open(SaveFile,'rb')
         options = pickle.load(f)
 
+        
     s0,s1=options.Box.split(",")
     Box=(int(s0),int(s1))
         
@@ -819,7 +835,9 @@ def main(options=None):
                               OutNameNoiseMap=options.OutNameNoiseMap,
                               options=options)
     MaskMachine.CreateMask()
-    #MaskMachine.giveBrightFaintMask()
+
+    if options.BaseImageName:
+        MaskMachine.giveBrightFaintMask()
 
 if __name__=="__main__":
     read_options()

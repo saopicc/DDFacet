@@ -117,6 +117,40 @@ class ClassIslandDistanceMachine():
             Labels[np.int32(x),np.int32(y)]=iIsland+1
         return Labels.reshape((1,1,nx,nx))
 
+    def BreakLargeIslands(self,ListIslands):
+        if self.GD["SSDClean"]["MaxIslandSize"]:
+            LOut=[]
+            NN=int(self.GD["SSDClean"]["MaxIslandSize"])
+            print("  breaking islands with linear size larger than %i pixels into smaller ones"%self.GD["SSDClean"]["MaxIslandSize"], file=log)
+            for iIsland,ThisIsland in enumerate(ListIslands):
+                x,y=np.array(ThisIsland).T
+                x0,x1=x.min(),x.max()
+                y0,y1=y.min(),y.max()
+                Lx,Ly=x1-x0+1,y1-y0+1
+                nx=Lx//self.GD["SSDClean"]["MaxIslandSize"]+1
+                ny=Ly//self.GD["SSDClean"]["MaxIslandSize"]+1
+                nn=nx*ny
+                if nn==1:
+                    LOut.append(ThisIsland)
+                else:
+                    print("    breaking islands #%i into %i islands"%(iIsland,nn), file=log)
+                    xb=np.int64(np.mgrid[x0:x1:(nx+1)*1j])
+                    yb=np.int64(np.mgrid[y0:y1:(ny+1)*1j])
+                    xb=xb.flatten()
+                    yb=yb.flatten()
+                    for ix in range(nx):
+                        for iy in range(ny):
+                            ind=np.where((x>xb[ix])&(x<=xb[ix+1])&(y>yb[iy])&(y<=yb[iy+1]))[0]
+                            if ind.size==0: continue
+                            II=np.zeros((ind.size,2),x.dtype)
+                            II[:,0]=x[ind]
+                            II[:,1]=y[ind]
+                            LOut.append(II)
+
+            return LOut
+        else:
+            return ListIslands
+                        
     def CalcCrossIslandPSF(self,ListIslands):
         print("  calculating global islands cross-contamination", file=log)
         PSF=np.mean(np.abs(self.PSFServer.DicoVariablePSF["MeanFacetPSF"][:,0]),axis=0)#self.PSFServer.DicoVariablePSF["MeanFacetPSF"][0,0]
@@ -529,10 +563,15 @@ class WorkerDistance(multiprocessing.Process):
         Result=np.zeros((3,NIslands),np.int32)
 
         x0,y0=np.array(self.ListIslands[iIsland]).T
+
+        MaxSize=20000
+        incr0=np.max([1,int(x0.size/MaxSize)+1])
+        
         for jIsland in range(NIslands):
             x1,y1=np.array(self.ListIslands[jIsland]).T
-            dx=x0.reshape((-1,1))-x1.reshape((1,-1))
-            dy=y0.reshape((-1,1))-y1.reshape((1,-1))
+            incr1=np.max([1,int(x1.size/MaxSize)+1])
+            dx=(x0.flat[0::incr0]).reshape((-1,1))-(x1.flat[0::incr1]).reshape((1,-1))
+            dy=(y0.flat[0::incr0]).reshape((-1,1))-(y1.flat[0::incr1]).reshape((1,-1))
             d=np.sqrt(dx**2+dy**2)
             dmin=np.min(d)
             indx,indy=np.where(d==dmin)

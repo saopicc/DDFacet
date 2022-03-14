@@ -129,7 +129,7 @@ class ClassFacetMachine():
         self.Oversize = Oversize
 
         DecorrMode=self.GD["RIME"]["DecorrMode"]
-        if DecorrMode is not None and DecorrMode is not "":
+        if DecorrMode is not None and DecorrMode != "":
             print(ModColor.Str("Using decorrelation mode %s"%DecorrMode), file=log)
         self.AverageBeamMachine=None
         self.SmoothJonesNorm=None
@@ -262,6 +262,8 @@ class ClassFacetMachine():
         self.Cell = Cell
         self.CellSizeRad = (Cell / 3600.) * np.pi / 180.
         rac, decc = self.VS.ListMS[0].radec
+        
+
         self.MainRaDec = (rac, decc)
         self.nch = self.VS.NFreqBands
         # LB - this is unnecessary and only used in FacetMachine, replacing occurrences
@@ -269,6 +271,19 @@ class ClassFacetMachine():
         self.SumWeights = np.zeros((self.nch, self.npol), float)
 
         self.CoordMachine = ModCoord.ClassCoordConv(rac, decc)
+
+        # from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        # print(rad2hmsdms(rac,Type="ra").replace(" ",":"),rad2hmsdms(decc,Type="dec").replace(" ","."))
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+
+
         # get the closest fast fft size:
         Npix = self.GD["Image"]["NPix"]
         Padding = self.GD["Facets"]["Padding"]
@@ -285,6 +300,24 @@ class ClassFacetMachine():
                                          [-RadiusTot, RadiusTot]])
         self.setFacetsLocs()
 
+    def giveEffectivePadding(self,iFacet):
+        ThisFacetPadding=self.Padding
+        if self.GD["Facets"].get("FluxPaddingAppModel",None) is None:
+            return ThisFacetPadding
+
+        FFacet=np.array([self.DicoImager[iFacet]["MaxFlux"]+self.DicoImager[iFacet]["TotalFlux"] for iFacet in self.DicoImager.keys()])
+        MaxFluxOverFacets=np.max(FFacet)
+        MedFluxOverFacets=np.median(FFacet)
+        
+        ThisFacetPadding=self.GD["Facets"]["FluxPaddingScale"]*self.Padding * (FFacet-MedFluxOverFacets)/MaxFluxOverFacets
+        
+        ThisFacetPadding=np.max([self.Padding,ThisFacetPadding[iFacet]])
+
+        if ThisFacetPadding!=self.Padding:
+            log.print("Facet #%i padding %.2f -> %.2f"%(iFacet,self.Padding,ThisFacetPadding))
+        
+        return ThisFacetPadding
+        
     def AppendFacet(self, iFacet, l0, m0, diam):
         """
         Adds facet dimentions to info dict of facets (self.DicoImager[iFacet])
@@ -305,11 +338,14 @@ class ClassFacetMachine():
         # print>>log,"Facet %d l %f m %f RA %f Dec %f"%(iFacet, l0, m0, raFacet, decFacet)
 
         NpixFacet, _ = EstimateNpix(diam / self.CellSizeRad, Padding=1)
-        _, NpixPaddedGrid = EstimateNpix(NpixFacet, Padding=self.Padding)
+
+        Padding=self.giveEffectivePadding(iFacet)
+            
+        _, NpixPaddedGrid = EstimateNpix(NpixFacet, Padding=Padding)
 
         if NpixPaddedGrid // NpixFacet > self.Padding and not getattr(self, '_warned_small_ffts', False):
             print(ModColor.Str("WARNING: Your FFTs are too small. We will pad them by x%.2f "\
-                               "rather than x%.2f. Increase facet size and/or padding to get rid of this message." % (float(NpixPaddedGrid)/NpixFacet, self.Padding)),
+                               "rather than x%.2f. Increase facet size and/or padding to get rid of this message." % (float(NpixPaddedGrid)/NpixFacet, Padding)),
                                file=log)
             self._warned_small_ffts = True
 
@@ -344,7 +380,10 @@ class ClassFacetMachine():
                         "Nw": self.GD["CF"]["Nw"],
                         "WProj": True,
                         "DoDDE": self.DoDDE,
-                        "Padding": self.GD["Facets"]["Padding"]}
+                        "Padding": Padding}
+
+        
+        #log.print("[%i] %f"%(iFacet,Padding))
 
         _, _, NpixOutIm, NpixOutIm = self.OutImShape
 
@@ -371,6 +410,7 @@ class ClassFacetMachine():
         # self.JonesDirCat.m[iFacet] = m
         # self.JonesDirCat.Cluster[iFacet] = iFacet
 
+        
     def setFacetsLocs(self):
         """
         Routine to split the image into a grid of squares.
@@ -693,6 +733,7 @@ class ClassFacetMachine():
         else:
             wmax = self.VS.getMaxW()
             print("max w=%.6g from MS (--CF-wmax=0)"%wmax, file=log)
+
         # subprocesses will place W-terms etc. here. Reset this first.
         self._CF = shared_dict.create("CFPSF" if self.DoPSF else "CF")
         # check if w-kernels, spacial weights, etc. are cached
@@ -718,7 +759,7 @@ class ClassFacetMachine():
         for iFacet in getattr(self.DicoImager, "iterkeys", self.DicoImager.keys)():
             facet_dict = self._CF.addSubdict(iFacet)
             APP.runJob("%s.InitCF.f%s"%(self._app_id, iFacet), self._initcf_worker,
-                            args=(iFacet, facet_dict.readwrite(), cachepath, cachevalid, wmax))
+                            args=(iFacet, facet_dict.readwrite(), cachepath, cachevalid, wmax))#,serial=True)
         #workers_res=APP.awaitJobResults("%s.InitCF.*"%self._app_id, progress="Init CFs")
 
 
@@ -834,6 +875,7 @@ class ClassFacetMachine():
             iFacet, self.SpheNorm, self.VS.NFreqBands,
             self.StokesConverter.AvailableCorrelationProductsIds(),
             self.StokesConverter.RequiredStokesProductsIds(),
+            Padding=FacetInfo["DicoConfigGM"]["Padding"],
             **kw)
 
     def ToCasaImage(self, ImageIn, Fits=True, ImageName=None,
@@ -1128,15 +1170,23 @@ class ClassFacetMachine():
 
             ## OMS: see issue #484. Restructuring this to use shm, and less of it. Note that the only user
             ## of this structure is ClassSpectralFunctions and ClassPSFServer
-            ## [iMS][iFacet,0,:] is the sum of the per-channel weights
+            ## [iMS][iFacet,0,:] is the sum of the per-channel Jones
             ## [iMS][iFacet,1,:] is the sum of the per-channel weights squared
             ListSumJonesChan = DicoImages.addSubdict("SumJonesChan")
+
+            HasNoBeam = ((self.GD["Beam"]["Model"] is None) or (self.GD["Beam"]["Model"]==""))
+            HasNoDDESolutions = ((self.GD["DDESolutions"]["DDSols"] is None) or (self.GD["DDESolutions"]["DDSols"]==""))
+            
             for iMS in range(self.VS.nMS):
                 nVisChan = self.VS.ListMS[iMS].ChanFreq.size
                 ThisMSSumJonesChan = ListSumJonesChan.addSharedArray(iMS, (len(facets), 2, nVisChan), np.float64)
                 for iFacet in facets:
                     sumjones = self.DicoImager[iFacet]["SumJonesChan"][iMS]
-                    sumjones[sumjones == 0] = 1.
+
+                    if HasNoBeam and HasNoDDESolutions:
+                        sumjones[sumjones == 0] = 1.
+                    if np.all(sumjones==0):
+                        log.print(ModColor.Str("MS #%i facet #%i has zero SumJonesChan for all channels"%(iMS,iFacet)))
                     ThisMSSumJonesChan[iFacet,:] = sumjones[:]
 
             DicoImages["ChanMappingGrid"] = self.VS.DicoMSChanMapping
@@ -1556,7 +1606,7 @@ class ClassFacetMachine():
         for iDir in range(self.AverageBeamMachine.NDir):
             APP.runJob("%s%d" % (JobName,iDir), 
                        self._SmoothAverageBeam_worker,
-                       args=(DATA.readonly(), iDir))
+                       args=(DATA.readonly(), iDir))#,serial=True)
 
 
     def finaliseSmoothBeam(self):

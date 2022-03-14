@@ -500,8 +500,11 @@ def GiveBlocksRowsListBL_old(a0, a1, DATA, dPhi, l, channel_mapping):
     #if(ind.size <= 1):
     #    return
     nrows = ind.size
-    if not nrows:
+    if(ind.size <= 1):
         return None, None, None
+    
+    # if not nrows:
+    #     return None, None, None
     C = 3e8
 
     GridChanMapping=channel_mapping
@@ -552,6 +555,7 @@ def GiveBlocksRowsListBL_old(a0, a1, DATA, dPhi, l, channel_mapping):
         # ?? seems to be an observatory specific issue (solution is perhaps to run
         # CASA fixvis on the dataset to regenerate uv coordinates)
         uv = max(uv, 1e-10)
+
         dnu = (C/np.pi)*dPhi/(uv*l)                            # delta-nu for this row
         NChanBlock = dnu/dFreq                                 # size of averaging block, in channels
         if NChanBlock < NChanBlockMax:                         # min size of channel averaging block for this time block

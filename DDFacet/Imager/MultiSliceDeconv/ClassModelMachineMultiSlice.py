@@ -52,11 +52,12 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         ClassModelMachinebase.ClassModelMachine.__init__(self, *args, **kwargs)
         self.RefFreq=None
         self.DicoModel={}
-        self.DicoModel["Type"]="MORESANE"
+        self.DicoModel["Type"]="MultiSlice"
 
     def setRefFreq(self,RefFreq,Force=False):#,AllFreqs):
         if self.RefFreq is not None and not Force:
             print(ModColor.Str("Reference frequency already set to %f MHz"%(self.RefFreq/1e6)), file=log)
+            self.DicoModel["RefFreq"]=self.RefFreq
             return
         self.RefFreq=RefFreq
         self.DicoModel["RefFreq"]=RefFreq
@@ -71,7 +72,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         D["GD"]=self.GD
         D["ModelShape"]=self.ModelShape
-        D["Type"]="MORESANE"
+        D["Type"]="MultiSlice"
 
         MyPickle.Save(D,FileName)
 
@@ -79,7 +80,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         D=self.DicoModel
         D["GD"]=self.GD
         D["ModelShape"]=self.ModelShape
-        D["Type"]="MORESANE"
+        D["Type"]="MultiSlice"
         return D
 
     def FromFile(self,FileName):
@@ -107,12 +108,15 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         
 
-    def setModel(self,Image,Order):
-        try:
-            self.DicoModel[Order]+=Image
-        except:
-            self.DicoModel[Order]=Image
-
+    def setModel(self,Image,FluxScale="Linear"):
+        if "CoefImage" not in self.DicoModel.keys():
+            self.DicoModel["CoefImage"]=Image
+            self.DicoModel["FluxScale"]=FluxScale
+            self.FluxScale=FluxScale
+        else:
+            #self.DicoModel["CoefImage"][1::,:,:,:]+=Image[1::,:,:,:]
+            #S0=self.DicoModel["CoefImage"][0,:,:,:]
+            self.DicoModel["CoefImage"][:,:,:,:]+=Image[:,:,:,:]
             
             
 
@@ -138,18 +142,61 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         else:
             ModelImage = np.zeros((nchan,npol,nx,ny),dtype=np.float32)
 
-        if 0 in self.DicoModel.keys():
-            C0=self.DicoModel[0]
-        else:
-            C0=0
+        # if 0 in self.DicoModel.keys():
+        #     C0=self.DicoModel[0]
+        # else:
+        #     C0=0
+        # if 1 in self.DicoModel.keys():
+        #     C1=self.DicoModel[1]
+        # else:
+        #     C1=0
+        # ModelImage[:,:,:,:]=C0*(FreqIn.reshape((-1,1,1,1))/self.RefFreq)**C1
+        NOrder,npol,nx,ny=self.DicoModel["CoefImage"].shape
+        
+        # indx,indy=np.where(self.DicoModel["CoefImage"][0,0]!=0)
+        # for iPix in indx:
+        #     for jPix in indy:
+        #         S=self.DicoModel["CoefImage"][0,0,iPix,jPix]
+        #         p=self.DicoModel["CoefImage"][:,0,iPix,jPix][:].copy()
+        #         p[0]=0.
+        #         logS=np.poly1d(p[::-1])(np.log(FreqIn/RefFreq))
+        #         SFreq=S*np.exp(logS)
+        #         ModelImage[:,0,iPix,jPix]=SFreq[:]
 
-        if 1 in self.DicoModel.keys():
-            C1=self.DicoModel[1]
-        else:
-            C1=0
 
-        ModelImage[:,:,:,:]=C0*(FreqIn.reshape((-1,1,1,1))/self.RefFreq)**C1
- 
+        
+        indx,indy=np.where(self.DicoModel["CoefImage"][0,0]!=0)
+        Npix=indx.size
+        PolyArrayT=np.zeros((NOrder,Npix),self.DicoModel["CoefImage"].dtype)
+        for o in range(NOrder):
+            PolyArrayT[o]=self.DicoModel["CoefImage"][o,0,indx,indy]
+        PolyArray=PolyArrayT.T
+        n=np.arange(NOrder)
+        n=n.reshape((1,1,NOrder))
+        ThisFreqs=FreqIn
+        f=ThisFreqs.reshape((1,-1,1))
+        S0=PolyArray[:,0]
+        a=(PolyArray.copy()).reshape((Npix,1,NOrder))
+        nch=ThisFreqs.size
+        
+        if self.FluxScale=="Exp":
+            a[:,:,0]=0.
+            SUnityFreq0=a*(np.log(f/RefFreq))**n
+            SUnityFreq0=np.exp(np.sum(SUnityFreq0,axis=-1))
+            SUnityFreq=SUnityFreq0
+            S0=S0.reshape((Npix,1))*np.ones((1,nch))
+            SUnityFreq*=S0
+        elif self.FluxScale=="Linear":
+            SUnityFreq0=a*((f-RefFreq)/RefFreq)**n
+            SUnityFreq0=np.sum(SUnityFreq0,axis=-1)
+            SUnityFreq=SUnityFreq0
+        ModelImagePix=SUnityFreq
+        
+        ind=np.int64(indx)*ny+np.int64(indy)
+        for ich in range(nch):
+            #PolyArrayT[o]=self.DicoModel["CoefImage"][o,0,indx,indy]
+            ModelImage[ich,0].flat[ind]=ModelImagePix[:,ich]
+
         return ModelImage
         
 
@@ -162,7 +209,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         dFreq = 1e6
         # f0=self.DicoSMStacked["AllFreqs"].min()
         # f1=self.DicoSMStacked["AllFreqs"].max()
-        RefFreq = self.DicoSMStacked["RefFreq"]
+        RefFreq = self.DicoModel["RefFreq"]
         f0 = RefFreq / 1.5
         f1 = RefFreq * 1.5
 
