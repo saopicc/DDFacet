@@ -895,6 +895,7 @@ class ClassImagerDeconv():
 
 
         modelfile = self.GD["Predict"]["FromImage"]
+        
         # if model image is specified, we'll use that, rather than the ModelMachine
         if modelfile:
             print(ModColor.Str("Reading image file for the predict: %s" % modelfile), file=log)
