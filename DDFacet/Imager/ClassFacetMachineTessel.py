@@ -64,24 +64,31 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
     def setFacetsLocs(self):
         NFacets = self.NFacets
-        Npix = self.GD["Image"]["NPix"]
+        if isinstance(self.GD["Image"]["NPix"],int):
+            Npix_x=Npix_y=self.GD["Image"]["NPix"]
+        elif isinstance(self.GD["Image"]["NPix"],list):
+            Npix_x,Npix_y=self.GD["Image"]["NPix"]
+            
         Padding = self.GD["Facets"]["Padding"]
         self.Padding = Padding
-        Npix, _ = EstimateNpix(float(Npix), Padding=1)
-        self.Npix = Npix
-        self.OutImShape = (self.nch, self.npol, self.Npix, self.Npix)
+        Npix_x, _ = EstimateNpix(float(Npix_x), Padding=1)
+        Npix_y, _ = EstimateNpix(float(Npix_y), Padding=1)
+        self.Npix_x = Npix_x
+        self.Npix_y = Npix_y
+        self.OutImShape = (self.nch, self.npol, self.Npix_x, self.Npix_y)
 
-        RadiusTot = self.CellSizeRad * self.Npix / 2
-        self.RadiusTot = RadiusTot
+        RadiusTot_x = self.CellSizeRad * self.Npix_x / 2
+        self.RadiusTot_x = RadiusTot_x
+        RadiusTot_y = self.CellSizeRad * self.Npix_y / 2
+        self.RadiusTot_y = RadiusTot_y
 
         lMainCenter, mMainCenter = 0., 0.
         self.lmMainCenter = lMainCenter, mMainCenter
-        self.CornersImageTot = np.array(
-            [[lMainCenter - RadiusTot, mMainCenter - RadiusTot],
-             [lMainCenter + RadiusTot, mMainCenter - RadiusTot],
-             [lMainCenter + RadiusTot, mMainCenter + RadiusTot],
-             [lMainCenter - RadiusTot, mMainCenter + RadiusTot]])
-
+        self.CornersImageTot = np.array([[lMainCenter - RadiusTot_x, mMainCenter - RadiusTot_y],
+                                         [lMainCenter + RadiusTot_x, mMainCenter - RadiusTot_y],
+                                         [lMainCenter + RadiusTot_x, mMainCenter + RadiusTot_y],
+                                         [lMainCenter - RadiusTot_x, mMainCenter + RadiusTot_y]])
+        
         # MSName = self.GD["Data"]["MS"]
         # if ".txt" in MSName:
         #     f = open(MSName)
@@ -101,7 +108,6 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         if SolsFile=="": SolsFile=None
 
-
         if SolsFile and (not (".npz" in SolsFile)) and (not (".h5" in SolsFile)):
             Method = SolsFile
             # ThisMSName = reformat.reformat(
@@ -117,9 +123,6 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 if not os.path.isdir(DirName):
                     os.makedirs(DirName)
                 SolsFile = "%s/killMS.%s.sols.npz"%(DirName,SolsFile)
-
-        
-        
         
         if SolsFile is not None and not ".h5" in SolsFile:
             from killMS.Parset import ReadCFG as ReadCFGkMS
@@ -228,15 +231,29 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             regular_grid = True
             CellSizeRad = (self.GD["Image"][
                            "Cell"] / 3600.) * np.pi / 180
-            lrad = Npix * CellSizeRad * 0.5
+            
+            
+            NpixFacet_x = Npix_x // NFacets
+            NpixFacet_y = Npix_y // NFacets
+            NpixFacet=np.min([NpixFacet_x,NpixFacet_y])
 
-            NpixFacet = Npix // NFacets
+            
             lfacet = NpixFacet * CellSizeRad * 0.5
+            lrad = Npix_x * CellSizeRad * 0.5
             lcenter_max = lrad - lfacet
+            
+            
+            
+            mfacet = NpixFacet * CellSizeRad * 0.5
+            mrad = Npix_y * CellSizeRad * 0.5
+            mcenter_max = mrad - lfacet
 
-            lFacet, mFacet, = np.mgrid[
-                -lcenter_max: lcenter_max: (NFacets) * 1j, -
-                lcenter_max: lcenter_max: (NFacets) * 1j]
+            NFacets_x=Npix_x//NpixFacet
+            NFacets_y=Npix_y//NpixFacet
+
+            
+            lFacet, mFacet, = np.mgrid[-lcenter_max: lcenter_max: (NFacets_x) * 1j, -
+                                       mcenter_max: mcenter_max: (NFacets_y) * 1j]
             lFacet = lFacet.flatten()
             mFacet = mFacet.flatten()
         print("  There are %i Jones-directions" % lFacet.size, file=log)
@@ -337,10 +354,10 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         # SubDivide
         def GiveDiam(polygon):
             lPoly, mPoly = polygon.T
-            l0 = np.max([lMainCenter - RadiusTot, lPoly.min()])
-            l1 = np.min([lMainCenter + RadiusTot, lPoly.max()])
-            m0 = np.max([mMainCenter - RadiusTot, mPoly.min()])
-            m1 = np.min([mMainCenter + RadiusTot, mPoly.max()])
+            l0 = np.max([lMainCenter - RadiusTot_x, lPoly.min()])
+            l1 = np.min([lMainCenter + RadiusTot_x, lPoly.max()])
+            m0 = np.max([mMainCenter - RadiusTot_y, mPoly.min()])
+            m1 = np.min([mMainCenter + RadiusTot_y, mPoly.max()])
             dl = l1 - l0
             dm = m1 - m0
             diam = np.max([dl, dm])
@@ -622,7 +639,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.JonesDirCat.Cluster = range(NJonesDir)
 
         print("Sizes (%i facets):" % (self.JonesDirCat.shape[0]), file=log)
-        print("   - Main field :   [%i x %i] pix" % (self.Npix, self.Npix), file=log)
+        print("   - Main field :   [%i x %i] pix" % (self.Npix_x, self.Npix_y), file=log)
 
 
         l_m_Diam = np.zeros((NFacets, 4), np.float32)

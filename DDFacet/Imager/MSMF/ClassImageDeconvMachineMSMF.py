@@ -636,8 +636,9 @@ class ClassImageDeconvMachine():
         if self._niter >= self.MaxMinorIter:
             return "MaxIter", False, False
 
-        _, npol, npix, _ = self._MeanDirty.shape
-        xc = (npix)//2
+        _, npol, npix_x, npix_y = self._MeanDirty.shape
+        xc = (npix_x)//2
+        yc = (npix_y)//2
 
         # m0,m1=self._CubeDirty.min(),self._CubeDirty.max()
         # pylab.clf()
@@ -922,7 +923,7 @@ class ClassImageDeconvMachine():
                             (nch, npol, 1, 1))).copy())
                 #print "Fpol",Fpol
                 dx = x-xc
-                dy = y-xc
+                dy = y-yc
 
                 T.timeit("stuff")
 

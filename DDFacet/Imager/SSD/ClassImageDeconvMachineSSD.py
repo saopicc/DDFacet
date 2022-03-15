@@ -628,6 +628,7 @@ class ClassImageDeconvMachine():
     ###################################################################################
     
     def GiveEdges(self,xc0,yc0,N0,xc1,yc1,N1):
+        stop # just to see if this is needed anywhere
         M_xc=xc0
         M_yc=yc0
         NpixMain=N0
@@ -664,6 +665,7 @@ class ClassImageDeconvMachine():
 
 
     def SubStep(self,dx,dy,LocalSM):
+        stop # just to see if this is needed anywhere
         npol,_,_=self.Dirty.shape
         x0,x1,y0,y1=self.DirtyExtent
         xc,yc=dx,dy

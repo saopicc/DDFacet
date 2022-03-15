@@ -88,7 +88,7 @@ class ClassCasaimage():
                                    "See FITS standard 3.0 (A&A 524 A42) Table 28 for the indices of the stokes "
                                    "parameters you want to image.")
         self.ImShape=ImShape
-        self.nch,self.npol,self.Npix,_ = ImShape
+        self.nch,self.npol,self.Npix_x,self.Npix_y = ImShape
 
         self.ImageName=ImageName
         #print "image refpix:",rad2hmsdms.rad2hmsdms(radec[0],Type="ra").replace(" ",":"),", ",rad2hmsdms.rad2hmsdms(radec[1],Type="dec").replace(" ",".")
@@ -118,7 +118,7 @@ class ClassCasaimage():
         self.w.wcs.cdelt[2] = self.delta_stokes
         self.w.wcs.cunit = ['deg','deg','','Hz']
         self.w.wcs.crval = [self.radec[0]*180.0/np.pi,self.radec[1]*180.0/np.pi,self.sorted_stokes[0],0]
-        self.w.wcs.crpix = [1+(self.Npix-1)/2.0,1+(self.Npix-1)/2.0,1,1]
+        self.w.wcs.crpix = [1+(self.Npix_x-1)/2.0,1+(self.Npix_y-1)/2.0,1,1]
 
         self.fmean=None
         if self.Freqs is not None:
@@ -139,14 +139,20 @@ class ClassCasaimage():
     def setdata(self, dataIn, CorrT=False):
         #print>>log, "  ----> put data in casa image %s"%self.ImageName
 
-        data=dataIn.copy()
+        
+        
         if CorrT:
-            nch,npol,_,_=dataIn.shape
+            nch,npol,nx,ny=dataIn.shape
+            data=np.zeros((nch,npol,ny,nx),dtype=dataIn.dtype)
             for ch in range(nch):
                 for pol in range(npol):
                     #Need to place stokes data in increasing order because of the linear spacing assumption used in FITS
                     stokes_slice_id = self.Stokes.index(self.sorted_stokes[pol])
                     data[ch,pol]=dataIn[ch][stokes_slice_id][::-1].T
+                    
+        else:
+            data=dataIn.copy()
+
         self.imageFlipped = CorrT
         self.data = data
 

@@ -27,7 +27,7 @@ from DDFacet.compatibility import range
 import numpy as np
 from DDFacet.Other import ClassTimeIt
 from DDFacet.ToolsDir import ModFFTW
-from DDFacet.ToolsDir.GiveEdges import GiveEdges
+from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 
 
 class ClassImToGrid():
@@ -137,7 +137,7 @@ class ClassImToGrid():
 
     def GiveModelTessel(self,Image,DicoImager,iFacet,NormIm,Sphe,SpacialWeight,ToGrid=False,ChanSel=None,ApplyNorm=True):
         
-        nch,npol,NPixOut,_=Image.shape
+        nch,npol,NPixOut_x,NPixOut_y=Image.shape
 
         N1=DicoImager[iFacet]["NpixFacetPadded"]
         N1NonPadded=DicoImager[iFacet]["NpixFacetPadded"]
@@ -147,7 +147,7 @@ class ClassImToGrid():
         #x0,x1,y0,y1=DicoImager[iFacet]["pixExtent"]
         #xc,yc=(x0+x1)//2,(y0+y1)//2
 
-        Aedge,Bedge=GiveEdges(xc,yc,NPixOut,N1//2,N1//2,N1)
+        Aedge,Bedge=GiveEdgesDissymetric(xc,yc,NPixOut_x,NPixOut_y,N1//2,N1//2,N1,N1)
         #Bedge,Aedge=GiveEdges(N1//2,N1//2,N1,yc,xc,NPixOut)
         x0d,x1d,y0d,y1d=Aedge
         x0p,x1p,y0p,y1p=Bedge

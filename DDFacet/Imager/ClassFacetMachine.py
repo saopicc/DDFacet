@@ -42,7 +42,8 @@ import traceback
 from matplotlib.path import Path
 from DDFacet.ToolsDir import ModCoord, ModFFTW
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
-from DDFacet.ToolsDir.GiveEdges import GiveEdges
+#from DDFacet.ToolsDir.GiveEdges import GiveEdges
+from DDFacet.ToolsDir.GiveEdges import GiveEdges,GiveEdgesDissymetric
 from DDFacet.Imager.ClassImToGrid import ClassImToGrid
 from DDFacet.Data.ClassStokes import ClassStokes
 log=logger.getLogger("ClassFacetMachine")
@@ -199,9 +200,9 @@ class ClassFacetMachine():
         self.AverageBeamMachine=AverageBeamMachine
         if self.AverageBeamMachine.SmoothBeam is not None:
             print("  Smooth beam machine already has a smooth beam", file=log)
-            Npix=self.OutImShape[-1]
-            self.SmoothJonesNorm = self.AverageBeamMachine.SmoothBeam.reshape((self.VS.NFreqBands,1,Npix,Npix))
-            self.MeanSmoothJonesNorm = self.AverageBeamMachine.MeanSmoothBeam.reshape((1,1,Npix,Npix))
+            Npix_x,Npix_y=self.OutImShape[-2],self.OutImShape[-1]
+            self.SmoothJonesNorm = self.AverageBeamMachine.SmoothBeam.reshape((self.VS.NFreqBands,1,Npix_x,Npix_y))
+            self.MeanSmoothJonesNorm = self.AverageBeamMachine.MeanSmoothBeam.reshape((1,1,Npix_x,Npix_y))
 
 
     def SetLogModeSubModules(self,Mode="Silent"):
@@ -285,19 +286,27 @@ class ClassFacetMachine():
 
 
         # get the closest fast fft size:
-        Npix = self.GD["Image"]["NPix"]
+        if isinstance(self.GD["Image"]["NPix"],int):
+            Npix_x=Npix_y=self.GD["Image"]["NPix"]
+        elif isinstance(self.GD["Image"]["NPix"],list):
+            Npix_x,Npix_y=self.GD["Image"]["NPix"]
+            
         Padding = self.GD["Facets"]["Padding"]
         self.Padding = Padding
-        Npix, _ = EstimateNpix(float(Npix), Padding=1)
-        self.Npix = Npix
-        self.OutImShape = (self.nch, self.npol, self.Npix, self.Npix)
+        Npix_x, _ = EstimateNpix(float(Npix_x), Padding=1)
+        Npix_y, _ = EstimateNpix(float(Npix_y), Padding=1)
+        self.Npix_x = Npix_x
+        self.Npix_y = Npix_y
+        self.OutImShape = (self.nch, self.npol, self.Npix_x, self.Npix_y)
         # image bounding box in radians:
-        RadiusTot = self.CellSizeRad * self.Npix / 2
-        self.RadiusTot = RadiusTot
-        self.CornersImageTot = np.array([[-RadiusTot, -RadiusTot],
-                                         [RadiusTot, -RadiusTot],
-                                         [RadiusTot, RadiusTot],
-                                         [-RadiusTot, RadiusTot]])
+        RadiusTot_x = self.CellSizeRad * self.Npix_x / 2
+        RadiusTot_y = self.CellSizeRad * self.Npix_x / 2
+        self.RadiusTot_x = RadiusTot_x
+        self.RadiusTot_y = RadiusTot_y
+        self.CornersImageTot = np.array([[-RadiusTot_x, -RadiusTot_y],
+                                         [RadiusTot_x, -RadiusTot_y],
+                                         [RadiusTot_x, RadiusTot_y],
+                                         [-RadiusTot_x, RadiusTot_y]])
         self.setFacetsLocs()
 
     def giveEffectivePadding(self,iFacet):
@@ -385,14 +394,14 @@ class ClassFacetMachine():
         
         #log.print("[%i] %f"%(iFacet,Padding))
 
-        _, _, NpixOutIm, NpixOutIm = self.OutImShape
+        _, _, NpixOutIm_x, NpixOutIm_y = self.OutImShape
 
         self.DicoImager[iFacet]["l0m0"] = lmShift
         self.DicoImager[iFacet]["RaDec"] = raFacet[0], decFacet[0]
         self.LraFacet.append(raFacet[0])
         self.LdecFacet.append(decFacet[0])
-        xc, yc = int(round(l0 / self.CellSizeRad + NpixOutIm // 2)), \
-            int(round(m0 / self.CellSizeRad + NpixOutIm // 2))
+        xc, yc = int(round(l0 / self.CellSizeRad + NpixOutIm_x // 2)), \
+            int(round(m0 / self.CellSizeRad + NpixOutIm_y // 2))
 
         self.DicoImager[iFacet]["pixCentral"] = xc, yc
         self.DicoImager[iFacet]["pixExtent"] = xc - NpixFacet // 2, xc + NpixFacet // 2 + 1, \
@@ -410,143 +419,146 @@ class ClassFacetMachine():
         # self.JonesDirCat.m[iFacet] = m
         # self.JonesDirCat.Cluster[iFacet] = iFacet
 
-        
-    def setFacetsLocs(self):
-        """
-        Routine to split the image into a grid of squares.
-        This can be overridden to perform more complex tesselations
-        """
-        Npix = self.GD["Image"]["NPix"]
-        self.NFacets = self.GD["Facets"]["NFacets"]**2
-        self.Padding = self.GD["Facets"]["Padding"]
-        self.NpixFacet, _ = EstimateNpix(float(Npix) / self.GD["Facets"]["NFacets"], Padding=1)
-        self.Npix = self.NpixFacet * self.GD["Facets"]["NFacets"]
-        Npix = self.Npix  # Just in case we use Npix instead of self.Npix
-        self.OutImShape = (self.nch, self.npol, self.Npix, self.Npix)
-        _, self.NpixPaddedGrid = EstimateNpix(self.NpixFacet, Padding=self.Padding)
 
-        self.NpixFacet = self.NpixFacet
-        self.FacetShape = (self.nch, self.npol, self.NpixFacet, self.NpixFacet)
-        self.PaddedGridShape = (self.nch, self.npol, self.NpixPaddedGrid, self.NpixPaddedGrid)
+    # #################################
+    # def setFacetsLocs(self):
+    #     """
+    #     Routine to split the image into a grid of squares.
+    #     This can be overridden to perform more complex tesselations
+    #     """
+    #     stop
+    #     Npix = self.GD["Image"]["NPix"]
+    #     self.NFacets = self.GD["Facets"]["NFacets"]**2
+    #     self.Padding = self.GD["Facets"]["Padding"]
+    #     self.NpixFacet, _ = EstimateNpix(float(Npix) / self.GD["Facets"]["NFacets"], Padding=1)
+    #     self.Npix = self.NpixFacet * self.GD["Facets"]["NFacets"]
+    #     Npix = self.Npix  # Just in case we use Npix instead of self.Npix
+    #     self.OutImShape = (self.nch, self.npol, self.Npix, self.Npix)
+    #     _, self.NpixPaddedGrid = EstimateNpix(self.NpixFacet, Padding=self.Padding)
 
-        self.RadiusTot = self.CellSizeRad * self.Npix * 0.5
+    #     self.NpixFacet = self.NpixFacet
+    #     self.FacetShape = (self.nch, self.npol, self.NpixFacet, self.NpixFacet)
+    #     self.PaddedGridShape = (self.nch, self.npol, self.NpixPaddedGrid, self.NpixPaddedGrid)
 
-        lMainCenter, mMainCenter = 0., 0.
-        self.lmMainCenter = lMainCenter, mMainCenter
-        self.CornersImageTot = np.array(
-                                [[lMainCenter - self.RadiusTot, mMainCenter - self.RadiusTot],
-                                 [lMainCenter + self.RadiusTot, mMainCenter - self.RadiusTot],
-                                 [lMainCenter + self.RadiusTot, mMainCenter + self.RadiusTot],
-                                 [lMainCenter - self.RadiusTot, mMainCenter + self.RadiusTot]])
+    #     self.RadiusTot = self.CellSizeRad * self.Npix * 0.5
 
-        print("Sizes (%i x %i facets):" % (self.GD["Facets"]["NFacets"], self.GD["Facets"]["NFacets"]), file=log)
-        print("   - Main field :   [%i x %i] pix" % (self.Npix, self.Npix), file=log)
-        print("   - Each facet :   [%i x %i] pix" % (self.NpixFacet, self.NpixFacet), file=log)
-        print("   - Padded-facet : [%i x %i] pix" % (self.NpixPaddedGrid, self.NpixPaddedGrid), file=log)
+    #     lMainCenter, mMainCenter = 0., 0.
+    #     self.lmMainCenter = lMainCenter, mMainCenter
+    #     self.CornersImageTot = np.array(
+    #                             [[lMainCenter - self.RadiusTot, mMainCenter - self.RadiusTot],
+    #                              [lMainCenter + self.RadiusTot, mMainCenter - self.RadiusTot],
+    #                              [lMainCenter + self.RadiusTot, mMainCenter + self.RadiusTot],
+    #                              [lMainCenter - self.RadiusTot, mMainCenter + self.RadiusTot]])
 
-        ############################
+    #     print("Sizes (%i x %i facets):" % (self.GD["Facets"]["NFacets"], self.GD["Facets"]["NFacets"]), file=log)
+    #     print("   - Main field :   [%i x %i] pix" % (self.Npix, self.Npix), file=log)
+    #     print("   - Each facet :   [%i x %i] pix" % (self.NpixFacet, self.NpixFacet), file=log)
+    #     print("   - Padded-facet : [%i x %i] pix" % (self.NpixPaddedGrid, self.NpixPaddedGrid), file=log)
 
-        # Set total extent of image
-        self.ImageExtent = [-self.RadiusTot, self.RadiusTot, -self.RadiusTot, self.RadiusTot]
+    #     ############################
 
-        # Set facet centers (coords)
-        self.RadiusFacet = self.NpixFacet * self.CellSizeRad * 0.5
-        lcenter_max = self.RadiusTot - self.RadiusFacet
-        lFacet, mFacet, = np.mgrid[-lcenter_max:lcenter_max:self.GD["Facets"]["NFacets"] * 1j,
-                                   -lcenter_max:lcenter_max:self.GD["Facets"]["NFacets"] * 1j]
-        lFacet = lFacet.flatten()
-        mFacet = mFacet.flatten()
+    #     # Set total extent of image
+    #     self.ImageExtent = [-self.RadiusTot, self.RadiusTot, -self.RadiusTot, self.RadiusTot]
 
-        self.lmSols = lFacet, mFacet
+    #     # Set facet centers (coords)
+    #     self.RadiusFacet = self.NpixFacet * self.CellSizeRad * 0.5
+    #     lcenter_max = self.RadiusTot - self.RadiusFacet
+    #     lFacet, mFacet, = np.mgrid[-lcenter_max:lcenter_max:self.GD["Facets"]["NFacets"] * 1j,
+    #                                -lcenter_max:lcenter_max:self.GD["Facets"]["NFacets"] * 1j]
+    #     lFacet = lFacet.flatten()
+    #     mFacet = mFacet.flatten()
 
-        raSols, decSols = self.CoordMachine.lm2radec(lFacet.copy(), mFacet.copy())
-        self.radecSols = raSols, decSols
+    #     self.lmSols = lFacet, mFacet
 
-        # set coordinates of facet vertices
-        self.DicoImager = {}
-        if self.NFacets == 1:
-            self.DicoImager[0] = {}
-            self.DicoImager[0]["Polygon"] = self.CornersImageTot
-        else:
-            tmparray = np.zeros([4, 2])  # temp array to hold coordinates
-            for iFacet in range(self.NFacets):
-                self.DicoImager[iFacet] = {}
+    #     raSols, decSols = self.CoordMachine.lm2radec(lFacet.copy(), mFacet.copy())
+    #     self.radecSols = raSols, decSols
 
-                # since we are using regular tesselation
-                tmparray[0, 0] = lFacet[iFacet] + self.RadiusFacet
-                tmparray[0, 1] = mFacet[iFacet] - self.RadiusFacet
-                tmparray[1, 0] = lFacet[iFacet] - self.RadiusFacet
-                tmparray[1, 1] = mFacet[iFacet] - self.RadiusFacet
-                tmparray[2, 0] = lFacet[iFacet] - self.RadiusFacet
-                tmparray[2, 1] = mFacet[iFacet] + self.RadiusFacet
-                tmparray[3, 0] = lFacet[iFacet] + self.RadiusFacet
-                tmparray[3, 1] = mFacet[iFacet] + self.RadiusFacet
+    #     # set coordinates of facet vertices
+    #     self.DicoImager = {}
+    #     if self.NFacets == 1:
+    #         self.DicoImager[0] = {}
+    #         self.DicoImager[0]["Polygon"] = self.CornersImageTot
+    #     else:
+    #         tmparray = np.zeros([4, 2])  # temp array to hold coordinates
+    #         for iFacet in range(self.NFacets):
+    #             self.DicoImager[iFacet] = {}
 
-                self.DicoImager[iFacet]["Polygon"] = tmparray.copy()
+    #             # since we are using regular tesselation
+    #             tmparray[0, 0] = lFacet[iFacet] + self.RadiusFacet
+    #             tmparray[0, 1] = mFacet[iFacet] - self.RadiusFacet
+    #             tmparray[1, 0] = lFacet[iFacet] - self.RadiusFacet
+    #             tmparray[1, 1] = mFacet[iFacet] - self.RadiusFacet
+    #             tmparray[2, 0] = lFacet[iFacet] - self.RadiusFacet
+    #             tmparray[2, 1] = mFacet[iFacet] + self.RadiusFacet
+    #             tmparray[3, 0] = lFacet[iFacet] + self.RadiusFacet
+    #             tmparray[3, 1] = mFacet[iFacet] + self.RadiusFacet
 
-        # get index of central facet (not necessarily NFacets//2)
-        distances = lFacet ** 2 + mFacet **2
-        self.iCentralFacet = np.argwhere(distances==distances.min()).squeeze()
+    #             self.DicoImager[iFacet]["Polygon"] = tmparray.copy()
 
-        NodesCat = np.zeros(
-            (raSols.size,),
-            dtype=[('ra', np.float),
-                   ('dec', np.float),
-                   ('l', np.float),
-                   ('m', np.float)])
-        NodesCat = NodesCat.view(np.recarray)
-        NodesCat.ra = raSols
-        NodesCat.dec = decSols
-        # print>>log,"Facet RA %s"%raSols
-        # print>>log,"Facet Dec %s"%decSols
-        NodesCat.l = lFacet
-        NodesCat.m = mFacet
+    #     # get index of central facet (not necessarily NFacets//2)
+    #     distances = lFacet ** 2 + mFacet **2
+    #     self.iCentralFacet = np.argwhere(distances==distances.min()).squeeze()
 
-        NJonesDir = NodesCat.shape[0]
-        self.JonesDirCat = np.zeros(
-            (NodesCat.shape[0],),
-            dtype=[('Name', '|S200'),
-                   ('ra', np.float),
-                   ('dec', np.float),
-                   ('SumI', np.float),
-                   ("Cluster", int),
-                   ("l", np.float),
-                   ("m", np.float),
-                   ("I", np.float)])
-        self.JonesDirCat = self.JonesDirCat.view(np.recarray)
-        self.JonesDirCat.I = 1
-        self.JonesDirCat.SumI = 1
+    #     NodesCat = np.zeros(
+    #         (raSols.size,),
+    #         dtype=[('ra', np.float),
+    #                ('dec', np.float),
+    #                ('l', np.float),
+    #                ('m', np.float)])
+    #     NodesCat = NodesCat.view(np.recarray)
+    #     NodesCat.ra = raSols
+    #     NodesCat.dec = decSols
+    #     # print>>log,"Facet RA %s"%raSols
+    #     # print>>log,"Facet Dec %s"%decSols
+    #     NodesCat.l = lFacet
+    #     NodesCat.m = mFacet
 
-        self.JonesDirCat.ra=NodesCat.ra
-        self.JonesDirCat.dec=NodesCat.dec
-        self.JonesDirCat.l=NodesCat.l
-        self.JonesDirCat.m=NodesCat.m
-        self.JonesDirCat.Cluster = range(NJonesDir)
+    #     NJonesDir = NodesCat.shape[0]
+    #     self.JonesDirCat = np.zeros(
+    #         (NodesCat.shape[0],),
+    #         dtype=[('Name', '|S200'),
+    #                ('ra', np.float),
+    #                ('dec', np.float),
+    #                ('SumI', np.float),
+    #                ("Cluster", int),
+    #                ("l", np.float),
+    #                ("m", np.float),
+    #                ("I", np.float)])
+    #     self.JonesDirCat = self.JonesDirCat.view(np.recarray)
+    #     self.JonesDirCat.I = 1
+    #     self.JonesDirCat.SumI = 1
 
-        print("Sizes (%i facets):" % (self.JonesDirCat.shape[0]), file=log)
-        print("   - Main field :   [%i x %i] pix" % (self.Npix, self.Npix), file=log)
+    #     self.JonesDirCat.ra=NodesCat.ra
+    #     self.JonesDirCat.dec=NodesCat.dec
+    #     self.JonesDirCat.l=NodesCat.l
+    #     self.JonesDirCat.m=NodesCat.m
+    #     self.JonesDirCat.Cluster = range(NJonesDir)
 
-        for iFacet in range(lFacet.size):
-            l0 = lFacet[iFacet]
-            m0 = mFacet[iFacet]
-            self.AppendFacet(iFacet, l0, m0, self.NpixFacet * self.CellSizeRad)
+    #     print("Sizes (%i facets):" % (self.JonesDirCat.shape[0]), file=log)
+    #     print("   - Main field :   [%i x %i] pix" % (self.Npix, self.Npix), file=log)
 
-        # Write facet coords to file
-        FacetCoordFile = "%s.facetCoord.%stxt" % (self.GD["Output"]["Name"], "psf." if self.DoPSF else "")
-        print("Writing facet coordinates in %s" % FacetCoordFile, file=log)
-        f = open(FacetCoordFile, 'w')
-        ss = "# (Name, Type, Ra, Dec, I, Q, U, V, ReferenceFrequency='7.38000e+07', SpectralIndex='[]', MajorAxis, MinorAxis, Orientation) = format"
-        for iFacet in range(len(self.DicoImager)):
-            ra, dec = self.DicoImager[iFacet]["RaDec"]
-            sra = rad2hmsdms.rad2hmsdms(ra, Type="ra").replace(" ", ":")
-            sdec = rad2hmsdms.rad2hmsdms(dec).replace(" ", ".")
-            ss = "%s, %s, %f, %f" % (sra, sdec, ra, dec)
-            f.write(ss + '\n')
-        f.close()
+    #     for iFacet in range(lFacet.size):
+    #         l0 = lFacet[iFacet]
+    #         m0 = mFacet[iFacet]
+    #         self.AppendFacet(iFacet, l0, m0, self.NpixFacet * self.CellSizeRad)
 
-        self.SetLogModeSubModules("Silent")
-        self.MakeREG()
+    #     # Write facet coords to file
+    #     FacetCoordFile = "%s.facetCoord.%stxt" % (self.GD["Output"]["Name"], "psf." if self.DoPSF else "")
+    #     print("Writing facet coordinates in %s" % FacetCoordFile, file=log)
+    #     f = open(FacetCoordFile, 'w')
+    #     ss = "# (Name, Type, Ra, Dec, I, Q, U, V, ReferenceFrequency='7.38000e+07', SpectralIndex='[]', MajorAxis, MinorAxis, Orientation) = format"
+    #     for iFacet in range(len(self.DicoImager)):
+    #         ra, dec = self.DicoImager[iFacet]["RaDec"]
+    #         sra = rad2hmsdms.rad2hmsdms(ra, Type="ra").replace(" ", ":")
+    #         sdec = rad2hmsdms.rad2hmsdms(dec).replace(" ", ".")
+    #         ss = "%s, %s, %f, %f" % (sra, sdec, ra, dec)
+    #         f.write(ss + '\n')
+    #     f.close()
 
+    #     self.SetLogModeSubModules("Silent")
+    #     self.MakeREG()
+    # ########################
+    
     def MakeREG(self):
         """
         Writes out ds9 tesselation region file
@@ -1037,7 +1049,7 @@ class ClassFacetMachine():
             self.fourierTransformInBackground()
             self.collectFourierTransformResults()
             self.HasFourierTransformed = True
-        _, npol, Npix, Npix = self.OutImShape
+        _, npol, Npix_x, Npix_y = self.OutImShape
         DicoImages = shared_dict.create("%s_AllImages"%self._app_id)
         DicoImages["freqs"] = {}
         DicoImages.addSubdict("freqs")
@@ -1194,7 +1206,7 @@ class ClassFacetMachine():
 
             DicoImages["ImageCube"] = self.FacetsToIm_Channel("PSF")
             if self.VS.MultiFreqMode:
-                DicoImages["MeanImage"] = np.sum(DicoImages["ImageCube"] * WBAND, axis=0).reshape((1, npol, Npix, Npix))
+                DicoImages["MeanImage"] = np.sum(DicoImages["ImageCube"] * WBAND, axis=0).reshape((1, npol, Npix_x, Npix_y))
             else:
                 DicoImages["MeanImage"] = DicoImages["ImageCube"]
 
@@ -1228,7 +1240,7 @@ class ClassFacetMachine():
             stitchedResidual = self.FacetsToIm_Channel("Dirty")
 
             if self.VS.MultiFreqMode:
-                MeanResidual = np.sum(stitchedResidual * WBAND, axis=0).reshape((1, npol, Npix, Npix))
+                MeanResidual = np.sum(stitchedResidual * WBAND, axis=0).reshape((1, npol, Npix_x, Npix_y))
             else:
                 ### (Oleg 24/12/2016: removed the .copy(), why was this needed? Note that in e.g.
                 ### ClassImageDeconvMachineMSMF.SubStep(), there is an if-clause such as
@@ -1259,9 +1271,10 @@ class ClassFacetMachine():
             if "SmoothJonesNorm" in DicoImages.keys():
                 self.SmoothJonesNorm=DicoImages["SmoothJonesNorm"]
                 if self.AverageBeamMachine is not None:
-                    Npix=self.OutImShape[-1]
-                    self.AverageBeamMachine.SmoothBeam=self.SmoothJonesNorm.reshape((self.VS.NFreqBands,1,Npix,Npix))
-                    self.AverageBeamMachine.MeanSmoothBeam=np.mean(self.AverageBeamMachine.SmoothBeam,axis=0).reshape((1,1,Npix,Npix))
+                    Npix_x=self.OutImShape[-2]
+                    Npix_y=self.OutImShape[-1]
+                    self.AverageBeamMachine.SmoothBeam=self.SmoothJonesNorm.reshape((self.VS.NFreqBands,1,Npix_x,Npix_x))
+                    self.AverageBeamMachine.MeanSmoothBeam=np.mean(self.AverageBeamMachine.SmoothBeam,axis=0).reshape((1,1,Npix_x,Npix_x))
 
             FacetNorm = DicoImages["FacetNorm"]
             FacetNormReShape = DicoImages["FacetNorm"].reshape([1,1,
@@ -1295,16 +1308,16 @@ class ClassFacetMachine():
         if "FacetNorm" not in self._norm_dict:
             print("  Building Facet-normalisation image", file=log)
             nch, npol = self.nch, self.npol
-            _, _, NPixOut, NPixOut = self.OutImShape
+            _, _, NPixOut_x, NPixOut_y = self.OutImShape
             # in PSF mode, make the norm image in memory. In normal mode, make it in the shared dict,
             # since the degridding workers require it
-            FacetNorm = np.zeros((NPixOut, NPixOut), dtype=self.stitchedType)
+            FacetNorm = np.zeros((NPixOut_x, NPixOut_y), dtype=self.stitchedType)
             for iFacet in self.DicoImager.keys():
                 xc, yc = self.DicoImager[iFacet]["pixCentral"]
                 NpixFacet = self.DicoImager[iFacet]["NpixFacetPadded"]
                 
-                Aedge, Bedge = GiveEdges(xc, yc, NPixOut,
-                                         NpixFacet//2, NpixFacet//2, NpixFacet)
+                Aedge, Bedge = GiveEdgesDissymetric(xc, yc, NPixOut_x, NPixOut_y,
+                                                    NpixFacet//2, NpixFacet//2, NpixFacet, NpixFacet)
                 x0d, x1d, y0d, y1d = Aedge
                 x0p, x1p, y0p, y1p = Bedge
                 
@@ -1334,7 +1347,7 @@ class ClassFacetMachine():
         T.disable()
         Image = self.GiveEmptyMainField()
 
-        nch, npol, NPixOut, NPixOut = self.OutImShape
+        nch, npol, NPixOut_x, NPixOut_y = self.OutImShape
 
         if ChanSel is None:
             ChanSel=range(self.VS.NFreqBands)
@@ -1361,9 +1374,9 @@ class ClassFacetMachine():
 
             xc, yc = self.DicoImager[iFacet]["pixCentral"]
             NpixFacet = self.DicoGridMachine[iFacet]["Dirty"][0].shape[2]
-
-            Aedge, Bedge = GiveEdges(xc, yc, NPixOut,
-                                     NpixFacet//2, NpixFacet//2, NpixFacet)
+            
+            Aedge, Bedge = GiveEdgesDissymetric(xc, yc, NPixOut_x,NPixOut_y,
+                                                NpixFacet//2, NpixFacet//2, NpixFacet, NpixFacet)
             x0main, x1main, y0main, y1main = Aedge
             x0facet, x1facet, y0facet, y1facet = Bedge
 
@@ -1620,9 +1633,9 @@ class ClassFacetMachine():
             else:
                 print("Successfully computed the smooth beam", file=log)
                 
-        Npix=self.OutImShape[-1]
-        self.SmoothJonesNorm = self.AverageBeamMachine.SmoothBeam.reshape((self.VS.NFreqBands,1,Npix,Npix))
-        self.MeanSmoothJonesNorm = self.AverageBeamMachine.MeanSmoothBeam.reshape((1,1,Npix,Npix))
+        Npix_x,Npix_y=self.OutImShape[-2:]
+        self.SmoothJonesNorm = self.AverageBeamMachine.SmoothBeam.reshape((self.VS.NFreqBands,1,Npix_x,Npix_y))
+        self.MeanSmoothJonesNorm = self.AverageBeamMachine.MeanSmoothBeam.reshape((1,1,Npix_x,Npix_y))
 
     # ##############################################
     # ##############################################
