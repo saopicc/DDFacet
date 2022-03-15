@@ -32,7 +32,7 @@ log=logger.getLogger("ClassModelMachine")
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Other import MyPickle
 from DDFacet.Other import reformat
-from DDFacet.ToolsDir.GiveEdges import GiveEdges
+from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric,GiveEdges
 from DDFacet.Imager import ClassModelMachine as ClassModelMachinebase
 from DDFacet.Imager import ClassFrequencyMachine, ClassScaleMachine
 import os
@@ -79,12 +79,18 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def setPSFServer(self, PSFServer):
         self.PSFServer = PSFServer
 
-        _, _, self.Npix, _ = self.PSFServer.ImageShape
-        self.NpixPadded = int(np.ceil(self.GD["Facets"]["Padding"] * self.Npix))
+        _, _, self.Npix_x, self.Npix_y = self.PSFServer.ImageShape
+        self.NpixPadded_x = int(np.ceil(self.GD["Facets"]["Padding"] * self.Npix_x))
+        self.NpixPadded_y = int(np.ceil(self.GD["Facets"]["Padding"] * self.Npix_y))
+        
         # make sure it is odd numbered
-        if self.NpixPadded % 2 == 0:
-            self.NpixPadded += 1
-        self.Npad = (self.NpixPadded - self.Npix) // 2
+        if self.NpixPadded_x % 2 == 0:
+            self.NpixPadded_x += 1
+        self.Npad_x = (self.NpixPadded_x - self.Npix_x) // 2
+        
+        if self.NpixPadded_y % 2 == 0:
+            self.NpixPadded_y += 1
+        self.Npad_y = (self.NpixPadded_y - self.Npix_y) // 2
 
     def setFreqMachine(self, GridFreqs, DegridFreqs, weights=None, PSFServer=None):
         self.PSFServer = PSFServer
@@ -167,7 +173,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def setModelShape(self, ModelShape):
         self.ModelShape = ModelShape
-        self.Npix = self.ModelShape[-1]
+        self.Npix_x,self.Npix_y = self.ModelShape[-2:]
 
     def AppendComponentToDictStacked(self, key, Sols, iScale, Gain):
         """
@@ -243,7 +249,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                                            "'WSCMS-NumFreqBasisFuncs' or if you think this is a bug report it.")
 
                     if self.GD["WSCMS"]["MultiScale"] and iScale != 0:
-                        Aedge, Bedge = GiveEdges(x, y, nx, extent // 2, extent // 2, extent)
+                        Aedge, Bedge = GiveEdgesDissymetric(x, y, nx, ny, extent // 2, extent // 2, extent, extent)
 
                         x0d, x1d, y0d, y1d = Aedge
                         x0p, x1p, y0p, y1p = Bedge
@@ -270,7 +276,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         CellSizeRad = self.GD['Image']['Cell'] * np.pi / 648000
 
         # get Gaussian kernel
-        GaussKern = ModFFTW.GiveGauss(self.Npix, CellSizeRad=CellSizeRad, GaussPars=(epar, epar, pa), parallel=False)
+        GaussKern = ModFFTW.GiveGauss([self.Npix_x,self.Npix_y], CellSizeRad=CellSizeRad, GaussPars=(epar, epar, pa), parallel=False)
 
         # take FT
         Fs = np.fft.fftshift
@@ -294,22 +300,25 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         ModelImage = self.GiveModelImage(self.GridFreqs)
 
         # pad GausKern and take FT
-        GaussKern = np.pad(GaussKern, self.Npad, mode='constant')
-        FTshape, _ = GaussKern.shape
+        #GaussKern = np.pad(GaussKern, self.Npad, mode='constant')
+        GaussKern = np.pad(GaussKern, ((self.Npad_x, self.Npad_x),(self.Npad_y, self.Npad_y)), mode='constant')        
+        FTshape_x, FTshape_y = GaussKern.shape
         from scipy import fftpack as FT
         #GaussKernhat = FT.fft2(iFs(GaussKern))
         GaussKernhat = FFT(iFs(GaussKern))
 
         # pad and FT of ModelImage
-        ModelImagehat = np.zeros((self.Nchan, FTshape, FTshape), dtype=np.complex128)
-        ConvModelImage = np.zeros((self.Nchan, self.Npix, self.Npix), dtype=np.float64)
-        I = slice(self.Npad, -self.Npad)
+        ModelImagehat = np.zeros((self.Nchan, FTshape_x, FTshape_y), dtype=np.complex128)
+        ConvModelImage = np.zeros((self.Nchan, self.Npix_x, self.Npix_y), dtype=np.float64)
+        Ix = slice(self.Npad_x, -self.Npad_x)
+        Iy = slice(self.Npad_y, -self.Npad_y)
         for i in range(self.Nchan):
-            tmp_array = np.pad(ModelImage[i, 0], self.Npad, mode='constant')
+            #tmp_array = np.pad(ModelImage[i, 0], self.Npad, mode='constant')
+            tmp_array = np.pad(ModelImage[i, 0], ((self.Npad_x, self.Npad_x),(self.Npad_y, self.Npad_y)), mode='constant')
             # ModelImagehat[i] = FT.fft2(iFs(tmp_array)) * GaussKernhat
             ModelImagehat[i] = FFT(iFs(tmp_array)) * GaussKernhat
             # ConvModelImage[i] = Fs(FT.ifft2(ModelImagehat[i]))[I, I].real
-            ConvModelImage[i] = Fs(iFFT(ModelImagehat[i]))[I, I].real
+            ConvModelImage[i] = Fs(iFFT(ModelImagehat[i]))[Ix, Iy].real
 
         if ResidCube is not None:
             #ConvModelImage += ResidCube.squeeze()
@@ -370,11 +379,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         """
         Sub-minor loop subtraction
         """
-        N0 = Residual.shape[-1]
+        N0x,N0y = Residual.shape[-2:]
         N1 = LocalSM.shape[-1]
 
         # Get overlap indices where psf should be subtracted
-        Aedge, Bedge = GiveEdges(xc, yc, N0, N1 // 2, N1 // 2, N1)
+        Aedge, Bedge = GiveEdgesDissymetric(xc, yc, N0x, N0y, N1 // 2, N1 // 2, N1,N1)
 
         x0d, x1d, y0d, y1d = Aedge
         x0p, x1p, y0p, y1p = Bedge

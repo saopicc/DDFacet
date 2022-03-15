@@ -363,17 +363,28 @@ class FFTW_Manager(object):
     """
     Class to manage FFTW for WSCMS minor cycle
     """
-    def __init__(self, GD, nchan, npol, nscales, npix, npixpadded, npixpsf,
+    def __init__(self, GD, nchan, npol, nscales,
+                 npixIn, npixpaddedIn,
+                 npixpsf, 
                  npixpaddedpsf, nthreads=8):
         self.GD = GD
         # import the wisdom file
         self.getWisdom()
 
         # set pixel sizes etc
-        self.Npix = npix
-        self.NpixPadded = npixpadded
-        self.Npad = (npixpadded - npix)//2
-        self.NpixFacet = self.Npix // self.GD["Facets"]["NFacets"]
+        if isinstance(npixIn,list):
+            npix_x,npix_y=self.Npix_x,self.Npix_y = npixIn
+            npixpadded_x,npixpadded_y=npixpaddedIn
+        else:
+            npix_x=npix_y=self.Npix_x=self.Npix_y = npixIn
+            npixpadded_x=npixpadded_y=npixpaddedIn
+            
+        self.NpixPadded_x = npixpadded_x
+        self.Npad_x = (npixpadded_x - npix_x)//2
+
+        self.NpixPadded_y = npixpadded_y
+        self.Npad_y = (npixpadded_y - npix_y)//2
+        #self.NpixFacet = self.Npix // self.GD["Facets"]["NFacets"]
 
         self.NpixPSF = npixpsf
         self.NpixPaddedPSF = npixpaddedpsf
@@ -405,7 +416,7 @@ class FFTW_Manager(object):
 
         # set aside an image size array for in place and aligned FFTs
         self.nslices = np.maximum(self.nchan, self.nscales)
-        self.ximage = pyfftw.empty_aligned([self.nslices, self.npol, self.NpixPadded, self.NpixPadded],
+        self.ximage = pyfftw.empty_aligned([self.nslices, self.npol, self.NpixPadded_x, self.NpixPadded_y],
                                            dtype='complex64')
         # TODO - Figure out if slicing first axis like this defeats the purpose of empty_aligned
         self.Shat = self.ximage[0:self.nscales].view()
@@ -497,15 +508,15 @@ class FFTW_Manager(object):
         except:
             import pickle as cPickle
         # set wisdom for image size FFTs
-        TypeKey = (self.nchan, self.NpixPadded, np.complex64)
+        TypeKey = (self.nchan, self.NpixPadded_x, self.NpixPadded_y, np.complex64)
         if TypeKey not in self.WisdomTypes:
             self.HasTouchedWisdomFile = True
             self.WisdomTypes.append(TypeKey)
-        TypeKey = (self.nscales, self.NpixPadded, np.complex64)
+        TypeKey = (self.nscales, self.NpixPadded_x, self.NpixPadded_y, np.complex64)
         if TypeKey not in self.WisdomTypes:
             self.HasTouchedWisdomFile = True
             self.WisdomTypes.append(TypeKey)
-        TypeKey = (self.NpixPadded, np.complex64)
+        TypeKey = (self.NpixPadded_x, self.NpixPadded_y, np.complex64)
         if TypeKey not in self.WisdomTypes:
             self.HasTouchedWisdomFile = True
             self.WisdomTypes.append(TypeKey)
@@ -751,10 +762,15 @@ def ConvolveGaussianSimpleWrapper(Ain0, CellSizeRad=1.0, Sig=1.0, GaussPars=None
     return Out
     
 
-def learnFFTWWisdom(npix,dtype=np.float32):
+def learnFFTWWisdom(npix_x,npix_y,dtype):
     """Learns FFTW wisdom for real 2D FFT of npix x npix images"""
-    print("  Computing fftw wisdom FFTs for shape [%i x %i] and dtype %s" % (npix,npix,dtype.__name__), file=log)
-    test = np.zeros((npix, npix), dtype)
+    # if isinstance(npixIn,list):
+    #     npix_x,npix_y=npixIn
+    # else:
+    #     npix_x=npix_y=npixIn
+        
+    print("  Computing fftw wisdom FFTs for shape [%i x %i] and dtype %s" % (npix_x,npix_y,dtype.__name__), file=log)
+    test = np.zeros((npix_x, npix_y), dtype)
     if "float" in dtype.__name__:
         a = pyfftw.interfaces.numpy_fft.rfft2(test, overwrite_input=True, threads=1)
         b = pyfftw.interfaces.numpy_fft.irfft2(a, overwrite_input=True, threads=1)

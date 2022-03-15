@@ -706,17 +706,17 @@ class ClassFacetMachine():
         for iFacet in sorted(self.DicoImager.keys()):
             NPixPadded=self.DicoImager[iFacet]["NpixFacetPadded"]
             if self.GD["RIME"]["Precision"]=="S":
-                TypeKey=(NPixPadded,np.complex64)
+                TypeKey=(NPixPadded,NPixPadded,np.complex64)
             elif self.GD["RIME"]["Precision"]=="D":
-                TypeKey=(NPixPadded,np.complex128)
+                TypeKey=(NPixPadded,NPixPadded,np.complex128)
 
             if TypeKey not in WisdomTypes:
                 HasTouchedWisdomFile = True
                 ModFFTW.learnFFTWWisdom(*TypeKey)
                 WisdomTypes.append(TypeKey)
 
-        NOut = self.OutImShape[-1]
-        TypeKey=(NOut,np.float32)
+        NOut_x,NOut_y = self.OutImShape[-2:]
+        TypeKey=(NOut_x,NOut_y,np.float32)
         if TypeKey not in WisdomTypes:
             HasTouchedWisdomFile = True
             ModFFTW.learnFFTWWisdom(*TypeKey)

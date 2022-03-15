@@ -40,7 +40,7 @@ from pyrap.images import image
 from DDFacet.Imager.ClassPSFServer import ClassPSFServer
 from DDFacet.Imager import ClassGainMachine  # Currently required by model machine but fixed to static mode
 from DDFacet.Imager.ClassMaskMachine import ClassMaskMachine
-from DDFacet.ToolsDir.GiveEdges import GiveEdges
+from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 # from DDFacet.Other.AsyncProcessPool import APP
 # from DDFacet.ToolsDir.ModFFTW import FFTW_Scale_Manager  # usage just to register job handlers but has no effect atm
 
@@ -156,12 +156,12 @@ class ClassImageDeconvMachine():
         minlambda = lightspeed/self.Freqs.min()
         # LB - note MaskArray might be modified by ScaleMachine if GD{"WSCMS"]["AutoMask"] is True
         # so we should avoid keeping it as None
-        self.Nchan, self.Npol, self.Npix, _ = self.DicoVariablePSF["OutImShape"]
+        self.Nchan, self.Npol, self.Npix_x, self.Npix_y = self.DicoVariablePSF["OutImShape"]
         if self.MaskArray is None:
-            self.MaskArray = np.zeros([1, 1, self.Npix, self.Npix], dtype=np.bool8)
+            self.MaskArray = np.zeros([1, 1, self.Npix_x, self.Npix_y], dtype=np.bool8)
         else:  # Make sure mask is correct shape
-            if self.MaskArray.shape != (1, 1, self.Npix, self.Npix):
-                raise ValueError("Mask is incorrect shape. Expected %s but got %s" % ((1,1,self.Npix, self.Npix), self.MaskArray.shape))
+            if self.MaskArray.shape != (1, 1, self.Npix_x, self.Npix_y):
+                raise ValueError("Mask is incorrect shape. Expected %s but got %s" % ((1,1,self.Npix_x, self.Npix_y), self.MaskArray.shape))
 
         self.ModelMachine.setScaleMachine(self.PSFServer, NCPU=self.NCPU, MaskArray=self.MaskArray,
                                           cachepath=cachepath, MaxBaseline=kwargs["MaxBaseline"] / minlambda)
@@ -194,9 +194,9 @@ class ClassImageDeconvMachine():
         """
         Sets the shape params of model, call in every update step
         """
-        assert self._Dirty.shape == (self.Nchan, self.Npol, self.Npix, self.Npix)
+        assert self._Dirty.shape == (self.Nchan, self.Npol, self.Npix_x, self.Npix_y)
         self.ModelMachine.setModelShape(self._Dirty.shape)
-        self.NpixFacet = self.Npix//self.GD["Facets"]["NFacets"]
+        #self.NpixFacet = self.Npix_x//self.GD["Facets"]["NFacets"]
 
     def GiveModelImage(self, *args): return self.ModelMachine.GiveModelImage(*args)
 
@@ -273,29 +273,29 @@ class ClassImageDeconvMachine():
         self.WeightsChansImages = np.mean(np.float32(self.DicoDirty["WeightChansImages"]), axis=1)[:, None, None, None]
 
 
-    def SubStep(self,dx,dy,LocalSM):
-        """
-        This is where subtraction in the image domain happens
-        """
-        xc, yc = dx, dy
-        N1 = LocalSM.shape[-1]
+    # def SubStep(self,dx,dy,LocalSM):
+    #     """
+    #     This is where subtraction in the image domain happens
+    #     """
+    #     xc, yc = dx, dy
+    #     N1 = LocalSM.shape[-1]
 
-        # Get overlap indices where psf should be subtracted
-        Aedge, Bedge = GiveEdges(xc, yc, self.Npix, N1//2, N1//2, N1)
+    #     # Get overlap indices where psf should be subtracted
+    #     Aedge, Bedge = GiveEdges(xc, yc, self.Npix, N1//2, N1//2, N1)
 
-        x0d, x1d, y0d, y1d = Aedge
-        x0p, x1p, y0p, y1p = Bedge
+    #     x0d, x1d, y0d, y1d = Aedge
+    #     x0p, x1p, y0p, y1p = Bedge
 
-        cube, sm = self._Dirty[:,:,x0d:x1d,y0d:y1d], LocalSM[:,:,x0p:x1p,y0p:y1p]
-        numexpr.evaluate('cube-sm',out=cube,casting="unsafe")
+    #     cube, sm = self._Dirty[:,:,x0d:x1d,y0d:y1d], LocalSM[:,:,x0p:x1p,y0p:y1p]
+    #     numexpr.evaluate('cube-sm',out=cube,casting="unsafe")
 
-        # Subtract from the average
-        meanimage = self._MeanDirty[:, :, x0d:x1d, y0d:y1d]
-        if self.MultiFreqMode:
-            W = self.WeightsChansImages.reshape((self.Nchan,1,1,1))
-            meanimage[...] = (cube*W).sum(axis=0) #Sum over frequency
-        else:
-            meanimage[0,...] = cube[0,...]
+    #     # Subtract from the average
+    #     meanimage = self._MeanDirty[:, :, x0d:x1d, y0d:y1d]
+    #     if self.MultiFreqMode:
+    #         W = self.WeightsChansImages.reshape((self.Nchan,1,1,1))
+    #         meanimage[...] = (cube*W).sum(axis=0) #Sum over frequency
+    #     else:
+    #         meanimage[0,...] = cube[0,...]
 
     def track_progress(self, i, ThisFlux):
         # This is used to track Cleaning progress

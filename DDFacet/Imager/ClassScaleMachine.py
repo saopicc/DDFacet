@@ -115,19 +115,24 @@ class ClassScaleMachine(object):
         self.FWHMBeam = self.PSFServer.DicoVariablePSF["FWHMBeam"]
 
         # set reference key
-        _, _, self.Npix, _ = self.PSFServer.ImageShape
-        self.CentralFacetID = self.PSFServer.giveFacetID2(self.Npix//2, self.Npix//2)
+        _, _, self.Npix_x, self.Npix_y = self.PSFServer.ImageShape
+        self.CentralFacetID = self.PSFServer.giveFacetID2(self.Npix_x//2, self.Npix_y//2)
 
         # Set freqmachine
         self.FreqMachine = FreqMachine
         self.Nchan = self.FreqMachine.nchan
 
         # set scale convolve and FFTW related params
-        self.NpixPadded = int(np.ceil(self.GD["WSCMS"]["Padding"]*self.Npix))
+        self.NpixPadded_x = int(np.ceil(self.GD["WSCMS"]["Padding"]*self.Npix_x))
+        self.NpixPadded_y = int(np.ceil(self.GD["WSCMS"]["Padding"]*self.Npix_y))
         # make sure it is odd numbered
-        if not self.NpixPadded % 2:
-            self.NpixPadded += 1
-        self.Npad = (self.NpixPadded - self.Npix)//2
+        if not self.NpixPadded_x % 2:
+            self.NpixPadded_x += 1
+        if not self.NpixPadded_y % 2:
+            self.NpixPadded_y += 1
+        self.Npad_x = (self.NpixPadded_x - self.Npix_x)//2
+        self.Npad_y = (self.NpixPadded_y - self.Npix_y)//2
+        
         self.NpixPSF = self.PSFServer.NPSF  # need this to initialise the FTMachine
         self.NpixPaddedPSF = int(np.ceil(self.GD["WSCMS"]["Padding"]*self.NpixPSF))
         if not self.NpixPaddedPSF % 2:
@@ -142,8 +147,9 @@ class ClassScaleMachine(object):
 
         # get the FFT and convolution utility
         self.FTMachine = FFTW_Manager(self.GD, self.Nchan, 1, self.Nscales,
-                                      self.Npix, self.NpixPadded, self.NpixPSF,
-                                      self.NpixPaddedPSF, nthreads=self.NCPU)
+                                      [self.Npix_x,self.Npix_y], [self.NpixPadded_x,self.NpixPadded_y],
+                                      self.NpixPSF, self.NpixPaddedPSF,
+                                      nthreads=self.NCPU)
 
         # set bias factors
         self.set_bias()
@@ -156,7 +162,7 @@ class ClassScaleMachine(object):
         if self.GD["WSCMS"]["AutoMask"]:
             self.AppendMaskComponents = True  # set to false once masking kicks in
             for iScale in range(self.Nscales):
-                self.ScaleMaskArray[str(iScale)] = np.ones((1, 1, self.Npix, self.Npix), dtype=np.bool)
+                self.ScaleMaskArray[str(iScale)] = np.ones((1, 1, self.Npix_x, self.Npix_y), dtype=np.bool)
         else:
             self.AppendMaskComponents = False
 
@@ -175,16 +181,19 @@ class ClassScaleMachine(object):
 
     def set_coordinates(self):
         # get pixel coordinates for unpadded image
-        n = self.Npix//2
-        x_unpadded, y_undpadded = np.mgrid[-n:n:1.0j * self.Npix, -n:n:1.0j * self.Npix]
+        nx = self.Npix_x//2
+        ny = self.Npix_y//2
+        x_unpadded, y_undpadded = np.mgrid[-nx:nx:1.0j * self.Npix_x, -ny:ny:1.0j * self.Npix_y]
         self.rsq_unpadded = x_unpadded**2 + y_undpadded**2
 
         # get pixel coordinates for padded image
-        n = self.NpixPadded//2
-        self.x_image, self.y_image = np.mgrid[-n:n:1.0j * self.NpixPadded, -n:n:1.0j * self.NpixPadded]
+        nx = self.NpixPadded_x//2
+        ny = self.NpixPadded_y//2
+        self.x_image, self.y_image = np.mgrid[-nx:nx:1.0j * self.NpixPadded_x, -ny:ny:1.0j * self.NpixPadded_y]
         # set corresponding frequencies (note they are fourier shifted so no need to iFs them later)
-        freqs = Fs(np.fft.fftfreq(self.NpixPadded))
-        self.u_image, self.v_image = np.meshgrid(freqs, freqs)
+        freqs_x = Fs(np.fft.fftfreq(self.NpixPadded_x))
+        freqs_y = Fs(np.fft.fftfreq(self.NpixPadded_y))
+        self.u_image, self.v_image = np.meshgrid(freqs_y, freqs_x)
         self.rhosq_image = self.u_image ** 2 + self.v_image ** 2
 
         # get pixel coordinates for facet
@@ -430,15 +439,15 @@ class ClassScaleMachine(object):
 
     def do_scale_convolve(self, MeanDirty):
         # convolve mean dirty with each scale in parallel
-        I = slice(self.Npad, self.NpixPadded - self.Npad)
-        self.FTMachine.xhatim[...] = iFs(np.pad(MeanDirty[0:1], ((0, 0), (0,0), (self.Npad, self.Npad),
-                                                          (self.Npad, self.Npad)), mode='constant'), axes=(2, 3))
+        Ix = slice(self.Npad_x, self.NpixPadded_x - self.Npad_x)
+        Iy = slice(self.Npad_y, self.NpixPadded_y - self.Npad_y)
+        self.FTMachine.xhatim[...] = iFs(np.pad(MeanDirty[0:1], ((0, 0),(0,0),(self.Npad_x, self.Npad_x),(self.Npad_y, self.Npad_y)),mode='constant'), axes=(2, 3))
         self.FTMachine.FFTim()
         self.FTMachine.Shat[...] = self.FTMachine.xhatim
         kernels = self.GaussianSymmetricFT(self.sigmas[:, None, None, None], mode='Image')
         self.FTMachine.Shat *= iFs(kernels, axes=(2, 3))
         self.FTMachine.iSFFT()
-        ConvMeanDirtys = np.ascontiguousarray(Fs(self.FTMachine.Shat.real, axes=(2, 3))[:, :, I, I])
+        ConvMeanDirtys = np.ascontiguousarray(Fs(self.FTMachine.Shat.real, axes=(2, 3))[:, :, Ix, Iy])
 
         # reset the zero scale
         # LB - for scale 0 we might want to do scale selection based

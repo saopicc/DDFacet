@@ -41,7 +41,8 @@ from pyrap.images import image
 from DDFacet.Imager.ClassPSFServer import ClassPSFServer
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Imager import ClassGainMachine # Currently required by model machine but fixed to static mode
-from DDFacet.ToolsDir import GiveEdges
+#from DDFacet.ToolsDir import GiveEdges
+from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 
 
 class ClassImageDeconvMachine():
@@ -91,7 +92,7 @@ class ClassImageDeconvMachine():
             self.ModelMachine = ClassModelMachine.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
         else:
             self.ModelMachine = ModelMachine
-        self.GiveEdges = GiveEdges.GiveEdges
+        #self.GiveEdges = GiveEdgesDissymetric#GiveEdges.GiveEdges
         self._niter = 0
         self._peakMode = "normal"
 
@@ -183,7 +184,7 @@ class ClassImageDeconvMachine():
         self._MeanDirty = self.DicoDirty["MeanImage"]
 
         self.NpixPSF = self.PSFServer.NPSF
-        self.Nchan, self.Npol, self.Npix, _ = self._Dirty.shape
+        self.Nchan, self.Npol, self.Npix_x, self.Npix_y = self._Dirty.shape
 
         # if self._peakMode is "sigma":
         #     print("Will search for the peak in the SNR-weighted dirty map", file=log)
@@ -215,7 +216,7 @@ class ClassImageDeconvMachine():
                   normalised to unity at the center.
         """
         #Get overlap indices where psf should be subtracted
-        Aedge,Bedge=self.GiveEdges(xc,yc, self.Npix, self.NpixPSF//2,self.NpixPSF//2,self.NpixPSF)
+        Aedge,Bedge=GiveEdgesDissymetric(xc,yc, self.Npix_x,self.Npix_y, self.NpixPSF//2,self.NpixPSF//2,self.NpixPSF,self.NpixPSF)
 
         x0d,x1d,y0d,y1d=Aedge
         x0p,x1p,y0p,y1p=Bedge
@@ -259,7 +260,7 @@ class ClassImageDeconvMachine():
         #Get RMS stopping criterion
         NPixStats = self.GD["Deconv"]["NumRMSSamples"]
         if NPixStats:
-            RandomInd=np.int64(np.random.rand(NPixStats)*self.Npix**2)
+            RandomInd=np.int64(np.random.rand(NPixStats)*self.Npix_x*self.Npix_y)
             RMS=np.std(np.real(PeakMap.ravel()[RandomInd]))
         else:
             RMS = np.std(PeakMap)
