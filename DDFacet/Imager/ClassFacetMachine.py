@@ -261,6 +261,7 @@ class ClassFacetMachine():
 
         self.NFacets = NFacets
         self.Cell = Cell
+        
         self.CellSizeRad = (Cell / 3600.) * np.pi / 180.
         rac, decc = self.VS.ListMS[0].radec
         

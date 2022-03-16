@@ -78,17 +78,29 @@ class ClassBeamMean():
         logger.setLoud(["ClassJones", "ClassLOFARBeam"])
 
     def CalcGrid(self):
-        _,_,nx,_=self.VS.FullImShape
+        _,_,nx,ny=self.VS.FullImShape
         CellSizeRad=self.VS.CellSizeRad
-        FOV=nx*CellSizeRad
-        npix=self.GD["Beam"]["SmoothNPix"]
+        FOV_x=nx*CellSizeRad
+        FOV_y=ny*CellSizeRad
+        npix_x=npix_y=self.GD["Beam"]["SmoothNPix"]
+        if nx<ny:
+            npix_x=self.GD["Beam"]["SmoothNPix"]
+            npix_y=int(ny/nx*npix_x)
+        elif nx>ny:
+            npix_y=self.GD["Beam"]["SmoothNPix"]
+            npix_x=int(nx/ny*npix_y)
+        log.print("Estimating the smooth beam on a grid of size %i x %i "%(npix_x,npix_y))
+            
         #lm=np.linspace(-FOV/2.,FOV/2.,npix)
         #ll=(lm[0:-1]+lm[1::])/2.
-        lmin=-FOV/2.
-        lmax=FOV/2.
-        lc,mc=np.mgrid[lmin:lmax:1j*npix,lmin:lmax:1j*npix]
+        
+        lmin=-FOV_x/2.
+        lmax=FOV_x/2.
+        mmin=-FOV_y/2.
+        mmax=FOV_y/2.
+        lc,mc=np.mgrid[lmin:lmax:1j*npix_x,mmin:mmax:1j*npix_y]
         self.lBeam,self.mBeam=lc,mc
-        iPix,jPix=np.mgrid[0:npix,0:npix]
+        iPix,jPix=np.mgrid[0:npix_x,0:npix_y]
         self.iPix=iPix.ravel()
         self.jPix=jPix.ravel()
         lc=lc.flatten()
@@ -99,7 +111,8 @@ class ClassBeamMean():
             ra[i],dec[i]=self.CoordMachine.lm2radec(np.array([lc[i]]),
                                                     np.array([mc[i]]))
         self.radec=ra,dec
-        self.npix=npix
+        self.npix_x=npix_x
+        self.npix_y=npix_y
         self.NDir=ra.size
 
     def StackBeam(self,ThisMSData,iDir):
@@ -230,7 +243,7 @@ class ClassBeamMean():
     def Smooth(self):
         #print self.SumWsq
         self.StackedBeamDict.reload()
-        self.SumJJsq=np.zeros((self.npix,self.npix,self.VS.NFreqBands),np.float64)
+        self.SumJJsq=np.zeros((self.npix_x,self.npix_y,self.VS.NFreqBands),np.float64)
         self.SumWsq=np.zeros((1,self.VS.NFreqBands),np.float64)
         self.SumWsq[0,:]=self.StackedBeamDict[0]["SumWsq"]
         if np.max(self.StackedBeamDict[0]["SumWsq"])==0:
@@ -245,21 +258,30 @@ class ClassBeamMean():
         #self.SumJJsq=np.rollaxis(SumJJsq,2)#np.mean(SumJJsq,axis=2)
 
 
-        _,_,nx,_=self.VS.FullImShape
+        _,_,nx,ny=self.VS.FullImShape
         CellSizeRad=self.VS.CellSizeRad
-        FOV=nx*CellSizeRad
-        npix=nx
-        lm=np.linspace(-FOV/2.,FOV/2.,npix+1)
+        FOV_x=nx*CellSizeRad
+        FOV_y=ny*CellSizeRad
+        npix_x=nx
+        npix_y=ny
+        
+        lm=np.linspace(-FOV_x/2.,FOV_x/2.,npix_x+1)
         ll=(lm[0:-1]+lm[1::])/2.
         lmin=ll.min()
         lmax=ll.max()
-        grid_x, grid_y = np.mgrid[lmin:lmax:1j*npix,lmin:lmax:1j*npix]
-        NPixOut=self.VS.FacetMachine.OutImShape[-1]
+
+        mm=np.linspace(-FOV_y/2.,FOV_y/2.,npix_y+1)
+        ml=(mm[0:-1]+mm[1::])/2.
+        mmin=ml.min()
+        mmax=ml.max()
+        
+        grid_x, grid_y = np.mgrid[lmin:lmax:1j*npix_x,mmin:mmax:1j*npix_y]
+        NPixOut_x,NPixOut_y=self.VS.FacetMachine.OutImShape[-2:]
 
         points = np.zeros((self.lBeam.size,2),np.float32)
         points[:,0]=self.lBeam.ravel()
         points[:,1]=self.mBeam.ravel()
-        SmoothBeam=np.zeros((self.VS.NFreqBands,nx,nx),np.float32)
+        SmoothBeam=np.zeros((self.VS.NFreqBands,nx,ny),np.float32)
         
         
         
