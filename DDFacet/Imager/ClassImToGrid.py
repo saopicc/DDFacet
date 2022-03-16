@@ -139,22 +139,23 @@ class ClassImToGrid():
         
         nch,npol,NPixOut_x,NPixOut_y=Image.shape
 
-        N1=DicoImager[iFacet]["NpixFacetPadded"]
-        N1NonPadded=DicoImager[iFacet]["NpixFacetPadded"]
-        dx=(N1-N1NonPadded)//2
+        N1_x,N1_y=DicoImager[iFacet]["NpixFacetPadded"]
+        N1NonPadded_x,N1NonPadded_y=DicoImager[iFacet]["NpixFacetPadded"]
+        dx=(N1_x-N1NonPadded_x)//2
+        dy=(N1_y-N1NonPadded_y)//2
 
         xc,yc=DicoImager[iFacet]["pixCentral"]
         #x0,x1,y0,y1=DicoImager[iFacet]["pixExtent"]
         #xc,yc=(x0+x1)//2,(y0+y1)//2
 
-        Aedge,Bedge=GiveEdgesDissymetric(xc,yc,NPixOut_x,NPixOut_y,N1//2,N1//2,N1,N1)
+        Aedge,Bedge=GiveEdgesDissymetric(xc,yc,NPixOut_x,NPixOut_y,N1_x//2,N1_y//2,N1_x,N1_y)
         #Bedge,Aedge=GiveEdges(N1//2,N1//2,N1,yc,xc,NPixOut)
         x0d,x1d,y0d,y1d=Aedge
         x0p,x1p,y0p,y1p=Bedge
         #print "xxA:",x0d,x1d
         #print "xxB:",x0p,x1p
         SumFlux=1.
-        ModelIm=np.zeros((nch,npol,N1,N1),dtype=np.float32)
+        ModelIm=np.zeros((nch,npol,N1_x,N1_y),dtype=np.float32)
 
         
         T= ClassTimeIt.ClassTimeIt("ClassImToGrid")
@@ -180,12 +181,12 @@ class ClassImToGrid():
                     
                 T.timeit("0")
 
-                M=ModelIm[ch,pol][dx:dx+N1NonPadded+1,dx:dx+N1NonPadded+1].copy()
+                M=ModelIm[ch,pol][dx:dx+N1NonPadded_x+1,dy:dy+N1NonPadded_y+1].copy()
                 T.timeit("1")
 
                 ModelIm[ch,pol].fill(0)
                 T.timeit("2")
-                ModelIm[ch,pol][dx:dx+N1NonPadded+1,dx:dx+N1NonPadded+1]=M[:,:]
+                ModelIm[ch,pol][dx:dx+N1NonPadded_x+1,dy:dy+N1NonPadded_y+1]=M[:,:]
                 
                 #ModelCutOrig=ModelIm[ch,pol].copy()
                 
@@ -227,7 +228,7 @@ class ClassImToGrid():
                 T.timeit("6")
                 ModelIm[ch,pol][Sphe<1e-3]=0
                 T.timeit("7")
-                ModelIm[ch,pol]=ModelIm[ch,pol].T[::-1,:]
+                ModelIm[ch,pol]=ModelIm[ch,pol]#.T[::-1,:]
                 T.timeit("8")
                 #ModelCutOrig_GNorm_SW_Sphe_CorrT=ModelIm[ch,pol].copy()
 
@@ -249,7 +250,7 @@ class ClassImToGrid():
         SumFlux/=nch
 
         if ToGrid:
-            ModelIm*=(self.OverS*N1)**2
+            ModelIm*=(self.OverS*self.OverS*N1_x*N1_y)
             if SumFlux!=0:
                 Grid=np.complex64(self.FFTWMachine.fft(np.complex64(ModelIm),ChanList=CSel))
             else:
@@ -257,7 +258,7 @@ class ClassImToGrid():
             
             return Grid,SumFlux
         elif ApplyNorm:
-            ModelIm*=(self.OverS*N1)**2
+            ModelIm*=(self.OverS*self.OverS*N1_x*N1_y)#**2
 
             return ModelIm,SumFlux
         else:

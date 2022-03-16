@@ -65,21 +65,24 @@ def ifft2(A):
     return FA
 
 
-def ZeroPad(A, outshape=1001):
-    nx = A.shape[0]
-#    B=np.zeros((nx*zp,nx*zp),dtype=A.dtype)
-
-    if outshape % 2 == 0:
-        # PAIR
-        B = np.zeros((outshape, outshape), dtype=A.dtype)
-        off = (B.shape[0]-A.shape[0])//2+1
-        B[off:off+nx, off:off+nx] = A
+def ZeroPad(A, outshape=(1001,1001)):
+    nx,ny = A.shape
+    #    B=np.zeros((nx*zp,nx*zp),dtype=A.dtype)
+    outshape_x, outshape_y = outshape
+     
+    B = np.zeros((outshape_x, outshape_y), dtype=A.dtype)
+    if outshape_x % 2 == 0:
+        off_x = (B.shape[0]-A.shape[0])//2+1
     else:
-        # IMPAIR
-        B = np.zeros((outshape, outshape), dtype=A.dtype)
-        off = (B.shape[0]-A.shape[0])//2
-        B[off:off+nx, off:off+nx] = A
-    #print>>log, "!!!!!!!!!! ",outshape,off
+        off_x = (B.shape[0]-A.shape[0])//2
+        
+    if outshape_y % 2 == 0:
+        off_y = (B.shape[1]-A.shape[1])//2+1
+    else:
+        off_y = (B.shape[1]-A.shape[1])//2
+        
+    B[off_x:off_x+nx, off_y:off_y+ny] = A
+
 
     return B
 
@@ -114,9 +117,9 @@ class SpheMachine():
         self.Small_CF = CF
         self.if_cut_fCF = if_cut_fCF
 
-    def MakeSphe(self, NpixIm):
+    def MakeSphe(self, NpixIm_x,NpixIm_y):
         fCF = self.Small_fCF
-        zfCF = ZeroPad(fCF, NpixIm)
+        zfCF = ZeroPad(fCF, (NpixIm_x,NpixIm_y))
 
         ifzfCF = ifft2(zfCF)
         CF = self.Small_CF
@@ -127,7 +130,7 @@ class SpheMachine():
         # lpar[3]="nearest"
         # pylab.imshow.__defaults__=tuple(lpar)
 
-        # pylab.figure(0)
+        # pylab.figure("CF0")
         # pylab.clf()
         # pylab.subplot(3,2,1)
         # pylab.imshow(CF.real)
@@ -135,12 +138,14 @@ class SpheMachine():
         # pylab.subplot(3,2,2)
         # pylab.imshow(CF.imag)
         # pylab.colorbar()
+        
         # pylab.subplot(3,2,3)
         # pylab.imshow(fCF.real)
         # pylab.colorbar()
         # pylab.subplot(3,2,4)
         # pylab.imshow(fCF.imag)
         # pylab.colorbar()
+        
         # pylab.subplot(3,2,5)
         # pylab.imshow(ifzfCF.real)
         # pylab.colorbar()
@@ -148,12 +153,12 @@ class SpheMachine():
         # pylab.imshow(ifzfCF.imag)
         # pylab.colorbar()
         # pylab.draw()
-        # pylab.show(False)
+        # pylab.show(block=False)
         # pylab.pause(0.1)
 
-        # f_inv_ifzfCF=ifft2(1./ifzfCF.real)
+        # # f_inv_ifzfCF=ifft2(1./ifzfCF.real)
 
-        # pylab.figure(1)
+        # pylab.figure("CF1")
         # pylab.clf()
         # pylab.subplot(3,2,1)
         # pylab.imshow(f_inv_ifzfCF.real)
@@ -162,9 +167,10 @@ class SpheMachine():
         # pylab.imshow(f_inv_ifzfCF.imag)
         # pylab.colorbar()
         # pylab.draw()
-        # pylab.show(False)
+        # pylab.show(block=False)
         # pylab.pause(0.1)
 
+        # # #################
 
         # stop
         ifzfCF[ifzfCF < 0] = 1e-10
@@ -318,10 +324,10 @@ class ClassWTermModified():
         """
         self.Nw = int(Nw)
         self.Nw = max(1, Nw)
-        self.Cell = Cell
+        self.Cell_x,self.Cell_y = Cell
         self.Sup = Sup
         self.Nw = Nw
-        self.Npix = Npix
+        self.Npix_x,self.Npix_y = Npix
         self.Freqs = Freqs
         self.OverS = OverS
         self.lmShift = lmShift
@@ -342,6 +348,16 @@ class ClassWTermModified():
             cf_dict["Sphe"] = dS(self.ifzfCF.real)
             cf_dict["InvSphe"] = dS(1./np.float64(self.ifzfCF.real))
             cf_dict["CuCv"] = np.array([self.Cu, self.Cv])
+            
+            # import pylab
+            # pylab.clf()
+            # pylab.subplot(1,2,1)
+            # pylab.imshow(cf_dict["Sphe"],interpolation="nearest")
+            # pylab.subplot(1,2,2)
+            # pylab.imshow(cf_dict["InvSphe"],interpolation="nearest")
+            # pylab.draw()
+            # pylab.show()
+            
             NpShared.PackListSquareMatrix(cf_dict, "W", self.Wplanes + self.WplanesConj)
         else:
             self.wmax = cf_dict["wmax"]
@@ -359,8 +375,16 @@ class ClassWTermModified():
         #self.CF, self.fCF, self.ifzfCF= MakeSphe(self.Sup,self.Npix)
 
         self.SpheM = SpheMachine(Support=self.Sup)  # ,Type="Gauss")
-        self.CF, self.fCF, self.ifzfCF = self.SpheM.MakeSphe(self.Npix)
+        self.CF, self.fCF, self.ifzfCF = self.SpheM.MakeSphe(self.Npix_x,self.Npix_y)
 
+        # import pylab
+        # pylab.clf()
+        # pylab.imshow(self.ifzfCF.real,interpolation="nearest")
+        # pylab.draw()
+        # pylab.show(block=False)
+        # pylab.pause(0.1)
+        # stop
+        
     def GiveReorgCF(self, A):
         Sup = A.shape[0]//self.OverS
         B = np.zeros((self.OverS, self.OverS, Sup, Sup), dtype=A.dtype)
@@ -375,11 +399,15 @@ class ClassWTermModified():
 
         #print>>log, "InitW"
         Nw = self.Nw
-        Cell = self.Cell
+        
+        Cell_x = self.Cell_x
+        Cell_y = self.Cell_y
+        
         Sup = self.Sup
         wmax = self.wmax
         Nw = self.Nw
-        Npix = self.Npix
+        Npix_x = self.Npix_x
+        Npix_y = self.Npix_y
         Freqs = self.Freqs
         OverS = self.OverS
         lmShift = self.lmShift
@@ -387,19 +415,21 @@ class ClassWTermModified():
         T = ClassTimeIt.ClassTimeIt()
         T.disable()
         SupMax = 501
-        dummy, dummy, self.SpheW = self.SpheM.MakeSphe(SupMax)
+        dummy, dummy, self.SpheW = self.SpheM.MakeSphe(SupMax,SupMax)
 
         # #print>>log, "MAX Sphe=",np.max(np.abs(self.SpheW))
         # T.timeit("initsphe")
 
         C = 299792458.
 
-        RadiusDeg = ((Npix)/2.)*Cell/3600.
-        lrad = RadiusDeg*np.pi/180.
+        RadiusDeg_x = ((Npix_x)/2.)*Cell_x/3600.
+        lrad = RadiusDeg_x*np.pi/180.
+        RadiusDeg_y = ((Npix_y)/2.)*Cell_y/3600.
+        mrad = RadiusDeg_x*np.pi/180.
         # lrad/=1.05
 
         l, m = np.mgrid[-lrad * np.sqrt(2.): np.sqrt(2.) * lrad: SupMax * 1j, -
-                        lrad * np.sqrt(2.): np.sqrt(2.) * lrad: SupMax * 1j]
+                        mrad * np.sqrt(2.): np.sqrt(2.) * mrad: SupMax * 1j]
         n_1 = np.sqrt(1.-l**2-m**2)-1
         waveMin = C/Freqs[-1]
         T.timeit("0")
@@ -454,7 +484,7 @@ class ClassWTermModified():
         if Nw <= 1:
             if not(Sups[0] % 2):
                     Sups[0] += 1
-            dummy, dymmy, ThisSphe = self.SpheM.MakeSphe(Sups[0])
+            dummy, dymmy, ThisSphe = self.SpheM.MakeSphe(Sups[0],Sups[0])
             W = np.abs(ThisSphe)
             zW = ZeroPad(W, outshape=W.shape[0]*self.OverS)
             zWconj = np.conj(zW)
@@ -476,7 +506,7 @@ class ClassWTermModified():
                 #print>>log, "%i/%i"%(i,Nw)
                 if not(Sups[i] % 2):
                     Sups[i] += 1
-                dummy, dymmy, ThisSphe = self.SpheM.MakeSphe(Sups[i])
+                dummy, dymmy, ThisSphe = self.SpheM.MakeSphe(Sups[i],Sups[i])
                 wl = w[i]/waveMin
 
                 # ##############
@@ -557,7 +587,7 @@ class ClassWTermModified():
 
                 # # W=ThisSphe
 
-                zW = ZeroPad(W, outshape=W.shape[0]*self.OverS)
+                zW = ZeroPad(W, outshape=(W.shape[0]*self.OverS,W.shape[1]*self.OverS))
 
                 # T.timeit("3d")
 

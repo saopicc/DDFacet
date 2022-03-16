@@ -36,7 +36,7 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
 import scipy.optimize
 
-from DDFacet.ToolsDir.GiveEdges import GiveEdges
+#from DDFacet.ToolsDir.GiveEdges import GiveEdges
 
 import pickle
 import six
@@ -301,7 +301,7 @@ class ClassMultiScaleMachine():
     def FindPSFExtent(self, verbose=False):
         if self.SubPSF is not None: return
         PSF=self._MeanPSF
-        _,_,NPSF,_=PSF.shape
+        _,_,NPSF_x,NPSF_y=PSF.shape
 
         # for backwards compatibility -- if PSFBox is 0 or unset, use the "auto" method below
         method = self.GD["Deconv"]["PSFBox"] or "auto"
@@ -311,22 +311,24 @@ class ClassMultiScaleMachine():
             method = "explicit"
         else:
             if method == "frombox":
-                xtest = np.int64(np.linspace(NPSF // 2, NPSF, 100))
+                xtest = np.int64(np.linspace(NPSF_x // 2, NPSF_x, 100))
                 box = 100
                 itest = 0
                 while True:
                     X=xtest[itest]
-                    psf=PSF[0,0,X-box:X+box,NPSF//2-box:NPSF//2+box]
+                    psf=PSF[0,0,X-box:X+box,NPSF_y//2-box:NPSF_y//2+box]
                     std0=np.abs(psf.min()-psf.max())#np.std(psf)
-                    psf=PSF[0,0,NPSF//2-box:NPSF//2+box,X-box:X+box]
+                    psf=PSF[0,0,NPSF_x//2-box:NPSF_x//2+box,X-box:X+box]
                     std1=np.abs(psf.min()-psf.max())#np.std(psf)
                     std=np.max([std0,std1])
                     if std<1e-2:
                         break
                     else:
                         itest+=1
+
+                stop
                 x0=xtest[itest]
-                dx0=(x0-NPSF//2)
+                dx0=(x0-NPSF_x//2)
                 #print>>log, "PSF extends to [%i] from center, with rms=%.5f"%(dx0,std)
             elif method == "auto" or method == "sidelobe":
                 dx0=2*self.OffsetSideLobe
@@ -346,7 +348,7 @@ class ClassMultiScaleMachine():
 
             dx=np.min([NPSF//2, npix//2])
 
-        self.PSFExtent = (NPSF//2-dx,NPSF//2+dx+1,NPSF//2-dx,NPSF//2+dx+1)
+        self.PSFExtent = (NPSF_x//2-dx,NPSF_x//2+dx+1,NPSF_y//2-dx,NPSF_y//2+dx+1)
         x0,x1,y0,y1 = self.PSFExtent
         self.SubPSF = self._PSF[:,:,x0:x1,y0:y1]
         #print "!!!!!!!!!!!!!!!!!!!!!!!!!!!",self.SubPSF.shape
@@ -686,7 +688,7 @@ class ClassMultiScaleMachine():
     def MakeBasisMatrix(self):
         # self.OPFT=np.real
         self.OPFT=np.abs
-        nxPSF=self.CubePSFScales.shape[-1]
+        nxPSF,nyPSF=self.CubePSFScales.shape[-2:]
         # x0,x1=nxPSF//2-int(self.SupWeightWidth),nxPSF//2+int(self.SupWeightWidth)+1
         # y0,y1=nxPSF//2-int(self.SupWeightWidth),nxPSF//2+int(self.SupWeightWidth)+1
 
@@ -695,7 +697,7 @@ class ClassMultiScaleMachine():
         # (x0,x1,y0,y1)=Bedge
 
         nxGWF,nyGWF=self.GlobalWeightFunction.shape[-2],self.GlobalWeightFunction.shape[-1]
-        Aedge,Bedge=GiveEdgesDissymetric(nxPSF//2,nxPSF//2,nxPSF,nxPSF,nxGWF//2,nyGWF//2,nxGWF,nyGWF,WidthMax=(int(self.SupWeightWidth),int(self.SupWeightWidth)))
+        Aedge,Bedge=GiveEdgesDissymetric(nxPSF//2,nyPSF//2,nxPSF,nyPSF,nxGWF//2,nyGWF//2,nxGWF,nyGWF,WidthMax=(int(self.SupWeightWidth),int(self.SupWeightWidth)))
         x0d,x1d,y0d,y1d=Aedge
         (x0,x1,y0,y1)=Bedge
 
@@ -854,7 +856,7 @@ class ClassMultiScaleMachine():
         T.disable()
 
         N0=self._Dirty.shape[-1]
-        N1=self.DicoBasisMatrix["CubePSF"].shape[-1]
+        N1x,N1y=self.DicoBasisMatrix["CubePSF"].shape[-2:]
         xc,yc=x,y
 
         #N1=CubePSF.shape[-1]
@@ -877,7 +879,7 @@ class ClassMultiScaleMachine():
 
         #Aedge,Bedge=GiveEdges(xc,yc,N0,N1//2,N1//2,N1)
         N0x,N0y=self._Dirty.shape[-2],self._Dirty.shape[-1]
-        Aedge,Bedge=GiveEdgesDissymetric(xc,yc,N0x,N0y,N1//2,N1//2,N1,N1)
+        Aedge,Bedge=GiveEdgesDissymetric(xc,yc,N0x,N0y,N1x//2,N1y//2,N1x,N1x)
         x0d,x1d,y0d,y1d=Aedge
         x0s,x1s,y0s,y1s=Bedge
         nxs,nys=x1s-x0s,y1s-y0s

@@ -667,8 +667,16 @@ def GiveGauss(NpixIn,CellSizeRad=None,GaussPars=(0.,0.,0.),dtype=np.float32,para
         Npix_x,Npix_y=NpixIn
     else:
         Npix_x=Npix_y=NpixIn
-    uvscale_x=Npix_x*CellSizeRad/2
-    uvscale_y=Npix_y*CellSizeRad/2
+
+    if isinstance(CellSizeRad,list) or isinstance(CellSizeRad,np.ndarray):
+        CellSizeRad_x,CellSizeRad_y=CellSizeRad
+    else:
+        CellSizeRad_x=CellSizeRad_y=CellSizeRad
+
+
+        
+    uvscale_x=Npix_x*CellSizeRad_x/2
+    uvscale_y=Npix_y*CellSizeRad_y/2
     
     SigMaj,SigMin,ang=GaussPars
     ang = 2*np.pi - ang #need counter-clockwise rotation

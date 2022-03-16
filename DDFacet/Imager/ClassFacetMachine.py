@@ -250,7 +250,10 @@ class ClassFacetMachine():
             ImageName:
             **kw:
         """
-        Cell = self.GD["Image"]["Cell"]
+        if isinstance(self.GD["Image"]["Cell"],list):
+            Cell_x,Cell_y=self.GD["Image"]["Cell"]
+        else:
+            Cell_x=Cell_y=self.GD["Image"]["Cell"]
 
         self.ImageName = ImageName
 
@@ -260,11 +263,14 @@ class ClassFacetMachine():
         self.ChanFreq = self.VS.GlobalFreqs
 
         self.NFacets = NFacets
-        self.Cell = Cell
+        self.Cell_x = Cell_x
+        self.Cell_y = Cell_y
+        self.Cell = np.array([Cell_x,Cell_y],np.float32)
         
-        self.CellSizeRad = (Cell / 3600.) * np.pi / 180.
+        self.CellSizeRad_x = (Cell_x / 3600.) * np.pi / 180.
+        self.CellSizeRad_y = (Cell_y / 3600.) * np.pi / 180.
         rac, decc = self.VS.ListMS[0].radec
-        
+        self.CellSizeRad = np.array([self.CellSizeRad_x,self.CellSizeRad_y],np.float32)
 
         self.MainRaDec = (rac, decc)
         self.nch = self.VS.NFreqBands
@@ -300,8 +306,8 @@ class ClassFacetMachine():
         self.Npix_y = Npix_y
         self.OutImShape = (self.nch, self.npol, self.Npix_x, self.Npix_y)
         # image bounding box in radians:
-        RadiusTot_x = self.CellSizeRad * self.Npix_x / 2
-        RadiusTot_y = self.CellSizeRad * self.Npix_x / 2
+        RadiusTot_x = self.CellSizeRad_x * self.Npix_x / 2
+        RadiusTot_y = self.CellSizeRad_y * self.Npix_x / 2
         self.RadiusTot_x = RadiusTot_x
         self.RadiusTot_y = RadiusTot_y
         self.CornersImageTot = np.array([[-RadiusTot_x, -RadiusTot_y],
@@ -328,7 +334,7 @@ class ClassFacetMachine():
         
         return ThisFacetPadding
         
-    def AppendFacet(self, iFacet, l0, m0, diam):
+    def AppendFacet(self, iFacet, l0, m0, diam_x, diam_y):
         """
         Adds facet dimentions to info dict of facets (self.DicoImager[iFacet])
         Args:
@@ -337,7 +343,8 @@ class ClassFacetMachine():
             m0:
             diam:
         """
-        diam *= self.Oversize
+        diam_x *= self.Oversize
+        diam_y *= self.Oversize
         DicoConfigGM = None
         lmShift = (l0, m0)
         self.DicoImager[iFacet]["lmShift"] = lmShift
@@ -347,32 +354,36 @@ class ClassFacetMachine():
                             np.array([lmShift[0]]), np.array([lmShift[1]]))
         # print>>log,"Facet %d l %f m %f RA %f Dec %f"%(iFacet, l0, m0, raFacet, decFacet)
 
-        NpixFacet, _ = EstimateNpix(diam / self.CellSizeRad, Padding=1)
-
+        NpixFacet_x, _ = EstimateNpix(diam_x / self.CellSizeRad_x, Padding=1)
+        NpixFacet_y, _ = EstimateNpix(diam_y / self.CellSizeRad_y, Padding=1)
+        
         Padding=self.giveEffectivePadding(iFacet)
             
-        _, NpixPaddedGrid = EstimateNpix(NpixFacet, Padding=Padding)
+        _, NpixPaddedGrid_x = EstimateNpix(NpixFacet_x, Padding=Padding)
+        _, NpixPaddedGrid_y = EstimateNpix(NpixFacet_y, Padding=Padding)
 
-        if NpixPaddedGrid // NpixFacet > self.Padding and not getattr(self, '_warned_small_ffts', False):
-            print(ModColor.Str("WARNING: Your FFTs are too small. We will pad them by x%.2f "\
-                               "rather than x%.2f. Increase facet size and/or padding to get rid of this message." % (float(NpixPaddedGrid)/NpixFacet, Padding)),
-                               file=log)
-            self._warned_small_ffts = True
+        # if NpixPaddedGrid // NpixFacet > self.Padding and not getattr(self, '_warned_small_ffts', False):
+        #     print(ModColor.Str("WARNING: Your FFTs are too small. We will pad them by x%.2f "\
+        #                        "rather than x%.2f. Increase facet size and/or padding to get rid of this message." % (float(NpixPaddedGrid)/NpixFacet, Padding)),
+        #                        file=log)
+        #     self._warned_small_ffts = True
 
-        diam = NpixFacet * self.CellSizeRad
-        diamPadded = NpixPaddedGrid * self.CellSizeRad
-        RadiusFacet = diam * 0.5
-        RadiusFacetPadded = diamPadded * 0.5
-        self.DicoImager[iFacet]["lmDiam"] = RadiusFacet
-        self.DicoImager[iFacet]["lmDiamPadded"] = RadiusFacetPadded
-        self.DicoImager[iFacet]["RadiusFacet"] = RadiusFacet
-        self.DicoImager[iFacet]["RadiusFacetPadded"] = RadiusFacetPadded
-        self.DicoImager[iFacet]["lmExtent"] = l0 - RadiusFacet, \
-            l0 + RadiusFacet, m0 - RadiusFacet, m0 + RadiusFacet
-        self.DicoImager[iFacet]["lmExtentPadded"] = l0 - RadiusFacetPadded, \
-            l0 + RadiusFacetPadded, \
-            m0 - RadiusFacetPadded, \
-            m0 + RadiusFacetPadded
+        diam_x = NpixFacet_x * self.CellSizeRad_x
+        diamPadded_x = NpixPaddedGrid_x * self.CellSizeRad_x
+        RadiusFacet_x = diam_x * 0.5
+        RadiusFacetPadded_x = diamPadded_x * 0.5
+        
+        diam_y = NpixFacet_y * self.CellSizeRad_y
+        diamPadded_y = NpixPaddedGrid_y * self.CellSizeRad_y
+        RadiusFacet_y = diam_y * 0.5
+        RadiusFacetPadded_y = diamPadded_y * 0.5
+        
+        self.DicoImager[iFacet]["lmDiam"] = (RadiusFacet_x,RadiusFacet_y)
+        self.DicoImager[iFacet]["lmDiamPadded"] = (RadiusFacetPadded_x,RadiusFacetPadded_y)
+        self.DicoImager[iFacet]["RadiusFacet"] = (RadiusFacet_x,RadiusFacet_y)
+        self.DicoImager[iFacet]["RadiusFacetPadded"] = (RadiusFacetPadded_x,RadiusFacetPadded_y)
+        self.DicoImager[iFacet]["lmExtent"] = l0 - RadiusFacet_x, l0 + RadiusFacet_x, m0 - RadiusFacet_y, m0 + RadiusFacet_y
+        self.DicoImager[iFacet]["lmExtentPadded"] = l0 - RadiusFacetPadded_x, l0 + RadiusFacetPadded_x, m0 - RadiusFacetPadded_y, m0 + RadiusFacetPadded_y
 
         lSol, mSol = self.lmSols
         raSol, decSol = self.radecSols
@@ -381,8 +392,8 @@ class ClassFacetMachine():
         self.DicoImager[iFacet]["lmSol"] = lSol[iSol], mSol[iSol]
         self.DicoImager[iFacet]["radecSol"] = raSol[iSol], decSol[iSol]
         self.DicoImager[iFacet]["iSol"] = iSol
-        DicoConfigGM = {"NPix": NpixFacet,
-                        "Cell": self.GD["Image"]["Cell"],
+        DicoConfigGM = {"NPix": np.array([NpixFacet_x,NpixFacet_y]),
+                        "Cell": self.Cell,
                         "ChanFreq": self.ChanFreq,
                         "DoPSF": False,
                         "Support": self.GD["CF"]["Support"],
@@ -401,15 +412,14 @@ class ClassFacetMachine():
         self.DicoImager[iFacet]["RaDec"] = raFacet[0], decFacet[0]
         self.LraFacet.append(raFacet[0])
         self.LdecFacet.append(decFacet[0])
-        xc, yc = int(round(l0 / self.CellSizeRad + NpixOutIm_x // 2)), \
-            int(round(m0 / self.CellSizeRad + NpixOutIm_y // 2))
+        xc, yc = int(round(l0 / self.CellSizeRad_x + NpixOutIm_x // 2)), int(round(m0 / self.CellSizeRad_y + NpixOutIm_y // 2))
 
         self.DicoImager[iFacet]["pixCentral"] = xc, yc
-        self.DicoImager[iFacet]["pixExtent"] = xc - NpixFacet // 2, xc + NpixFacet // 2 + 1, \
-                                               yc - NpixFacet // 2, yc + NpixFacet // 2 + 1
+        self.DicoImager[iFacet]["pixExtent"] = xc - NpixFacet_x // 2, xc + NpixFacet_x // 2 + 1, \
+                                               yc - NpixFacet_y // 2, yc + NpixFacet_y // 2 + 1
 
-        self.DicoImager[iFacet]["NpixFacet"] = NpixFacet
-        self.DicoImager[iFacet]["NpixFacetPadded"] = NpixPaddedGrid
+        self.DicoImager[iFacet]["NpixFacet"] = NpixFacet_x,NpixFacet_y
+        self.DicoImager[iFacet]["NpixFacetPadded"] = NpixPaddedGrid_x,NpixPaddedGrid_y
         self.DicoImager[iFacet]["DicoConfigGM"] = DicoConfigGM
         self.DicoImager[iFacet]["IDFacet"] = iFacet
 
@@ -705,11 +715,11 @@ class ClassFacetMachine():
         T=ClassTimeIt.ClassTimeIt("setWisdom")
         T.disable()
         for iFacet in sorted(self.DicoImager.keys()):
-            NPixPadded=self.DicoImager[iFacet]["NpixFacetPadded"]
+            NPixPadded_x,NPixPadded_y=self.DicoImager[iFacet]["NpixFacetPadded"]
             if self.GD["RIME"]["Precision"]=="S":
-                TypeKey=(NPixPadded,NPixPadded,np.complex64)
+                TypeKey=(NPixPadded_x,NPixPadded_y,np.complex64)
             elif self.GD["RIME"]["Precision"]=="D":
-                TypeKey=(NPixPadded,NPixPadded,np.complex128)
+                TypeKey=(NPixPadded_x,NPixPadded_y,np.complex128)
 
             if TypeKey not in WisdomTypes:
                 HasTouchedWisdomFile = True
@@ -772,7 +782,7 @@ class ClassFacetMachine():
         for iFacet in getattr(self.DicoImager, "iterkeys", self.DicoImager.keys)():
             facet_dict = self._CF.addSubdict(iFacet)
             APP.runJob("%s.InitCF.f%s"%(self._app_id, iFacet), self._initcf_worker,
-                            args=(iFacet, facet_dict.readwrite(), cachepath, cachevalid, wmax))#,serial=True)
+                            args=(iFacet, facet_dict.readwrite(), cachepath, cachevalid, wmax),serial=True)
         #workers_res=APP.awaitJobResults("%s.InitCF.*"%self._app_id, progress="Init CFs")
 
 
@@ -797,9 +807,9 @@ class ClassFacetMachine():
         # ok, regenerate the terms at this point
         FacetInfo = self.DicoImager[iFacet]
         # Create smoothned facet tessel mask:
-        Npix = FacetInfo["NpixFacetPadded"]
+        Npix_x,Npix_y = FacetInfo["NpixFacetPadded"]
         l0, l1, m0, m1 = FacetInfo["lmExtentPadded"]
-        X, Y = np.mgrid[l0:l1:Npix * 1j, m0:m1:Npix * 1j]
+        X, Y = np.mgrid[l0:l1:Npix_x * 1j, m0:m1:Npix_y * 1j]
         XY = np.dstack((X, Y))
         XY_flat = XY.reshape((-1, 2))
         vertices = FacetInfo["Polygon"]
@@ -817,7 +827,7 @@ class ClassFacetMachine():
         GaussPars = (self.GD["Facets"]["MixingWidth"], self.GD["Facets"]["MixingWidth"], 0)
 
         # compute spatial weight term
-        sw = np.float32(mask.reshape((1, 1, Npix, Npix)))
+        sw = np.float32(mask.reshape((1, 1, Npix_x, Npix_y)))
 
         # already happening in parallel so make sure the FFT library doesn't spawn its own threads
         sw = ModFFTW.ConvolveGaussian(shareddict = {"in": sw, "out": sw},
@@ -826,7 +836,7 @@ class ClassFacetMachine():
                                       ch = 0,
                                       CellSizeRad=1,
                                       GaussPars_ch=GaussPars)
-        sw = sw.reshape((Npix, Npix))
+        sw = sw.reshape((Npix_x, Npix_y))
         sw /= np.max(sw)
         ## Will speedup degridding NB: will it?
         sw[sw<1e-3] = 0.
@@ -960,8 +970,8 @@ class ClassFacetMachine():
         # first normalize by spheroidals - these
         # facet psfs will be used in deconvolution per facet
         SPhe = cfdict["Sphe"]
-        nx = SPhe.shape[0]
-        SPhe = SPhe.reshape((1, 1, nx, nx)).real
+        nx,ny = SPhe.shape
+        SPhe = SPhe.reshape((1, 1, nx, ny)).real
         fd = facetdict.addSubdict(iFacet)
         ## @cyriltasse reported a problem with this:
         # fd["PSF"] = facet_grids[iFacet].real
@@ -974,11 +984,12 @@ class ClassFacetMachine():
         fd["pixCentral"] = self.DicoImager[iFacet]["pixCentral"]
         fd["lmSol"] = self.DicoImager[iFacet]["lmSol"]
 
-        nch, npol, n, n = psf.shape
-        PSFChannel = np.zeros((nch, npol, n, n), self.stitchedType)
+        nch, npol, nx, ny = psf.shape
+        PSFChannel = np.zeros((nch, npol, nx, ny), self.stitchedType)
         for ch in range(nch):
             psf[ch][SPhe[0] < 1e-2] = 0
-            psf[ch][0] = psf[ch][0].T[::-1, :]
+            print("!!!!!!!!!!!!!!!!!!!!!!!!!")
+            #psf[ch][0] = psf[ch][0].T[::-1, :]
             SumJonesNorm = sumjonesnorm[ch]
             # normalize to bring back transfer
             # functions to approximate convolution
@@ -992,16 +1003,19 @@ class ClassFacetMachine():
             PSFChannel[ch, :, :, :] = psf[ch][:, :, :]
 
         # weight each of the cube slices and average
-        fd["MeanPSF"]  = np.sum(PSFChannel * W, axis=0).reshape((1, npol, n, n))
+        fd["MeanPSF"]  = np.sum(PSFChannel * W, axis=0).reshape((1, npol, nx, ny))
 
     def _cutFacetSlice_worker(self, iFacet, DicoImages, nch, NPixMin):
         psf = DicoImages["Facets"][iFacet]["PSF"]
-        _, npol, n, n = psf.shape
+        NPixMin_x,NPixMin_y=NPixMin
+        _, npol, nx, ny = psf.shape
+        ix = nx // 2 - NPixMin_x // 2
+        jx = nx // 2 + NPixMin_x // 2 + 1
+        iy = ny // 2 - NPixMin_y // 2
+        jy = ny // 2 + NPixMin_y // 2 + 1
         for ch in range(nch):
-            i = n // 2 - NPixMin // 2
-            j = n // 2 + NPixMin // 2 + 1
-            DicoImages["CubeVariablePSF"][iFacet, ch, :, :, :] = psf[ch][:, i:j, i:j]
-        DicoImages["CubeMeanVariablePSF"][iFacet, 0, :, :, :] = DicoImages["Facets"][iFacet]["MeanPSF"][0, :, i:j, i:j]
+            DicoImages["CubeVariablePSF"][iFacet, ch, :, :, :] = psf[ch][:, ix:jx, iy:jy]
+        DicoImages["CubeMeanVariablePSF"][iFacet, 0, :, :, :] = DicoImages["Facets"][iFacet]["MeanPSF"][0, :, ix:jx, iy:jy]
 
     def _computeFacetMeanResidual_worker(self, iFacet, fmr_dict, grid_dict, cf_dict, SumWeights, SumJonesNorm, WBAND):
         dirty = grid_dict[iFacet]
@@ -1122,25 +1136,33 @@ class ClassFacetMachine():
                 NPixMin = self.GD["Facets"]["Circumcision"]
                 # print>>log,"using explicit Circumcision=%d"%NPixMin
             else:
-                NPixMin = 1e6
+                NPixMin_x = 1e6
+                NPixMin_y = 1e6
                 for iFacet in facets:
-                    _, npol, n, n = DicoVariablePSF[iFacet]["PSF"].shape
-                    if n < NPixMin:
-                        NPixMin = n
+                    _, npol, nx, ny = DicoVariablePSF[iFacet]["PSF"].shape
+                    if nx < NPixMin_x:
+                        NPixMin_x = nx
+                    if ny < NPixMin_y:
+                        NPixMin_y = ny
 
-                NPixMin = int(NPixMin/self.GD["Facets"]["Padding"])
-                if not NPixMin % 2:
-                    NPixMin += 1
+                NPixMin_x = int(NPixMin_x/self.GD["Facets"]["Padding"])
+                if not NPixMin_x % 2:
+                    NPixMin_x += 1
+                    
+                NPixMin_y = int(NPixMin_y/self.GD["Facets"]["Padding"])
+                if not NPixMin_y % 2:
+                    NPixMin_y += 1
                     # print>>log,"using computed Circumcision=%d"%NPixMin
 
             nch = self.VS.NFreqBands
-            DicoImages.addSharedArray("CubeVariablePSF",(NFacets, nch, npol, NPixMin, NPixMin), np.float32)
-            DicoImages.addSharedArray("CubeMeanVariablePSF",(NFacets, 1, npol, NPixMin, NPixMin), np.float32)
+            DicoImages.addSharedArray("CubeVariablePSF",(NFacets, nch, npol, NPixMin_x, NPixMin_y), np.float32)
+            DicoImages.addSharedArray("CubeMeanVariablePSF",(NFacets, 1, npol, NPixMin_x, NPixMin_y), np.float32)
 
             #CubeVariablePSF = np.zeros((NFacets, nch, npol, NPixMin, NPixMin), np.float32)
             #CubeMeanVariablePSF = np.zeros((NFacets, 1, npol, NPixMin, NPixMin), np.float32)
 
-            print("cutting PSF facet-slices of shape %dx%d" % (NPixMin, NPixMin), file=log)
+            print("cutting PSF facet-slices of shape %dx%d" % (NPixMin_x, NPixMin_y), file=log)
+            NPixMin= NPixMin_x,NPixMin_y
             for iFacet in facets:
                 APP.runJob("cutpsf:%s" % iFacet, self._cutFacetSlice_worker, args=(iFacet, DicoImages.readonly(), nch, NPixMin))
             APP.awaitJobResults("cutpsf:*", progress="Cut PSF facet slices")
@@ -1150,8 +1172,8 @@ class ClassFacetMachine():
             CubeVariablePSF=DicoImages["CubeVariablePSF"]
             CubeMeanVariablePSF=DicoImages["CubeMeanVariablePSF"]
             print("  Building Facets-PSF normalised by their maximum", file=log)
-            DicoImages.addSharedArray("PeakNormed_CubeVariablePSF",(NFacets, nch, npol, NPixMin, NPixMin), np.float32)
-            DicoImages.addSharedArray("PeakNormed_CubeMeanVariablePSF",(NFacets, 1, npol, NPixMin, NPixMin), np.float32)
+            DicoImages.addSharedArray("PeakNormed_CubeVariablePSF",(NFacets, nch, npol, NPixMin_x, NPixMin_y), np.float32)
+            DicoImages.addSharedArray("PeakNormed_CubeMeanVariablePSF",(NFacets, 1, npol, NPixMin_x, NPixMin_y), np.float32)
 
             for iFacet in facets:
                 psfmax = np.max(CubeMeanVariablePSF[iFacet])
@@ -1168,7 +1190,7 @@ class ClassFacetMachine():
 
             PeakNormed_CubeMeanVariablePSF=DicoImages["PeakNormed_CubeMeanVariablePSF"]
 
-            DicoImages["MeanFacetPSF"]=np.mean(PeakNormed_CubeMeanVariablePSF,axis=0).reshape((1,npol,NPixMin,NPixMin))
+            DicoImages["MeanFacetPSF"]=np.mean(PeakNormed_CubeMeanVariablePSF,axis=0).reshape((1,npol,NPixMin_x,NPixMin_y))
             ListMeanJonesBand=[]
             DicoImages["OutImShape"] = self.OutImShape
             DicoImages["CellSizeRad"] = self.CellSizeRad
@@ -1233,7 +1255,7 @@ class ClassFacetMachine():
             for iFacet in sorted(self.DicoImager.keys()):
                 APP.runJob("facetmeanresidual:%s" % iFacet, self._computeFacetMeanResidual_worker,
                            args=(iFacet, fmr_dict.writeonly(), self._facet_grids.readonly(), self._CF.readonly(),
-                                 self.DicoImager[iFacet]["SumWeights"], self.DicoImager[iFacet]["SumJonesNorm"], WBAND))
+                                 self.DicoImager[iFacet]["SumWeights"], self.DicoImager[iFacet]["SumJonesNorm"], WBAND),serial=True)
             APP.awaitJobResults("facetmeanresidual:*", progress="Mean per-facet dirties")
             fmr_dict.reload()
 
@@ -1315,10 +1337,10 @@ class ClassFacetMachine():
             FacetNorm = np.zeros((NPixOut_x, NPixOut_y), dtype=self.stitchedType)
             for iFacet in self.DicoImager.keys():
                 xc, yc = self.DicoImager[iFacet]["pixCentral"]
-                NpixFacet = self.DicoImager[iFacet]["NpixFacetPadded"]
+                NpixFacet_x,NpixFacet_y = self.DicoImager[iFacet]["NpixFacetPadded"]
                 
                 Aedge, Bedge = GiveEdgesDissymetric(xc, yc, NPixOut_x, NPixOut_y,
-                                                    NpixFacet//2, NpixFacet//2, NpixFacet, NpixFacet)
+                                                    NpixFacet_x//2, NpixFacet_y//2, NpixFacet_x, NpixFacet_y)
                 x0d, x1d, y0d, y1d = Aedge
                 x0p, x1p, y0p, y1p = Bedge
                 
@@ -1371,13 +1393,13 @@ class ClassFacetMachine():
 
             SPhe = self._CF[iFacet]["Sphe"]
             InvSPhe = self._CF[iFacet]["InvSphe"]
-            SpacialWeigth = self._CF[iFacet]["SW"].T[::-1, :]
-
+            SpacialWeigth = self._CF[iFacet]["SW"]#.T[::-1, :]
+            
             xc, yc = self.DicoImager[iFacet]["pixCentral"]
-            NpixFacet = self.DicoGridMachine[iFacet]["Dirty"][0].shape[2]
+            NpixFacet_x,NpixFacet_y = self.DicoGridMachine[iFacet]["Dirty"][0].shape[1:]
             
             Aedge, Bedge = GiveEdgesDissymetric(xc, yc, NPixOut_x,NPixOut_y,
-                                                NpixFacet//2, NpixFacet//2, NpixFacet, NpixFacet)
+                                                NpixFacet_x//2, NpixFacet_y//2, NpixFacet_x, NpixFacet_y)
             x0main, x1main, y0main, y1main = Aedge
             x0facet, x1facet, y0facet, y1facet = Bedge
 
@@ -1388,7 +1410,8 @@ class ClassFacetMachine():
                 for pol in range(npol):
                     # ThisSumWeights.reshape((nch,npol,1,1))[Channel, pol, 0, 0]
                     if kind == "Jones-amplitude":
-                        Im = SpacialWeigth[::-1, :].T[x0facet:x1facet, y0facet:y1facet] * ThisSumJones
+                        #Im = SpacialWeigth[::-1, :].T[x0facet:x1facet, y0facet:y1facet] * ThisSumJones
+                        Im = SpacialWeigth[x0facet:x1facet, y0facet:y1facet] * ThisSumJones
                     else:
                         if kind == "Dirty" or kind == "PSF":
                             # make copy since subsequent operations are in-place
@@ -1399,10 +1422,24 @@ class ClassFacetMachine():
                         weights = ThisSumWeights[pol]*np.sqrt(ThisSumJones)
                         weights = np.where(weights, weights, 1.0)
                         # ...and the spatial weights
+                        
+                        # import pylab
+                        # pylab.clf()
+                        # pylab.subplot(1,3,1)
+                        # pylab.imshow(Im,interpolation="nearest")
+                        # pylab.subplot(1,3,2)
+                        # pylab.imshow(InvSPhe,interpolation="nearest")
+                        # pylab.subplot(1,3,3)
+                        # pylab.imshow(SpacialWeigth,interpolation="nearest")
+                        # pylab.draw()
+                        # pylab.show(block=False)
+                        # pylab.pause(0.1)
+                        # stop
                         numexpr.evaluate('Im*InvSPhe*SpacialWeigth/weights',out=Im,casting="unsafe")
                         Im[SPhe < 1e-3] = 0
                         # flip axis and extract facet
-                        Im = Im[::-1, :].T[x0facet:x1facet, y0facet:y1facet]
+                        #Im = Im[::-1, :].T[x0facet:x1facet, y0facet:y1facet]
+                        Im = Im[x0facet:x1facet, y0facet:y1facet]
                     # add into main image
                     a = Image[Channel, pol, x0main:x1main, y0main:y1main]
                     numexpr.evaluate('a+Im',out=a,casting="unsafe")
@@ -1472,11 +1509,11 @@ class ClassFacetMachine():
             self._facet_grids = shared_dict.create("PSFGrid" if self.DoPSF else "Grid")
 
         for iFacet in self.DicoGridMachine.keys():
-            NX = self.DicoImager[iFacet]["NpixFacetPadded"]
+            NX,NY = self.DicoImager[iFacet]["NpixFacetPadded"]
             # init or zero grid array
             grid = self._facet_grids.get(iFacet)
             if grid is None:
-                grid = self._facet_grids.addSharedArray(iFacet, (self.VS.NFreqBands, self.npol, NX, NX), self.CType)
+                grid = self._facet_grids.addSharedArray(iFacet, (self.VS.NFreqBands, self.npol, NX, NY), self.CType)
             else:
                 grid.fill(0)
             self.DicoGridMachine[iFacet]["Dirty"] = grid

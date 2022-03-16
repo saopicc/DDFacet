@@ -39,7 +39,7 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import MyPickle
 from DDFacet.Other import reformat
 from DDFacet.Imager import ClassFrequencyMachine
-from DDFacet.ToolsDir.GiveEdges import GiveEdges
+#from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 from DDFacet.Imager import ClassModelMachine as ClassModelMachinebase
 from DDFacet.ToolsDir import ModFFTW
@@ -342,10 +342,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
                         elif ThisComp["ModelType"]=="Gaussian" or ThisComp["ModelType"]=="Hat":
                             Gauss=ThisComp["Model"]
-                            Sup,_=Gauss.shape
+                            Sup_x,Sup_y=Gauss.shape
                             x0,x1=x-Sup//2,x+Sup//2+1
                             y0,y1=y-Sup//2,y+Sup//2+1
-                            Aedge,Bedge=GiveEdgesDissymetric(x,y,N0x,N0y,Sup//2,Sup//2,Sup,Sup)
+                            Aedge,Bedge=GiveEdgesDissymetric(x,y,N0x,N0y,Sup_x//2,Sup_y//2,Sup_x,Sup_y)
                             x0d,x1d,y0d,y1d=Aedge
                             x0p,x1p,y0p,y1p=Bedge
                             ModelImage[ch,pol,x0d:x1d,y0d:y1d]+=Gauss[x0p:x1p,y0p:y1p]*Flux

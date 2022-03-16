@@ -310,7 +310,7 @@ class ClassDDEGridMachine():
     def __init__(self,
                  GD,
                  ChanFreq,
-                 Npix,
+                 NpixIn,
                  lmShift=(0., 0.),
                  IDFacet=0,
                  SpheNorm=True,
@@ -346,6 +346,14 @@ class ClassDDEGridMachine():
         #import pdb; pdb.set_trace()
         T = ClassTimeIt.ClassTimeIt("Init_ClassDDEGridMachine")
         T.disable()
+
+        if isinstance(NpixIn,np.ndarray) or isinstance(NpixIn,list):
+            Npix_x,Npix_y=NpixIn
+        else:
+            Npix_x=Npix_y=NpixIn
+
+        self.Npix=Npix_x,Npix_y
+            
         self.GD = GD
         self.IDFacet = IDFacet
         self.SpheNorm = SpheNorm
@@ -370,9 +378,16 @@ class ClassDDEGridMachine():
         T.timeit("0")
         if Padding is None:
             Padding = GD["Facets"]["Padding"]
-        
-        self.NonPaddedNpix, Npix = EstimateNpix(Npix, Padding)
-        self.Padding = Npix/float(self.NonPaddedNpix)
+
+
+            
+        self.NonPaddedNpix_x, Npix_x = EstimateNpix(Npix_x, Padding)
+        self.NonPaddedNpix_y, Npix_y = EstimateNpix(Npix_y, Padding)
+        self.Padding_x = Npix_x/float(self.NonPaddedNpix_x)
+        self.Padding_y = Npix_y/float(self.NonPaddedNpix_y)
+        self.Npix_x=Npix_x
+        self.Npix_y=Npix_y
+        self.Npix=Npix_x,Npix_y
         # self.Padding=Padding
 
         self.LSmear = []
@@ -397,33 +412,39 @@ class ClassDDEGridMachine():
         self.SkyType=1
         self.PolMap=np.array([0, 5, 5, 0], np.int32)
         self.PolModeID=0
-        self.Npix = Npix
+        self.Npix_x = Npix_x
+        self.Npix_y = Npix_y
 
         self.NFreqBands = NFreqBands
         self.NonPaddedShape = (
             self.NFreqBands,
             self.npol,
-            self.NonPaddedNpix,
-            self.NonPaddedNpix)
+            self.NonPaddedNpix_x,
+            self.NonPaddedNpix_y)
 
-        self.GridShape = (self.NFreqBands, self.npol, self.Npix, self.Npix)
+        self.GridShape = (self.NFreqBands, self.npol, self.Npix_x, self.Npix_y)
 
-        x0 = (self.Npix-self.NonPaddedNpix)//2  # +1
-        self.PaddingInnerCoord = (x0, x0+self.NonPaddedNpix)
+        x0 = (self.Npix_x-self.NonPaddedNpix_x)//2  # +1
+        y0 = (self.Npix_y-self.NonPaddedNpix_y)//2  # +1
+        self.PaddingInnerCoord = (x0, x0+self.NonPaddedNpix_x, y0, y0+self.NonPaddedNpix_y)
 
         T.timeit("1")
 
         OverS = GD["CF"]["OverS"]
         Support = GD["CF"]["Support"]
         Nw = GD["CF"]["Nw"]
-        Cell = GD["Image"]["Cell"]
+        CellIn = GD["Image"]["Cell"]
+        
+        if isinstance(CellIn,np.ndarray) or isinstance(CellIn,list):
+            Cell_x,Cell_y=CellIn
+        else:
+            Cell_x=Cell_y=CellIn
 
         # T=ClassTimeIt.ClassTimeIt("ClassImager")
         # T.disable()
 
-        self.Cell = Cell
-        self.incr = (
-            np.array([-Cell, Cell], dtype=np.float64)/3600.)*(np.pi/180)
+        self.Cell = Cell_x,Cell_y
+        self.incr = (np.array([-Cell_x, Cell_y], dtype=np.float64)/3600.)*(np.pi/180)
         # CF.fill(1.)
         # print self.ChanEquidistant
         # self.FullScalarMode=int(GD["DDESolutions"]["FullScalarMode"])
@@ -436,7 +457,6 @@ class ClassDDEGridMachine():
             self.JonesType = 1
         elif JonesMode == "Full":
             self.JonesType = 2
-
         T.timeit("3")
 
         self.ChanFreq = ChanFreq

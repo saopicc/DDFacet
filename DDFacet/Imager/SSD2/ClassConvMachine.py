@@ -471,11 +471,11 @@ class ClassConvMachine():
     def SetConvMatrix(self):
         #print>>log,"SetConvMatrix"
         PSF=self.PSF
-        NPixPSF=PSF.shape[-1]
+        NPixPSF_x,NPixPSF_y=PSF.shape[-2:]
 
 
         M=np.zeros((self.NFreqBands,1,self.NPixListData,self.NPixListParms),np.float32)
-        xc=yc=NPixPSF//2
+        xc,yc=NPixPSF_x//2,NPixPSF_y//2
 
         x0,y0=np.array(self.ListPixData).T
         x1,y1=np.array(self.ListPixParms).T
@@ -483,12 +483,12 @@ class ClassConvMachine():
         N1=x1.size
         dx=(x1.reshape((N1,1))-x0.reshape((1,N0))+xc).T
         dy=(y1.reshape((N1,1))-y0.reshape((1,N0))+xc).T
-        Cx=((dx>=0)&(dx<NPixPSF))
-        Cy=((dy>=0)&(dy<NPixPSF))
+        Cx=((dx>=0)&(dx<NPixPSF_x))
+        Cy=((dy>=0)&(dy<NPixPSF_y))
         C=(Cx&Cy)
         indPSF=np.arange(M.shape[-1]*M.shape[-2])
         indPSF_sel=indPSF[C.ravel()]
-        indPixPSF=dx.ravel()[C.ravel()]*NPixPSF+dy.ravel()[C.ravel()]
+        indPixPSF=dx.ravel()[C.ravel()]*NPixPSF_y+dy.ravel()[C.ravel()]
         for iBand in range(self.NFreqBands):
             PSF_Chan=PSF[iBand,0]
             M[iBand,0].flat[indPSF_sel] = PSF_Chan.flat[indPixPSF.ravel()]
@@ -505,12 +505,12 @@ class ClassConvMachine():
         N1=x1.size
         dx=(x1.reshape((N1,1))-x0.reshape((1,N0))+xc).T
         dy=(y1.reshape((N1,1))-y0.reshape((1,N0))+xc).T
-        Cx=((dx>=0)&(dx<NPixPSF))
-        Cy=((dy>=0)&(dy<NPixPSF))
+        Cx=((dx>=0)&(dx<NPixPSF_x))
+        Cy=((dy>=0)&(dy<NPixPSF_y))
         C=(Cx&Cy)
         indPSF=np.arange(MParms.shape[-1]*MParms.shape[-2])
         indPSF_sel=indPSF[C.ravel()]
-        indPixPSF=dx.ravel()[C.ravel()]*NPixPSF+dy.ravel()[C.ravel()]
+        indPixPSF=dx.ravel()[C.ravel()]*NPixPSF_y+dy.ravel()[C.ravel()]
         for iBand in range(self.NFreqBands):
             PSF_Chan=PSF[iBand,0]
             MParms[iBand,0].flat[indPSF_sel] = PSF_Chan.flat[indPixPSF.ravel()]

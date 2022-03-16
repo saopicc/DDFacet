@@ -113,8 +113,8 @@ class ClassCasaimage():
 
         self.w = WCS(naxis=4)
         self.w.wcs.ctype = ['RA---SIN','DEC--SIN','STOKES','FREQ']
-        self.w.wcs.cdelt[0] = -self.Cell/3600.0
-        self.w.wcs.cdelt[1] = self.Cell/3600.0
+        self.w.wcs.cdelt[0] = -self.Cell[0]/3600.0
+        self.w.wcs.cdelt[1] = self.Cell[1]/3600.0
         self.w.wcs.cdelt[2] = self.delta_stokes
         self.w.wcs.cunit = ['deg','deg','','Hz']
         self.w.wcs.crval = [self.radec[0]*180.0/np.pi,self.radec[1]*180.0/np.pi,self.sorted_stokes[0],0]

@@ -660,7 +660,7 @@ class ClassVisServer():
                 elif self.GD["Comp"]["GridFoV"] == "Full":
                     _, _, nx, ny = self.FullImShape
                 mode = self.GD["Comp"]["BDAMode"]
-                FOV = self.CellSizeRad * nx * (np.sqrt(2.) / 2.) * 180. / np.pi
+                FOV = self.CellSizeRad.max() * np.sqrt((nx/2)**2+(ny/2)**2) * 180. / np.pi
                 self._smm_grid.computeSmearMappingInBackground(base_job_id, ms, DATA, FOV,
                                                           (1. - self.GD["Comp"]["GridDecorr"]),
                                                           ChanMappingGridding, mode)
@@ -677,7 +677,8 @@ class ClassVisServer():
                 elif self.GD["Comp"]["DegridFoV"] == "Full":
                     _, _, nx, ny = self.FullImShape
                 mode = self.GD["Comp"]["BDAMode"]
-                FOV = self.CellSizeRad * nx * (np.sqrt(2.) / 2.) * 180. / np.pi
+                FOV = self.CellSizeRad.max() * np.sqrt((nx/2)**2+(ny/2)**2) * 180. / np.pi
+                
                 self._smm_degrid.computeSmearMappingInBackground(base_job_id, ms, DATA, FOV,
                                                           (1. - self.GD["Comp"]["DegridDecorr"]),
                                                           ChanMappingDeGridding, mode)

@@ -124,7 +124,7 @@ class ClassPSFServer():
 
             
         dmin=1e6
-        CellSizeRad=self.DicoVariablePSF["CellSizeRad"]
+        CellSizeRad_x,CellSizeRad_y=self.DicoVariablePSF["CellSizeRad"]
         _,_,nx,ny=self.DicoVariablePSF["OutImShape"]
 
 
@@ -142,8 +142,8 @@ class ClassPSFServer():
         
         for iFacet in range(self.NFacets):
             
-            l=CellSizeRad*(xp-nx//2)
-            m=CellSizeRad*(yp-ny//2)
+            l=CellSizeRad_x*(xp-nx//2)
+            m=CellSizeRad_y*(yp-ny//2)
             
             #lSol,mSol=self.DicoVariablePSF["Facets"][iFacet]["lmSol"]
             lSol,mSol=self.DicoVariablePSF["Facets"][iFacet]["l0m0"]

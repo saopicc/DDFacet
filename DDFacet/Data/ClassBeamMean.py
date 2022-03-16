@@ -79,9 +79,9 @@ class ClassBeamMean():
 
     def CalcGrid(self):
         _,_,nx,ny=self.VS.FullImShape
-        CellSizeRad=self.VS.CellSizeRad
-        FOV_x=nx*CellSizeRad
-        FOV_y=ny*CellSizeRad
+        CellSizeRad_x,CellSizeRad_y=self.VS.CellSizeRad
+        FOV_x=nx*CellSizeRad_x
+        FOV_y=ny*CellSizeRad_y
         npix_x=npix_y=self.GD["Beam"]["SmoothNPix"]
         if nx<ny:
             npix_x=self.GD["Beam"]["SmoothNPix"]
@@ -259,9 +259,9 @@ class ClassBeamMean():
 
 
         _,_,nx,ny=self.VS.FullImShape
-        CellSizeRad=self.VS.CellSizeRad
-        FOV_x=nx*CellSizeRad
-        FOV_y=ny*CellSizeRad
+        CellSizeRad_x,CellSizeRad_y=self.VS.CellSizeRad
+        FOV_x=nx*CellSizeRad_x
+        FOV_y=ny*CellSizeRad_y
         npix_x=nx
         npix_y=ny
         
