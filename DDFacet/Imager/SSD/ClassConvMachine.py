@@ -190,8 +190,8 @@ class ClassConvMachineImages():
         SubModelImage[...,x0f:x1f,y0f:y1f]=SubModelImageIn[...,x0d:x1d,y0d:y1d]
 
         PSF=self.PSF
-        nPSF=PSF.shape[-1]
-        AedgeP,BedgeP=GiveEdgesDissymetric(Nin//2,Nin//2,Nin,Nin,nPSF//2,nPSF//2,nPSF,nPSF)
+        nPSFx,nPSFy=PSF.shape[-2:]
+        AedgeP,BedgeP=GiveEdgesDissymetric(Nin//2,Nin//2,Nin,Nin,nPSFx//2,nPSFy//2,nPSFx,nPSFy)
         x0dP,x1dP,y0dP,y1dP=AedgeP
         x0fP,x1fP,y0fP,y1fP=BedgeP
         SubPSF=PSF[...,x0fP:x1fP,y0fP:y1fP]
@@ -299,10 +299,11 @@ class ClassConvMachine():
             zAsq+=np.random.randn(*zAsq.shape)*AddNoise
 
 
-        N0x=zAsq.shape[-1]
+        N0x,N0y=zAsq.shape[-2:]
         xc0=N0x//2
-        N1=self.PSF.shape[-1]
-        Aedge,Bedge=GiveEdgesDissymetric(xc0,xc0,N0x,N0x,N1//2,N1//2,N1,N1)
+        yc0=N0y//2
+        N1x,N1y=self.PSF.shape[-2:]
+        Aedge,Bedge=GiveEdgesDissymetric(xc0,yc0,N0x,N0y,N1x//2,N1y//2,N1x,N1y)
         x0d,x1d,y0d,y1d=Aedge
         x0s,x1s,y0s,y1s=Bedge
         SubPSF=self.PSF[:,:,x0s:x1s,y0s:y1s]

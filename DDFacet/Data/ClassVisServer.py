@@ -476,7 +476,7 @@ class ClassVisServer():
                 # tell the IO thread to start loading the chunk
                 APP.runJob(self._next_chunk_name, self._handler_LoadVisChunk,
                            args=(self._next_chunk_name, self.iCurrentMS, self.iCurrentChunk), 
-                           io=0)#,serial=True)
+                           io=0,serial=True)
             return self._next_chunk_label
 
     def collectLoadedChunk(self, start_next=True, last_cycle=False):
@@ -743,7 +743,7 @@ class ClassVisServer():
         if self.GD["Misc"]["ConserveMemory"]:
             APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event)
         else:
-            APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event)#,serial=True)
+            APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event,serial=True)
         # APP.awaitEvents(self._calcweights_event)
 
     def _sigtaper(self, msw, chanfreq, inner_cut, outer_cut, outer_taper_strength, inner_taper_strength): 
@@ -867,25 +867,28 @@ class ClassVisServer():
         # in natural mode, leave the weights as is. In other modes, setup grid for calculations
         self._weight_grid = shared_dict.create("VisWeights.Grid")
         cell = npix = npixx = nbands = xymax = None    
-
+        self.CellSizeRad_x,self.CellSizeRad_y=self.CellSizeRad
         if self.Weighting != "natural":
-            nch, npol, npixIm, _ = self.FullImShape
-            FOV = self.CellSizeRad * npixIm
+            nch, npol, npixIm_x, npixIm_y = self.FullImShape
+            FOV_x = self.CellSizeRad_x * npixIm_x
+            FOV_y = self.CellSizeRad_y * npixIm_y
             nbands = self.NFreqBands
             
-            cell = 1. / (self.Super * FOV)
+            cell_u = 1. / (self.Super * FOV_x)
+            cell_v = 1. / (self.Super * FOV_y)
             if self.MFSWeighting or self.NFreqBands < 2:
                 nbands = 1
                 print("initializing weighting grid for single band (or MFS weighting)", file=log)
             else:
                 print("initializing weighting grids for %d bands" % nbands, file=log)
             # find max grid extent by considering _unflagged_ UVs
-            xymax = int(math.floor(self._uvmax / cell)) + 1
+            xymax = int(math.floor(self._uvmax / np.min([cell_u,cell_v]))) + 1
+            cell=cell_u,cell_v
             # grid will be from [-xymax,xymax] in U and [0,xymax] in V
             npixx = xymax * 2 + 1
             npixy = xymax + 1
             npix = npixx * npixy
-            print("Calculating imaging weights on an [%i,%i]x%i grid with cellsize %g" % (npixx, npixy, nbands, cell), file=log)
+            print("Calculating imaging weights on an [%i,%i]x%i grid with cellsize %g,%g" % (npixx, npixy, nbands, cell[0],cell[1]), file=log)
             grid0 = self._weight_grid.addSharedArray("grid", (nbands, npix), np.float64)
             # now run parallel jobs to accumulate weights
             parallel = num_valid_chunks > 1
@@ -1058,10 +1061,12 @@ class ClassVisServer():
     def _uv_to_index(self, ims, uv, weights, freqs, cell, npix, npixx, nbands, xymax):
         """Helper method: converts UV coordinates to indices into a UV-grid"""
         # flip sign of negative v values -- we'll only grid the top half of the plane
+        #cell_u,cell_v=cell
+        cell=np.array(cell)
         uv[uv[:, 1] < 0] *= -1
         # convert u/v to lambda, and then to pixel offset
         uv = uv[..., np.newaxis] * freqs[np.newaxis, np.newaxis, :] / _cc
-        uv = np.floor(uv / cell).astype(int)
+        uv = np.floor(uv / cell[np.newaxis,:,np.newaxis]).astype(int)
         # u is offset, v isn't since it's the top half
         x = uv[:, 0, :]
         y = uv[:, 1, :]

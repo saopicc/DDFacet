@@ -183,7 +183,7 @@ class ClassImageDeconvMachine():
         self._Dirty = self.DicoDirty["ImageCube"]
         self._MeanDirty = self.DicoDirty["MeanImage"]
 
-        self.NpixPSF = self.PSFServer.NPSF
+        self.NpixPSF_x,self.NpixPSF_y = self.PSFServer.NPSF
         self.Nchan, self.Npol, self.Npix_x, self.Npix_y = self._Dirty.shape
 
         # if self._peakMode is "sigma":
@@ -216,7 +216,7 @@ class ClassImageDeconvMachine():
                   normalised to unity at the center.
         """
         #Get overlap indices where psf should be subtracted
-        Aedge,Bedge=GiveEdgesDissymetric(xc,yc, self.Npix_x,self.Npix_y, self.NpixPSF//2,self.NpixPSF//2,self.NpixPSF,self.NpixPSF)
+        Aedge,Bedge=GiveEdgesDissymetric(xc,yc, self.Npix_x,self.Npix_y, self.NpixPSF_x//2,self.NpixPSF_y//2,self.NpixPSF_x,self.NpixPSF_y)
 
         x0d,x1d,y0d,y1d=Aedge
         x0p,x1p,y0p,y1p=Bedge

@@ -235,26 +235,31 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             NpixFacet_x = Npix_x // NFacets
             NpixFacet_y = Npix_y // NFacets
             NpixFacet=np.min([NpixFacet_x,NpixFacet_y])
+            NFacets_x=Npix_x//NpixFacet
+            NFacets_y=Npix_y//NpixFacet
+            
+            NpixFacet_x = Npix_x // NFacets_x
+            NpixFacet_y = Npix_y // NFacets_y
 
             CellSizeRad_x=self.CellSizeRad_x
-            lfacet = NpixFacet * CellSizeRad_x * 0.5
+            lfacet = NpixFacet_x * CellSizeRad_x * 0.5
             lrad = Npix_x * CellSizeRad_x * 0.5
             lcenter_max = lrad - lfacet
             
             
             CellSizeRad_y=self.CellSizeRad_y
-            mfacet = NpixFacet * CellSizeRad_y * 0.5
+            mfacet = NpixFacet_y * CellSizeRad_y * 0.5
             mrad = Npix_y * CellSizeRad_y * 0.5
-            mcenter_max = mrad - lfacet
+            mcenter_max = mrad - mfacet
 
-            NFacets_x=Npix_x//NpixFacet
-            NFacets_y=Npix_y//NpixFacet
+            #NFacets_x=Npix_x//NpixFacet
+            #NFacets_y=Npix_y//NpixFacet
 
             
-            lFacet, mFacet, = np.mgrid[-lcenter_max: lcenter_max: (NFacets_x) * 1j, -
-                                       mcenter_max: mcenter_max: (NFacets_y) * 1j]
+            lFacet, mFacet, = np.mgrid[-lcenter_max: lcenter_max: (NFacets_x) * 1j, -mcenter_max: mcenter_max: (NFacets_y) * 1j]
             lFacet = lFacet.flatten()
             mFacet = mFacet.flatten()
+
         print("  There are %i Jones-directions" % lFacet.size, file=log)
 
 

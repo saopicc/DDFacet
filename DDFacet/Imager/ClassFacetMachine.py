@@ -988,7 +988,7 @@ class ClassFacetMachine():
         PSFChannel = np.zeros((nch, npol, nx, ny), self.stitchedType)
         for ch in range(nch):
             psf[ch][SPhe[0] < 1e-2] = 0
-            print("!!!!!!!!!!!!!!!!!!!!!!!!!")
+            #print("!!!!!!!!!!!!!!!!!!!!!!!!!")
             #psf[ch][0] = psf[ch][0].T[::-1, :]
             SumJonesNorm = sumjonesnorm[ch]
             # normalize to bring back transfer

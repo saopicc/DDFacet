@@ -343,8 +343,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                         elif ThisComp["ModelType"]=="Gaussian" or ThisComp["ModelType"]=="Hat":
                             Gauss=ThisComp["Model"]
                             Sup_x,Sup_y=Gauss.shape
-                            x0,x1=x-Sup//2,x+Sup//2+1
-                            y0,y1=y-Sup//2,y+Sup//2+1
+                            x0,x1=x-Sup_x//2,x+Sup_y//2+1
+                            y0,y1=y-Sup_x//2,y+Sup_y//2+1
                             Aedge,Bedge=GiveEdgesDissymetric(x,y,N0x,N0y,Sup_x//2,Sup_y//2,Sup_x,Sup_y)
                             x0d,x1d,y0d,y1d=Aedge
                             x0p,x1p,y0p,y1p=Bedge

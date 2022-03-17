@@ -270,11 +270,16 @@ def GiveSupports(FOVrad, w, NSphe):
     return N
 
 
-def Give_dn(l0, m0, rad=1., order=4):
+def Give_dn(l0, m0, rad=None, order=4):
 
     Np = 100
 
-    l, m = np.mgrid[l0-rad:l0+rad:Np*1j, m0-rad:m0+rad:Np*1j]
+    try:
+        rad_x,rad_y=rad
+    except:
+        rad_x=rad_y=rad
+        
+    l, m = np.mgrid[l0-rad_x:l0+rad_x:Np*1j, m0-rad_y:m0+rad_y:Np*1j]
 
     dl = l-l0
     dm = m-m0
@@ -425,30 +430,50 @@ class ClassWTermModified():
         RadiusDeg_x = ((Npix_x)/2.)*Cell_x/3600.
         lrad = RadiusDeg_x*np.pi/180.
         RadiusDeg_y = ((Npix_y)/2.)*Cell_y/3600.
-        mrad = RadiusDeg_x*np.pi/180.
+        mrad = RadiusDeg_y*np.pi/180.
         # lrad/=1.05
 
-        l, m = np.mgrid[-lrad * np.sqrt(2.): np.sqrt(2.) * lrad: SupMax * 1j, -
+        m, l = np.mgrid[-lrad * np.sqrt(2.): np.sqrt(2.) * lrad: SupMax * 1j, -
                         mrad * np.sqrt(2.): np.sqrt(2.) * mrad: SupMax * 1j]
         n_1 = np.sqrt(1.-l**2-m**2)-1
         waveMin = C/Freqs[-1]
         T.timeit("0")
+        
         W = np.exp(-2.*1j*np.pi*(wmax/waveMin)*n_1)*self.SpheW
+        # # ###################
+        # import pylab
+        # pylab.clf()
+        # pylab.imshow(np.angle(W),interpolation="nearest",extent=(l.min(),l.max(),m.min(),m.max()),vmin=-np.pi,vmax=np.pi)
+        # pylab.draw()
+        # pylab.show()
+        # #pylab.pause(1)
+        # # ###################
         fW = fft2(W)
+        
         fw1d = np.abs(fW[(SupMax-1)//2, :])
         fw1d /= np.max(fw1d)
         fw1d = fw1d[(SupMax-1)//2::]
         ind = np.argsort(fw1d)
         T.timeit("1")
-
         try:
             Interp = interp(fw1d[ind], np.arange(fw1d.shape[0])[ind])
             T.timeit("2")
-
-            SupMax = np.int64(Interp(np.array([1./1000]))[0])
+            SupMax_x = np.int64(Interp(np.array([1./1000]))[0])
         except:
-            SupMax = Sup
+            SupMax_x = Sup
 
+        fw1d = np.abs(fW[:,(SupMax-1)//2])
+        fw1d /= np.max(fw1d)
+        fw1d = fw1d[(SupMax-1)//2::]
+        ind = np.argsort(fw1d)
+        T.timeit("1")
+        try:
+            Interp = interp(fw1d[ind], np.arange(fw1d.shape[0])[ind])
+            T.timeit("2")
+            SupMax_y = np.int64(Interp(np.array([1./1000]))[0])
+        except:
+            SupMax_y = Sup
+        SupMax=int(np.max([SupMax_x,SupMax_y]))
         Sups = np.int64(np.linspace(Sup, np.max([SupMax, Sup]), Nw))
 
         w = np.linspace(0, wmax, Nw)
@@ -516,8 +541,9 @@ class ClassWTermModified():
                 # ##############
 
                 DX = 2*lrad/Sups[i]
-                l, m = np.mgrid[-lrad+DX/2:lrad-DX/2:Sups[i]
-                                * 1j, -lrad+DX/2:lrad-DX/2:Sups[i]*1j]
+                DY = 2*mrad/Sups[i]
+                m, l = np.mgrid[-lrad+DX/2:lrad-DX/2:Sups[i]
+                                * 1j, -mrad+DY/2:mrad-DY/2:Sups[i]*1j]
                 # l,m=np.mgrid[-lrad:lrad:Sups[i]*1j,-lrad:lrad:Sups[i]*1j]
                 # n_1=np.sqrt(1.-l**2-m**2)-1
                 n_1 = ModFitPoly2D.polyval2d(l, m, CoefPoly)
@@ -528,14 +554,16 @@ class ClassWTermModified():
                 # n_1=np.sqrt(1.-(l-l0)**2-(m-m0)**2)-1
                 # n_1=(1./np.sqrt(1.-l0**2-m0**2))*(l0*l+m0*m)
                 W = np.exp(-2.*1j*np.pi*wl*(n_1))
-                #import pylab
 
+                # # ###################
+                # import pylab
                 # pylab.clf()
                 # pylab.imshow(np.angle(W),interpolation="nearest",extent=(l.min(),l.max(),m.min(),m.max()),vmin=-np.pi,vmax=np.pi)
                 # pylab.draw()
-                # pylab.show(False)
+                # pylab.show(block=False)
                 # pylab.pause(0.1)
                 # T.timeit("3b")
+                # # ###################
 
                 # ####
                 # W.fill(1.)

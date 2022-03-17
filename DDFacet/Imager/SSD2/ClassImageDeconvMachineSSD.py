@@ -234,12 +234,13 @@ class ClassImageDeconvMachine():
         self._Dirty=self.DicoDirty["ImageCube"]
         self._MeanDirty=self.DicoDirty["MeanImage"]
 
-        NPSF=self.PSFServer.NPSF
-        _,_,NDirty,_=self._Dirty.shape
+        NPSF_x,NPSF_y=self.PSFServer.NPSF
+        _,_,NDirty_x,NDirty_y=self._Dirty.shape
 
-        off=(NPSF-NDirty)//2
+        off_x=(NPSF_x-NDirty_x)//2
+        off_y=(NPSF_y-NDirty_y)//2
 
-        self.DirtyExtent=(off,off+NDirty,off,off+NDirty)
+        self.DirtyExtent=(off_x,off_x+NDirty_x,off_y,off_y+NDirty_y)
 
         if self.ModelImage is None:
             self._ModelImage=np.zeros_like(self._Dirty)

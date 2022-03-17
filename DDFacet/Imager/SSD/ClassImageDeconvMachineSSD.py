@@ -627,58 +627,58 @@ class ClassImageDeconvMachine():
     ###################################################################################
     ###################################################################################
     
-    def GiveEdges(self,xc0,yc0,N0,xc1,yc1,N1):
-        stop # just to see if this is needed anywhere
-        M_xc=xc0
-        M_yc=yc0
-        NpixMain=N0
-        F_xc=xc1
-        F_yc=yc1
-        NpixFacet=N1
+    # def GiveEdges(self,xc0,yc0,N0,xc1,yc1,N1):
+    #     stop # just to see if this is needed anywhere
+    #     M_xc=xc0
+    #     M_yc=yc0
+    #     NpixMain=N0
+    #     F_xc=xc1
+    #     F_yc=yc1
+    #     NpixFacet=N1
                 
-        ## X
-        M_x0=M_xc-NpixFacet//2
-        x0main=np.max([0,M_x0])
-        dx0=x0main-M_x0
-        x0facet=dx0
+    #     ## X
+    #     M_x0=M_xc-NpixFacet//2
+    #     x0main=np.max([0,M_x0])
+    #     dx0=x0main-M_x0
+    #     x0facet=dx0
                 
-        M_x1=M_xc+NpixFacet//2
-        x1main=np.min([NpixMain-1,M_x1])
-        dx1=M_x1-x1main
-        x1facet=NpixFacet-dx1
-        x1main+=1
-        ## Y
-        M_y0=M_yc-NpixFacet//2
-        y0main=np.max([0,M_y0])
-        dy0=y0main-M_y0
-        y0facet=dy0
+    #     M_x1=M_xc+NpixFacet//2
+    #     x1main=np.min([NpixMain-1,M_x1])
+    #     dx1=M_x1-x1main
+    #     x1facet=NpixFacet-dx1
+    #     x1main+=1
+    #     ## Y
+    #     M_y0=M_yc-NpixFacet//2
+    #     y0main=np.max([0,M_y0])
+    #     dy0=y0main-M_y0
+    #     y0facet=dy0
         
-        M_y1=M_yc+NpixFacet//2
-        y1main=np.min([NpixMain-1,M_y1])
-        dy1=M_y1-y1main
-        y1facet=NpixFacet-dy1
-        y1main+=1
+    #     M_y1=M_yc+NpixFacet//2
+    #     y1main=np.min([NpixMain-1,M_y1])
+    #     dy1=M_y1-y1main
+    #     y1facet=NpixFacet-dy1
+    #     y1main+=1
 
-        Aedge=[x0main,x1main,y0main,y1main]
-        Bedge=[x0facet,x1facet,y0facet,y1facet]
-        return Aedge,Bedge
+    #     Aedge=[x0main,x1main,y0main,y1main]
+    #     Bedge=[x0facet,x1facet,y0facet,y1facet]
+    #     return Aedge,Bedge
 
 
-    def SubStep(self,dx,dy,LocalSM):
-        stop # just to see if this is needed anywhere
-        npol,_,_=self.Dirty.shape
-        x0,x1,y0,y1=self.DirtyExtent
-        xc,yc=dx,dy
-        N0=self.Dirty.shape[-1]
-        N1=LocalSM.shape[-1]
-        Aedge,Bedge=self.GiveEdges(xc,yc,N0,N1//2,N1//2,N1)
-        factor=-1.
-        nch,npol,nx,ny=LocalSM.shape
-        x0d,x1d,y0d,y1d=Aedge
-        x0p,x1p,y0p,y1p=Bedge
-        self._Dirty[:,:,x0d:x1d,y0d:y1d]-=LocalSM[:,:,x0p:x1p,y0p:y1p]
-        W=np.float32(self.DicoDirty["WeightChansImages"])
-        self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.sum(LocalSM[:,:,x0p:x1p,y0p:y1p]*W.reshape((W.size,1,1,1)),axis=0)
+    # def SubStep(self,dx,dy,LocalSM):
+    #     stop # just to see if this is needed anywhere
+    #     npol,_,_=self.Dirty.shape
+    #     x0,x1,y0,y1=self.DirtyExtent
+    #     xc,yc=dx,dy
+    #     N0=self.Dirty.shape[-1]
+    #     N1=LocalSM.shape[-1]
+    #     Aedge,Bedge=self.GiveEdges(xc,yc,N0,N1//2,N1//2,N1)
+    #     factor=-1.
+    #     nch,npol,nx,ny=LocalSM.shape
+    #     x0d,x1d,y0d,y1d=Aedge
+    #     x0p,x1p,y0p,y1p=Bedge
+    #     self._Dirty[:,:,x0d:x1d,y0d:y1d]-=LocalSM[:,:,x0p:x1p,y0p:y1p]
+    #     W=np.float32(self.DicoDirty["WeightChansImages"])
+    #     self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.sum(LocalSM[:,:,x0p:x1p,y0p:y1p]*W.reshape((W.size,1,1,1)),axis=0)
 
     def Update(self,DicoDirty,**kwargs):
         """

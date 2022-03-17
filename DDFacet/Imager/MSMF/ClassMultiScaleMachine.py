@@ -326,34 +326,42 @@ class ClassMultiScaleMachine():
                     else:
                         itest+=1
 
-                stop
+                stop # probably never used
                 x0=xtest[itest]
                 dx0=(x0-NPSF_x//2)
                 #print>>log, "PSF extends to [%i] from center, with rms=%.5f"%(dx0,std)
             elif method == "auto" or method == "sidelobe":
                 dx0=2*self.OffsetSideLobe
-                dx0=np.max([dx0,50])
+                dx0_x=dx0_y=np.max([dx0,50])
                 #print>>log, "PSF extends to [%i] from center"%(dx0)
             elif method == "full":
-                dx0 = NPSF//2
+                dx0_x = NPSF_x//2
+                dx0_y = NPSF_y//2
             else:
                 raise ValueError("unknown PSFBox setting %s" % method)
 
-            dx0=np.max([dx0,200])
-            dx0=np.min([dx0,NPSF//2])
-            npix=2*dx0+1
-            npix=ModToolBox.GiveClosestFastSize(npix,Odd=True)
+            dx0_x=np.max([dx0_x,200])
+            dx0_x=np.min([dx0_x,NPSF_x//2])
+            npix_x=2*dx0_x+1
+            npix_x=ModToolBox.GiveClosestFastSize(npix_x,Odd=True)
+            self.PSFMargin_x=(NPSF_x-npix_x)//2
+            dx=np.min([NPSF_x//2, npix_x//2])
 
-            self.PSFMargin=(NPSF-npix)//2
+            dx0_y=np.max([dx0_y,200])
+            dx0_y=np.min([dx0_y,NPSF_y//2])
+            npix_y=2*dx0_y+1
+            npix_y=ModToolBox.GiveClosestFastSize(npix_y,Odd=True)
+            self.PSFMargin_y=(NPSF_y-npix_y)//2
+            dy=np.min([NPSF_y//2, npix_y//2])
 
-            dx=np.min([NPSF//2, npix//2])
 
-        self.PSFExtent = (NPSF_x//2-dx,NPSF_x//2+dx+1,NPSF_y//2-dx,NPSF_y//2+dx+1)
+
+        self.PSFExtent = (NPSF_x//2-dx,NPSF_x//2+dx+1,NPSF_y//2-dy,NPSF_y//2+dy+1)
         x0,x1,y0,y1 = self.PSFExtent
         self.SubPSF = self._PSF[:,:,x0:x1,y0:y1]
         #print "!!!!!!!!!!!!!!!!!!!!!!!!!!!",self.SubPSF.shape
         if verbose:
-            print("using %s PSF box of size %dx%d in minor cycle subtraction" % (method, dx*2+1, dx*2+1), file=log)
+            print("using %s PSF box of size %dx%d in minor cycle subtraction" % (method, dx*2+1, dy*2+1), file=log)
 
     def CopyListScales(self, other):
         """
@@ -879,7 +887,7 @@ class ClassMultiScaleMachine():
 
         #Aedge,Bedge=GiveEdges(xc,yc,N0,N1//2,N1//2,N1)
         N0x,N0y=self._Dirty.shape[-2],self._Dirty.shape[-1]
-        Aedge,Bedge=GiveEdgesDissymetric(xc,yc,N0x,N0y,N1x//2,N1y//2,N1x,N1x)
+        Aedge,Bedge=GiveEdgesDissymetric(xc,yc,N0x,N0y,N1x//2,N1y//2,N1x,N1y)
         x0d,x1d,y0d,y1d=Aedge
         x0s,x1s,y0s,y1s=Bedge
         nxs,nys=x1s-x0s,y1s-y0s

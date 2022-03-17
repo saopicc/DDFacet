@@ -390,12 +390,13 @@ class ClassImageDeconvMachine():
         # self._MeanPSF=self.MSMachine._MeanPSF
 
 
-        NPSF = self.PSFServer.NPSF
+        NPSF_x,NPSF_y = self.PSFServer.NPSF
         #_,_,NPSF,_=self._PSF.shape
-        _, _, NDirty, _ = self._CubeDirty.shape
+        _, _, NDirty_x, NDirty_y = self._CubeDirty.shape
 
-        off = (NPSF-NDirty)//2
-        self.DirtyExtent = (off, off+NDirty, off, off+NDirty)
+        off_x = (NPSF_x-NDirty_x)//2
+        off_y = (NPSF_y-NDirty_y)//2
+        self.DirtyExtent = (off_x, off_x+NDirty_x, off_y, off_y+NDirty_y)
 
 #        if self._ModelImage is None:
 #            self._ModelImage=np.zeros_like(self._CubeDirty)
@@ -527,24 +528,24 @@ class ClassImageDeconvMachine():
         cube, sm = self._CubeDirty[:,:,x0d:x1d,y0d:y1d], LocalSM[:,:,x0p:x1p,y0p:y1p]
 
 
-        if True:#self.DoPlot:
-            AA0=cube[0,0,:,:].copy()
-            vmin,vmax=np.min(AA0),np.max(AA0)
-            AA1=sm[0,0,:,:].copy()
-            import pylab
-            pylab.clf()
-            pylab.subplot(1,3,1)
-            pylab.imshow(AA0,interpolation="nearest")
-            pylab.colorbar()
-            pylab.subplot(1,3,2)
-            pylab.imshow(AA1,interpolation="nearest")
-            pylab.colorbar()
-            pylab.subplot(1,3,3)
-            pylab.imshow((AA0-AA1),interpolation="nearest")
-            pylab.colorbar()
-            pylab.draw()
-            pylab.show(block=False)
-            pylab.pause(0.1)
+        # if True:#self.DoPlot:
+        #     AA0=cube[0,0,:,:].copy()
+        #     vmin,vmax=np.min(AA0),np.max(AA0)
+        #     AA1=sm[0,0,:,:].copy()
+        #     import pylab
+        #     pylab.clf()
+        #     pylab.subplot(1,3,1)
+        #     pylab.imshow(AA0,interpolation="nearest")
+        #     pylab.colorbar()
+        #     pylab.subplot(1,3,2)
+        #     pylab.imshow(AA1,interpolation="nearest")
+        #     pylab.colorbar()
+        #     pylab.subplot(1,3,3)
+        #     pylab.imshow((AA0-AA1),interpolation="nearest")
+        #     pylab.colorbar()
+        #     pylab.draw()
+        #     pylab.show(block=False)
+        #     pylab.pause(0.1)
 
         numexpr.evaluate('cube-sm',out=cube,casting="unsafe")
         #a-=b

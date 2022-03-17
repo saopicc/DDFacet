@@ -663,14 +663,14 @@ _give_gauss_grid_key = None,None
 _give_gauss_grid_cache = None,None
 
 def GiveGauss(NpixIn,CellSizeRad=None,GaussPars=(0.,0.,0.),dtype=np.float32,parallel=True):
-    if isinstance(NpixIn,list):
+    try:
         Npix_x,Npix_y=NpixIn
-    else:
+    except:
         Npix_x=Npix_y=NpixIn
 
-    if isinstance(CellSizeRad,list) or isinstance(CellSizeRad,np.ndarray):
+    try:
         CellSizeRad_x,CellSizeRad_y=CellSizeRad
-    else:
+    except:
         CellSizeRad_x=CellSizeRad_y=CellSizeRad
 
 

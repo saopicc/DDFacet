@@ -380,10 +380,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         Sub-minor loop subtraction
         """
         N0x,N0y = Residual.shape[-2:]
-        N1 = LocalSM.shape[-1]
+        N1x,N1y = LocalSM.shape[-2:]
 
         # Get overlap indices where psf should be subtracted
-        Aedge, Bedge = GiveEdgesDissymetric(xc, yc, N0x, N0y, N1 // 2, N1 // 2, N1,N1)
+        Aedge, Bedge = GiveEdgesDissymetric(xc, yc, N0x, N0y, N1x // 2, N1y // 2, N1x,N1y)
 
         x0d, x1d, y0d, y1d = Aedge
         x0p, x1p, y0p, y1p = Bedge

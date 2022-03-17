@@ -48,6 +48,7 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from scipy.signal import fftconvolve
 import scipy.stats
 MAD=scipy.stats.median_absolute_deviation
+from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 
 class ClassImageDeconvMachine():
     def __init__(self,GD=None,ModelMachine=None,RefFreq=None,*args,**kw):
@@ -130,10 +131,11 @@ class ClassImageDeconvMachine():
         self.DicoDirty=DicoDirty
         self._Dirty=self.DicoDirty["ImageCube"]
         self._MeanDirty=self.DicoDirty["MeanImage"]
-        NPSF=self.PSFServer.NPSF
-        _,_,NDirty,_=self._Dirty.shape
-        off=(NPSF-NDirty)//2
-        self.DirtyExtent=(off,off+NDirty,off,off+NDirty)
+        NPSF_x,NPSF_y=self.PSFServer.NPSF
+        _,_,NDirty_x,NDirty_y=self._Dirty.shape
+        off_x=(NPSF_x-NDirty_x)//2
+        off_y=(NPSF_y-NDirty_y)//2
+        self.DirtyExtent=(off_x,off_x+NDirty_x,off_y,off_y+NDirty_y)
         self.ModelMachine.setModelShape(self._Dirty.shape)
 
     def AdaptArrayShape(self,A,Nout):
@@ -146,11 +148,14 @@ class ClassImageDeconvMachine():
             # print>>log,"  Adapt shapes: %s -> %s"%(str(A.shape),str(B.shape))
             # B[:]=A[...,Nin//2-dx:Nin//2+dx+1,Nin//2-dx:Nin//2+dx+1]
 
-            N0=A.shape[-1]
-            xc0=yc0=N0//2
-            N1=Nout
-            xc1=yc1=N1//2
-            Aedge,Bedge=GiveEdges(xc0,yc0,N0,xc1,yc1,N1)
+            N0x,N0y=A.shape[-2:]
+            xc0=N0x//2
+            yc0=N0y//2
+            N1x,N1y=Nout,Nout
+            xc1=N1x//2
+            yc1=N1y//2
+            
+            Aedge,Bedge=GiveEdgesDissymetric(xc0,yc0,N0x,N0y,xc1,yc1,N1x,N1y)
             x0d,x1d,y0d,y1d=Aedge
             x0p,x1p,y0p,y1p=Bedge
             B=A[...,x0d:x1d,y0d:y1d]

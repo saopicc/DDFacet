@@ -444,7 +444,7 @@ class ClassDDEGridMachine():
         # T.disable()
 
         self.Cell = Cell_x,Cell_y
-        self.incr = (np.array([-Cell_x, Cell_y], dtype=np.float64)/3600.)*(np.pi/180)
+        self.incr = (np.array([-Cell_y, -Cell_x], dtype=np.float64)/3600.)*(np.pi/180)
         # CF.fill(1.)
         # print self.ChanEquidistant
         # self.FullScalarMode=int(GD["DDESolutions"]["FullScalarMode"])
@@ -739,6 +739,8 @@ class ClassDDEGridMachine():
             ChanMapping = np.zeros((visIn.shape[1],), np.int64)
         self.ChanMappingGrid = ChanMapping
 
+
+        
         Grid = ResidueGrid
 
         if Grid.dtype != self.dtype:
@@ -762,11 +764,18 @@ class ClassDDEGridMachine():
                     vis.shape), str(
                     flag.shape)))
 
-        u, v, w = uvw.T
+        #u, v, w = uvw.T
 
-        l0, m0 = self.lmShift
-        FacetInfos = np.float64(
-            np.array([self.WTerm.Cu, self.WTerm.Cv, l0, m0, self.IDFacet]))
+        # m0, l0 = self.lmShift
+        # FacetInfos = np.float64(
+        #    np.array([self.WTerm.Cu, self.WTerm.Cv, l0, m0, self.IDFacet]))
+        
+        m0, l0 = self.lmShift
+        FacetInfos = np.float64(np.array([self.WTerm.Cv, self.WTerm.Cu, l0, m0, self.IDFacet]))
+        uvw1=uvw.copy()
+        uvw1[:,0]=uvw[:,1]
+        uvw1[:,1]=uvw[:,0]
+        uvw=uvw1
 
         self.CheckTypes(
             Grid=Grid,
@@ -1001,9 +1010,18 @@ class ClassDDEGridMachine():
                     vis.shape), str(
                     flag.shape)))
 
-        l0, m0 = self.lmShift
-        FacetInfos = np.float64(
-            np.array([self.WTerm.Cu, self.WTerm.Cv, l0, m0, self.IDFacet]))
+        # l0, m0 = self.lmShift
+        # FacetInfos = np.float64(
+        #     np.array([self.WTerm.Cu, self.WTerm.Cv, l0, m0, self.IDFacet]))
+
+        m0, l0 = self.lmShift
+        FacetInfos = np.float64(np.array([self.WTerm.Cv, self.WTerm.Cu, l0, m0, self.IDFacet]))
+        uvw1=uvw.copy()
+        uvw1[:,0]=uvw[:,1]
+        uvw1[:,1]=uvw[:,0]
+        uvw=uvw1
+
+        
         Row0, Row1 = Row0Row1
         if Row1 == -1:
             Row1 = uvw.shape[0]
