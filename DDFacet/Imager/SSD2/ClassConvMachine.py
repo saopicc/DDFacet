@@ -242,7 +242,7 @@ class ClassConvMachine():
         self.NPixListData=len(ListPixData)
         self.ArrayListPixData=np.array(self.ListPixData)
         self.ArrayListPixParms=np.array(self.ListPixParms)
-        self.NFreqBands,self.npol,self.NPixPSF,_=PSF.shape
+        self.NFreqBands,self.npol,self.NPixPSF_x,self.NPixPSF_y=PSF.shape
         self.invCM=None
         self.ConvMode=ConvMode
         # if ConvMode==None:
@@ -423,8 +423,11 @@ class ClassConvMachine():
         T=ClassTimeIt.ClassTimeIt()
         T.disable()
         PSF=self.PSF
-        NPixPSF=PSF.shape[-1]
-        xc=yc=NPixPSF//2
+        NPixPSF_x,NPixPSF_y=PSF.shape[-2:]
+        
+        xc=NPixPSF_x//2
+        yc=NPixPSF_y//2
+        
         T.timeit("0")
         x1,y1=self.ArrayListPixParms[iPix:iPix+1].T
 
@@ -440,10 +443,10 @@ class ClassConvMachine():
         N1=x1.size
         T.timeit("1")
         dx=(x1.reshape((N1,1))-x0.reshape((1,N0))+xc).T
-        dy=(y1.reshape((N1,1))-y0.reshape((1,N0))+xc).T
+        dy=(y1.reshape((N1,1))-y0.reshape((1,N0))+yc).T
         T.timeit("2")
-        Cx=((dx>=0)&(dx<NPixPSF))
-        Cy=((dy>=0)&(dy<NPixPSF))
+        Cx=((dx>=0)&(dx<NPixPSF_x))
+        Cy=((dy>=0)&(dy<NPixPSF_y))
         C=(Cx&Cy)
         T.timeit("3")
         indPSF=np.arange(M.shape[-1]*M.shape[-2])
@@ -465,7 +468,6 @@ class ClassConvMachine():
 
     def GiveInvertCov(self,Var):
         if self.invCM is None:
-
             self.invCM=ModLinAlg.invSVD(np.float64(self.CM[0,0]))
         return self.invCM/Var
 
@@ -483,7 +485,7 @@ class ClassConvMachine():
         N0=x0.size
         N1=x1.size
         dx=(x1.reshape((N1,1))-x0.reshape((1,N0))+xc).T
-        dy=(y1.reshape((N1,1))-y0.reshape((1,N0))+xc).T
+        dy=(y1.reshape((N1,1))-y0.reshape((1,N0))+yc).T
         Cx=((dx>=0)&(dx<NPixPSF_x))
         Cy=((dy>=0)&(dy<NPixPSF_y))
         C=(Cx&Cy)
@@ -505,7 +507,7 @@ class ClassConvMachine():
         N0=x0.size
         N1=x1.size
         dx=(x1.reshape((N1,1))-x0.reshape((1,N0))+xc).T
-        dy=(y1.reshape((N1,1))-y0.reshape((1,N0))+xc).T
+        dy=(y1.reshape((N1,1))-y0.reshape((1,N0))+yc).T
         Cx=((dx>=0)&(dx<NPixPSF_x))
         Cy=((dy>=0)&(dy<NPixPSF_y))
         C=(Cx&Cy)

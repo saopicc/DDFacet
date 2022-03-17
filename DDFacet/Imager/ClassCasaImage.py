@@ -37,7 +37,7 @@ from astropy.io import fits
 from astropy.wcs import WCS
 from DDFacet.report_version import report_version
 
-def FileToArray(FileName,CorrT):
+def FileToArray(FileName,CorrT=True):
     """ Read a FITS FileName file to an array """
     hdu=fits.open(FileName)
     NormImage=hdu[0].data
@@ -51,11 +51,16 @@ def FileToArray(FileName,CorrT):
         Sh=(nch,1,nx,ny)
         NormImage=NormImage.reshape(Sh)
 
+        
+    NormImageOut=NormImage
     if CorrT:
+        nx,ny=NormImage.shape[-2:]
+        Sh=(nch,1,ny,nx)
+        NormImageOut=np.zeros(Sh,dtype=NormImage.dtype)
         for ch in range(nch):
             for pol in range(npol):
-                NormImage[ch,pol]=NormImage[ch,pol].T[::-1]
-    return NormImage
+                NormImageOut[ch,pol]=NormImage[ch,pol].T[::-1]
+    return NormImageOut
 
 class ClassCasaimage():
 

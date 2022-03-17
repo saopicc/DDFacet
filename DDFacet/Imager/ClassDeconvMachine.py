@@ -930,24 +930,25 @@ class ClassImagerDeconv():
 
         if modelfile:
             print(ModColor.Str("Reading image file for the predict: %s" % modelfile), file=log)
-            FixedModelImage = ClassCasaImage.FileToArray(modelfile,True)
-            nch,npol,_,NPix=self.FacetMachine.OutImShape
-            nchModel,npolModel,_,NPixModel=FixedModelImage.shape
+            FixedModelImage = ClassCasaImage.FileToArray(modelfile)#,True)
+            nch,npol,NPix_x,NPix_y=self.FacetMachine.OutImShape
+            nchModel,npolModel,NPixModel_x,NPixModel_y=FixedModelImage.shape
             
-            if NPixModel!=NPix:
-                print(ModColor.Str("Model image spatial shape does not match DDFacet settings [%i vs %i]"%(FixedModelImage.shape[-1],NPix)), file=log)
+            if (NPixModel_x!=NPix_x) and (NPixModel_y!=NPix_y):
+                print(ModColor.Str("Model image spatial shape does not match DDFacet settings [(%i x %i) vs (%i x %i)]"%(NPixModel_x,NPix_x,NPixModel_y,NPix_y)), file=log)
                 CA=ClassAdaptShape(FixedModelImage)
                 FixedModelImage=CA.giveOutIm(NPix)
 
             if len(FixedModelImage.shape) != 4:
                 raise RuntimeError("Expect FITS file with 4 axis: NX, NY, NPOL, NCH. Cannot continue.")
-            nch, npol, ny, nx = FixedModelImage.shape
-            if ny != nx:
-                raise RuntimeError("Currently non-square images are not supported")
-            npixest, _ = EstimateNpix(float(self.GD["Image"]["NPix"]), Padding=1)
-            if nx != npixest:
-                raise RuntimeError("Number of pixels in FITS file (%d) does not match "
-                                   "image size (%d). Cannot continue." % (nx, npixest))
+            nch, npol, nx, ny = FixedModelImage.shape
+            # # if ny != nx:
+            # #     raise RuntimeError("Currently non-square images are not supported")
+            # npixest, _ = EstimateNpix(float(self.GD["Image"]["NPix"]), Padding=1)
+            # if nx != npixest:
+            #     raise RuntimeError("Number of pixels in FITS file (%d) does not match "
+            #                        "image size (%d). Cannot continue." % (nx, npixest))
+            
             if npol != 1:
                 raise RuntimeError("Unsupported: Polarization prediction is not defined")
             # for msi in self.VS.FreqBandChannelsDegrid:
@@ -1006,7 +1007,7 @@ class ClassImagerDeconv():
                             ThisChFixedModelImage=FixedModelImage[0:nch].copy()
                         else:
                             print(ModColor.Str("  Replicating %i-times the 1st channel"%(nch)), file=log)
-                            ThisChFixedModelImage=FixedModelImage[0].reshape((1,npol,NPix,NPix))*np.ones((np.unique(DATA["ChanMappingDegrid"]).size,1,1,1))
+                            ThisChFixedModelImage=FixedModelImage[0].reshape((1,npol,NPix_x,NPix_y))*np.ones((np.unique(DATA["ChanMappingDegrid"]).size,1,1,1))
 
                         self.FacetMachine.ToCasaImage(ThisChFixedModelImage,
                                                       ImageName="%s.cube.model"%(self.BaseName),
@@ -1027,9 +1028,9 @@ class ClassImagerDeconv():
                 NpixInside, _ = EstimateNpix(float(NpixInside), Padding=1)
                 print("  Zeroing model %s square [%i pixels]"%(SquareMaskMode,NpixInside),file=log)
                 dn=NpixInside//2
-                n=self.FacetMachine.Npix
+                nx,ny=self.FacetMachine.Npix
                 InSquare=np.zeros(ModelImage.shape,bool)
-                InSquare[:,:,n//2-dn:n//2+dn+1,n//2-dn:n//2+dn+1]=1
+                InSquare[:,:,nx//2-dn:nx//2+dn+1,ny//2-dn:ny//2+dn+1]=1
                 if SquareMaskMode=="Inside":
                     ModelImage[InSquare]=0
                 elif SquareMaskMode=="Outside":
