@@ -230,6 +230,7 @@ class ClassCompareFITSImage(unittest.TestCase):
             cls._outputParsetFilename,
             #'--Debug-APPVerbose=2', #enable if you ever need verbose logs
             '--Log-Boring=1',
+                '--Beam-CenterNorm=0',
             '--Output-Name=%s' % cls._imagePrefix,
             '--Cache-Dir=.']
 
