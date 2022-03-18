@@ -779,6 +779,7 @@ class ClassMS():
         DATA["dt"]  = self.dt
         DATA["dnu"] = self.ChanWidth
 
+            
         if self.zero_flag and visdata is not None:
             visdata[flags] = 1e10
 
@@ -1244,6 +1245,7 @@ class ClassMS():
 
         FlagAntNumber = set()
 
+        
         if self.DicoSelectOptions["UVRangeKm"]:
             d0, d1 = self.DicoSelectOptions["UVRangeKm"]
             print("  flagging uv data outside uv distance of [%5.2f~%5.2f] km" % (d0, d1), file=log)
@@ -1273,6 +1275,37 @@ class ClassMS():
                 iAnt, self.StationNames[iAnt], Dist[iAnt] / 1e3), file=log)
                 FlagAntNumber.add(iAnt)
 
+
+        try:
+            Cell_x,Cell_y=self.GD["Image"]["Cell"]
+        except:
+            Cell_x=Cell_y=self.GD["Image"]["Cell"]
+        Cell_x*=np.pi/180/3600
+        Cell_y*=np.pi/180/3600
+        f_x=1./Cell_x/3
+        f_y=1./Cell_y/3
+        u,v,w=uvw.T
+        fd_u=u.reshape((-1,1))*self.ChanFreq.reshape((1,-1))/3e8
+        fd_v=v.reshape((-1,1))*self.ChanFreq.reshape((1,-1))/3e8
+        fd_uv=np.sqrt((fd_u/f_x)**2+(fd_v/f_y)**2)
+        flag_Nyquist=(fd_uv>1)#(fd_u>f_x)|(fd_v>f_y))
+        fraction_flag_Nyquist=100*np.count_nonzero(flag_Nyquist)/flag_Nyquist.size
+        if fraction_flag_Nyquist>0:
+            if self.GD["Selection"]["AutoFlagNyquist"]:
+                log.print("Fraction of uv points beyond Nyquist sampling: %.2f%%"%fraction_flag_Nyquist)
+                log.print("  flagging uv-points that are further than Nyquist sampling")
+                _,_,npol=flags.shape
+                #flags0=flags.copy()
+                flag_Nyquist=flag_Nyquist.reshape((u.size,self.ChanFreq.size,1))*np.ones((1,1,npol),bool)
+                flags[flag_Nyquist]=1
+                #print(np.count_nonzero(flags0),np.count_nonzero(flags))
+            else:
+                log.print(ModColor.Str("Fraction of uv points beyond Nyquist sampling: %.2f%%"%fraction_flag_Nyquist))
+                log.print(ModColor.Str("  you might want to either (i) chose a smaller pixel size, or (ii) unselect longest uv-points/baselines, or (iii) use --Selection-AutoFlagNyquist=True"))
+        else:
+            log.print("Your pixel size is small enough, longest baselines will be properly modeled")
+            
+                
         # C0=(A0 == 7) & (A1 == 17)
         # C1=(A1 == 7) & (A0 == 17)
         # ind = np.where(np.logical_not(C0|C1))[0]
