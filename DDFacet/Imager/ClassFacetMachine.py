@@ -1375,7 +1375,7 @@ class ClassFacetMachine():
                     # ThisSumWeights.reshape((nch,npol,1,1))[Channel, pol, 0, 0]
                     if kind == "Jones-amplitude":
                         Im = SpacialWeigth[::-1, :].T[x0facet:x1facet, y0facet:y1facet] * ThisSumJones
-                        print(iFacet,Channel,ThisSumJones)
+                        # print(iFacet,Channel,ThisSumJones)
                     else:
                         if kind == "Dirty" or kind == "PSF":
                             # make copy since subsequent operations are in-place
