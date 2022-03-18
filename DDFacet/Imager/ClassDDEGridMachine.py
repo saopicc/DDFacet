@@ -1019,6 +1019,7 @@ class ClassDDEGridMachine():
         uvw1=uvw.copy()
         uvw1[:,0]=uvw[:,1]
         uvw1[:,1]=uvw[:,0]
+        #uvw1[:,2]=uvw[:,2]
         uvw=uvw1
 
         
