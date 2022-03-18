@@ -46,7 +46,7 @@ def main(options=None):
     MM=ModConstructor.GiveInitialisedMMFromFile(options.InDicoModel)
     if options.MaskName:
         MM.CleanMaskedComponants(options.MaskName,InvertMask=options.InvertMask)
-
+        
     if options.FilterNegComp:
         MM.RemoveNegComponants()
 

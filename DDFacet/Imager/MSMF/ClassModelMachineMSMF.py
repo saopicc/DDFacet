@@ -391,7 +391,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             except:
                 print("  Component at (%i, %i) not in dict "%key, file=log)
 
-    def CleanMaskedComponants(self,MaskName):
+    def CleanMaskedComponants(self,MaskName,InvertMask=False):
         print("Cleaning model dictionary from masked components using %s"%(MaskName), file=log)
         cwd = os.getcwd()
         baseFitsFile = os.path.basename(MaskName)
@@ -399,6 +399,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         os.chdir(dirname)
         im=image(baseFitsFile)
         MaskArray=im.getdata()[0,0].T[::-1]
+        if InvertMask:
+            print("  Inverting the mask", file=log)
+            MaskArray=1-MaskArray
         os.chdir(cwd)
         for (x,y) in self.DicoSMStacked["Comp"].copy().keys():
             if MaskArray[x,y]==0:
