@@ -217,7 +217,7 @@ class ClassArrayMethodSSD():
         else:
             Asq=self.PM.ModelToSquareArray(self.DirtyArrayParms.copy(),TypeInOut=("Parms","Parms"))
             _,npol,NPix_x,NPix_y=Asq.shape
-            A=np.mean(Asq,axis=0).reshape((NPix,NPix))
+            A=np.mean(Asq,axis=0).reshape((NPix_x,NPix_y))
             Mask=(A==0)
             _,_,NPixPSF_x,NPixPSF_y=PSF.shape
             PSFMean=np.mean(PSF,axis=0).reshape((NPixPSF_x,NPixPSF_y))

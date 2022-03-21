@@ -139,7 +139,7 @@ namespace DDF {
       const double *incr=increment.data(0);
       const double *Pfreqs=freqs.data(0);
       /* MR FIXME: should the second entry depend on nGridY instead of nGridX? */
-      const double uvwScale_p[]= {nGridX*incr[0], nGridX*incr[1]};
+      const double uvwScale_p[]= {nGridX*incr[0], nGridY*incr[1]};
 
       const int *MappingBlock = SmearMapping.data(0);
       /* total size is in two words */

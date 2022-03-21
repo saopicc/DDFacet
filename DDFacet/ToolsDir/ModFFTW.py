@@ -365,19 +365,27 @@ class FFTW_Manager(object):
     """
     def __init__(self, GD, nchan, npol, nscales,
                  npixIn, npixpaddedIn,
-                 npixpsf, 
-                 npixpaddedpsf, nthreads=8):
+                 npixpsfIn, 
+                 npixpaddedpsfIn, nthreads=8):
         self.GD = GD
         # import the wisdom file
         self.getWisdom()
 
         # set pixel sizes etc
-        if isinstance(npixIn,list):
+        try:
             npix_x,npix_y=self.Npix_x,self.Npix_y = npixIn
             npixpadded_x,npixpadded_y=npixpaddedIn
-        else:
+        except:
             npix_x=npix_y=self.Npix_x=self.Npix_y = npixIn
             npixpadded_x=npixpadded_y=npixpaddedIn
+            
+        try:
+            npixpsf_x,npixpsf_y=npixpsfIn
+            npixpaddedpsf_x,npixpaddedpsf_y=npixpaddedpsfIn
+        except:
+            npixpsf_x=npixpsf_y=npixpsfIn
+            npixpaddedpsf_x=npixpaddedpsf_y=npixpaddedpsfIn
+            
             
         self.NpixPadded_x = npixpadded_x
         self.Npad_x = (npixpadded_x - npix_x)//2
@@ -386,10 +394,13 @@ class FFTW_Manager(object):
         self.Npad_y = (npixpadded_y - npix_y)//2
         #self.NpixFacet = self.Npix // self.GD["Facets"]["NFacets"]
 
-        self.NpixPSF = npixpsf
-        self.NpixPaddedPSF = npixpaddedpsf
-        self.NpadPSF = (npixpaddedpsf - npixpsf)//2
+        self.NpixPSF_x = npixpsf_x
+        self.NpixPaddedPSF_x = npixpaddedpsf_x
+        self.NpadPSF_x = (npixpaddedpsf_x - npixpsf_x)//2
 
+        self.NpixPSF_y = npixpsf_y
+        self.NpixPaddedPSF_y = npixpaddedpsf_y
+        self.NpadPSF_y = (npixpaddedpsf_y - npixpsf_y)//2
 
         self.nchan = nchan
         self.npol = npol
@@ -397,7 +408,7 @@ class FFTW_Manager(object):
         self.nscales = nscales
 
         # set aside a facet sized array for in place and aligned FFTs
-        self.xfacet = pyfftw.empty_aligned([self.nchan, self.npol, self.NpixPaddedPSF, self.NpixPaddedPSF],
+        self.xfacet = pyfftw.empty_aligned([self.nchan, self.npol, self.NpixPaddedPSF_x, self.NpixPaddedPSF_y],
                                            dtype='complex64')
 
         # plan for in place and aligned FFT over channels
@@ -451,7 +462,8 @@ class FFTW_Manager(object):
         #     self.iFFTsubtract = pyfftw.FFTW(self.xsubtract, self.xsubtract, axes=(2, 3), direction='FFTW_BACKWARD',
         #                                    threads=nthreads, flags=('FFTW_ESTIMATE',))
         # else:
-        self.NpixPSFSubtract = self.NpixPaddedPSF
+        self.NpixPSFSubtract_x = self.NpixPaddedPSF_x
+        self.NpixPSFSubtract_y = self.NpixPaddedPSF_y
         self.xsubtract = self.Chat
         self.FFTsubtract = self.CFFT
         self.iFFTsubtract = self.iCFFT
@@ -522,13 +534,13 @@ class FFTW_Manager(object):
             self.WisdomTypes.append(TypeKey)
 
         # set wisdom for facet sized FFTs
-        TypeKey = (self.nchan, self.NpixPaddedPSF, np.complex64)
+        TypeKey = (self.nchan, self.NpixPaddedPSF_x,self.NpixPaddedPSF_y, np.complex64)
         if TypeKey not in self.WisdomTypes:
             self.HasTouchedWisdomFile = True
             self.WisdomTypes.append(TypeKey)
 
         # set wisdom for 2*Facet size FFT
-        TypeKey = (self.nchan, self.NpixPSFSubtract, np.complex64)
+        TypeKey = (self.nchan, self.NpixPSFSubtract_x,self.NpixPSFSubtract_y, np.complex64)
         if TypeKey not in self.WisdomTypes:
             self.HasTouchedWisdomFile = True
             self.WisdomTypes.append(TypeKey)

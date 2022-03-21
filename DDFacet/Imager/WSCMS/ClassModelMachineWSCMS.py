@@ -47,7 +47,10 @@ def substep(A, psf, sol, Ip, Iq, pq, npixpsf):
     :param pq: the location of a component relative to the active set
     :return: 
     """
-    halfnpixpsf = npixpsf//2
+    npixpsf_x,npixpsf_y=npixpsf
+    
+    halfnpixpsf_x = npixpsf_x//2
+    halfnpixpsf_y = npixpsf_y//2
     p = Ip[pq]
     q = Iq[pq]
     # loop over active indices
@@ -56,9 +59,9 @@ def substep(A, psf, sol, Ip, Iq, pq, npixpsf):
         # check that there is an overlap with psf
         delp = p - ip
         delq = q - iq
-        if abs(delp) <= halfnpixpsf and abs(delq) <= halfnpixpsf:
-            pp = halfnpixpsf - delp
-            qq = halfnpixpsf - delq
+        if abs(delp) <= halfnpixpsf_x and abs(delq) <= halfnpixpsf_y:
+            pp = halfnpixpsf_x - delp
+            qq = halfnpixpsf_y - delq
             A[i] -= sol * psf[pp, qq]
     return A
 
@@ -129,8 +132,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.DoAbs = self.GD["Deconv"]["AllowNegative"]
         self.ScaleMachine = ClassScaleMachine.ClassScaleMachine(GD=self.GD, NCPU=self.NCPU, MaskArray=MaskArray)
         self.ScaleMachine.Init(PSFServer, self.FreqMachine, cachepath=cachepath, MaxBaseline=MaxBaseline)
-        self.NpixPSF = self.ScaleMachine.NpixPSF
-        self.halfNpixPSF = self.NpixPSF//2
+        self.NpixPSF_x,self.NpixPSF_y = self.ScaleMachine.NpixPSF
+        self.halfNpixPSF_x = self.NpixPSF_x//2
+        self.halfNpixPSF_y = self.NpixPSF_y//2
         self.Nscales = self.ScaleMachine.Nscales
         # Initialise CurrentScale variable
         self.CurrentScale = 999999
@@ -273,10 +277,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         pa = 0.0
 
         # get in terms of number of cells
-        CellSizeRad = self.GD['Image']['Cell'] * np.pi / 648000
-
+        try:
+            CellSizeRad_x,CellSizeRad_y = np.array(self.GD['Image']['Cell']) * np.pi / 648000
+        except:
+            CellSizeRad_x=CellSizeRad_y = self.GD['Image']['Cell'] * np.pi / 648000
+            
         # get Gaussian kernel
-        GaussKern = ModFFTW.GiveGauss([self.Npix_x,self.Npix_y], CellSizeRad=CellSizeRad, GaussPars=(epar, epar, pa), parallel=False)
+        GaussKern = ModFFTW.GiveGauss([self.Npix_x,self.Npix_y], CellSizeRad=(CellSizeRad_x,CellSizeRad_y), GaussPars=(epar, epar, pa), parallel=False)
 
         # take FT
         Fs = np.fft.fftshift
@@ -545,7 +552,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             # Subtract fitted component from residual cube
             self.SubStep(xscale, yscale, self.ConvPSF * Fpol[:, None, None, None] * self.CurrentGain, Dirty.view())
             # subtract component from convolved dirty image
-            A = substep(A, self.Conv2PSFmean[0, 0], float(ConvMaxDirty * self.CurrentGain), Ip, Iq, pq, self.NpixPSF)
+            A = substep(A, self.Conv2PSFmean[0, 0], float(ConvMaxDirty * self.CurrentGain), Ip, Iq, pq, (self.NpixPSF_x,self.NpixPSF_y))
 
             # update scale dependent mask
             if self.ScaleMachine.AppendMaskComponents:
