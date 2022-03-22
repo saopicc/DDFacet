@@ -250,9 +250,9 @@ class ClassFacetMachine():
             ImageName:
             **kw:
         """
-        if isinstance(self.GD["Image"]["Cell"],list):
+        try:
             Cell_x,Cell_y=self.GD["Image"]["Cell"]
-        else:
+        except:
             Cell_x=Cell_y=self.GD["Image"]["Cell"]
 
         self.ImageName = ImageName
@@ -782,7 +782,7 @@ class ClassFacetMachine():
         for iFacet in getattr(self.DicoImager, "iterkeys", self.DicoImager.keys)():
             facet_dict = self._CF.addSubdict(iFacet)
             APP.runJob("%s.InitCF.f%s"%(self._app_id, iFacet), self._initcf_worker,
-                            args=(iFacet, facet_dict.readwrite(), cachepath, cachevalid, wmax),serial=True)
+                            args=(iFacet, facet_dict.readwrite(), cachepath, cachevalid, wmax))#,serial=True)
         #workers_res=APP.awaitJobResults("%s.InitCF.*"%self._app_id, progress="Init CFs")
 
 
@@ -983,6 +983,7 @@ class ClassFacetMachine():
         fd["l0m0"] = self.DicoImager[iFacet]["l0m0"]
         fd["pixCentral"] = self.DicoImager[iFacet]["pixCentral"]
         fd["lmSol"] = self.DicoImager[iFacet]["lmSol"]
+        fd["iSol"] = self.DicoImager[iFacet]["iSol"]
 
         nch, npol, nx, ny = psf.shape
         PSFChannel = np.zeros((nch, npol, nx, ny), self.stitchedType)
@@ -1255,7 +1256,7 @@ class ClassFacetMachine():
             for iFacet in sorted(self.DicoImager.keys()):
                 APP.runJob("facetmeanresidual:%s" % iFacet, self._computeFacetMeanResidual_worker,
                            args=(iFacet, fmr_dict.writeonly(), self._facet_grids.readonly(), self._CF.readonly(),
-                                 self.DicoImager[iFacet]["SumWeights"], self.DicoImager[iFacet]["SumJonesNorm"], WBAND),serial=True)
+                                 self.DicoImager[iFacet]["SumWeights"], self.DicoImager[iFacet]["SumJonesNorm"], WBAND))#,serial=True)
             APP.awaitJobResults("facetmeanresidual:*", progress="Mean per-facet dirties")
             fmr_dict.reload()
 

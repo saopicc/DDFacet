@@ -788,7 +788,7 @@ def learnFFTWWisdom(npix_x,npix_y,dtype):
     #     npix_x,npix_y=npixIn
     # else:
     #     npix_x=npix_y=npixIn
-        
+    
     print("  Computing fftw wisdom FFTs for shape [%i x %i] and dtype %s" % (npix_x,npix_y,dtype.__name__), file=log)
     test = np.zeros((npix_x, npix_y), dtype)
     if "float" in dtype.__name__:

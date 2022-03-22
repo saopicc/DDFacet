@@ -263,6 +263,14 @@ class ClassImageDeconvMachine():
         #     FluxIslands.append(np.sum(Dirty[0,0,x,y]))
         # ind=np.argsort(np.array(FluxIslands))[::-1]
 
+        # _,_,nx,ny=self._Dirty.shape
+        # self.iIslandImage=np.zeros_like(self._Dirty)
+        # for i in range(0,nx,5):
+        #     print("%i/%i"%(i,nx))
+        #     for j in range(0,ny,5):
+        #         FacetID=self.PSFServer.giveFacetID2(i,j)
+        #         self.iIslandImage[:,:,i,j]=FacetID
+                
         # ListIslandsSort=[ListIslands[i] for i in ind]
         
 
@@ -298,7 +306,7 @@ class ClassImageDeconvMachine():
         print("  selected %i islands [out of %i] with peak flux > %.3g Jy"%(len(ListIslandsFiltered),len(ListIslands),Threshold), file=log)
         ListIslands=ListIslandsFiltered
         #ListIslands=[np.load("errIsland_000524.npy").tolist()]
-        
+
         ListIslands=IslandDistanceMachine.CalcCrossIslandFlux(ListIslands)
         ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
         ListIslands=IslandDistanceMachine.MergeIslands(ListIslands)
@@ -573,6 +581,8 @@ class ClassImageDeconvMachine():
         NJobs=NIslands
         T=ClassTimeIt.ClassTimeIt("    ")
         T.disable()
+
+
         for iIsland, ThisPixList in enumerate(ListIslands):
             island_dict = deconv_dict.addSubdict(iIsland)
 
@@ -591,6 +601,8 @@ class ClassImageDeconvMachine():
             IslandBestIndiv=self.ModelMachine.GiveIndividual(ThisPixList)
             T.timeit("GiveIndividual")
             FacetID=self.PSFServer.giveFacetID2(xm,ym)
+            
+            
             T.timeit("FacetID")
 
             island_dict["BestIndiv"] = IslandBestIndiv

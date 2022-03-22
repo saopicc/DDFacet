@@ -1223,6 +1223,7 @@ class ClassImagerDeconv():
 
             repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
 
+            # self.FacetMachine.ToCasaImage(self.DeconvMachine.iIslandImage,ImageName="%s.labelFacet%2.2i"%(self.BaseName,iMajor),Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             if user_stopped:
                 print(ModColor.Str("user stop signal (SIGUSR1) received. This will be the last major cycle"))
                 continue_deconv = False
