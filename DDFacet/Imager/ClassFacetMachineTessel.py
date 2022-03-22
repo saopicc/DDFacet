@@ -122,13 +122,19 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         
         
         if SolsFile is not None and not ".h5" in SolsFile:
-            from killMS.Parset import ReadCFG as ReadCFGkMS
-            PName=SolsFile[0:-4]+".parset"
-            DoCheckParset=os.path.isfile(PName)
-            if not DoCheckParset:
-                log.print(ModColor.Str("File %s does not exist - can't check parset consistencies"%PName))
-                # raise RuntimeError("File %s does not exist..."%PName)
-            else:
+            DoCheckParset=False
+            if "killMS" in SolsFile:
+                try:
+                    from killMS.Parset import ReadCFG as ReadCFGkMS
+                    PName=SolsFile[0:-4]+".parset"
+                    DoCheckParset=os.path.isfile(PName)
+                    if not DoCheckParset:
+                        log.print(ModColor.Str("File %s does not exist - can't check parset consistencies"%PName))
+                except:
+                    log.print(ModColor.Str("Cannot import killMS - can't check parset consistencies"))
+                    DoCheckParset=False
+                    
+            if DoCheckParset:
                 print("reading %s"%PName,file=log)
                 GDkMS=ReadCFGkMS.Parset(PName).DicoPars
                 DoCheckParset=False
