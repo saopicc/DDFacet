@@ -245,6 +245,13 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 lcenter_max: lcenter_max: (NFacets) * 1j]
             lFacet = lFacet.flatten()
             mFacet = mFacet.flatten()
+            np.savez("RegGrid.npz",
+                     CellSizeRad=CellSizeRad,
+                     lcenter_max=lcenter_max,
+                     NFacets=NFacets,
+                     lFacet=lFacet,
+                     mFacet=mFacet)
+            stop
         print("  There are %i Jones-directions" % lFacet.size, file=log)
 
 
