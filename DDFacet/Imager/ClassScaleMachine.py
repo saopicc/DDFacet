@@ -265,7 +265,7 @@ class ClassScaleMachine(object):
     # TODO - Set max scale with minimum baseline or facet size?
     def set_scales(self):
         if self.GD['WSCMS']["MaxScale"] is None:
-            MaxScale = self.Npix//4
+            MaxScale = np.max([self.Npix_x,self.Npix_y])//4
         else:
             MaxScale = self.GD['WSCMS']["MaxScale"]
         if self.GD["WSCMS"]["Scales"] is None:

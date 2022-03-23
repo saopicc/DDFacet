@@ -125,13 +125,19 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 SolsFile = "%s/killMS.%s.sols.npz"%(DirName,SolsFile)
         
         if SolsFile is not None and not ".h5" in SolsFile:
-            from killMS.Parset import ReadCFG as ReadCFGkMS
-            PName=SolsFile[0:-4]+".parset"
-            DoCheckParset=os.path.isfile(PName)
-            if not DoCheckParset:
-                log.print(ModColor.Str("File %s does not exist - can't check parset consistencies"%PName))
-                # raise RuntimeError("File %s does not exist..."%PName)
-            else:
+            DoCheckParset=False
+            if "killMS" in SolsFile:
+                try:
+                    from killMS.Parset import ReadCFG as ReadCFGkMS
+                    PName=SolsFile[0:-4]+".parset"
+                    DoCheckParset=os.path.isfile(PName)
+                    if not DoCheckParset:
+                        log.print(ModColor.Str("File %s does not exist - can't check parset consistencies"%PName))
+                except:
+                    log.print(ModColor.Str("Cannot import killMS - can't check parset consistencies"))
+                    DoCheckParset=False
+                    
+            if DoCheckParset:
                 print("reading %s"%PName,file=log)
                 GDkMS=ReadCFGkMS.Parset(PName).DicoPars
                 DoCheckParset=False
@@ -271,10 +277,10 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         NodesCat = np.zeros(
             (raSols.size,),
-            dtype=[('ra', np.float32),
-                   ('dec', np.float32),
-                   ('l', np.float32),
-                   ('m', np.float32)])
+            dtype=[('ra', np.float),
+                   ('dec', np.float),
+                   ('l', np.float),
+                   ('m', np.float)])
         NodesCat = NodesCat.view(np.recarray)
         NodesCat.ra = raSols
         NodesCat.dec = decSols
@@ -627,13 +633,13 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.JonesDirCat = np.zeros(
             (NodesCat.shape[0],),
             dtype=[('Name', '|S200'),
-                   ('ra', np.float32),
-                   ('dec', np.float32),
-                   ('SumI', np.float32),
+                   ('ra', np.float),
+                   ('dec', np.float),
+                   ('SumI', np.float),
                    ("Cluster", int),
-                   ("l", np.float32),
-                   ("m", np.float32),
-                   ("I", np.float32)])
+                   ("l", np.float),
+                   ("m", np.float),
+                   ("I", np.float)])
         self.JonesDirCat = self.JonesDirCat.view(np.recarray)
         self.JonesDirCat.I = 1
         self.JonesDirCat.SumI = 1
@@ -862,13 +868,13 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             
         self.FacetDirCat = np.zeros((len(self.DicoImager),),
                                     dtype=[('Name', '|S200'),
-                                           ('ra', np.float32),
-                                           ('dec', np.float32),
-                                           ('SumI', np.float32),
+                                           ('ra', np.float),
+                                           ('dec', np.float),
+                                           ('SumI', np.float),
                                            ("Cluster", int),
-                                           ("l", np.float32),
-                                           ("m", np.float32),
-                                           ("I", np.float32)])
+                                           ("l", np.float),
+                                           ("m", np.float),
+                                           ("I", np.float)])
         self.FacetDirCat = self.FacetDirCat.view(np.recarray)
         self.FacetDirCat.I = 1
         self.FacetDirCat.SumI = 1

@@ -719,7 +719,7 @@ class ClassMS():
                     np.save(datapath, visdata)
                     self.cache.saveCache("Data.npy")
         # create flag array (if flagbuf is not None, array uses memory of buffer)
-        flags = DATA.addSharedArray("flags", shape=datashape, dtype=bool)
+        flags = DATA.addSharedArray("flags", shape=datashape, dtype=np.bool)
         # check cache for flags
         if use_cache:
             flagpath, flagvalid = self.cache.checkCache("Flags.npy", dict(time=self._start_time), ignore_key=(use_cache=="force"))
@@ -1322,11 +1322,11 @@ class ClassMS():
         print("  flagged fractions per antenna: %s" % " ".join(["%.2f" % frac for frac in antenna_flagfrac]), file=log)
 
         
-        # FlagAntFrac = [ant for ant, frac in enumerate(antenna_flagfrac) if frac > ThresholdFlag]
-        # FlagAntNumber.update(FlagAntFrac)
-        # for A in FlagAntFrac:
-        #     print("    antenna %i has ~%4.1f%s of flagged data (more than %4.1f%s)" % \
-        #                  (A, antenna_flagfrac[A] * 100, "%", ThresholdFlag * 100, "%"), file=log)
+        FlagAntFrac = [ant for ant, frac in enumerate(antenna_flagfrac) if frac > ThresholdFlag]
+        FlagAntNumber.update(FlagAntFrac)
+        for A in FlagAntFrac:
+            print("    antenna %i has ~%4.1f%s of flagged data (more than %4.1f%s)" % \
+                         (A, antenna_flagfrac[A] * 100, "%", ThresholdFlag * 100, "%"), file=log)
 
         if self.DicoSelectOptions["FlagAnts"]:
             FlagAnts = self.DicoSelectOptions["FlagAnts"]

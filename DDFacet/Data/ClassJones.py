@@ -279,7 +279,6 @@ class ClassJones():
         Jones=np.load("%s.npy"%InName)
         print("  %s.npy loaded" % InName, file=log)
 
-
         DicoClusterDirs = {}
         DicoClusterDirs["l"] = SolsFile["l"]
         DicoClusterDirs["m"] = SolsFile["m"]

@@ -204,8 +204,9 @@ class ClassBeamMean():
                 WWs=Ws**2
                 T.timeit("4")
 
-                nchMax=100
-                nchChunk=np.max([1,MSnchan//nchMax])
+                # The following sums the channel-weighted beam along freq 
+                nchMax=100 # just used to reduce RAM usage (the code will do the average by channel chunks)
+                nchChunk=np.max([1,MSnchan//nchMax]) 
                 chMinMax=np.int32(np.linspace(0,MSnchan,nchChunk+1))
                 for ch0,ch1 in zip(chMinMax[:-1],chMinMax[1:]):
                     

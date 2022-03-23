@@ -369,8 +369,8 @@ class ClassImagerDeconv():
             self.FacetMachinePSF.appendMainField(ImageName="%s.psf" % self.BaseName, **MainFacetOptions)
             self.FacetMachinePSF.Init()
 
-        self.CellArcSec = (self.FacetMachine or self.FacetMachinePSF).Cell
-        self.CellSizeRad = (self.CellArcSec/3600.)*np.pi/180
+        self.CellArcSec_x,self.CellArcSec_y   = self.CellArcSec  = (self.FacetMachine or self.FacetMachinePSF).Cell
+        self.CellSizeRad_x,self.CellSizeRad_y = self.CellSizeRad = (self.CellArcSec/3600.)*np.pi/180
 
     def GiveMainFacetOptions(self):
         MainFacetOptions=self.GD["Image"].copy()
@@ -1624,15 +1624,34 @@ class ClassImagerDeconv():
 
         FWHMFact = 2. * np.sqrt(2. * np.log(2.))
 
-        fwhm = (bmaj * self.CellArcSec * FWHMFact / 3600.,
-                bmin * self.CellArcSec * FWHMFact / 3600.,
+        PixToRad_maj=np.sqrt((self.CellSizeRad_x*np.cos(theta))**2+(self.CellSizeRad_y*np.sin(theta))**2)
+        PixToRad_min=np.sqrt((self.CellSizeRad_x*np.sin(theta))**2+(self.CellSizeRad_y*np.cos(theta))**2)
+        
+        #fwhm = (bmaj * self.CellArcSec * FWHMFact / 3600.,
+        #        bmin * self.CellArcSec * FWHMFact / 3600.,
+        #        np.rad2deg(theta))
+        fwhm = (bmaj * PixToRad_maj*180/np.pi * FWHMFact,
+                bmin * PixToRad_min*180/np.pi * FWHMFact,
                 np.rad2deg(theta))
-        gausspars = (bmaj * self.CellSizeRad, bmin * self.CellSizeRad, theta)
-        print("\tsigma is %f, %f (FWHM is %f, %f), PA is %f deg" % (bmaj * self.CellArcSec,
-                                                                    bmin * self.CellArcSec,
-                                                                    bmaj * self.CellArcSec * FWHMFact,
-                                                                    bmin * self.CellArcSec * FWHMFact,
-                                                                    90-np.rad2deg(theta)), file=log)
+        
+        #gausspars = (bmaj * self.CellSizeRad, bmin * self.CellSizeRad, theta)
+
+
+        gausspars = (bmaj * PixToRad_maj,
+                     bmin * PixToRad_min,
+                     theta)
+        
+        gausspars_arcsec = (bmaj * PixToRad_maj*180/np.pi*3600,
+                            bmin * PixToRad_min*180/np.pi*3600,
+                            theta*180/np.pi)
+
+        
+        bmaj,bmin,th=gausspars_arcsec
+        print("\tsigma is %f, %f (FWHM is %f, %f), PA is %f deg" % (bmaj,
+                                                                    bmin,
+                                                                    bmaj * FWHMFact,
+                                                                    bmin * FWHMFact,
+                                                                    90-th), file=log)
         print("\tSecondary sidelobe at the level of %5.1f at a position of %i from the center" % sidelobes, file=log)
         return fwhm, gausspars, sidelobes
 
@@ -1682,6 +1701,7 @@ class ClassImagerDeconv():
             fit_err = None # don't care if user provided parameters
 
         self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg = beam, gausspars, sidelobes
+
         # MeanFacetPSF has a shape of 1,1,nx,ny, so need to cut that extra one off
         if self.VS.MultiFreqMode:
             self.FWHMBeam = []
