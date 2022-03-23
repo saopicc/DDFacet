@@ -404,7 +404,7 @@ class ClassVisServer():
 
     def SetImagingPars(self, OutImShape, CellSizeRad):
         self.OutImShape = OutImShape
-        self.CellSizeRad = CellSizeRad
+        self.CellSizeRad_x,self.CellSizeRad_y=self.CellSizeRad = CellSizeRad
 
     def CalcMeanBeam(self):
         AverageBeamMachine = ClassBeamMean.ClassBeamMean(self)
@@ -616,13 +616,13 @@ class ClassVisServer():
         self.FullImShape = self.FacetMachine.OutImShape
         self.PaddedFacetShape = self.FacetMachine.PaddedGridShape
         self.FacetShape = self.FacetMachine.FacetShape
-        self.CellSizeRad = self.FacetMachine.CellSizeRad
+        self.CellSizeRad_x,self.CellSizeRad_y=self.CellSizeRad = self.FacetMachine.CellSizeRad
 
     def setFOV(self, sh0, sh1, sh2, cell):
         self.FullImShape = sh0
         self.PaddedFacetShape = sh1
         self.FacetShape = sh2
-        self.CellSizeRad = cell
+        self.CellSizeRad_x,self.CellSizeRad_y = self.CellSizeRad = cell
 
     def collectBDA(self, base_job_id, DATA):
         """Called in I/O thread. Waits for BDA computation to complete (if any), then populates dict"""
@@ -660,7 +660,7 @@ class ClassVisServer():
                 elif self.GD["Comp"]["GridFoV"] == "Full":
                     _, _, nx, ny = self.FullImShape
                 mode = self.GD["Comp"]["BDAMode"]
-                FOV = self.CellSizeRad.max() * np.sqrt((nx/2)**2+(ny/2)**2) * 180. / np.pi
+                FOV =  np.sqrt((self.CellSizeRad_x*nx/2)**2+(self.CellSizeRad_y*ny/2)**2) * 180. / np.pi
                 self._smm_grid.computeSmearMappingInBackground(base_job_id, ms, DATA, FOV,
                                                           (1. - self.GD["Comp"]["GridDecorr"]),
                                                           ChanMappingGridding, mode)
@@ -677,7 +677,7 @@ class ClassVisServer():
                 elif self.GD["Comp"]["DegridFoV"] == "Full":
                     _, _, nx, ny = self.FullImShape
                 mode = self.GD["Comp"]["BDAMode"]
-                FOV = self.CellSizeRad.max() * np.sqrt((nx/2)**2+(ny/2)**2) * 180. / np.pi
+                FOV =  np.sqrt((self.CellSizeRad_x*nx/2)**2+(self.CellSizeRad_y*ny/2)**2) * 180. / np.pi
                 
                 self._smm_degrid.computeSmearMappingInBackground(base_job_id, ms, DATA, FOV,
                                                           (1. - self.GD["Comp"]["DegridDecorr"]),
@@ -741,9 +741,10 @@ class ClassVisServer():
         """Starts parallel jobs to load weights in the background"""
         self.VisWeights = None
         if self.GD["Misc"]["ConserveMemory"]:
-            APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event)
+            #APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event)
+            APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event)#,serial=True)
         else:
-            APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event,serial=True)
+            APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event)#,serial=True)
         # APP.awaitEvents(self._calcweights_event)
 
     def _sigtaper(self, msw, chanfreq, inner_cut, outer_cut, outer_taper_strength, inner_taper_strength): 
@@ -797,7 +798,7 @@ class ClassVisServer():
                                 ms.ChanFreq,
                                 self.SigmoidInCut, self.SigmoidOutCut, 
                                 self.SigmoidOutRoll, self.SigmoidInRoll),
-                        counter=self._weightjob_counter, collect_result=False)
+                        counter=self._weightjob_counter, collect_result=False)#,serial=True)
             APP.awaitJobCounter(self._weightjob_counter, progress="Sigmoid Tapering")
 
     def _CalcWeights_handler(self):
@@ -899,7 +900,7 @@ class ClassVisServer():
                                    args=(self._weight_grid.readonly(),
                                          self._weight_dict[ims][ichunk].readwrite(),
                                          ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax, parallel),
-                                   counter=self._weightjob_counter, collect_result=False)
+                                   counter=self._weightjob_counter, collect_result=False)#,serial=True)
             # wait for results
             APP.awaitJobCounter(self._weightjob_counter, progress="Accumulate weights")
             if self.Weighting == "briggs" or self.Weighting == "robust":
@@ -919,7 +920,7 @@ class ClassVisServer():
                            args=(self._weight_grid.readonly(),
                                  self._weight_dict[ims][ichunk].readwrite(),
                                  ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax),
-                           counter=self._weightjob_counter, collect_result=False)
+                           counter=self._weightjob_counter, collect_result=False)#,serial=True)
         APP.awaitJobCounter(self._weightjob_counter, progress="Finalize weights")
         # delete stuff
         if self._weight_grid is not None:
@@ -952,7 +953,7 @@ class ClassVisServer():
             tab = ms.GiveMainTable()
     #        print>>log,"  %d.%d reading %s UVW" % (ims+1, ichunk+1, ms.MSName)
             uvw = tab.getcol("UVW", row0, nrows)
-            flags = np.empty((nrows, len(ms.ChanFreq), len(ms.CorrelationIds)), bool)
+            flags = np.empty((nrows, len(ms.ChanFreq), len(ms.CorrelationIds)), np.bool)
             # print>>log,(ms.cs_tlc,ms.cs_brc,ms.cs_inc,flags.shape)
     #        print>>log,"  reading FLAG"
             tab.getcolslicenp("FLAG", flags, ms.cs_tlc, ms.cs_brc, ms.cs_inc, row0, nrows)
@@ -1061,12 +1062,14 @@ class ClassVisServer():
     def _uv_to_index(self, ims, uv, weights, freqs, cell, npix, npixx, nbands, xymax):
         """Helper method: converts UV coordinates to indices into a UV-grid"""
         # flip sign of negative v values -- we'll only grid the top half of the plane
-        #cell_u,cell_v=cell
-        cell=np.array(cell)
+        cell=np.array(cell) 
+        cell_u,cell_v=cell
+
         uv[uv[:, 1] < 0] *= -1
         # convert u/v to lambda, and then to pixel offset
         uv = uv[..., np.newaxis] * freqs[np.newaxis, np.newaxis, :] / _cc
         uv = np.floor(uv / cell[np.newaxis,:,np.newaxis]).astype(int)
+        
         # u is offset, v isn't since it's the top half
         x = uv[:, 0, :]
         y = uv[:, 1, :]
