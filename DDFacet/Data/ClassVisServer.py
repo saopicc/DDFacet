@@ -1281,8 +1281,9 @@ class ClassVisServer():
                     grid1 = grid0[band, :]
                     avgW = (grid1 ** 2).sum() / grid1.sum()
                     sSq = numeratorSqrt ** 2 / avgW
+                    np.savez("grids.new.npz",grid0=grid0,numeratorSqrt=numeratorSqrt,grid1=grid1,avgW=avgW,sSq=sSq)
                     grid1[...] = 1 + grid1 * sSq
-                    np.savez("grids.new.npz",grid1=grid1,avgW=avgW,sSq=sSq)
+
                     
             # rescan through MSs one by one to re-adjust the weights
             for ims, ms in enumerate(self.ListMS):
