@@ -1072,17 +1072,20 @@ class ClassVisServer():
         # u is offset, v isn't since it's the top half
         x = uv[:, 0, :]
         y = uv[:, 1, :]
+        #np.savez("indexIn.new.npz",x=x,y=y,xymax=xymax,DicoMSChanMapping=self.DicoMSChanMapping[ims])
         x += xymax  # offset, since X grid starts at -xymax
         # convert to index array -- this gives the number of the uv-bin on the grid
         #index = msw.addSharedArray("index", (uv.shape[0], len(freqs)), np.int64)
         index = np.zeros((uv.shape[0], len(freqs)), np.int32)
         index[...] = y * npixx + x
+        np.savez("indexIn.new.npz",index=index,x=x,y=y,xymax=xymax,DicoMSChanMapping=self.DicoMSChanMapping[ims])
         # if we're in per-band weighting mode, then adjust the index to refer to each band's grid
         if nbands > 1:
             index += self.DicoMSChanMapping[ims][np.newaxis, :] * npix
         # zero weight refers to zero cell (otherwise it may end up outside the grid, since grid is
         # only big enough to accommodate the *unflagged* uv-points)
         index[weights == 0] = 0
+        np.savez("indexIn2.new.npz",index=index,x=x,y=y,xymax=xymax,DicoMSChanMapping=self.DicoMSChanMapping[ims])
         return index
 
     def _accumulateWeights_handler (self, wg, msw, ims, ichunk, freqs, cell, npix, npixx, nbands, xymax, parallel=False):
