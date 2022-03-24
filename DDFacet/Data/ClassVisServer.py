@@ -1092,7 +1092,9 @@ class ClassVisServer():
             msname = "%s chunk %d"%(ms.MSName, ichunk)
             weights = msw["weight"]
             index = self._uv_to_index(ims, msw["uv"], weights, freqs, cell, npix, npixx, nbands, xymax)
+            np.savez("index.new.npz",ims=ims,msw=msw["uv"], weights=weights, freqs=freqs, cell=cell, npix=npix, npixx=npixx, nbands=nbands, xymax=xymax)
             msw.delete_item("flags")
+            np.savez("accumulateWeights_handler.new.npz",grid=wg["grid"], weights=weights.ravel(), index=index.ravel())
             if parallel:
                 _pyGridderSmearPols.pyAccumulateWeightsOntoGrid(wg["grid"], weights.ravel(), index.ravel())
             else:
