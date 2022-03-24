@@ -1198,33 +1198,37 @@ class ClassVisServer():
         # setup uv-grid for non-natural weights
         if self.Weighting != "natural":
             self._weight_grid = shared_dict.create("VisWeights.Grid")
-            nch, npol, npixIm, _ = self.FullImShape
-            FOV = self.CellSizeRad * npixIm
+            nch, npol, npixIm_x, npixIm_y = self.FullImShape
+            FOV_x = self.CellSizeRad_x * npixIm_x
+            FOV_y = self.CellSizeRad_y * npixIm_y
             nbands = self.NFreqBands
-            cell = 1. / (self.Super * FOV)
+            cell_u = 1. / (self.Super * FOV_x)
+            cell_v = 1. / (self.Super * FOV_y)
             if self.MFSWeighting or self.NFreqBands < 2:
                 nbands = 1
                 print("initializing weighting grid for single band (or MFS weighting)", file=log)
             else:
                 print("initializing weighting grids for %d bands" % nbands, file=log)
             # find max grid extent by considering _unflagged_ UVs
-            xymax = int(math.floor(self._uvmax / cell)) + 1
+            xymax = int(math.floor(self._uvmax / np.min([cell_u,cell_v]))) + 1
             # grid will be from [-xymax,xymax] in U and [0,xymax] in V
             npixx = xymax * 2 + 1
             npixy = xymax + 1
             npix = npixx * npixy
-            print("Calculating imaging weights on an [%i,%i]x%i grid with cellsize %g" % (npixx, npixy, nbands, cell), file=log)
+            print("Calculating imaging weights on an [%i,%i]x%i grid with cellsize [%g,%g]" % (npixx, npixy, nbands, cell_u,cell_v), file=log)
             self._weight_grid.addSharedArray("grid", (nbands, npix), np.float64)
         else:
             nbands = self.NFreqBands
-            nch, npol, npixIm, _ = self.FullImShape
-            FOV = self.CellSizeRad * npixIm
-            cell = 1. / (self.Super * FOV)
-            xymax = int(math.floor(self._uvmax / cell)) + 1
+            nch, npol, npixIm_x, npixIm_y = self.FullImShape
+            FOV_x = self.CellSizeRad_x * npixIm_x
+            FOV_y = self.CellSizeRad_y * npixIm_y
+            cell_u = 1. / (self.Super * FOV_x)
+            cell_v = 1. / (self.Super * FOV_y)
+            xymax = int(math.floor(self._uvmax / np.min([cell_u,cell_v]))) + 1
             npixx = xymax * 2 + 1
             npixy = xymax + 1
             npix = npixx * npixy
-
+        cell=np.array([cell_u,cell_v])
         # scan through MSs one by one
         for ims, ms in enumerate(self.ListMS):
             msweights = self._weight_dict[ims]
