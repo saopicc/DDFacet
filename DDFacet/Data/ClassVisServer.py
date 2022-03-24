@@ -1256,6 +1256,7 @@ class ClassVisServer():
                     self._accumulateWeights_handler(self._weight_grid, msw,
                                          ims, ichunk, ms.ChanFreq, cell,
                                          npix, npixx, nbands, xymax)
+                    np.savez("msw.new.npz",**msw)
                                     
         # save wmax to cache
         cPickle.dump(wmax, open(wmax_path, "wb"))
@@ -1281,7 +1282,8 @@ class ClassVisServer():
                     avgW = (grid1 ** 2).sum() / grid1.sum()
                     sSq = numeratorSqrt ** 2 / avgW
                     grid1[...] = 1 + grid1 * sSq
-
+                    np.savez("grids.new.npz",grid1=grid1,avgW=avgW,sSq=sSq)
+                    
             # rescan through MSs one by one to re-adjust the weights
             for ims, ms in enumerate(self.ListMS):
                 msweights = self._weight_dict[ims]
