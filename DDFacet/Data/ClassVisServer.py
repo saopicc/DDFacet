@@ -1061,17 +1061,20 @@ class ClassVisServer():
     def _uv_to_index(self, ims, uv, weights, freqs, cell, npix, npixx, nbands, xymax):
         """Helper method: converts UV coordinates to indices into a UV-grid"""
         # flip sign of negative v values -- we'll only grid the top half of the plane
-        cell=np.array(cell) 
+        cell=np.array(cell,np.float64) 
         cell_u,cell_v=cell
 
         uv[uv[:, 1] < 0] *= -1
         # convert u/v to lambda, and then to pixel offset
         uv = uv[..., np.newaxis] * freqs[np.newaxis, np.newaxis, :] / _cc
-        uv2 = np.floor(uv / cell[np.newaxis,:,np.newaxis]).astype(int)
-        
-        # u is offset, v isn't since it's the top half
-        x = uv2[:, 0, :]
-        y = uv2[:, 1, :]
+        uv2 = np.floor(uv / cell.reshape((1,2,1))).astype(int)
+        u = uv[:, 0, :]
+        v = uv[:, 1, :]
+        x = np.floor(u / cell[0]).astype(int)
+        y = np.floor(v / cell[1]).astype(int)
+        # # u is offset, v isn't since it's the top half
+        # x = uv2[:, 0, :]
+        # y = uv2[:, 1, :]
         #np.savez("indexIn.new.npz",x=x,y=y,xymax=xymax,DicoMSChanMapping=self.DicoMSChanMapping[ims])
         x += xymax  # offset, since X grid starts at -xymax
         # convert to index array -- this gives the number of the uv-bin on the grid
@@ -1091,6 +1094,7 @@ class ClassVisServer():
 
     def _accumulateWeights_handler (self, wg, msw, ims, ichunk, freqs, cell, npix, npixx, nbands, xymax, parallel=False):
         msname = "MS %d chunk %d"%(ims, ichunk)
+        
         try:
             ms = self.ListMS[ims]
             msname = "%s chunk %d"%(ms.MSName, ichunk)
@@ -1260,8 +1264,8 @@ class ClassVisServer():
                 # else accumulate onto uv grid
                 else:
                     self._accumulateWeights_handler(self._weight_grid, msw,
-                                         ims, ichunk, ms.ChanFreq, cell,
-                                         npix, npixx, nbands, xymax)
+                                                    ims, ichunk, ms.ChanFreq, cell,
+                                                    npix, npixx, nbands, xymax)
                     np.savez("msw.new.npz",**msw)
                                     
         # save wmax to cache
