@@ -1067,7 +1067,7 @@ class ClassVisServer():
         uv[uv[:, 1] < 0] *= -1
         # convert u/v to lambda, and then to pixel offset
         uv = uv[..., np.newaxis] * freqs[np.newaxis, np.newaxis, :] / _cc
-        uv2 = np.floor(uv / cell.reshape((1,2,1))).astype(int)
+        #uv2 = np.floor(uv / cell.reshape((1,2,1))).astype(int)
         u = uv[:, 0, :]
         v = uv[:, 1, :]
         x = np.floor(u / cell[0]).astype(int)
@@ -1081,15 +1081,17 @@ class ClassVisServer():
         #index = msw.addSharedArray("index", (uv.shape[0], len(freqs)), np.int64)
         index = np.zeros((uv.shape[0], len(freqs)), np.int32)
         index[...] = y * npixx + x
-        np.savez("indexIn.new.npz",uv=uv,uv2=uv2,index=index,x=x,y=y,xymax=xymax,DicoMSChanMapping=self.DicoMSChanMapping[ims])
-        stop
+        # np.savez("indexIn.new.npz",uv=uv,uv2=uv2,index=index,x=x,y=y,
+        #          xymax=xymax,cell=cell,
+        #          DicoMSChanMapping=self.DicoMSChanMapping[ims])
+        # stop
         # if we're in per-band weighting mode, then adjust the index to refer to each band's grid
         if nbands > 1:
             index += self.DicoMSChanMapping[ims][np.newaxis, :] * npix
         # zero weight refers to zero cell (otherwise it may end up outside the grid, since grid is
         # only big enough to accommodate the *unflagged* uv-points)
         index[weights == 0] = 0
-        np.savez("indexIn2.new.npz",index=index,x=x,y=y,xymax=xymax,DicoMSChanMapping=self.DicoMSChanMapping[ims])
+        #np.savez("indexIn2.new.npz",index=index,x=x,y=y,xymax=xymax,DicoMSChanMapping=self.DicoMSChanMapping[ims])
         return index
 
     def _accumulateWeights_handler (self, wg, msw, ims, ichunk, freqs, cell, npix, npixx, nbands, xymax, parallel=False):
@@ -1100,9 +1102,9 @@ class ClassVisServer():
             msname = "%s chunk %d"%(ms.MSName, ichunk)
             weights = msw["weight"]
             index = self._uv_to_index(ims, msw["uv"], weights, freqs, cell, npix, npixx, nbands, xymax)
-            np.savez("index.new.npz",ims=ims,msw=msw["uv"], weights=weights, freqs=freqs, cell=cell, npix=npix, npixx=npixx, nbands=nbands, xymax=xymax)
+            #np.savez("index.new.npz",ims=ims,msw=msw["uv"], weights=weights, freqs=freqs, cell=cell, npix=npix, npixx=npixx, nbands=nbands, xymax=xymax)
             msw.delete_item("flags")
-            np.savez("accumulateWeights_handler.new.npz",grid=wg["grid"], weights=weights.ravel(), index=index.ravel())
+            #np.savez("accumulateWeights_handler.new.npz",grid=wg["grid"], weights=weights.ravel(), index=index.ravel())
             if parallel:
                 _pyGridderSmearPols.pyAccumulateWeightsOntoGrid(wg["grid"], weights.ravel(), index.ravel())
             else:
@@ -1266,7 +1268,7 @@ class ClassVisServer():
                     self._accumulateWeights_handler(self._weight_grid, msw,
                                                     ims, ichunk, ms.ChanFreq, cell,
                                                     npix, npixx, nbands, xymax)
-                    np.savez("msw.new.npz",**msw)
+                    #np.savez("msw.new.npz",**msw)
                                     
         # save wmax to cache
         cPickle.dump(wmax, open(wmax_path, "wb"))
@@ -1291,7 +1293,7 @@ class ClassVisServer():
                     grid1 = grid0[band, :]
                     avgW = (grid1 ** 2).sum() / grid1.sum()
                     sSq = numeratorSqrt ** 2 / avgW
-                    np.savez("grids.new.npz",grid0=grid0,numeratorSqrt=numeratorSqrt,grid1=grid1,avgW=avgW,sSq=sSq)
+                    #np.savez("grids.new.npz",grid0=grid0,numeratorSqrt=numeratorSqrt,grid1=grid1,avgW=avgW,sSq=sSq)
                     grid1[...] = 1 + grid1 * sSq
 
                     

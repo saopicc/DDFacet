@@ -265,12 +265,12 @@ class ClassFacetMachine():
         self.NFacets = NFacets
         self.Cell_x = Cell_x
         self.Cell_y = Cell_y
-        self.Cell = np.array([Cell_x,Cell_y],np.float32)
+        self.Cell = np.array([Cell_x,Cell_y],np.float64)
         
         self.CellSizeRad_x = (Cell_x / 3600.) * np.pi / 180.
         self.CellSizeRad_y = (Cell_y / 3600.) * np.pi / 180.
         rac, decc = self.VS.ListMS[0].radec
-        self.CellSizeRad = np.array([self.CellSizeRad_x,self.CellSizeRad_y],np.float32)
+        self.CellSizeRad = np.array([self.CellSizeRad_x,self.CellSizeRad_y],np.float64)
 
         self.MainRaDec = (rac, decc)
         self.nch = self.VS.NFreqBands
