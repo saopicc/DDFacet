@@ -391,7 +391,7 @@ class ClassMS():
             row1=self.nbl
         A0=self.F_A0[row0:row1]
         A1=self.F_A1[row0:row1]
-        MapOut=np.ones((self.nbl,),dtype=bool)
+        MapOut=np.ones((self.nbl,),dtype=np.bool)
         if FlagAutoCorr:
             ind=np.where(A0==A1)[0]
             MapOut[ind]=False

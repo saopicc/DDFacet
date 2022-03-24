@@ -50,7 +50,6 @@ if six.PY3:
 else:
     from DDFacet.cbuild.Gridder import _pyGridderSmearPols27 as _pyGridderSmearPols
 import copy
-
 log = logger.getLogger("ClassVisServer")
 
 _cc = 299792458
