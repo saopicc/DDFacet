@@ -814,9 +814,27 @@ class ClassDDEGridMachine():
         T.timeit("stuff")
 
         if self.IDFacet==10:
-            np.savez("DDEGM.%3.3i.new.npz"%self.IDFacet,**locals())
-            stop
-        else:
+            D=locals()
+
+            Ds={}
+            for k in D.keys():
+                if k not in ["self","T"]:
+                    Ds[k]=D[k]
+            D=Ds
+            LSubDico=["DicoJonesMatrices","DicoJones_Beam","Dirs","Jones"]
+            for ThisDicoName in LSubDico:
+                Ds=D[ThisDicoName]
+                for k in Ds.keys():
+                    D[k]=Ds[k]
+                    
+            for k in LSubDico:
+                del(D[k])
+                
+            for k in ["vis","uvw","flag","W"]:
+                D[k]=D[k].copy()
+
+
+            np.savez("DDEGM.%3.3i.new.npz"%self.IDFacet,**D)
             stop
             
         if False: # # self.GD["Comp"]["GridMode"] == 0:  # really deprecated for now
