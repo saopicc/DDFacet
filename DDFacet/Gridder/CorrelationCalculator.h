@@ -37,12 +37,12 @@ namespace DDF {
       dcmplx getCorr(const double *Pfreqs, size_t visChan, double angle)
         {
         if (!ChanEquidistant)
-          return polar(1.,-Pfreqs[visChan]*angle);
+          return polar(1.,Pfreqs[visChan]*angle);
 
         /* init correlation term for first channel that it's not initialized in */
         if (CurrentCorrChan == -1)
           {
-          CurrentCorrTerm = polar(1.,-Pfreqs[visChan]*angle);
+          CurrentCorrTerm = polar(1.,Pfreqs[visChan]*angle);
           dCorrTerm       = polar(1.,(Pfreqs[1]-Pfreqs[0])*angle);
           CurrentCorrChan = int(visChan);
           }
