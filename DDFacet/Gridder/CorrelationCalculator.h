@@ -43,7 +43,7 @@ namespace DDF {
         if (CurrentCorrChan == -1)
           {
           CurrentCorrTerm = polar(1.,-Pfreqs[visChan]*angle);
-          dCorrTerm       = polar(1.,-(Pfreqs[1]-Pfreqs[0])*angle);
+          dCorrTerm       = polar(1.,(Pfreqs[1]-Pfreqs[0])*angle);
           CurrentCorrChan = int(visChan);
           }
         /* else, wind the correlation term forward by as many channels as necessary */

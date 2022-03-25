@@ -439,12 +439,15 @@ class ClassDDEGridMachine():
             Cell_x,Cell_y=CellIn
         except:
             Cell_x=Cell_y=CellIn
-
+            
         # T=ClassTimeIt.ClassTimeIt("ClassImager")
         # T.disable()
-
+        
+        #Cell_x*=-1
+        Cell_y=-1
+        
         self.Cell = Cell_x,Cell_y
-        self.incr = (np.array([-Cell_x, -Cell_y], dtype=np.float64)/3600.)*(np.pi/180)
+        self.incr = (np.array([Cell_x, Cell_y], dtype=np.float64)/3600.)*(np.pi/180)
         # CF.fill(1.)
         # print self.ChanEquidistant
         # self.FullScalarMode=int(GD["DDESolutions"]["FullScalarMode"])
@@ -776,12 +779,14 @@ class ClassDDEGridMachine():
         #    np.array([self.WTerm.Cu, self.WTerm.Cv, l0, m0, self.IDFacet]))
         
         #l0,m0 = self.lmShift
-        FacetInfos = np.float64(np.array([self.WTerm.Cv, self.WTerm.Cu, l0, m0, self.IDFacet]))
-        #FacetInfos = np.float64(np.array([self.WTerm.Cu, self.WTerm.Cv, l0, m0, self.IDFacet]))
-        #uvw1=uvw.copy()
-        #uvw1[:,0]=uvw[:,1]
-        #uvw1[:,1]=uvw[:,0]
-        #uvw=uvw1
+        #FacetInfos = np.float64(np.array([self.WTerm.Cv, self.WTerm.Cu, l0, m0, self.IDFacet]))
+        FacetInfos = np.float64(np.array([self.WTerm.Cv,self.WTerm.Cu,
+                                          m0,l0,
+                                          self.IDFacet]))
+        uvw1=uvw.copy()
+        uvw1[:,0]=uvw[:,1]
+        uvw1[:,1]=uvw[:,0]
+        uvw=uvw1
 
         self.CheckTypes(
             Grid=Grid,
