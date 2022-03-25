@@ -542,7 +542,7 @@ class ClassWTermModified():
 
                 DX = 2*lrad/Sups[i]
                 DY = 2*mrad/Sups[i]
-                m, l = np.mgrid[-lrad+DX/2:lrad-DX/2:Sups[i]
+                l, m = np.mgrid[-lrad+DX/2:lrad-DX/2:Sups[i]
                                 * 1j, -mrad+DY/2:mrad-DY/2:Sups[i]*1j]
                 # l,m=np.mgrid[-lrad:lrad:Sups[i]*1j,-lrad:lrad:Sups[i]*1j]
                 # n_1=np.sqrt(1.-l**2-m**2)-1
@@ -554,7 +554,6 @@ class ClassWTermModified():
                 # n_1=np.sqrt(1.-(l-l0)**2-(m-m0)**2)-1
                 # n_1=(1./np.sqrt(1.-l0**2-m0**2))*(l0*l+m0*m)
                 W = np.exp(-2.*1j*np.pi*wl*(n_1))
-
                 # # ###################
                 # import pylab
                 # pylab.clf()
@@ -635,9 +634,10 @@ class ClassWTermModified():
                 fzW = np.complex64(fzW).copy()
                 fzWconj = np.complex64(fzWconj).copy()
 
-                # fzW.fill(2+3*1j)
-                # fzWconj.fill(2+3*1j)
-
+                # # fzW.fill(2+3*1j)
+                # # fzWconj.fill(2+3*1j)
+                # if i==10 and self.IDFacet==10:
+                #     np.savez("W%3.3i.%3.3i.new.npz"%(i,self.IDFacet),**(locals()))
                 fzW = self.GiveReorgCF(fzW)
                 fzWconj = self.GiveReorgCF(fzWconj)
 
