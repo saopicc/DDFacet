@@ -464,6 +464,10 @@ class ClassDDEGridMachine():
         self.WProj = True
         self.Nw = Nw
         self.OverS = OverS
+
+        l0,m0=lmShift
+        lmShift=m0,l0
+        
         self.lmShift = lmShift
 
         T.timeit("4")
@@ -767,12 +771,12 @@ class ClassDDEGridMachine():
 
         #u, v, w = uvw.T
 
-        # m0, l0 = self.lmShift
+        l0, m0 = self.lmShift
         # FacetInfos = np.float64(
         #    np.array([self.WTerm.Cu, self.WTerm.Cv, l0, m0, self.IDFacet]))
         
-        m0, l0 = self.lmShift
-        FacetInfos = np.float64(np.array([self.WTerm.Cv, self.WTerm.Cu, l0, m0, self.IDFacet]))
+        #l0,m0 = self.lmShift
+        FacetInfos = np.float64(np.array([self.WTerm.Cu, self.WTerm.Cv, l0, m0, self.IDFacet]))
         uvw1=uvw.copy()
         uvw1[:,0]=uvw[:,1]
         uvw1[:,1]=uvw[:,0]
@@ -808,6 +812,13 @@ class ClassDDEGridMachine():
         #T2= ClassTimeIt.ClassTimeIt("Gridder")
         #T2.disable()
         T.timeit("stuff")
+
+        if self.IDFacet==10:
+            np.savez("DDEGM.%3.3i.new.npz"%self.IDFacet,**locals())
+            stop
+        else:
+            stop
+            
         if False: # # self.GD["Comp"]["GridMode"] == 0:  # really deprecated for now
             raise RuntimeError("Deprecated flag. Please use BDA gridder")
         elif self.GD["RIME"]["BackwardMode"] == "BDA-grid":
@@ -1011,12 +1022,12 @@ class ClassDDEGridMachine():
                     vis.shape), str(
                     flag.shape)))
 
-        # l0, m0 = self.lmShift
+        l0, m0 = self.lmShift
         # FacetInfos = np.float64(
         #     np.array([self.WTerm.Cu, self.WTerm.Cv, l0, m0, self.IDFacet]))
 
-        m0, l0 = self.lmShift
-        FacetInfos = np.float64(np.array([self.WTerm.Cv, self.WTerm.Cu, l0, m0, self.IDFacet]))
+        #m0, l0 = self.lmShift
+        FacetInfos = np.float64(np.array([self.WTerm.Cu, self.WTerm.Cv, l0, m0, self.IDFacet]))
         uvw1=uvw.copy()
         uvw1[:,0]=uvw[:,1]
         uvw1[:,1]=uvw[:,0]
