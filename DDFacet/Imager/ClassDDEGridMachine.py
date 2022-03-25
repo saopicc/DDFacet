@@ -834,8 +834,9 @@ class ClassDDEGridMachine():
                 D[k]=D[k].copy()
 
 
-            np.savez("DDEGM.%3.3i.new.npz"%self.IDFacet,**D)
-            stop
+            np.savez("DDEGM.DoPSF_%i.%3.3i.new.npz"%(self.DoPSF,self.IDFacet),**D)
+
+
             
         if False: # # self.GD["Comp"]["GridMode"] == 0:  # really deprecated for now
             raise RuntimeError("Deprecated flag. Please use BDA gridder")
