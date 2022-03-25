@@ -825,7 +825,7 @@ class ClassDDEGridMachine():
             for ThisDicoName in LSubDico:
                 Ds=D[ThisDicoName]
                 for k in Ds.keys():
-                    D[k]=Ds[k]
+                    D["%s.%s"%(ThisDicoName,k)]=Ds[k]
                     
             for k in LSubDico:
                 del(D[k])
