@@ -515,17 +515,6 @@ class ClassDDEGridMachine():
         T = ClassTimeIt.ClassTimeIt("InitCF_ClassDDEGridMachine")
         T.disable()
 
-        np.savez("WIn.%3.3i.new.npz"%self.IDFacet,
-                 Cell=self.Cell,
-                 Sup=self.Sup,
-                 Npix=self.Npix,
-                 Freqs=self.ChanFreq,
-                 wmax=wmax,
-                 Nw=self.Nw,
-                 OverS=self.OverS,
-                 lmShift=self.lmShift,
-                 IDFacet=self.IDFacet)
-
         self.WTerm = ModCF.ClassWTermModified(Cell=self.Cell,
                                               Sup=self.Sup,
                                               Npix=self.Npix,

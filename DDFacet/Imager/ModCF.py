@@ -554,7 +554,6 @@ class ClassWTermModified():
                 # n_1=np.sqrt(1.-(l-l0)**2-(m-m0)**2)-1
                 # n_1=(1./np.sqrt(1.-l0**2-m0**2))*(l0*l+m0*m)
                 W = np.exp(-2.*1j*np.pi*wl*(n_1))
-
                 # # ###################
                 # import pylab
                 # pylab.clf()
@@ -637,7 +636,8 @@ class ClassWTermModified():
 
                 # fzW.fill(2+3*1j)
                 # fzWconj.fill(2+3*1j)
-
+                if i==10 and self.IDFacet==10:
+                    np.savez("W%3.3i.%3.3i.new.npz"%(i,self.IDFacet),**(locals()))
                 fzW = self.GiveReorgCF(fzW)
                 fzWconj = self.GiveReorgCF(fzWconj)
 
