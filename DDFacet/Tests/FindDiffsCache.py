@@ -5,12 +5,12 @@ import numpy as np
 import os
 import glob
 from DDFacet.Other import ModColor
-
+import sys
 
 
 def test():
     
-    ll=sorted(glob.glob("G55*.ddfcache"))
+    ll=sorted(glob.glob("L242820_SB150_uv.dppp.pre-cal_125145DD7t_150MHz.pre-cal.ms.tsel.F0.D0.ddfcache"))
     for l in ll:
         C0=l
         C1="%s.master"%l
@@ -31,8 +31,11 @@ def CheckDir(R0,R1):
             CheckDir(F0,F1)
         else:
             if os.path.getsize(F0)==0 or os.path.getsize(F1)==0: continue
-            if "CF" in F0 or "Dirty" in F0: continue
+            if "CF" in F0 or "Dirty" in F0:
+                print("Skipping ",F0)
+                continue
             if F0[-5:]==".hash":
+                
                 pass
                 #os.system("diff %s %s"%(F0,F1))
             else:
@@ -74,4 +77,8 @@ def CheckDir(R0,R1):
                     else:
                         P=print
                     P("  %e"%diff)
+                    # if diff>0:
+                    #     stop
 
+if __name__=="__main__":
+    CheckDir(*sys.argv[1:])

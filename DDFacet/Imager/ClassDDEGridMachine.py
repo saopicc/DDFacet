@@ -435,9 +435,9 @@ class ClassDDEGridMachine():
         Nw = GD["CF"]["Nw"]
         CellIn = GD["Image"]["Cell"]
         
-        if isinstance(CellIn,np.ndarray) or isinstance(CellIn,list):
+        try:
             Cell_x,Cell_y=CellIn
-        else:
+        except:
             Cell_x=Cell_y=CellIn
 
         # T=ClassTimeIt.ClassTimeIt("ClassImager")
@@ -514,6 +514,18 @@ class ClassDDEGridMachine():
     def InitCF(self, cf_dict, compute_cf, wmax):
         T = ClassTimeIt.ClassTimeIt("InitCF_ClassDDEGridMachine")
         T.disable()
+
+        np.savez("WIn.%3.3i.new.npz"%self.IDFacet,
+                 Cell=self.Cell,
+                 Sup=self.Sup,
+                 Npix=self.Npix,
+                 Freqs=self.ChanFreq,
+                 wmax=wmax,
+                 Nw=self.Nw,
+                 OverS=self.OverS,
+                 lmShift=self.lmShift,
+                 IDFacet=self.IDFacet)
+
         self.WTerm = ModCF.ClassWTermModified(Cell=self.Cell,
                                               Sup=self.Sup,
                                               Npix=self.Npix,
