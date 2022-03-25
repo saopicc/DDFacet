@@ -813,7 +813,7 @@ class ClassDDEGridMachine():
         #T2.disable()
         T.timeit("stuff")
 
-        if self.IDFacet==10:
+        if self.IDFacet==7:
             D=locals()
 
             Ds={}
@@ -834,7 +834,7 @@ class ClassDDEGridMachine():
                 D[k]=D[k].copy()
 
 
-            np.savez("DDEGM.DoPSF_%i.%3.3i.new.npz"%(self.DoPSF,self.IDFacet),**D)
+            np.savez("DDEGM.DoPSF_%i.%3.3i.new.npz"%(DoPSF,self.IDFacet),**D)
 
 
             
