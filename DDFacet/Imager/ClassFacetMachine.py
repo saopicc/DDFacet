@@ -876,7 +876,7 @@ class ClassFacetMachine():
             if self.GD["Cache"]["CF"]:
                 self.VS.maincache.saveCache(self._cf_cachename)
             self.IsDDEGridMachineInit = True
-        stop
+
     def setCasaImage(self, ImageName=None, Shape=None, Freqs=None, Stokes=["I"]):
         if ImageName is None:
             ImageName = self.ImageName
