@@ -778,8 +778,9 @@ class ClassDDEGridMachine():
         # FacetInfos = np.float64(
         #    np.array([self.WTerm.Cu, self.WTerm.Cv, l0, m0, self.IDFacet]))
         
-        #l0,m0 = self.lmShift
-        #FacetInfos = np.float64(np.array([self.WTerm.Cv, self.WTerm.Cu, l0, m0, self.IDFacet]))
+        # l0,m0 = self.lmShift
+        # FacetInfos = np.float64(np.array([self.WTerm.Cv, self.WTerm.Cu, l0, m0, self.IDFacet]))
+        
         FacetInfos = np.float64(np.array([self.WTerm.Cu,self.WTerm.Cv,
                                           l0,m0,
                                           self.IDFacet]))

@@ -216,7 +216,7 @@ namespace DDF {
 	  const double U=uvwPtr[0];
 	  const double V=uvwPtr[1];
 	  const double W=uvwPtr[2];
-	  const double angle = 2.*PI*(U*l0+V*m0+W*n0)/C;
+	  const double angle = -2.*PI*(U*l0+V*m0+W*n0)/C;
 	  JS.WeightVaryJJ=1.;
           Corrcalc.update();
 
