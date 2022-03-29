@@ -98,20 +98,20 @@ class ClassImageDeconvMachine():
 
         self.DeconvMode="GAClean"
 
-        if self.GD["GAClean"]["InitType"] == "HMP":
+        InitType=self.GD["SSDClean"]["InitType"]
+        if InitType == "HMP":
             from . import ClassInitSSDModelHMP
             self.InitMachine = ClassInitSSDModelHMP.ClassInitSSDModelParallel(self.GD,
                                                                          NFreqBands,RefFreq,
                                                                          MainCache=self.maincache,
                                                                          IdSharedMem=self.IdSharedMem)
-        elif self.GD["GAClean"]["InitType"] == "MORESANE":
-
+        elif InitType == "MORESANE":
             from . import ClassInitSSDModelMoresane
-            self. InitMachine = ClassInitSSDModelMoresane.ClassInitSSDModelParallel(self.GD,
-                                                                                    NFreqBands, RefFreq,
-                                                                                    NCPU=self.NCPU,
-                                                                                    MainCache=self.maincache,
-                                                                                    IdSharedMem=self.IdSharedMem)
+            self.InitMachine = ClassInitSSDModelMoresane.ClassInitSSDModelParallel(self.GD,
+                                                                                   NFreqBands, RefFreq,
+                                                                                   NCPU=self.NCPU,
+                                                                                   MainCache=self.maincache,
+                                                                                   IdSharedMem=self.IdSharedMem)
         else:
             raise ValueError("InitType should be HMP or MORESANE")
         self._init_machine_initialized = False
@@ -256,7 +256,8 @@ class ClassImageDeconvMachine():
         ListIslands=IslandDistanceMachine.CalcCrossIslandFlux(ListIslands)
         ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
         ListIslands=IslandDistanceMachine.MergeIslands(ListIslands)
-
+        ListIslands=IslandDistanceMachine.BreakLargeIslands(ListIslands)
+        
         self.LabelIslandsImage=IslandDistanceMachine.CalcLabelImage(ListIslands)
 
         self.ListIslands=ListIslands
@@ -268,7 +269,9 @@ class ClassImageDeconvMachine():
         ind=np.argsort(Sz)[::-1]
 
         ListIslandsOut=[self.ListIslands[i] for i in ind]
-        self.ListIslands=ListIslandsOut
+        self.ListIslands=ListIslandsOut#[100::10][0:1]
+
+        self.NIslands=len(self.ListIslands)
 
 
 

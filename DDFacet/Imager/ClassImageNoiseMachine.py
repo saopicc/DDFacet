@@ -55,8 +55,8 @@ class ClassImageNoiseMachine():
         # self.GD["HMP"]["Alpha"]=[0,0,1]#-1.,1.,5]
         self.GD["HMP"]["Alpha"] = [0, 0, 1]
         # self.GD["Deconv"]["Mode"]="HMP"
-        # self.GD["Deconv"]["CycleFactor"]=0
-        # self.GD["Deconv"]["PeakFactor"]=0.0
+        self.GD["Deconv"]["CycleFactor"]=0#1.5
+        self.GD["Deconv"]["PeakFactor"]=0#0.01
         self.GD["Deconv"]["PSFBox"] = "full"
         self.GD["Deconv"]["MaxMinorIter"] = 10000
         self.GD["Deconv"]["RMSFactor"] = 3.
@@ -90,7 +90,7 @@ class ClassImageNoiseMachine():
         # MinorCycleConfig["RefFreq"] = self.RefFreq
         # MinorCycleConfig["CleanMaskImage"]=None
         self.MinorCycleConfig = MinorCycleConfig
-        if self.GD["Deconv"]["Mode"] in ["HMP", "SSD"]:
+        if self.GD["Deconv"]["Mode"] in ["HMP", "SSD", "SSD2", "MultiSlice"]:
             # for SSD we need to set up the HMP ModelMachine.
             self.GD["Deconv"]["Mode"] = "HMP"
             ModConstructor = ClassModModelMachine(self.GD)
@@ -114,9 +114,9 @@ class ClassImageNoiseMachine():
         elif self.GD["Deconv"]["Mode"] == "WSCMS":
             from DDFacet.Imager.WSCMS import ClassImageDeconvMachineWSCMS
             self.DeconvMachine = ClassImageDeconvMachineWSCMS.ClassImageDeconvMachine(MainCache=self.MainCache,
-                                                                                       ParallelMode=True,
-                                                                                       CacheFileName="HMP_Masking",
-                                                                                       **self.MinorCycleConfig)
+                                                                                      ParallelMode=True,
+                                                                                      CacheFileName="HMP_Masking",
+                                                                                      **self.MinorCycleConfig)
         else:
             raise NotImplementedError("Mode %s not compatible with automasking" % self.GD["Deconv"]["Mode"])
 
@@ -237,9 +237,16 @@ class ClassImageNoiseMachine():
 
         print("  Getting model image...", file=log)
         Model=self.ModelMachine.GiveModelImage(DoAbs=True)
+            
         if "Comp" in self.ExternalModelMachine.DicoSMStacked.keys():
             Model+=np.abs(self.ExternalModelMachine.GiveModelImage())
-        ModelImage=Model[0,0]
+
+        if "JonesNorm" in self.DicoDirty.keys():
+            nchIm,npolIm,nxIm,nyIm=self.DicoDirty["JonesNorm"].shape
+            MeanBeam=np.sum(self.DicoDirty["WeightChansImages"].reshape((nchIm,1,1,1))*self.DicoDirty["JonesNorm"],axis=0).reshape((1,npolIm,nxIm,nyIm))
+            Model*=np.sqrt(MeanBeam)
+            
+        # ModelImage=Model[0,0]
 
         print("  Convolving image with beam %s..."%str(self.DicoVariablePSF["EstimatesAvgPSF"][1]), file=log)
         #from DDFacet.ToolsDir import Gaussian

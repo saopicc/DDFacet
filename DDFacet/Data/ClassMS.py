@@ -61,7 +61,10 @@ from DDFacet.Other.progressbar import ProgressBar
 
 
 class ClassMS():
-    def __init__(self,MSname,Col="DATA",zero_flag=True,ReOrder=False,EqualizeFlag=False,DoPrint=True,DoReadData=True,
+    def __init__(self,MSname,
+                 Col="DATA",
+                 SubCol=None,
+                 zero_flag=True,ReOrder=False,EqualizeFlag=False,DoPrint=True,DoReadData=True,
                  TimeChunkSize=None,GetBeam=False,RejectAutoCorr=False,SelectSPW=None,DelStationList=None,
                  AverageTimeFreq=None,
                  Field=0,DDID=0,TaQL=None,ChanSlice=None,GD=None,
@@ -103,6 +106,8 @@ class ClassMS():
         self.MSName = MSName = reformat.reformat(os.path.abspath(MSname), LastSlash=False)
         
         self.ColName=Col
+        self.SubColName=SubCol
+        
         self.ChanSlice = ChanSlice or slice(None)
         self.zero_flag=zero_flag
         self.ReOrder=ReOrder
@@ -386,7 +391,7 @@ class ClassMS():
             row1=self.nbl
         A0=self.F_A0[row0:row1]
         A1=self.F_A1[row0:row1]
-        MapOut=np.ones((self.nbl,),dtype=np.bool)
+        MapOut=np.ones((self.nbl,),dtype=bool)
         if FlagAutoCorr:
             ind=np.where(A0==A1)[0]
             MapOut[ind]=False
@@ -680,13 +685,29 @@ class ClassMS():
                 if sort_index is not None:
                     visdata1 = np.ndarray(shape=datashape, dtype=np.complex64)
                     table_all.getcolslicenp(self.ColName, visdata1, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
+                    if self.SubColName is not None:
+                        for SubCol in self.SubColName:
+                            print("  substracting MS visibilities from column %s" % SubCol, file=log)
+                            visdata2 = np.ndarray(shape=datashape, dtype=np.complex64)
+                            table_all.getcolslicenp(SubCol, visdata2, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
+                            visdata1-=visdata2
+                            del visdata2
                     print("sorting visibilities", file=log)
                     t0 = time.time()
                     visdata[...] = visdata1[sort_index]
                     del visdata1
                     print("sorting took %.1fs"%(time.time()-t0), file=log)
                 else:
+                    #print(self.ColName, visdata.shape, visdata.dtype, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                     table_all.getcolslicenp(self.ColName, visdata, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
+                    if self.SubColName is not None:
+                        for SubCol in self.SubColName:
+                            print("  substracting MS visibilities from column %s" % SubCol, file=log)
+                            visdata2 = np.ndarray(shape=datashape, dtype=np.complex64)
+                            table_all.getcolslicenp(SubCol, visdata2, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
+                            visdata-=visdata2
+                            del visdata2
+                    #visdata[...]=table_all.getcolslice(self.ColName, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                 if self._reverse_channel_order:
                     visdata[:,:,:]= visdata[:,::-1,:]
   
@@ -977,6 +998,7 @@ class ClassMS():
         # get list of corrype enums for first row of polarization table, and convert to strings via MS_STOKES_ENUMS. 
         # self.CorrelationNames will be a list of strings
         self.CorrelationIds = tp.getcol('CORR_TYPE',self._polid,1)[0]
+
         self.CorrelationNames = [ (ctype >= 0 and ctype < len(MS_STOKES_ENUMS) and MS_STOKES_ENUMS[ctype]) or
                 None for ctype in self.CorrelationIds ]
         self.Ncorr = len(self.CorrelationNames)
@@ -1091,6 +1113,17 @@ class ClassMS():
 
         ta=table(table_all.getkeyword('FIELD'),ack=False)
         rarad,decrad=ta.getcol('PHASE_DIR')[self.Field][0]
+        if np.abs(decrad)>=np.pi/2:
+            log.print(ModColor.Str("BE CAREFUL SOME SOFTWARE HAVE BEEN SHOWN TO NOT PROPERLY MANAGE DEC=90 DEGREES"))
+            log.print(ModColor.Str("   ... will slightly move the assumed phase center..."))
+            U,V,W=table_all.getcol("UVW").T
+            d=np.max(np.sqrt(U**2+V**2))
+            wavelmin=3e8/self.ChanFreq.max()
+            ddecrad=(wavelmin/d)/100
+            decrad-=ddecrad
+            ddec_arcsec=ddecrad*180/np.pi*3600
+            log.print(ModColor.Str("   ... moving phase center by 1/100th of a resolution element... (%.3f arcsec))"%ddec_arcsec))
+            
         if rarad<0.: rarad+=2.*np.pi
         self.OriginalRadec = self.OldRadec = rarad,decrad
 
@@ -1100,6 +1133,11 @@ class ClassMS():
             if self.ToRADEC == "align":
                 if first_ms is not None:
                     ranew, decnew = first_ms.rarad, first_ms.decrad
+                    # if (ranew, decnew)!=self.OriginalRadec:
+                    #     self.GD["Image"]["PhaseCenterRADEC"]=[rad2hmsdms(first_ms.rarad,Type="ra").replace(" ",":"),rad2hmsdms(first_ms.decrad,Type="dec").replace(" ",":")]
+                    #     log.print("PhaseCenterRADEC in 'align'")
+                    #     log.print("   set the PhaseCenterRADEC in the parset to be: %s"%str(self.GD["Image"]["PhaseCenterRADEC"]))
+
                 which = "the common phase centre"
             else:
                 which = "%s %s"%tuple(self.ToRADEC)
@@ -1250,9 +1288,9 @@ class ClassMS():
         antenna_flagfrac = [flags1[rows].sum() / float(flags1[rows].size or 1) for rows in antenna_rows]
         print("  flagged fractions per antenna: %s" % " ".join(["%.2f" % frac for frac in antenna_flagfrac]), file=log)
 
+        
         FlagAntFrac = [ant for ant, frac in enumerate(antenna_flagfrac) if frac > ThresholdFlag]
         FlagAntNumber.update(FlagAntFrac)
-
         for A in FlagAntFrac:
             print("    antenna %i has ~%4.1f%s of flagged data (more than %4.1f%s)" % \
                          (A, antenna_flagfrac[A] * 100, "%", ThresholdFlag * 100, "%"), file=log)
@@ -1282,9 +1320,10 @@ class ClassMS():
         ll.append("   - Phase centre (field %d): (ra, dec)=(%s, %s) "%(self.Field, rad2hmsdms(rarad,Type="ra").replace(" ",":")\
                                                                        ,rad2hmsdms(decrad,Type="dec").replace(" ",".")))
         ll.append("   - Frequency = %s MHz"%str(np.mean(self.ChanFreq)/1e6))
-        ll.append("   - Wavelength = %5.2f meters"%(np.mean(self.wavelength_chan)))
+        #ll.append("   - Wavelength = %5.2f meters"%(np.mean(self.wavelength_chan)))
         Freqs=3.e8/self.wavelength_chan.ravel()/1e6
-        ll.append("   - Channel frequencies = %s MHz"%(str((self.ChanFreq/1e6).tolist())))
+        s=" ".join(["%.2f"%x for x in Freqs])
+        ll.append("   - Channel frequencies = %s"%(DDFacet.Other.PrintList.ListToStr(s.split(" "),Unit="MHz")))
         ll.append("   - Bandwidth = %5.2f MHz"%(np.max(Freqs)-np.min(Freqs)))
         ll.append("   - Time bin = %4.1f seconds"%(self.dt))
         ll.append("   - Total Integration time = %6.2f hours"%self.DTh)
@@ -1307,8 +1346,12 @@ class ClassMS():
         return l,m
 
 
-    def PutVisColumn(self, colname, vis, row0, row1, likecol="DATA", sort_index=None):
-        self.AddCol(colname, LikeCol=likecol, quiet=True)
+    def PutVisColumn(self, colname, vis, row0, row1, likecol="DATA", sort_index=None, ColDesc=None):
+        self.AddCol(colname,
+                    LikeCol=likecol,
+                    quiet=True,
+                    ColDesc=ColDesc)
+        
         nrow = row1 - row0
         if self._reverse_channel_order:
             vis = vis[:,::-1,...]
@@ -1330,6 +1373,10 @@ class ClassMS():
             except RuntimeError:
                 vis0 = t.getcol("DATA", row0, nrow)
             vis0[:, self.ChanSlice, ...] = vis[reverse_index, :, ...]
+            IsNan=np.isnan(vis0)
+            if np.count_nonzero(IsNan)>0:
+                log.print(ModColor.Str("There are NaNs in the array to be put in %s, replacing by zeros..."%colname))
+                vis0[IsNan]=0
             t.putcol(colname, vis0, row0, nrow)
         else:
             if sort_index is None:
@@ -1343,8 +1390,12 @@ class ClassMS():
                                   "contains 2D axis. We will assume this means nrow x nchan x (ncorr == 1). "
                                   "Please notify your observatory of this issue.")
                     vis0 = np.zeros((nrow,vis.shape[1]),vis.dtype)
-                    
                 vis0[sort_index,...] = vis
+
+            IsNan=np.isnan(vis0)
+            if np.count_nonzero(IsNan)>0:
+                log.print(ModColor.Str("  There are NaNs in the array to be put in %s, replacing by zeros..."%colname))
+                vis0[IsNan]=0
             t.putcol(colname, vis0, row0, nrow)
         t.close()
 
@@ -1477,7 +1528,7 @@ class ClassMS():
                 t.putcol(Colout,t.getcol(Colin,row0,NRow),row0,NRow)
         t.close()
 
-    def AddCol(self,ColName,LikeCol="DATA",quiet=False):
+    def AddCol(self,ColName,LikeCol="DATA",quiet=False,ColDesc=None):
         t=table(self.MSName,readonly=False,ack=False)
         if (ColName in t.colnames()):# and not self.GD["Predict"]["Overwrite"]):
             if not quiet:
@@ -1486,11 +1537,16 @@ class ClassMS():
             return
         # elif (ColName in t.colnames() and self.GD["Predict"]["Overwrite"]):
         #     t.removecols(ColName)
+        if ColDesc is None:
+            if "-" in LikeCol:
+                LikeCol=LikeCol.split("-")[0]
 
-        print("  Putting column %s in %s"%(ColName,self.MSName), file=log)
-        desc=t.getcoldesc(LikeCol)
+            desc=t.getcoldesc(LikeCol)
+        else:
+            desc=ColDesc
         desc["name"]=ColName
         desc['comment']=desc['comment'].replace(" ","_")
+        print("  Putting column %s in %s"%(ColName,self.MSName), file=log)
         t.addcols(desc)
         t.close()
         

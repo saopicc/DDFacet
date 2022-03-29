@@ -135,9 +135,7 @@ def DicoNPToFile(Dico,FileOut):
     Save(DicoSave,FileOut)
 
 def FileToDicoNP(FileIn):
-    
     D=Load(FileIn)
-    
     DicoOut={}
     for key in D.keys():
         Obj=D[key]

@@ -35,12 +35,14 @@ from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Data import ClassLOFARBeam
 from DDFacet.Data import ClassFITSBeam
 from DDFacet.Data import ClassGMRTBeam
-
+from DDFacet.Data import ClassATCABeam as ClassATCABeam
 # import ClassSmoothJones is not used anywhere, should be able to remove it
+
 import tables
 import glob
 from scipy.interpolate import interp1d
 import casacore.tables as pt
+import DDFacet.Other.PrintList
 
 def _which_solsfile(sol_files, req_times, solset, apply_map):
     central_time = np.mean(np.unique(req_times))
@@ -202,7 +204,9 @@ class ClassJones():
 
             self.HasKillMSSols = True
 
+
         ApplyBeam=(GD["Beam"]["Model"] is not None) and (GD["Beam"]["Model"]!="")
+
         if ApplyBeam:
             self.ApplyCal = True
             valid=False
@@ -274,7 +278,6 @@ class ClassJones():
         print("  %s.npz loaded" % InName, file=log)
         Jones=np.load("%s.npy"%InName)
         print("  %s.npy loaded" % InName, file=log)
-
 
         DicoClusterDirs = {}
         DicoClusterDirs["l"] = SolsFile["l"]
@@ -460,7 +463,8 @@ class ClassJones():
             
             DicoClusterDirs, DicoSols, VisToJonesChanMapping = self.GiveKillMSSols_SingleFile(
                 File, GlobalMode=ThisGlobalMode, JonesMode=ThisJonesMode)
-            print("  VisToJonesChanMapping: %s" % str(VisToJonesChanMapping), file=log)
+
+            print("  VisToJonesChanMapping: %s" % DDFacet.Other.PrintList.ListToStr(VisToJonesChanMapping), file=log)
             ListDicoSols.append(DicoSols)
             #if isol==1: stop
             #isol+=1
@@ -473,7 +477,7 @@ class ClassJones():
         for DicoJones1 in ListDicoSols[1::]:
             DicoJones = self.MergeJones(DicoJones1, DicoJones)
             VisToJonesChanMapping = self.GiveVisToJonesChanMapping(DicoJones["FreqDomains"])
-            print("  VisToJonesChanMapping: %s" % str(VisToJonesChanMapping), file=log)
+            print("  VisToJonesChanMapping: %s" % DDFacet.Other.PrintList.ListToStr(VisToJonesChanMapping), file=log)
         #stop
         DicoJones["VisToJonesChanMapping"] = VisToJonesChanMapping
 
@@ -950,7 +954,9 @@ class ClassJones():
         elif GD["Beam"]["Model"] == "GMRT":
             self.BeamMachine = ClassGMRTBeam.ClassGMRTBeam(self.MS, GD["Beam"])
             self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam
-
+        elif GD["Beam"]["Model"] == "ATCA":
+            self.BeamMachine = ClassATCABeam.ClassATCABeam(self.MS,GD["Beam"])
+            self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam
             # self.DtBeamDeg = GD["Beam"]["FITSParAngleIncrement"]
             # print>>log, "  Estimating FITS beam model every %5.1f min."%DtBeamMin
         else:
@@ -1009,7 +1015,7 @@ class ClassJones():
 
         DicoBeam["VisToJonesChanMapping"]=self.GiveVisToJonesChanMapping(FreqDomains)
         if not quiet:
-            print("VisToJonesChanMapping: %s"%DicoBeam["VisToJonesChanMapping"], file=log)
+            print("VisToJonesChanMapping: %s"%DDFacet.Other.PrintList.ListToStr(DicoBeam["VisToJonesChanMapping"]), file=log)
 
 
         DicoBeam["Jones"]=np.zeros((Tm.size,NDir,self.MS.na,FreqDomains.shape[0],2,2),dtype=np.complex64)
@@ -1022,6 +1028,7 @@ class ClassJones():
         rac,decc=self.MS.OriginalRadec
         pBAR= ProgressBar(Title="  Init E-Jones ")#, HeaderSize=10,TitleSize=13)
         if not progressBar: pBAR.disable()
+        # pBAR.disable()
         pBAR.render(0, Tm.size)
         for itime in range(Tm.size):
             DicoBeam["t0"][itime]=T0s[itime]

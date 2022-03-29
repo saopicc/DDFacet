@@ -14,6 +14,7 @@ from DDFacet.Other import logger
 log=logger.getLogger("ClassArrayMethodSSD")
 import multiprocessing
 import queue
+
 import psutil
 
 from DDFacet.Imager.SSD import ClassConvMachine

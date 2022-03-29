@@ -42,8 +42,8 @@ class ClassMoresaneSingleSlice(FI):
             self.mask_name="NumpyMask"
             self.mask = mask
             self.mask = self.mask.reshape(self.mask.shape[-2], self.mask.shape[-1])
-            self.mask = self.mask/np.max(self.mask)
-            self.mask = fftconvolve(self.mask,np.ones([5,5]),mode="same")
+            #self.mask = self.mask/np.max(self.mask)
+            #self.mask = fftconvolve(self.mask,np.ones([5,5]),mode="same")
             self.mask = self.mask/np.max(self.mask)
 
         self.dirty_data_shape = self.dirty_data.shape
@@ -60,3 +60,4 @@ class ClassMoresaneSingleSlice(FI):
             self.moresane(*args,**kwargs)
         return self.model,self.residual
 
+    

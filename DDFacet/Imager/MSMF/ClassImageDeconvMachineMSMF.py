@@ -308,7 +308,7 @@ class ClassImageDeconvMachine():
                                 self._initMSM_facet(iFacet, fcdict, None,
                                                     self.SideLobeLevel, self.OffsetSideLobe, MSM0=MSM0, verbose=False)
 
-                if self.ParallelMode:
+                if self.ParallelMode and self.PSFServer.NFacets>1:
                     APP.awaitJobResults("InitHMP:*", progress="Init HMP")
                     self.facetcache.reload()
 
@@ -358,11 +358,11 @@ class ClassImageDeconvMachine():
         W = np.float32(self.DicoDirty["WeightChansImages"])
         self._band_weights = W.reshape(W.size)[:, np.newaxis, np.newaxis, np.newaxis]
 
-        if self._peakMode is "sigma":
+        if self._peakMode == "sigma":
             print("Will search for the peak in the SNR-weighted dirty map", file=log)
             a, b = self._MeanDirty, self._NoiseMap.reshape(self._MeanDirty.shape)
             self._PeakSearchImage = numexpr.evaluate("a/b")
-        elif self._peakMode is "weighted":
+        elif self._peakMode == "weighted":
             print("Will search for the peak in the weighted dirty map", file=log)
             a, b = self._MeanDirty, self._peakWeightImage
             self._PeakSearchImage = numexpr.evaluate("a*b")
@@ -527,7 +527,7 @@ class ClassImageDeconvMachine():
         cube, sm = self._CubeDirty[:,:,x0d:x1d,y0d:y1d], LocalSM[:,:,x0p:x1p,y0p:y1p]
 
 
-        # if self.DoPlot:
+        # if True:#self.DoPlot:
         #     AA0=cube[0,0,:,:].copy()
         #     vmin,vmax=np.min(AA0),np.max(AA0)
         #     AA1=sm[0,0,:,:].copy()
@@ -543,7 +543,7 @@ class ClassImageDeconvMachine():
         #     pylab.imshow((AA0-AA1),interpolation="nearest")
         #     pylab.colorbar()
         #     pylab.draw()
-        #     pylab.show(False)
+        #     pylab.show(block=False)
         #     pylab.pause(0.1)
 
         numexpr.evaluate('cube-sm',out=cube,casting="unsafe")
@@ -576,10 +576,10 @@ class ClassImageDeconvMachine():
             # stop
 
             
-        if self._peakMode is "sigma":
+        if self._peakMode == "sigma":
             a, b = self._MeanDirty[:, :, x0d:x1d, y0d:y1d], self._NoiseMap[:, :, x0d:x1d, y0d:y1d]
             numexpr.evaluate("a/b", out=self._PeakSearchImage[:,:,x0d:x1d,y0d:y1d])
-        elif self._peakMode is "weighted":
+        elif self._peakMode == "weighted":
             a, b = self._MeanDirty[:, :, x0d:x1d, y0d:y1d], self._peakWeightImage[:, :, x0d:x1d, y0d:y1d]
             numexpr.evaluate("a*b", out=self._PeakSearchImage[:, :, x0d:x1d, y0d:y1d])
 
@@ -593,17 +593,19 @@ class ClassImageDeconvMachine():
         # #unc print Bedge
         # # print self.Dirty[0,x0d:x1d,y0d:y1d]
 
-    def Plot(self):
+    def Plot(self,label=None):
         import pylab
         pylab.clf()
-        pylab.subplot(1,3,1)
-        pylab.imshow(self._CubeDirty[0,0])
-        pylab.colorbar()
-        pylab.subplot(1,3,2)
-        pylab.imshow(self._CubeDirty[1,0])
-        pylab.colorbar()
+        nch=self._CubeDirty.shape[0]
+        for ich in range(nch):
+            pylab.subplot(1,nch,ich+1)
+            pylab.imshow(self._CubeDirty[ich,0])
+            pylab.colorbar()
+        if label is not None:
+            pylab.suptitle(label)
         pylab.draw()
-        pylab.show()
+        pylab.show(block=False)
+        pylab.pause(0.1)
 
         
     def updateRMS(self):
@@ -673,11 +675,11 @@ class ClassImageDeconvMachine():
         x,y,MaxDirty = NpParallel.A_whereMax(self._PeakSearchImage,NCPU=self.NCPU,DoAbs=DoAbs,Mask=CurrentNegMask)
 
         # ThisFlux is evaluated against stopping criteria. In weighted mode, use the true flux. Else use sigma value.
-        ThisFlux = self._MeanDirty[0,0,x,y] if self._peakMode is "weighted" else MaxDirty
+        ThisFlux = self._MeanDirty[0,0,x,y] if self._peakMode == "weighted" else MaxDirty
         if DoAbs:
             ThisFlux = abs(ThisFlux)
         # in weighted or noisemap mode, look up the true max as well
-        trueMaxDirty = MaxDirty if self._peakMode is "normal" else ThisFlux
+        trueMaxDirty = MaxDirty if self._peakMode == "normal" else ThisFlux
         # return condition indicating cleaning is to be continued
         cont = True
 
@@ -726,9 +728,9 @@ class ClassImageDeconvMachine():
 
         print("    Dirty image peak           = %10.6g Jy [(min, max) = (%.3g, %.3g) Jy]" % (
             trueMaxDirty, mm0, mm1), file=log)
-        if self._peakMode is "sigma":
+        if self._peakMode == "sigma":
             print("      in sigma units           = %10.6g" % MaxDirty, file=log)
-        elif self._peakMode is "weighted":
+        elif self._peakMode == "weighted":
             print("      weighted peak flux is    = %10.6g Jy" % MaxDirty, file=log)
         print("      RMS-based threshold      = %10.6g Jy [rms = %.3g Jy; RMS factor %.1f]" % (
             Fluxlimit_RMS, RMS, self.RMSFactor), file=log)
@@ -798,6 +800,19 @@ class ClassImageDeconvMachine():
                 # x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
                 x, y, peak = NpParallel.A_whereMax(
                     self._PeakSearchImage, NCPU=self.NCPU, DoAbs=DoAbs, Mask=CurrentNegMask)
+                
+                # nch,npol,nx0,ny0=self._CubeDirty.shape
+                # peak=0.
+                # ichb=0
+                # for ich in range(nch):
+                #     x0, y0, peak0 = NpParallel.A_whereMax(self._CubeDirty[ich].reshape((1,npol,nx0,ny0)),
+                #                                           NCPU=self.NCPU, DoAbs=DoAbs, Mask=CurrentNegMask)
+                #     if peak0>peak:
+                #         peak=peak0
+                #         x,y=x0,y0
+                #         ichb=ich
+                # print(ichb,peak)
+                
                 if self.GD["HMP"]["FractionRandomPeak"] is not None:
                     op=lambda x: x
                     if DoAbs: op=lambda x: np.abs(x)
@@ -807,7 +822,7 @@ class ClassImageDeconvMachine():
                     peak=op(self._PeakSearchImage[0,0,x,y])
 
 
-                ThisFlux = float(self._MeanDirty[0,0,x,y] if self._peakMode is "weighted" else peak)
+                ThisFlux = float(self._MeanDirty[0,0,x,y] if self._peakMode == "weighted" else peak)
                 if DoAbs:
                     ThisFlux = abs(ThisFlux)
 
@@ -889,7 +904,7 @@ class ClassImageDeconvMachine():
                 if i >= 10 and i % rounded_iter_step == 0:
                     # if self.GD["Debug"]["PrintMinorCycleRMS"]:
                     rms = np.std(np.real(self._PeakSearchImage.ravel()[self.IndStats]))
-                    if self._peakMode is "weighted":
+                    if self._peakMode == "weighted":
                         print("    [iter=%i] peak residual %.3g, gain %.3g, rms %g, PNR %.3g (weighted peak %.3g at x=%d y=%d)" % 
                                 (i, ThisFlux, fluxgain, rms, ThisFlux/rms, peak, x, y), file=log)
                     else:
@@ -898,6 +913,7 @@ class ClassImageDeconvMachine():
                     #     print >>log, "    [iter=%i] peak residual %.3g" % (
                     #         i, ThisFlux)
                     ClassMultiScaleMachine.CleanSolutionsDump.flush()
+                    #self.Plot()
 
                 nch, npol, _, _ = self._CubeDirty.shape
                 Fpol = np.float32(
@@ -917,9 +933,10 @@ class ClassImageDeconvMachine():
                 PSF = self.PSFServer.GivePSF()
                 MSMachine = self.DicoMSMachine[self.PSFServer.iFacet]
 
+                T.timeit("stuff2")
                 LocalSM = MSMachine.GiveLocalSM(x, y, Fpol)
 
-                T.timeit("FindScale")
+                T.timeit("GiveLocalSM")
                 # print iScale
 
                 # if iScale=="BadFit": continue
@@ -946,6 +963,7 @@ class ClassImageDeconvMachine():
                 self.SubStep(x,y,LocalSM)
                 T.timeit("SubStep")
 
+                # self.Plot(label=i)
                 # pylab.subplot(1,2,2)
                 # pylab.imshow(self.Dirty[0][x0:x1,y0:y1],interpolation="nearest",vmin=mm0,vmax=mm1)#,vmin=m0,vmax=m1)
 

@@ -172,7 +172,7 @@ def monitorMem():
 
             pylab.draw()
             #pylab.show()
-            pylab.show(False)
+            pylab.show(block=False)
             pylab.pause(0.5)
 
 

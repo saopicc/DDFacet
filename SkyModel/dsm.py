@@ -1,8 +1,14 @@
-#!/usr/bin/python
-from __future__ import division, absolute_import, print_function
+#!/usr/bin/env python
+#from __future__ import division, absolute_import, print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+import pyrap
 
 import os
 import sys
+
+from pyrap.tables import table
 from pyrap.images import image
 import glob
 import numpy as np
@@ -26,6 +32,6 @@ if __name__=="__main__":
 
     S=" ".join(S)
 
-    ss="ds9 -cmap bb -scalelims %f %f %s -lock frame wcs -lock scale yes -match scalelimits -match scale -match colorbar -lock colorbar yes -view vertical"%(vmin,vmax,S)
+    ss="ds9 -cmap bb -scalelims %f %f %s -lock slice image -lock frame wcs -lock scale yes -match scalelimits -match scale -match colorbar -lock colorbar yes -view vertical"%(vmin,vmax,S)
     print(ss)
     os.system(ss)

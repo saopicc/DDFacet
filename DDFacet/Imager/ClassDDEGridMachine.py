@@ -321,6 +321,7 @@ class ClassDDEGridMachine():
                  cf_dict=None, compute_cf=False,
                  wmax=None,   # must be supplied if compute_cf=True
                  bda_grid=None, bda_degrid=None,
+                 Padding=None,
                  ):
         """
 
@@ -367,7 +368,9 @@ class ClassDDEGridMachine():
             self.dtype = np.complex128
 
         T.timeit("0")
-        Padding = GD["Facets"]["Padding"]
+        if Padding is None:
+            Padding = GD["Facets"]["Padding"]
+        
         self.NonPaddedNpix, Npix = EstimateNpix(Npix, Padding)
         self.Padding = Npix/float(self.NonPaddedNpix)
         # self.Padding=Padding
@@ -813,6 +816,7 @@ class ClassDDEGridMachine():
                     np.int32(ChanMapping),
                     np.array(self.DataCorrelationFormat).astype(np.uint16),
                     np.array(self.ExpectedOutputStokes).astype(np.uint16))
+        #endif BDA-grid
 
             T.timeit("gridder")
             T.timeit("grid %d" % self.IDFacet)
@@ -844,7 +848,7 @@ class ClassDDEGridMachine():
                                               FacetInfos],
                                           ParamJonesList,
                                           self._bda_grid,
-                                          sparsification if sparsification is not None else np.array([], dtype=np.bool),
+                                          sparsification if sparsification is not None else np.array([], dtype=bool),
                                           OptimisationInfos,
                                           self.LSmear,
                                           np.int32(ChanMapping),
@@ -1097,7 +1101,7 @@ class ClassDDEGridMachine():
                 [self.PolMap, FacetInfos, RowInfos],
                 ParamJonesList, 
                 self._bda_degrid,
-                sparsification if sparsification is not None else np.array([], dtype=np.bool),
+                sparsification if sparsification is not None else np.array([], dtype=bool),
                 OptimisationInfos,
                 self.LSmear, np.int32(ChanMapping),
                 np.array(self.DataCorrelationFormat).astype(np.uint16),
@@ -1131,7 +1135,7 @@ class ClassDDEGridMachine():
                 [self.PolMap, FacetInfos, RowInfos],
                 ParamJonesList, 
                 self._bda_degrid,
-                sparsification if sparsification is not None else np.array([], dtype=np.bool),
+                sparsification if sparsification is not None else np.array([], dtype=bool),
                 OptimisationInfos,
                 self.LSmear, np.int32(ChanMapping),
                 np.array(self.DataCorrelationFormat).astype(np.uint16),
