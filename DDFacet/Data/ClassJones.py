@@ -36,12 +36,14 @@ from DDFacet.Data import ClassLOFARBeam
 from DDFacet.Data import ClassFITSBeam
 from DDFacet.Data import ClassGMRTBeam
 from DDFacet.Data import ClassATCABeam as ClassATCABeam
+
 # import ClassSmoothJones is not used anywhere, should be able to remove it
 
 import tables
 import glob
 from scipy.interpolate import interp1d
 import casacore.tables as pt
+import hashlib
 import DDFacet.Other.PrintList
 
 def _which_solsfile(sol_files, req_times, solset, apply_map):
@@ -204,13 +206,23 @@ class ClassJones():
 
             self.HasKillMSSols = True
 
-
         ApplyBeam=(GD["Beam"]["Model"] is not None) and (GD["Beam"]["Model"]!="")
-
         if ApplyBeam:
             self.ApplyCal = True
             valid=False
             if self.CacheMode:
+                def __hashjsonbeamsets(GD):
+                    beamsets = GD["Beam"]["FITSFile"]
+                    if not isinstance(beamsets, list):
+                        beamsets = beamsets.split(',')
+                    lbeamsethashes = {}
+                    for bs in beamsets:
+                        if os.path.splitext(bs)[1] == ".json":
+                            if os.path.exists(bs):
+                                with open(bs, "r") as fbs:
+                                    lbeamsethashes["bs"] = hashlib.md5(fbs.read().encode()).hexdigest()
+                    return lbeamsethashes
+
                 self.JonesNormSolsFile_Beam, valid = self.MS.cache.checkCache("JonesNorm_Beam.npz", 
                                                                               dict(VisData=GD["Data"], 
                                                                                    Beam=GD["Beam"], 
@@ -956,11 +968,9 @@ class ClassJones():
             self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam
         elif GD["Beam"]["Model"] == "ATCA":
             self.BeamMachine = ClassATCABeam.ClassATCABeam(self.MS,GD["Beam"])
-            self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam
-            # self.DtBeamDeg = GD["Beam"]["FITSParAngleIncrement"]
-            # print>>log, "  Estimating FITS beam model every %5.1f min."%DtBeamMin
+            self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam            
         else:
-            raise ValueError("Unknown keyword for Beam-Model. Only accepts 'FITS' or 'LOFAR'")
+            raise ValueError("Unknown keyword for Beam-Model. Only accepts 'FITS', 'LOFAR', 'GMRT' or 'ATCA'")
 
     def GiveBeam(self, times, quiet=False,RaDec=None):
         GD = self.GD
@@ -1028,7 +1038,6 @@ class ClassJones():
         rac,decc=self.MS.OriginalRadec
         pBAR= ProgressBar(Title="  Init E-Jones ")#, HeaderSize=10,TitleSize=13)
         if not progressBar: pBAR.disable()
-        # pBAR.disable()
         pBAR.render(0, Tm.size)
         for itime in range(Tm.size):
             DicoBeam["t0"][itime]=T0s[itime]
