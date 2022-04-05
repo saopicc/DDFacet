@@ -444,10 +444,10 @@ class ClassDDEGridMachine():
         # T.disable()
         
         #Cell_x*=-1
-        Cell_y=-1
+        #Cell_y=-1
         
         self.Cell = Cell_x,Cell_y
-        self.incr = (np.array([Cell_x, Cell_y], dtype=np.float64)/3600.)*(np.pi/180)
+        self.incr = (np.array([-Cell_x, -Cell_y], dtype=np.float64)/3600.)*(np.pi/180)
         # CF.fill(1.)
         # print self.ChanEquidistant
         # self.FullScalarMode=int(GD["DDESolutions"]["FullScalarMode"])
@@ -539,30 +539,30 @@ class ClassDDEGridMachine():
     def setSols(self, times, xi):
         self.Sols = {"times": times, "xi": xi}
 
-    def ShiftVis(self, uvw, vis, reverse=False):
-        l0, m0 = self.lmShift
-        u, v, w = uvw.T
-        U = u.reshape((u.size, 1))
-        V = v.reshape((v.size, 1))
-        W = w.reshape((w.size, 1))
-        n0 = np.sqrt(1-l0**2-m0**2)-1
-        if reverse:
-            corr = np.exp(-self.UVNorm*(U*l0+V*m0+W*n0))
-        else:
-            corr = np.exp(self.UVNorm*(U*l0+V*m0+W*n0))
+    # def ShiftVis(self, uvw, vis, reverse=False):
+    #     l0, m0 = self.lmShift
+    #     u, v, w = uvw.T
+    #     U = u.reshape((u.size, 1))
+    #     V = v.reshape((v.size, 1))
+    #     W = w.reshape((w.size, 1))
+    #     n0 = np.sqrt(1-l0**2-m0**2)-1
+    #     if reverse:
+    #         corr = np.exp(-self.UVNorm*(U*l0+V*m0+W*n0))
+    #     else:
+    #         corr = np.exp(self.UVNorm*(U*l0+V*m0+W*n0))
         
-        U += W*self.WTerm.Cu
-        V += W*self.WTerm.Cv
+    #     U += W*self.WTerm.Cu
+    #     V += W*self.WTerm.Cv
 
-        corr = corr.reshape((U.size, self.UVNorm.size, 1))
-        vis *= corr
+    #     corr = corr.reshape((U.size, self.UVNorm.size, 1))
+    #     vis *= corr
 
-        U = U.reshape((U.size,))
-        V = V.reshape((V.size,))
-        W = W.reshape((W.size,))
-        uvw = np.array((U, V, W)).T.copy()
+    #     U = U.reshape((U.size,))
+    #     V = V.reshape((V.size,))
+    #     W = W.reshape((W.size,))
+    #     uvw = np.array((U, V, W)).T.copy()
 
-        return uvw, vis
+    #     return uvw, vis
 
     def reinitGrid(self):
         # self.Grid.fill(0)
@@ -594,7 +594,12 @@ class ClassDDEGridMachine():
                     uvw_dt.dtype), str(
                     np.float64)))
 
-        self.LSmear=[uvw_dt,DT,Dnu,DoSmearTime,DoSmearFreq,lmin,mmin]
+        # self.LSmear=[uvw_dt,DT,Dnu,DoSmearTime,DoSmearFreq,lmin,mmin]
+        uvw_dt1=uvw_dt.copy()
+        uvw_dt1[:,0]=uvw_dt[:,1]
+        uvw_dt1[:,1]=uvw_dt[:,0]
+        uvw_dt=uvw_dt1
+        self.LSmear=[uvw_dt,DT,Dnu,DoSmearTime,DoSmearFreq,mmin,lmin]
 
     def GiveParamJonesList(self, DicoJonesMatrices, times, A0, A1, uvw, gridder=False, degridder=False):
 
@@ -781,13 +786,13 @@ class ClassDDEGridMachine():
         # l0,m0 = self.lmShift
         # FacetInfos = np.float64(np.array([self.WTerm.Cv, self.WTerm.Cu, l0, m0, self.IDFacet]))
         
-        FacetInfos = np.float64(np.array([self.WTerm.Cu,self.WTerm.Cv,
-                                          l0,m0,
+        FacetInfos = np.float64(np.array([self.WTerm.Cv,self.WTerm.Cu,
+                                          m0,l0,
                                           self.IDFacet]))
-        # uvw1=uvw.copy()
-        # uvw1[:,0]=uvw[:,1]
-        # uvw1[:,1]=uvw[:,0]
-        # uvw=uvw1
+        uvw1=uvw.copy()
+        uvw1[:,0]=uvw[:,1]
+        uvw1[:,1]=uvw[:,0]
+        uvw=uvw1
 
         self.CheckTypes(
             Grid=Grid,
