@@ -447,7 +447,7 @@ class ClassDDEGridMachine():
         #Cell_y=-1
         
         self.Cell = Cell_x,Cell_y
-        self.incr = (np.array([-Cell_x, -Cell_y], dtype=np.float64)/3600.)*(np.pi/180)
+        self.incr = (np.array([-Cell_y, -Cell_x], dtype=np.float64)/3600.)*(np.pi/180)
         # CF.fill(1.)
         # print self.ChanEquidistant
         # self.FullScalarMode=int(GD["DDESolutions"]["FullScalarMode"])
@@ -787,7 +787,8 @@ class ClassDDEGridMachine():
         # FacetInfos = np.float64(np.array([self.WTerm.Cv, self.WTerm.Cu, l0, m0, self.IDFacet]))
         
         FacetInfos = np.float64(np.array([self.WTerm.Cv,self.WTerm.Cu,m0,l0,self.IDFacet]))
-        v0=uvw1[:,1].copy()
+        uvw=uvw.copy()
+        v0=uvw[:,1].copy()
         uvw[:,1]=uvw[:,0]
         uvw[:,0]=v0
 
@@ -1058,6 +1059,7 @@ class ClassDDEGridMachine():
 
         #m0, l0 = self.lmShift
         FacetInfos = np.float64(np.array([self.WTerm.Cv,self.WTerm.Cu,m0,l0,self.IDFacet]))
+        uvw=uvw.copy()
         v0=uvw[:,1].copy()
         uvw[:,1]=uvw[:,0]
         uvw[:,0]=v0
