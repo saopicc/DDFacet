@@ -170,16 +170,16 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         at the same position, but different fluxes, alphas etc.
 
         """
-            
+
         DicoComp = self.DicoSMStacked["Comp"]
         ref_freq = self.DicoSMStacked["RefFreq"]
-        
+
         if FreqIn is None:
            FreqIn=np.array([ref_freq], dtype=np.float32)
 
         # Assumptions:
         # DicoSMStacked is a dictionary of "Solution" dictionaries
-        # keyed on (l, m), corresponding to some point  source. 
+        # keyed on (l, m), corresponding to some point  source.
         # Components associated with the source for each scale are
         # located in self.ListScales.
 
@@ -280,6 +280,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         if not nthreads:
             import multiprocessing
             nthreads = multiprocessing.cpu_count()
+        else:
+            from multiprocessing.pool import ThreadPool
+            import dask
+
+            dask.config.set(pool=ThreadPool(nthreads))
         FFT = lambda x: pyfftw.interfaces.numpy_fft.fft2(x, axes=(-2, -1), planner_effort='FFTW_ESTIMATE', threads=nthreads) #, norm='ortho')
         iFFT = lambda x: pyfftw.interfaces.numpy_fft.ifft2(x, axes=(-2, -1), planner_effort='FFTW_ESTIMATE', threads=nthreads) #, norm='ortho')
 
@@ -334,19 +339,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         try:
             import traceback
             from africanus.model.spi.dask import fit_spi_components
-            NCPU = self.GD["Parallel"]["NCPU"]
-            if NCPU:
-                from multiprocessing.pool import ThreadPool
-                import dask
-
-                dask.config.set(pool=ThreadPool(NCPU))
-            else:
-                import multiprocessing
-                NCPU = multiprocessing.cpu_count()
-
             import dask.array as da
             _, ncomps = FitCube.shape
-            FitCubeDask = da.from_array(FitCube.T.astype(np.float64), chunks=(ncomps//NCPU, self.Nchan))
+            FitCubeDask = da.from_array(FitCube.T.astype(np.float64),
+                                        chunks=(np.maximum(100, ncomps//nthreads), self.Nchan))
             weightsDask = da.from_array(weights.astype(np.float64), chunks=(self.Nchan))
             freqsDask = da.from_array(np.array(self.GridFreqs).astype(np.float64), chunks=(self.Nchan))
 
@@ -411,7 +407,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         """ Makes a numpy model for use for killms calibration using SkyModel/MakeModel.py """
         nchan, npol, nx, ny = self.ModelShape
         assert nx == ny, "Only works with square images for now"
-        self.Npix = nx 
+        self.Npix = nx
         self.Nchan = len(self.GridFreqs)
         self.NpixPadded = int(np.ceil(self.GD["Facets"]["Padding"] * self.Npix))
         # make sure it is odd numbered

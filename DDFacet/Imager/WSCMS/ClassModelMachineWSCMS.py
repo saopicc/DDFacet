@@ -45,7 +45,7 @@ def substep(A, psf, sol, Ip, Iq, pq, npixpsf):
     :param psf: the psf (not necessarily the size of the image)
     :param Ip, Iq: indices of active set relative to image
     :param pq: the location of a component relative to the active set
-    :return: 
+    :return:
     """
     npixpsf_x,npixpsf_y=npixpsf
     
@@ -181,8 +181,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def AppendComponentToDictStacked(self, key, Sols, iScale, Gain):
         """
-        Adds component to model dictionary at a scale specified by Scale. 
-        The dictionary corresponding to each scale is keyed on pixel values (l,m location tupple). 
+        Adds component to model dictionary at a scale specified by Scale.
+        The dictionary corresponding to each scale is keyed on pixel values (l,m location tupple).
         Each model component is therefore represented parametrically by a pixel value a scale and a set of coefficients
         describing the spectral axis.
         Currently only Stokes I is supported.
@@ -191,7 +191,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             Sols: Nd array of coeffs with length equal to the number of basis functions representing the component.
             iScale: the scale index
             Gain: clean loop gain
-            
+
         Added component list to dictionary for particular scale. This dictionary is stored in
         self.DicoSMStacked["Comp"][iScale] and has keys:
             "SolsArray": solutions ndArray with shape [#basis_functions,#stokes_terms]
@@ -357,7 +357,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             from africanus.model.spi.dask import fit_spi_components
             import dask.array as da
             _, ncomps = FitCube.shape
-            FitCubeDask = da.from_array(FitCube.T.astype(np.float64), chunks=(ncomps//nthreads, self.Nchan))
+            FitCubeDask = da.from_array(FitCube.T.astype(np.float64),
+                                        chunks=(np.maximum(100, ncomps//nthreads), self.Nchan))
             weightsDask = da.from_array(weights.astype(np.float64), chunks=(self.Nchan))
             freqsDask = da.from_array(np.array(self.GridFreqs).astype(np.float64), chunks=(self.Nchan))
 
@@ -436,19 +437,19 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def do_minor_loop(self, Dirty, meanDirty, JonesNorm, WeightsChansImages, MaxDirty, Stopping_flux=None, RMS=None):
         """
-        Runs the sub-minor loop at a specific scale 
+        Runs the sub-minor loop at a specific scale
         :param Dirty: dirty cube
         :param meanDirty: mean dirty
         :param JonesNorm: "average" DDE map
         :param WeightsChansImages: The sum of the weights in each channel normalised to sum to one
         :param MaxDirty: maximum of mean dirty computed in last minor loop
         :param Stopping_flux: stopping flux for unconvolved mean image
-        :param RMS: RMS of mean dirty computed in last minor loop (for auto-masking) 
+        :param RMS: RMS of mean dirty computed in last minor loop (for auto-masking)
         :return: number of iterations k, the dominant scale
-        
+
         Components are only searched for in the active set A defined as all pixels in s scale convolved dirty
         above GD[WSCMS][SubMinorPeakFactor] * AbsConvMaxDirty. The PSF for A is the PSF twice convolved with the
-        dominant scale kernel. At the same time, once a component has been found in A, it is subtracted from the 
+        dominant scale kernel. At the same time, once a component has been found in A, it is subtracted from the
         dirty cube using the PSF once convolved with the scale kernel. The actual MeanDirty image is only updated
         once we drop back into the minor loop by computing the weighted sum over channels.
         """

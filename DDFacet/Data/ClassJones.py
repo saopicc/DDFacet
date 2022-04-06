@@ -42,6 +42,7 @@ import tables
 import glob
 from scipy.interpolate import interp1d
 import casacore.tables as pt
+import hashlib
 import DDFacet.Other.PrintList
 
 def _which_solsfile(sol_files, req_times, solset, apply_map):
@@ -211,6 +212,18 @@ class ClassJones():
             self.ApplyCal = True
             valid=False
             if self.CacheMode:
+                def __hashjsonbeamsets(GD):
+                    beamsets = GD["Beam"]["FITSFile"]
+                    if not isinstance(beamsets, list):
+                        beamsets = beamsets.split(',')
+                    lbeamsethashes = {}
+                    for bs in beamsets:
+                        if os.path.splitext(bs)[1] == ".json":
+                            if os.path.exists(bs):
+                                with open(bs, "r") as fbs:
+                                    lbeamsethashes["bs"] = hashlib.md5(fbs.read().encode()).hexdigest()
+                    return lbeamsethashes
+
                 self.JonesNormSolsFile_Beam, valid = self.MS.cache.checkCache("JonesNorm_Beam.npz", 
                                                                               dict(VisData=GD["Data"], 
                                                                                    Beam=GD["Beam"], 
@@ -960,7 +973,7 @@ class ClassJones():
             # self.DtBeamDeg = GD["Beam"]["FITSParAngleIncrement"]
             # print>>log, "  Estimating FITS beam model every %5.1f min."%DtBeamMin
         else:
-            raise ValueError("Unknown keyword for Beam-Model. Only accepts 'FITS' or 'LOFAR'")
+            raise ValueError("Unknown keyword for Beam-Model. Only accepts 'FITS', 'LOFAR', 'GMRT' or 'ATCA'")
 
     def GiveBeam(self, times, quiet=False,RaDec=None):
         GD = self.GD

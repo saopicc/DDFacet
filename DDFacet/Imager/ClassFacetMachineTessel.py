@@ -544,8 +544,6 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         #     pylab.show(block=False)
         #     pylab.pause(0.1)
         #     if ind.size==2: stop
-
-
             
         for iFacet in sorted(DicoPolygon.keys()):
             diam = DicoPolygon[iFacet]["diamMin"]
@@ -799,6 +797,10 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             
             # self.AppendFacet(iFacet,l0,m0,diam)
             self.AppendFacet(iFacet, l0, m0, diam_x,diam_y)
+
+
+
+            
 
 
 
