@@ -1296,13 +1296,15 @@ class ClassFacetMachine():
             DicoImages.addSharedArray("CubeVariablePSF",(NFacets, nch, npol, NPixMin_x, NPixMin_y), np.float32)
             DicoImages.addSharedArray("CubeMeanVariablePSF",(NFacets, 1, npol, NPixMin_x, NPixMin_y), np.float32)
 
-            #CubeVariablePSF = np.zeros((NFacets, nch, npol, NPixMin, NPixMin), np.float32)
-            #CubeMeanVariablePSF = np.zeros((NFacets, 1, npol, NPixMin, NPixMin), np.float32)
+            # CubeVariablePSF = np.zeros((NFacets, nch, npol, NPixMin, NPixMin), np.float32)
+            # CubeMeanVariablePSF = np.zeros((NFacets, 1, npol, NPixMin, NPixMin), np.float32)
 
             print("cutting PSF facet-slices of shape %dx%d" % (NPixMin_x, NPixMin_y), file=log)
+            
             NPixMin= NPixMin_x,NPixMin_y
             for iFacet in facets:
                 APP.runJob("cutpsf:%s" % iFacet, self._cutFacetSlice_worker, args=(iFacet, DicoImages.readonly(), nch, NPixMin))
+                
             APP.awaitJobResults("cutpsf:*", progress="Cut PSF facet slices")
 
             DicoImages["CentralFacet"] = self.iCentralFacet
