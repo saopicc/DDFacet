@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 Useful test function to debug two branches that does the diff of two caches
 """

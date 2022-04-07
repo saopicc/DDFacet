@@ -1770,7 +1770,7 @@ class ClassFacetMachine():
         for iFacet in self.DicoImager.keys():
             APP.runJob("%sF%d" % (self._grid_job_id, iFacet), self._grid_worker,
                             args=(iFacet, DATA.readonly(), self._CF[iFacet].readonly(),
-                                  self._facet_grids.readonly()),serial=True)
+                                  self._facet_grids.readonly()))#,serial=True)
 
     # ##############################################
     # ##### Smooth beam ############################
