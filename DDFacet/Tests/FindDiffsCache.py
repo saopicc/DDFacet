@@ -9,7 +9,7 @@ from DDFacet.Other import ModColor
 import sys
 from DDFacet.Array import shared_dict
 import DDFacet.Other.MyPickle
-
+import traceback
 
 def test():
     
@@ -22,9 +22,10 @@ def test():
 def PNameValue(Name="key",Value=0):
     if float(Value)>0:
         print("%s = %s"%(Name,ModColor.Str(str(Value))))
+        return "Different"
     else:
         print("%s = %s"%(Name,str(Value)))
-
+        return "Same"
 
 D={"A":"a",
    "B":np.arange(5),
@@ -65,7 +66,28 @@ def DiffObjPrint(Obj0,Obj1,LLevel=[]):
         A1=Obj1
         Sdiff=giveStrDiffObj(A0,A1)
         s="%s [%s] "%(giveStrTitle(LLevel),str(A0.shape))
-        PNameValue(Name=s,Value=Sdiff)
+        r=PNameValue(Name=s,Value=Sdiff)
+        if (r=="Different") and (float(Sdiff)>1e-3):
+            nx,ny=A0.shape[-2:]
+            a0=A0.reshape((A0.size//(nx*ny),nx,ny))[0]
+            a1=A1.reshape((A1.size//(nx*ny),nx,ny))[0]
+            import pylab
+            pylab.clf()
+            pylab.subplot(1,3,1)
+            pylab.imshow(np.log10(np.abs(a0)),interpolation="nearest")
+            pylab.colorbar()
+            pylab.subplot(1,3,2)
+            pylab.imshow(np.log10(np.abs(a1)),interpolation="nearest")
+            pylab.colorbar()
+            pylab.subplot(1,3,3)
+            pylab.imshow(a0-a1,interpolation="nearest")
+            pylab.colorbar()
+            pylab.title(str(s))
+            
+            pylab.draw()
+            pylab.show()
+            pylab.pause(0.1)
+            
     elif isinstance(Obj0,dict):
         for k in sorted(Obj0.keys()):
             
@@ -73,7 +95,8 @@ def DiffObjPrint(Obj0,Obj1,LLevel=[]):
             try:
                 A1=Obj1[k]
                 DiffObjPrint(A0,A1,LLevel=LLevel+[str(k)])
-            except:
+            except Exception:
+                # traceback.print_exc()
                 s="%s [missing key %s]"%(giveStrTitle(LLevel),k)
 
                 

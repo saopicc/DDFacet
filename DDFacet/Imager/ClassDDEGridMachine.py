@@ -786,7 +786,7 @@ class ClassDDEGridMachine():
         # l0,m0 = self.lmShift
         # FacetInfos = np.float64(np.array([self.WTerm.Cv, self.WTerm.Cu, l0, m0, self.IDFacet]))
         
-        FacetInfos = np.float64(np.array([self.WTerm.Cv,self.WTerm.Cu,m0,l0,self.IDFacet]))
+        FacetInfos = np.float64(np.array([self.WTerm.Cu,self.WTerm.Cv,m0,l0,self.IDFacet]))
         uvw=uvw.copy()
         v0=uvw[:,1].copy()
         uvw[:,1]=uvw[:,0]

@@ -511,7 +511,7 @@ class ClassWTermModified():
                     Sups[0] += 1
             dummy, dymmy, ThisSphe = self.SpheM.MakeSphe(Sups[0],Sups[0])
             W = np.abs(ThisSphe)
-            zW = ZeroPad(W, outshape=W.shape[0]*self.OverS)
+            zW = ZeroPad(W, outshape=W.shape[0]*self.OverS).T
             zWconj = np.conj(zW)
             fzW = fft2(zW)
             fzWconj = fft2(zWconj)
