@@ -100,7 +100,8 @@ def CheckFiles(F0,F1):
         #if (os.path.isfile(F0) and os.path.isfile(F1))==0: continue
         if os.path.getsize(F0)==0 or os.path.getsize(F1)==0:
             return
-        if "Dirty" in F0 or "CF" in F0:
+        #if "Dirty" in F0 or "CF" in F0:
+        if False:#"CF" in F0:
             print("Skipping ",F0)
             return
         elif F0[-5:]==".hash":
@@ -114,6 +115,13 @@ def CheckFiles(F0,F1):
                 D0.restore(F0)
                 D0.reload()
                 D1 = shared_dict.create("PSF1")
+                D1.restore(F1)
+                D1.reload()
+            elif F0[-5:]=="Dirty":
+                D0 = shared_dict.create("Dirty0")
+                D0.restore(F0)
+                D0.reload()
+                D1 = shared_dict.create("Dirty1")
                 D1.restore(F1)
                 D1.reload()
             elif F0[-10:]=="DicoPickle":
