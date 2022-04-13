@@ -73,13 +73,13 @@ def DiffObjPrint(Obj0,Obj1,LLevel=[]):
             a1=A1.reshape((A1.size//(nx*ny),nx,ny))[0]
             import pylab
             pylab.clf()
-            pylab.subplot(1,3,1)
+            ax=pylab.subplot(1,3,1)
             pylab.imshow(np.log10(np.abs(a0)),interpolation="nearest")
             pylab.colorbar()
-            pylab.subplot(1,3,2)
+            pylab.subplot(1,3,2,sharex=ax,sharey=ax)
             pylab.imshow(np.log10(np.abs(a1)),interpolation="nearest")
             pylab.colorbar()
-            pylab.subplot(1,3,3)
+            pylab.subplot(1,3,3,sharex=ax,sharey=ax)
             pylab.imshow(a0-a1,interpolation="nearest")
             pylab.colorbar()
             pylab.title(str(s))

@@ -638,8 +638,8 @@ class ClassWTermModified():
                 # # fzWconj.fill(2+3*1j)
                 # if i==10 and self.IDFacet==10:
                 #     np.savez("W%3.3i.%3.3i.new.npz"%(i,self.IDFacet),**(locals()))
-                fzW = self.GiveReorgCF(fzW)
-                fzWconj = self.GiveReorgCF(fzWconj)
+                fzW = self.GiveReorgCF(fzW.T.copy())
+                fzWconj = self.GiveReorgCF(fzWconj.T.copy())
 
                 fzW = np.require(fzW.copy(), requirements=["A", "C"])
                 fzWconj = np.require(fzWconj.copy(), requirements=["A", "C"])

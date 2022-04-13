@@ -929,6 +929,8 @@ class ClassDDEGridMachine():
         else:
             raise ValueError("unknown --RIME-BackwardMode %s"%self.GD["RIME"]["BackwardMode"])
 
+        np.save("Grid2_%2.2i.npy"%self.IDFacet,Grid)
+        stop
         T.timeit("gridder")
         T.timeit("grid %d" % self.IDFacet)
 
