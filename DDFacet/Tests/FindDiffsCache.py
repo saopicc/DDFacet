@@ -67,10 +67,12 @@ def DiffObjPrint(Obj0,Obj1,LLevel=[]):
         Sdiff=giveStrDiffObj(A0,A1)
         s="%s [%s] "%(giveStrTitle(LLevel),str(A0.shape))
         r=PNameValue(Name=s,Value=Sdiff)
-        if (r=="Different") and (float(Sdiff)>1e-3):
+        if (r=="Different") and (float(Sdiff)>1000):
+            print("Same")
             nx,ny=A0.shape[-2:]
-            a0=A0.reshape((A0.size//(nx*ny),nx,ny))[0]
-            a1=A1.reshape((A1.size//(nx*ny),nx,ny))[0]
+            op=np.real
+            a0=op(A0.reshape((A0.size//(nx*ny),nx,ny))[0])
+            a1=op(A1.reshape((A1.size//(nx*ny),nx,ny))[0])
             import pylab
             pylab.clf()
             ax=pylab.subplot(1,3,1)
@@ -87,6 +89,8 @@ def DiffObjPrint(Obj0,Obj1,LLevel=[]):
             pylab.draw()
             pylab.show()
             pylab.pause(0.1)
+        else:
+            print("Same")
             
     elif isinstance(Obj0,dict):
         for k in sorted(Obj0.keys()):
@@ -96,7 +100,7 @@ def DiffObjPrint(Obj0,Obj1,LLevel=[]):
                 A1=Obj1[k]
                 DiffObjPrint(A0,A1,LLevel=LLevel+[str(k)])
             except Exception:
-                # traceback.print_exc()
+                traceback.print_exc()
                 s="%s [missing key %s]"%(giveStrTitle(LLevel),k)
 
                 

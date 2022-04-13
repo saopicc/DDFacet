@@ -929,8 +929,8 @@ class ClassDDEGridMachine():
         else:
             raise ValueError("unknown --RIME-BackwardMode %s"%self.GD["RIME"]["BackwardMode"])
 
-        np.save("Grid2_%2.2i.npy"%self.IDFacet,Grid)
-        stop
+        # np.save("Grid2_%2.2i.npy"%self.IDFacet,Grid)
+        # stop
         T.timeit("gridder")
         T.timeit("grid %d" % self.IDFacet)
 
@@ -1267,7 +1267,7 @@ class ClassDDEGridMachine():
         return ModelUVCorr
 
     def GridToIm(self, Grid):
-        Grid *= (self.WTerm.OverS)**2
-        Dirty = self.getFFTWMachine().ifft(Grid)
-
+        #Grid *= (self.WTerm.OverS)**2
+        #Dirty = self.getFFTWMachine().ifft(Grid)
+        Dirty = Grid
         return Dirty
