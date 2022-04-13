@@ -1268,6 +1268,18 @@ class ClassDDEGridMachine():
 
     def GridToIm(self, Grid):
         #Grid *= (self.WTerm.OverS)**2
-        #Dirty = self.getFFTWMachine().ifft(Grid)
-        Dirty = Grid
+        Dirty0 = self.getFFTWMachine().ifft(Grid.copy())
+        Dirty1=ModFFTW.FFTW_2Donly_np().ifft(Grid.copy())
+
+        print("ljksdqlkqfkjhqdmqdkl")
+        print("ljksdqlkqfkjhqdmqdkl")
+        print("ljksdqlkqfkjhqdmqdkl")
+        print("ljksdqlkqfkjhqdmqdkl")
+        print("ljksdqlkqfkjhqdmqdkl")
+        print("ljksdqlkqfkjhqdmqdkl")
+        print(np.max(Dirty0-Dirty1))
+        print("ljksdqlkqfkjhqdmqdkl")
+        print("ljksdqlkqfkjhqdmqdkl")
+        
+        Dirty = Grid.copy()
         return Dirty
