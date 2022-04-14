@@ -4,85 +4,158 @@ from __future__ import division, absolute_import, print_function
 import numpy as np
 from . import ModTigger
 from . import ModSMFromNp
+from . import ModSMFromFITS
+from DDFacet.Other import logger
+log=logger.getLogger("ClassSM")
 
 from SkyModel.Other import rad2hmsdms
 from SkyModel.Other import ModColor
 from SkyModel.Array import RecArrayOps
 from SkyModel.Sky.ClassClusterClean import ClassClusterClean
+from SkyModel.Sky import ClassAppendSource
 from SkyModel.Sky.ClassClusterTessel import ClassClusterTessel
 from SkyModel.Sky.ClassClusterRadial import ClassClusterRadial
+from SkyModel.Sky.ClassClusterSquareRadial import ClassClusterSquareRadial
 from SkyModel.Sky.ClassClusterKMean import ClassClusterKMean
 #import ModClusterRadial
 from pyrap.images import image
 import scipy.linalg
-from .ModBBS2np import ReadBBSModel
+from SkyModel.Sky.ModBBS2np import ReadBBSModel
+#from SkyModel.Sky.ModSMFromFITS import ReadSMFromFITS
+import DDFacet.Other.MyPickle
+from DDFacet.ToolsDir.ModToolBox import EstimateNpix
+from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
+
 from . import ModRegFile
 import time
 from DDFacet.ToolsDir import ModCoord
 
+def AngDist(ra0,ra1,dec0,dec1):
+    AC=np.arccos
+    C=np.cos
+    S=np.sin
+    D=S(dec0)*S(dec1)+C(dec0)*C(dec1)*C(ra0-ra1)
+    if type(D).__name__=="ndarray":
+        D[D>1.]=1.
+        D[D<-1.]=-1.
+    else:
+        if D>1.: D=1.
+        if D<-1.: D=-1.
+    return AC(D)
+
+
 class ClassSM():
     def __init__(self,infile,infile_cluster="",killdirs=[],invert=False,DoPrintCat=False,\
-                     ReName=False,DoREG=False,SaveNp=False,NCluster=0,DoPlot=True,Tigger=False,\
-                     FromExt=None,ClusterMethod=1,SelSource=False,DoPrint=True):
+                 ReName=False,
+                 DoREG=False,SaveNp=False,NCluster=0,DoPlot=True,Tigger=False,\
+                 FromExt=None,ClusterMethod=1,SelSource=False,DoPrint=True,ListBody=None,
+                 radecCenter=None):
         self.ClusterMethod=ClusterMethod
         self.infile_cluster=infile_cluster
         self.TargetList=infile
         self.Type="Catalog"
         self.DoPrint=DoPrint
+        self.D_FITS=None
+        self.DDF_GD=None
+        self.InputCatIsEmpty=False
+        self.ClusterCat=None
+        
         if (type(infile).__name__=="instance") or (type(infile).__name__=="ClassImageSM") or (type(infile).__name__=="ClassSM"):
             Cat=infile.SourceCat.copy()
             Cat=Cat.view(np.recarray)
             self.DoPrint=0
-# =======
-#         if "instance" in str(type(infile)):
-#             ClusterCat=infile.ClusterCat.copy()
-#             NN=ClusterCat.shape[0]
-#             Cat=np.zeros((NN,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('Sref',np.float),('I',np.float),('Q',np.float),\
-#                                                        ('U',np.float),('V',np.float),('RefFreq',np.float),('alpha',np.float),('ESref',np.float),\
-#                                                        ('Ealpha',np.float),('kill',np.int),('Cluster',np.int),('Type',np.int),('Gmin',np.float),\
-#                                                        ('Gmaj',np.float),('Gangle',np.float),("Select",np.int),('l',np.float),('m',np.float),
-#                                                        ("Exclude",bool)])
-#             Cat=Cat.view(np.recarray)
-#             Cat.RefFreq=1.
-#             Cat.ra[:]=ClusterCat.ra
-#             Cat.dec[:]=ClusterCat.dec
-#             Cat.I[:]=ClusterCat.SumI[:]
-#             Cat.Cluster=np.arange(NN)
-#             Cat.Sref[:]=ClusterCat.SumI[:]
-# >>>>>>> TestASKAP
-        elif ".npy" in infile:
+        elif infile[-4:]==".npy":
             Cat=np.load(infile)
             Cat=Cat.view(np.recarray)
+        elif infile=="Empty":
+            Cat=np.zeros((0,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('Sref',np.float),('I',np.float),('Q',np.float),\
+                                     ('U',np.float),('V',np.float),('RefFreq',np.float),('alpha',np.float),('ESref',np.float),\
+                                     ('Ealpha',np.float),('kill',np.int),('Cluster',np.int),('Type',np.int),('Gmin',np.float),\
+                                     ('Gmaj',np.float),('Gangle',np.float),("Select",np.int),('l',np.float),('m',np.float),("Exclude",bool)])
+            Cat=Cat.view(np.recarray)
+            self.InputCatIsEmpty=True
+        elif infile[-7:]==".pickle":
+            D=DDFacet.Other.MyPickle.Load(infile)
+            Cat=D["SourceCat"].view(np.recarray)
+            self.ClusterCat=D["ClusterCat"]
+            self.NSources=Cat.shape[0]
+            self.D_FITS=D["D_FITS"]
+            self.DDF_GD=D["DDF_GD"]
         elif Tigger:
             Cat=ModTigger.ReadTiggerModel(infile)
         elif FromExt is not None:
-            
             Cat=ModSMFromNp.ReadFromNp(FromExt)
+        elif ".fits"==infile[-5:]:
+            Cat,self.D_FITS=ModSMFromFITS.ReadSMFromFITS(infile)
         else:
             Cat=ReadBBSModel(infile,infile_cluster=infile_cluster)
+            
+            Cat.Gmaj[Cat.Type==2]*=2.*np.sqrt(2.*np.log(2))
+            Cat.Gmin[Cat.Type==2]*=2.*np.sqrt(2.*np.log(2))
+
         self.SourceCat=Cat
         self.killdirs=killdirs
         self.invert=invert
         self.infile=infile
         self.REGFile=None
-        self.Dirs=sorted(list(set(self.SourceCat.Cluster.tolist())))
-        self.NDir=np.max(self.SourceCat.Cluster)+1
-        self.NSources=Cat.shape[0]
+        if not self.InputCatIsEmpty:
+            if self.ClusterCat is not None:
+                self.Dirs=sorted(self.ClusterCat.tolist())
+                self.NDir=len(self.Dirs)
+            else:
+                self.Dirs=sorted(list(set(self.SourceCat.Cluster.tolist())))
+                self.NDir=np.max(self.SourceCat.Cluster)+1
+            self.NSources=Cat.shape[0]
+        else:
+            self.Dirs=[]
+            self.NDir=0
+            self.NSources=0
+            
+        self.StrPhaseCenter_RADEC=self.rarad=self.decrad=None
 
         try:
-            SourceCat=self.SourceCat
-            indIMax=np.argmax(SourceCat.I)
-            self.rarad=SourceCat.ra[indIMax]#np.sum(SourceCat.I*SourceCat.ra)/np.sum(SourceCat.I)
-            self.decrad=np.sum(SourceCat.I*SourceCat.dec)/np.sum(SourceCat.I)
+            if radecCenter is not None:
+                log.print(("Computing lm of the center at externaly specified rac/dec..."))
+                self.rarad,self.decrad=radecCenter
+            elif self.D_FITS is not None:
+                print(("Reading lm of the center from FITS"))
+                #self.rarad=SourceCat.ra[indIMax]#
+                self.rarad=self.D_FITS["rac"]
+                self.decrad=self.D_FITS["decc"]
+            else:
+                SourceCat=self.SourceCat
+                indIMax=np.argmax(SourceCat.I)
+                log.print(("Computing lm of the center at flux-weighted mean rac/dec"))
+                #self.rarad=SourceCat.ra[indIMax]#
+                self.rarad=np.sum(SourceCat.I*SourceCat.ra)/np.sum(SourceCat.I)
+                self.decrad=np.sum(SourceCat.I*SourceCat.dec)/np.sum(SourceCat.I)
+                
             self.CoordMachine = ModCoord.ClassCoordConv(self.rarad, self.decrad)
         except:
             pass
 
+        if self.rarad is not None:
+            self.StrPhaseCenter_RADEC  = rad2hmsdms(self.rarad,Type="ra").replace(" ",":") , rad2hmsdms(self.decrad,Type="dec").replace(" ",".")
+            
+        self.NDirMain=self.NDir
+        
+        if ListBody is not None:
+            log.print("Append sources to the sky model:")
+            CAS=ClassAppendSource.ClassAppendSource(self,ListBody)
+            CAS.appendAll()
+            self.ClusterCat=None
 
-        self.BuildClusterCat()
-        self.NDir=np.max(self.SourceCat.Cluster)+1
-        self.NSources=Cat.shape[0]
+        if self.ClusterCat is None:
+            self.Dirs=sorted(list(set(self.SourceCat.Cluster.tolist())))
+            self.NDir=np.max(self.SourceCat.Cluster)+1
+            self.NSources=Cat.shape[0]
+            self.BuildClusterCat()
+            self.Dirs=sorted(list(set(self.SourceCat.Cluster.tolist())))
+            self.NDir=np.max(self.SourceCat.Cluster)+1
+            self.NSources=Cat.shape[0]
+
         self.SetSelection()
+
         if self.DoPrint: self.PrintBasics()
 
 
@@ -98,15 +171,29 @@ class ClassSM():
         #     self.print_sm(Cat)
 
         self.SourceCat.kill=1
-
         if killdirs!=[]:
             self.SourceCat.kill=0
-            for i in range(len(self.SourceCat)):
-                for StrPiece in killdirs:
-                    if StrPiece=="": continue
-                    Name=self.SourceCat.Name[i]
-                    if "byte" in type(Name).__name__: Name=Name.decode("utf-8")
-                    if StrPiece in Name: self.SourceCat.kill[i]=1
+            for StrPiece in killdirs:
+                if StrPiece=="":
+                    continue
+                elif "x" in StrPiece:
+                    if np.all(self.SourceCat.l==0):
+                        self.Calc_LM(self.rarad,self.decrad)
+                    snpix,scell =StrPiece.split("x")
+                    Npix, _ = EstimateNpix(float(snpix), Padding=1)
+                    Cell=float(scell)/3600*np.pi/180
+                    Cx0 = (self.SourceCat.l>(-Npix//2*Cell))
+                    Cx1 = (self.SourceCat.l<(Npix//2*Cell))
+                    Cy0 = (self.SourceCat.m>(-Npix//2*Cell))
+                    Cy1 = (self.SourceCat.m<(Npix//2*Cell))
+                    ind=np.where(Cx0&Cx1&Cy0&Cy1)[0]
+                    self.SourceCat.kill[ind]=1
+                else:
+                    for i in range(len(self.SourceCat)):
+                        Name=self.SourceCat.Name[i]
+                        if "byte" in type(Name).__name__: Name=Name.decode("utf-8")
+                        if StrPiece in Name: self.SourceCat.kill[i]=1
+                    
                     
         if invert:
             ind0=np.where(self.SourceCat.kill==0)[0]
@@ -114,6 +201,7 @@ class ClassSM():
             self.SourceCat.kill[ind0]=1
             self.SourceCat.kill[ind1]=0
 
+            
         # print(self.SourceCat.Name)
         # print(self.SourceCat.kill)
             
@@ -135,6 +223,24 @@ class ClassSM():
 
         self.PrintBasics()
 
+    def SavePickle(self):
+        infile=self.infile
+        print(ModColor.Str(" SkyModel PROPERTIES: "))
+        npext=""
+        if not(".pickle" in infile): npext=".pickle"
+        self.NpFile="%s%s"%(infile,npext)
+        D={"SourceCat":self.SourceCat,
+           "D_FITS":self.D_FITS,
+           "DDF_GD":self.DDF_GD,
+           "ClusterCat":self.ClusterCat}
+        print("   - SkyModel File Name: %s"%ModColor.Str(self.NpFile,col="green"))
+        DDFacet.Other.MyPickle.Save(D,self.NpFile)
+        if self.REGFile is not None: print("   - ds9 region file: %s"%ModColor.Str(self.REGFile,col="green"))
+
+
+        self.PrintBasics()
+
+        
     def PrintBasics(self):
         infile=self.infile
         # if "instance" in str(type(infile)): return
@@ -149,11 +255,13 @@ class ClassSM():
         print("   - Number of Directions  = ",self.NDir)
         Np=np.count_nonzero(self.SourceCat.Type==0)
         Ng=np.count_nonzero(self.SourceCat.Type==1)
-        print("   - Number of [ POINT | GAUSSIANS ] : [ %i | %i ]"%(Np,Ng))
+        Nb=np.count_nonzero(self.SourceCat.Type==2)
+        print("   - Number of [ POINT | GAUSSIANS | BOX ] : [ %i | %i | %i ]"%(Np,Ng,Nb))
+        NSub=np.count_nonzero(self.SourceCat.kill)
+        print("   - Selected for subtraction: %i/%i"%(NSub,self.SourceCat.kill.size))
         print()
 
     def Cluster(self,NCluster=1,DoPlot=True,PreCluster="",FromClusterCat=""):
-
 
         if PreCluster!="":
             R=ModRegFile.RegToNp(PreCluster)
@@ -171,8 +279,28 @@ class ClassSM():
                 self.SourceCat.Exclude[d<ExcludeCat.Radius[j]]=True
 
         if FromClusterCat and (NCluster==0):
-            NCluster=np.load(FromClusterCat).shape[0]
-
+            self.ClusterCat=np.load(FromClusterCat).view(np.recarray)
+            NCluster=self.ClusterCat.shape[0]
+            RA=self.SourceCat.ra
+            DEC=self.SourceCat.dec
+            RAd=self.ClusterCat.ra
+            DECd=self.ClusterCat.dec
+            
+            d=AngDist(RA.reshape((-1,1)),RAd.reshape((1,-1)),
+                      DEC.reshape((-1,1)),DECd.reshape((1,-1)))
+            C=np.argmin(d,axis=1)
+            self.SourceCat.Cluster[:]=C[:]
+            self.Rename()
+            self.Dirs=sorted(list(set(self.SourceCat.Cluster.tolist())))
+            self.NDir=self.ClusterCat.shape[0]
+            for iDir in self.Dirs:
+                ind=np.where(self.SourceCat.Cluster==iDir)[0]
+                cat=self.SourceCat[ind]
+                self.ClusterCat.SumI[iDir]=np.sum(cat.I)
+            NZeroFlux=np.count_nonzero(self.ClusterCat.SumI==0)
+            if NZeroFlux!=0:
+                log.print("There are %i zero flux directions (on %i directions)"%(NZeroFlux,self.NDir))
+            return
                 
         if NCluster==0:
             self.SourceCat.Cluster=np.arange(self.SourceCat.shape[0])
@@ -181,11 +309,11 @@ class ClassSM():
         else:
             self.cluster(NCluster,DoPlot,PreClusterCat=PreClusterCat,FromClusterCat=FromClusterCat)#,ExcludeCat=ExcludeCat)
             
-
         self.SourceCat=self.SourceCat[self.SourceCat.Exclude==False]
 
         ClusterList=sorted(list(set(self.SourceCat.Cluster.tolist())))
-        self.NDir=len(ClusterList)
+        # self.NDir=len(ClusterList)
+        
         for iCluster,iNewCluster in zip(ClusterList,list(range(self.NDir))):
             ind=np.where(self.SourceCat.Cluster==iCluster)[0]
             self.SourceCat.Cluster[ind]=iNewCluster
@@ -196,7 +324,9 @@ class ClassSM():
         self.REGFile=None
         self.MakeREG()
 
+
         self.Dirs=sorted(list(set(self.SourceCat.Cluster.tolist())))
+
         self.WeightDirKeep=np.zeros((self.NDir,),float)
         for diri in self.Dirs:
             ind=np.where(self.SourceCat.Cluster==diri)[0]
@@ -205,7 +335,9 @@ class ClassSM():
 
         self.ExistToSub=False
         self.ExistToSub=(np.count_nonzero(self.SourceCat.kill==-1)>0)
+
         self.BuildClusterCat()
+
 
     def Rename(self):
         for diri in range(self.NDir):
@@ -264,14 +396,21 @@ class ClassSM():
 
         indIMax=np.argmax(SourceCat.I)
 
-        self.rarad=SourceCat.ra[indIMax]#np.sum(SourceCat.I*SourceCat.ra)/np.sum(SourceCat.I)
-        self.decrad=np.sum(SourceCat.I*SourceCat.dec)/np.sum(SourceCat.I)
-
-        self.CoordMachine = ModCoord.ClassCoordConv(self.rarad, self.decrad)
-
-
+        # This is already defined in __init__
+        if self.rarad is None:
+            self.rarad=SourceCat.ra[indIMax]#np.sum(SourceCat.I*SourceCat.ra)/np.sum(SourceCat.I)
+            self.decrad=np.sum(SourceCat.I*SourceCat.dec)/np.sum(SourceCat.I)
+            self.CoordMachine = ModCoord.ClassCoordConv(self.rarad, self.decrad)
+        
         x,y,s=SourceCat.ra,SourceCat.dec,SourceCat.I
         x,y=self.radec2lm_scalar(x,y)
+
+        # import pylab
+        # pylab.clf()
+        # pylab.scatter(x,y)
+        # pylab.draw()
+        # pylab.show()
+
         
         SourceCat.Cluster=0
 
@@ -306,6 +445,8 @@ class ClassSM():
                 nk=l0.size
 
                 CM=ClassClusterKMean(x,y,s,nk,DoPlot=DoPlot,InitLM=(l0,m0))
+        elif self.ClusterMethod==5:
+            CM=ClassClusterSquareRadial(x,y,s,nk,DoPlot=DoPlot,D_FITS=self.D_FITS)
 
 
         REGFile="%s.tessel.reg"%self.TargetList
@@ -363,7 +504,8 @@ class ClassSM():
         for key in list(DictNode.keys()):
             ind=np.array(DictNode[key]["ListCluster"])
             if ind.size==0: 
-                print("Direction %i is empty"%int(key))
+                log.print("Direction %i is empty"%int(key))
+                iK+=1
                 continue
             self.SourceCat["Cluster"][indSubSel[ind]]=iK
             iK+=1
@@ -377,8 +519,34 @@ class ClassSM():
         #print self.SourceCat.Cluster.min(),self.SourceCat.Cluster.max()
         #self.SourceCat=SourceCat
 
+        
+    def ComputeClusterCatWeightedPos(self):
+        ClusterCatMean=np.zeros((self.ClusterCat.ra.size,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),("Cluster",int)])
+        ClusterCatMean=ClusterCatMean.view(np.recarray)
+        
+        ClusterCat=self.ClusterCat
+        ClusterCatMean.Name[:]=ClusterCat.Name[:]
+        ClusterCatMean.SumI[:]=ClusterCat.SumI[:]
+        ClusterCatMean.Cluster[:]=ClusterCat.Cluster[:]
+        
+        SourceCat=self.SourceCat
+        Dirs=list(np.unique(ClusterCatMean.Cluster))
+        for iDir in Dirs:
+            indDirComps=np.where(SourceCat.Cluster==iDir)[0]
+            ra=SourceCat.ra[indDirComps]
+            dec=SourceCat.dec[indDirComps]
+            S=SourceCat.I[indDirComps]
+            ram=np.sum(ra*S)/np.sum(S)
+            decm=np.sum(dec*S)/np.sum(S)
 
+            indDirComps=np.where(ClusterCatMean.Cluster==iDir)[0]
+            #if indDirComps.size==0: continue
+            ClusterCatMean.ra[indDirComps[0]]=ram
+            ClusterCatMean.dec[indDirComps[0]]=decm
+        self.ClusterCatMeanSource=ClusterCatMean
 
+    
+        
     def AppendRefSource(self,rac,decc):
         S0=1e-10
         CatCopy=self.SourceCat[0:1].copy()
@@ -434,6 +602,49 @@ class ClassSM():
         M.DefineXY((ra,dec),np.log10(self.SourceCat.I))
         self.SourceCat.Select=M.Start()
 
+
+
+    def CutEmptyDirs(self):
+        self.ClusterCatOrig=self.ClusterCat.copy()
+        self.NDirsOrig=self.ClusterCat.shape[0]
+        self.NDir=self.ClusterCat.shape[0]
+
+        AppFlux=self.ClusterCat.SumI
+        D={}
+        iDirNew=0
+        Keep=np.zeros((self.NDir,),bool)
+        HasRemoved=0
+
+        for iDir in range(self.ClusterCat.size):
+            if AppFlux[iDir]==0:
+                HasRemoved=1
+            else:
+                D[iDirNew]=iDir
+                iDirNew+=1
+                Keep[iDir]=1
+
+        self.MapClusterCatOrigToCut=Keep
+        self.ClusterCat=self.ClusterCat[Keep].copy()
+        NonZeroDirs=(np.where(Keep)[0]).tolist()
+        
+        for iClusterNew,iClusterOrig in enumerate(NonZeroDirs):
+            ind=np.where(self.ClusterCat.Cluster==iClusterOrig)[0]
+            self.ClusterCat.Cluster[ind]=iClusterNew
+            ind=np.where(self.SourceCat.Cluster==iClusterOrig)[0]
+            self.SourceCat.Cluster[ind]=iClusterNew
+            
+        self.Dirs=np.arange(self.ClusterCat.size).tolist()#sorted((np.where(Keep==1)[0]).tolist())
+        #self.Dirs=sorted((np.where(Keep==1)[0]).tolist())
+        self.NDir=len(self.Dirs)
+        if not HasRemoved:
+            log.print(ModColor.Str("All directions have been kept in the solve"))
+        else:
+            log.print(ModColor.Str("There are %i directions left in the solve"%self.NDir))
+        
+        
+            
+        
+        
     def BuildClusterCat(self):
         ClusterCat=np.zeros((len(self.Dirs),),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),("Cluster",int)])
         ClusterCat=ClusterCat.view(np.recarray)
@@ -451,8 +662,8 @@ class ClassSM():
             icat+=1
         #print ClusterCat.ra
         self.ClusterCat=ClusterCat
-
-
+        
+        
 
     def radec2lm_scalar(self,ra,dec,rarad0=None,decrad0=None):
         if rarad0==None:
@@ -471,8 +682,7 @@ class ClassSM():
         if not("l" in list(Cat.dtype.fields.keys())):
             Cat=RecArrayOps.AppendField(Cat,'l',float)
             Cat=RecArrayOps.AppendField(Cat,'m',float)
-
-        Cat.l,Cat.m=self.radec2lm_scalar(self.SourceCat.ra,self.SourceCat.dec,rac,decc)
+        Cat.l[:],Cat.m[:]=self.radec2lm_scalar(self.SourceCat.ra,self.SourceCat.dec,rac,decc)
         self.SourceCat=Cat
         self.SourceCatKeepForSelector=self.SourceCat.copy()
 
@@ -482,6 +692,17 @@ class ClassSM():
             Cat=RecArrayOps.AppendField(Cat,'m',float)
         Cat.l,Cat.m=self.radec2lm_scalar(self.ClusterCat.ra,self.ClusterCat.dec,rac,decc)
         self.ClusterCat=Cat
+
+        Cat=self.ClusterCatOrig
+        if not("l" in list(Cat.dtype.fields.keys())):
+            Cat=RecArrayOps.AppendField(Cat,'l',float)
+            Cat=RecArrayOps.AppendField(Cat,'m',float)
+        Cat.l,Cat.m=self.radec2lm_scalar(Cat.ra,Cat.dec,rac,decc)
+        self.ClusterCatOrig=Cat
+
+
+
+        
     # def Calc_LM(self,rac,decc):
     #     Cat=self.SourceCat
     #     if not("l" in Cat.dtype.fields.keys()):

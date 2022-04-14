@@ -55,7 +55,8 @@ def read_options():
     group.add_option('--NCluster',type=int,help="",default=45)
     group.add_option('--NCPU',type=int,help="",default=1)
     group.add_option('--OutClusterCat',type=str,help="",default="")
-    
+    group.add_option('--FitnessType',type=str,help="Fair/PrimaryBeam",default="Fair")
+
     opt.add_option_group(group)
 
     options, arguments = opt.parse_args()
@@ -271,6 +272,7 @@ class ClusterImage():
                                              DoPlot=self.DoPlot,
                                              PolyCut=self.PolyCut,
                                              NCPU=self.NCPU,
+                                             FitnessType=self.FitnessType,
                                              BigPolygon=self.BigPolygon)
         CC.setAvoidPolygon(PolyList)
             

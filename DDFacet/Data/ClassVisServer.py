@@ -50,6 +50,8 @@ if six.PY3:
 else:
     from DDFacet.cbuild.Gridder import _pyGridderSmearPols27 as _pyGridderSmearPols
 import copy
+from killMS.Other import ClassGiveSolsFile
+
 log = logger.getLogger("ClassVisServer")
 
 _cc = 299792458
@@ -356,9 +358,14 @@ class ClassVisServer():
                 (MS.ChanFreq - min_freq)/degrid_bw).astype(int)
 
             # calculate center frequency of each degridding band
-            edges = np.arange(min_freq, max_freq+degrid_bw, degrid_bw)
+            
+            # There was a problem with the above line for some MS, NDegridBand=3, DegridBandMHz=0 (due to rounding issues) was returning
+            # edges with size 5, using linspace instead of arange 
+            # edges = np.arange(min_freq, max_freq+degrid_bw, degrid_bw)
+            edges = np.linspace(min_freq, max_freq, NChanDegrid+1) 
+            
             self.FreqBandChannelsDegrid[iMS] = (edges[:-1] + edges[1:])/2
-
+            
             print("%s   Bandwidth is %g MHz (%g to %g MHz), gridding bands are %s" % (
                 MS, bw*1e-6, min_freq*1e-6, max_freq*1e-6, ", ".join(map(str, set(bands)))), file=log)
 
@@ -1005,19 +1012,32 @@ class ClassVisServer():
                     pass#weight.fill(1)
                 elif weight_col == "Lucky_kMS" and self.GD["DDESolutions"]["DDSols"]:
                     ID=row0
-                    SolsName=self.GD["DDESolutions"]["DDSols"]
+                    LSolsName=self.GD["DDESolutions"]["DDSols"]
                     SolsDir=self.GD["DDESolutions"]["SolsDir"]
-                    if SolsDir is None:
-                        FileName="%skillMS.%s.Weights.%i.npy"%(reformat.reformat(ms.MSName),SolsName,ID)
-                    else:
-                        _MSName=reformat.reformat(ms.MSName).split("/")[-2]
-                        DirName=os.path.abspath("%s%s"%(reformat.reformat(SolsDir),_MSName))
-                        if not os.path.isdir(DirName):
-                            os.makedirs(DirName)
-                        FileName="%s/killMS.%s.Weights.%i.npy"%(DirName,SolsName,ID)
-                    log.print( "  loading weights from file: %s"%FileName)
-                    w=np.load(FileName)
-                    weight[...] *= w
+                    w=None
+                    if isinstance(LSolsName,str):
+                        LSolsName=[LSolsName]
+                    for SolsName in LSolsName:
+                        
+                        # print("SolsName",SolsName)
+                        # if SolsDir is None:
+                        #     FileName="%skillMS.%s.Weights.%i.npy"%(reformat.reformat(ms.MSName),SolsName,ID)
+                        # else:
+                        #     _MSName=reformat.reformat(ms.MSName).split("/")[-2]
+                        #     DirName=os.path.abspath("%s%s"%(reformat.reformat(SolsDir),_MSName))
+                        #     if not os.path.isdir(DirName):
+                        #         os.makedirs(DirName)
+                        #     FileName="%s/killMS.%s.Weights.%i.npy"%(DirName,SolsName,ID)
+
+                        CGiveSaveFileName=ClassGiveSolsFile.ClassGive_kMSFileName(GD=GD)
+                        FileName=CGiveSaveFileName.GiveFileName(Type="Weights",ROW0=ID)
+                        
+                        log.print( "  loading weights from file: %s"%FileName)
+                        if w is None: 
+                            w=np.load(FileName)
+                        else:
+                            w*=np.load(FileName)
+                        weight[...] *= w
                 elif ".npy" in weight_col:
                     ID=row0
                     FileName=weight_col

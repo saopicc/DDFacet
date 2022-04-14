@@ -663,8 +663,7 @@ class ClassMS():
             if sort_index is not None:
                 weights = weights[sort_index]
             DATA["weights"] = weights
-
-        #self.RotateType=["uvw","vis"]
+        # self.RotateType=["uvw","vis"]
 
         DATA["uvw"]   = uvw
         visdata = DATA.addSharedArray("data", shape=datashape, dtype=np.complex64)
@@ -680,14 +679,15 @@ class ClassMS():
                 visdata[...] = np.load(datapath)
                 #self.RotateType=["uvw"]
             else:
-                print("reading MS visibilities from column %s" % self.ColName, file=log)
+                print("reading MS visibilities", file=log)
+                print("  data = %s" % self.ColName, file=log)
                 table_all = table_all or self.GiveMainTable()
                 if sort_index is not None:
                     visdata1 = np.ndarray(shape=datashape, dtype=np.complex64)
                     table_all.getcolslicenp(self.ColName, visdata1, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                     if self.SubColName is not None:
                         for SubCol in self.SubColName:
-                            print("  substracting MS visibilities from column %s" % SubCol, file=log)
+                            print("  data-= %s" % SubCol, file=log)
                             visdata2 = np.ndarray(shape=datashape, dtype=np.complex64)
                             table_all.getcolslicenp(SubCol, visdata2, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                             visdata1-=visdata2
@@ -1263,7 +1263,24 @@ class ClassMS():
             times_utc = np.array(list(map(lambda x: qa.quantity("{}s".format(x)).to_unix_time(), times)))
             sel = np.logical_or(times_utc < st0, times_utc > st1)
             flags[sel, :, :] = True
+            
+        if self.DicoSelectOptions["TimeRangeFromStartMin"]:
+            st0, st1 = self.DicoSelectOptions["TimeRangeFromStartMin"]
+            print("  imaging only uv data in time range [{}~{}] minutes since start".format(st0, st1), file=log)
+            st0*=60
+            st1*=60
+            dt=times-times[0]
+            C0=(dt<st0)
+            C1=(dt>=st1)
+            sel = (C0|C1)
+            flags[sel, :, :] = True
 
+        # print("JJJJJJJ")
+        # iAnt=23
+        # sel=np.logical_not(((A0==iAnt)|(A1==iAnt)))
+        # flags[sel, :, :] = True
+        # print("JJJJJJJ")
+        
         if self.DicoSelectOptions["DistMaxToCore"]:
             DMax = self.DicoSelectOptions["DistMaxToCore"] * 1e3
             X, Y, Z = self.StationPos.T

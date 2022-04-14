@@ -29,7 +29,7 @@ def test():
     z1=Gaussian.GaussianXY(x,y,1.,off=(50,50),sig=(PSm,PSM),pa=PPA)
     #########
 
-    CPSF=ClassConfPSF(psfPars)
+    CPSF=ClassConvPSF(psfPars)
     GaussParsConv=CPSF.GiveConvGaussPars(GaussPars)
     Sm2,SM2,PA2=GaussParsConv
 
@@ -51,7 +51,7 @@ def test():
 
 class ClassConvPSF():
     def __init__(self,psf):
-        self.PMin,self.PMaj,self.PPA=psf
+        self.PMaj,self.PMin,self.PPA=psf
         self.P_a,self.P_b,self.P_c=self.Give_GaussABC(self.PMin,self.PMaj,self.PPA)
         
     def Give_GaussABC(self,m0in,m1in,ang):
@@ -82,24 +82,31 @@ class ClassConvPSF():
         da=M_a+P_a
         db=M_b+P_b
         dc=M_c+P_c
-        M=np.abs(np.array([[da,db],[db,dc]]))
-        #print M
+        #print(P_a,P_b,P_c)
+        #print(M_a,M_b,M_c)
+        #print(da,db,dc)
+        
+        M=(np.array([[da,db],[db,dc]]))
         u,l,d=scipy.linalg.svd(M)
 
         Theta=np.angle((u[0,0]+1j*u[0,1]))#/np.pi#-np.pi/2
+        #print("M",M)
+        #print("Theta",Theta)
         
         if l[0]!=0:
             a=1./l[0]
             SigMin0=1./np.sqrt(a/2.)
         else:
             SigMin0=0.
+            
         if l[1]!=0:
             b=1./l[1]
             SigMaj0=1./np.sqrt(b/2.)
         else:
             SigMaj0=0.
+            
         if SigMin0>SigMaj0:
-            #print "invert"
+            #print("invert")
             c=SigMaj0
             SigMaj0=SigMin0
             SigMin0=c

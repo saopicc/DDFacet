@@ -749,6 +749,9 @@ class ClassDDEGridMachine():
         else:
             ChanEquidistant = 0
 
+
+        
+            
         if ChanMapping is None:
             ChanMapping = np.zeros((visIn.shape[1],), np.int64)
         self.ChanMappingGrid = ChanMapping
@@ -1130,7 +1133,7 @@ class ClassDDEGridMachine():
                 flag_padded[:, :, :] = np.max(flag, axis=2)[:, :, None] # equalize flags since this is what the degridder expects
             else:
                 raise ValueError("Expected visibility shape either 4, 2 or 1. Nothing else is supported")
-
+            #print(self.LSmear)
             _ = _pyGridder.pyDeGridderWPol(Grid,
                                            vis_padded,
                                            uvw,

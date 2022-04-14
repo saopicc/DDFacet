@@ -350,6 +350,10 @@ class ClassFacetMachine():
         self.DicoImager[iFacet]["lmShift"] = lmShift
         # CellRad=(Cell/3600.)*np.pi/180.
 
+        d=np.sqrt(l0**2+m0**2)
+        if d>1:
+            return
+        
         raFacet, decFacet = self.CoordMachine.lm2radec(
                             np.array([lmShift[0]]), np.array([lmShift[1]]))
         # print>>log,"Facet %d l %f m %f RA %f Dec %f"%(iFacet, l0, m0, raFacet, decFacet)
@@ -476,7 +480,7 @@ class ClassFacetMachine():
                                    -lcenter_max:lcenter_max:self.GD["Facets"]["NFacets"] * 1j]
         lFacet = lFacet.flatten()
         mFacet = mFacet.flatten()
-
+        
         self.lmSols = lFacet, mFacet
 
         raSols, decSols = self.CoordMachine.lm2radec(lFacet.copy(), mFacet.copy())
@@ -543,7 +547,7 @@ class ClassFacetMachine():
         self.JonesDirCat.m=NodesCat.m
         self.JonesDirCat.Cluster = range(NJonesDir)
 
-        print("Sizes (%i facets):" % (self.JonesDirCat.shape[0]), file=log)
+        print("Sizes: %i facets / %i tessels:" % (len(self.DicoImager),self.JonesDirCat.shape[0]), file=log)
         print("   - Main field :   [%i x %i] pix" % (self.Npix, self.Npix), file=log)
 
         for iFacet in range(lFacet.size):
@@ -1920,7 +1924,8 @@ class ClassFacetMachine():
         APP.awaitJobResults(self._fft_job_id+"*", progress=("FFT PSF" if self.DoPSF else "FFT"))
         self._fft_job_id = None
 
-    def _set_model_grid_worker(self, iFacet, model_dict, cf_dict, ChanSel, ToSHMDict=False,ToGrid=False,ApplyNorm=True,DoReturn=True):
+    def _set_model_grid_worker(self, iFacet, model_dict, cf_dict, ChanSel, ToSHMDict=False,ToGrid=False,ApplyNorm=True,DoReturn=True,
+                               DeleteZeroValuedGrids=False):
         # We get the psf dict directly from the shared dict name (not from the .path of a SharedDict)
         # because this facet machine is not necessarilly the one where we have computed the PSF
         norm_dict = shared_dict.attach("normDict")
@@ -1930,12 +1935,19 @@ class ClassFacetMachine():
                                                            cf_dict["Sphe"], cf_dict["SW"], ChanSel=ChanSel,ToGrid=ToGrid,ApplyNorm=ApplyNorm)
 
         model_dict[iFacet]["SumFlux"] = SumFlux
+        
+        if DeleteZeroValuedGrids and SumFlux==0:
+            # print("Not storing grids for %i"%iFacet)
+            ModelGrid=False
+            cf_dict.delete()
+            
         if ToSHMDict:
             model_dict[iFacet]["FacetGrid"] = ModelGrid
+            
         if DoReturn:
             return ModelGrid
 
-    def set_model_grid (self,ToGrid=True,ApplyNorm=True):
+    def set_model_grid (self,ToGrid=True,ApplyNorm=True,DeleteZeroValuedGrids=False):
         self.awaitInitCompletion()
 
         #modeldict_path=self._model_dict.path
@@ -1947,14 +1959,19 @@ class ClassFacetMachine():
         nch,_,_,_=self._model_dict["Image"].shape
         ChanSel=range(nch)
         ToSHMDict=True
+
+        STot=0
+        for iFacet in self.DicoImager.keys():
+            nx=self.DicoImager[iFacet]["NpixFacetPadded"]
+            STot+=nx**2*nch*8/1024**3
         
+        log.print("Total grid size expected to be %.2f GB (complex64)"%STot)
         self._set_model_grid_job_id = "%s.MakeGridModel:" % (self._app_id)
-        
         for iFacet in self.DicoImager.keys():
             APP.runJob("%sF%d" % (self._set_model_grid_job_id, iFacet), 
                        self._set_model_grid_worker,
-                       args=(iFacet, self._model_dict.readwrite(), self._CF[iFacet].readonly(),
-                             ChanSel,ToSHMDict,ToGrid,ApplyNorm,False))
+                       args=(iFacet, self._model_dict.readwrite(), self._CF[iFacet].readwrite(),#.readonly(),
+                             ChanSel,ToSHMDict,ToGrid,ApplyNorm,False,DeleteZeroValuedGrids))#,serial=True)
         APP.awaitJobResults(self._set_model_grid_job_id + "*", progress="Make model grids")
         del(self._model_dict["Image"])
 

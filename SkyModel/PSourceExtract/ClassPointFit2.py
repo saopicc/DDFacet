@@ -6,8 +6,8 @@ import pylab
 import scipy.optimize
 import time
 from . import ClassIslands
-from Other import ModColor
-from Other.progressbar import ProgressBar
+from SkyModel.Other import ModColor
+from SkyModel.Other.progressbar import ProgressBar
 
 def init():
     nn=101.

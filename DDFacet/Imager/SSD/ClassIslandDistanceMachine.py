@@ -63,8 +63,9 @@ class Island(object):
 
 
 class ClassIslandDistanceMachine():
-    def __init__(self,GD,MaskArray,PSFServer,DicoDirty,IdSharedMem=""):
+    def __init__(self,GD,MaskArray,PSFServer,DicoDirty,IdSharedMem="",MinMaxGroupDistance=[10,50]):
         self.GD=GD
+        self.MinMaxGroupDistance=MinMaxGroupDistance
         self._MaskArray=MaskArray
         self.PSFServer=PSFServer
         self.PSFCross=None
@@ -229,9 +230,15 @@ class ClassIslandDistanceMachine():
         self.setCheckedIslands.add(iIsland)
         #indNearbyIsland=np.where((self.PSFCross[iIsland])>Th)[0]
 
-        D0,D1=self.GD["SSDClean"]["MinMaxGroupDistance"]
+        if self.GD is not None:
+            D0,D1=self.GD["SSDClean"]["MinMaxGroupDistance"]
+        else:
+            D0,D1=self.MinMaxGroupDistance
 
-        CTh=(self.PSFCross[iIsland]>Th)
+        if self.PSFCross is not None:
+            CTh=(self.PSFCross[iIsland]>Th)
+        else:
+            CTh=True
         C0=(self.DistCross[iIsland]<D0)
         C1=(self.DistCross[iIsland]<D1)
         setNearbyIsland=set(np.where( (CTh | C0) & (C1) )[0].tolist())
@@ -248,6 +255,56 @@ class ClassIslandDistanceMachine():
 
 
 
+    def CalcCrossIslandFlux_noPSFInfo(self,ListIslands,Dirty):
+        NIslands=len(ListIslands)
+        print("  grouping cross contaminating islands...", file=log)
+
+        MaxIslandFlux=np.zeros((NIslands,),np.float32)
+        DicoIsland={}
+
+        for iIsland in range(NIslands):
+            x0,y0=np.array(ListIslands[iIsland]).T
+            PixVals0=Dirty[0,0,x0,y0]
+            MaxIslandFlux[iIsland]=np.max(PixVals0)
+            DicoIsland[iIsland]=ListIslands[iIsland]
+
+        self.CrossFluxContrib=0
+        self.DicoIsland=DicoIsland
+
+        NDone=0
+        NJobs=NIslands
+        pBAR= ProgressBar(Title=" Group islands")
+        pBAR.disable()
+        pBAR.render(0, NJobs)
+
+        Th=0.05
+        
+        ListIslandMerged=[]
+        self.setCheckedIslands=set([])
+        for iIsland in range(NIslands):
+            x0,y0=np.array(ListIslands[iIsland]).T
+            #print "Main %i (%f, %f)"%(iIsland,np.mean(x0),np.mean(y0))
+            
+            NDone+=1
+            intPercent=int(100*  NDone / float(NJobs))
+            pBAR.render(NDone,NJobs)
+            
+            ListIslandMerged.append(list(self.GiveNearbyIsland(iIsland,set([]))))
+
+        
+        ListIslands=[]
+        for indIsland in ListIslandMerged:
+            if len(indIsland)==0: continue
+            ThisIsland=DicoIsland[indIsland[0]]
+            for iIsland in indIsland[1::]:
+                ThisIsland+=DicoIsland[iIsland]
+            ListIslands.append(ThisIsland)
+
+        print("    have grouped %i --> %i islands"%(NIslands, len(ListIslands)), file=log)
+
+        return ListIslands
+
+    
     def CalcCrossIslandFlux(self,ListIslands):
         if self.PSFCross is None:
             self.CalcCrossIslandPSF(ListIslands)

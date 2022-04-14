@@ -239,7 +239,14 @@ class CacheManager (object):
                         "(%s: missing in stored hash)" % (str(MainField)))
 
                 print("cache hash %s does not match, will re-make" % hashpath, file=log)
-                print("  differences in parameters (Param: this vs cached): %s"%" & ".join(ListDiffer), file=log)
+                if False:#len(ListDiffer)==1:
+                    print("  differences in parameters (Param: this vs cached): %s"%" & ".join(ListDiffer), file=log)
+                else:
+                    print("  differences in parameters (Param: this vs cached):", file=log)
+                    for ThisStrDiff in ListDiffer:
+                        ss=ThisStrDiff.replace("(","    - ").replace(")","")
+                        print(ss, file=log)
+                    
                 
                 reset = True
             # if resetting cache, then mark new hash value for saving (will be saved in flushCache),

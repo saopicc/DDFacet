@@ -4,8 +4,8 @@ from __future__ import division, absolute_import, print_function
 import optparse
 import pickle
 import numpy as np
-from SkyModel.Other import MyLogger
-log=MyLogger.getLogger("MaskDicoModel")
+from DDFacet.Other import logger
+log=logger.getLogger("MaskDicoModel")
 
 try:
     from DDFacet.Imager.ModModelMachine import GiveModelMachine
@@ -33,6 +33,15 @@ def read_options():
     options, arguments = opt.parse_args()
     f = open(SaveName,"wb")
     pickle.dump(options,f)
+    
+
+    
+def mainFromExt(InDicoModel=None,OutDicoModel=None,MaskName=None,NPixOut=None,FilterNegComp=0,InvertMask=0):
+    class O:
+        def __init__(self,**kwargs):
+            for key in kwargs.keys(): setattr(self,key,kwargs[key])
+    options=O(InDicoModel=InDicoModel,OutDicoModel=OutDicoModel,MaskName=MaskName,NPixOut=NPixOut,FilterNegComp=FilterNegComp,InvertMask=InvertMask)
+    return main(options)
 
 def main(options=None):
     if options==None:
@@ -44,6 +53,8 @@ def main(options=None):
         raise ValueError("--OutDicoModel should be specified")
     ModConstructor = ClassModModelMachine()
     MM=ModConstructor.GiveInitialisedMMFromFile(options.InDicoModel)
+    NComp0=len(MM.DicoSMStacked["Comp"].keys())
+    
     if options.MaskName:
         MM.CleanMaskedComponants(options.MaskName,InvertMask=options.InvertMask)
         
@@ -53,6 +64,8 @@ def main(options=None):
     if options.NPixOut:
         MM.ChangeNPix(int(options.NPixOut))
 
+    NComp1=len(MM.DicoSMStacked["Comp"].keys())
+    log.print("Kept %i componants (out of %i)"%(NComp1,NComp0))
     MM.ToFile(options.OutDicoModel)
 
 

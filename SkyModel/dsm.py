@@ -25,7 +25,6 @@ if __name__=="__main__":
             S.append(s)
         else:
             Sr="-regions load all %s"%s
-
     
     ll=glob.glob(S[-1])
     im=image(ll[-1])
@@ -41,6 +40,9 @@ if __name__=="__main__":
     S=" ".join(S)
 
     ss="ds9 -cmap bb -scalelims %f %f %s -lock slice image -lock frame wcs -lock scale yes -match scalelimits -match scale -match colorbar -lock colorbar yes -view vertical %s"%(vmin,vmax,S,Sr)
+
     
     print(ss)
     os.system(ss)
+
+    

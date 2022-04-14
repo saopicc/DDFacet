@@ -37,6 +37,7 @@ from DDFacet.Data import ClassFITSBeam
 from DDFacet.Data import ClassGMRTBeam
 from DDFacet.Data import ClassATCABeam as ClassATCABeam
 # import ClassSmoothJones is not used anywhere, should be able to remove it
+from killMS.Other import ClassGiveSolsFile
 
 import tables
 import glob
@@ -167,7 +168,8 @@ class ClassJones():
                                                                                      DataSelection=self.GD["Selection"],
                                                                                      ImagerMainFacet=self.GD["Image"],
                                                                                      Facets=self.GD["Facets"],
-                                                                                     PhaseCenterRADEC=self.GD["Image"]["PhaseCenterRADEC"]))
+                                                                                     PhaseCenterRADEC=self.GD["Image"]["PhaseCenterRADEC"]),
+                                                                                reset=(self.GD["Cache"]["Jones"].lower()=="reset"))
             if valid:
                 print("  using cached Jones matrices from %s" % self.JonesNormSolsFile_killMS, file=log)
                 DicoSols, TimeMapping, DicoClusterDirs = self.DiskToSols(self.JonesNormSolsFile_killMS)
@@ -404,10 +406,9 @@ class ClassJones():
         # elif KillMSSols is not None:
         #     DicoSols=KillMSSols
 
-        DicoSols["Jones"] = np.require(
-            DicoSols["Jones"],
-            dtype=np.complex64,
-            requirements="C")
+        DicoSols["Jones"] = np.require(DicoSols["Jones"],
+                                       dtype=np.complex64,
+                                       requirements="C")
 
         # ThisMSName=reformat.reformat(os.path.abspath(self.CurrentMS.MSName),LastSlash=False)
         # TimeMapName="%s/Mapping.DDESolsTime.npy"%ThisMSName
@@ -793,19 +794,23 @@ class ClassJones():
             #         LastSlash=False)
             #     SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, Method)
 
-            if not(".npz" in SolsFile):
-                SolsDir=self.GD["DDESolutions"]["SolsDir"]
-                if SolsDir is None or SolsDir=="":
-                    Method = SolsFile
-                    ThisMSName = reformat.reformat(os.path.abspath(self.MS.MSName), LastSlash=False)
-                    SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, SolsFile)
-                else:
-                    _MSName=reformat.reformat(os.path.abspath(self.MS.MSName).split("/")[-1])
-                    DirName=os.path.abspath("%s%s"%(reformat.reformat(SolsDir),_MSName))
-                    if not os.path.isdir(DirName):
-                        os.makedirs(DirName)
-                    SolsFile="%s/killMS.%s.sols.npz"%(DirName,SolsFile)
+            # if not(".npz" in SolsFile):
+            #     SolsDir=self.GD["DDESolutions"]["SolsDir"]
+            #     if SolsDir is None or SolsDir=="":
+            #         Method = SolsFile
+            #         ThisMSName = reformat.reformat(os.path.abspath(self.MS.MSName), LastSlash=False)
+            #         SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, SolsFile)
+            #     else:
+            #         _MSName=reformat.reformat(os.path.abspath(self.MS.MSName).split("/")[-1])
+            #         DirName=os.path.abspath("%s%s"%(reformat.reformat(SolsDir),_MSName))
+            #         if not os.path.isdir(DirName):
+            #             os.makedirs(DirName)
+            #         SolsFile="%s/killMS.%s.sols.npz"%(DirName,SolsFile)
+                    
+            CGiveSaveFileName=ClassGiveSolsFile.ClassGive_kMSFileName(self.MS.MSName,GD=self.GD)
+            SolsFile=CGiveSaveFileName.GiveFileName(SolsFile,Type="Sols")
 
+                    
             VisToJonesChanMapping,DicoClusterDirs,DicoSols,G=self.ReadNPZ(SolsFile)
         else:
             VisToJonesChanMapping,DicoClusterDirs,DicoSols,G=self.ReadH5(SolsFile)

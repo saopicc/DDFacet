@@ -58,7 +58,7 @@ class ClassModModelMachine():
             FileName    = The file to read
         """
 
-
+        log.print("Extracting DicoModel from %s"%FileName)
         DicoSMStacked = MyPickle.Load(FileName)
         if self.GD is None:
             self.GD=DicoSMStacked["GD"]

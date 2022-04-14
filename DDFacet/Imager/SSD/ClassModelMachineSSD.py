@@ -469,7 +469,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         print("  There are %i components left"%len(self.DicoSMStacked["Comp"]), file=log)
 
                 
-    def ToNPYModel(self,FitsFile,SkyModel,BeamImage=None):
+    def ToNPYModel(self,FitsFile,SkyModel,BeamImage=None,AtFreq=None):
         #R=ModRegFile.RegToNp(PreCluster)
         #R.Read()
         #R.Cluster()
@@ -478,7 +478,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
 
         AlphaMap=self.GiveSpectralIndexMap()
-        ModelMap=self.GiveModelImage()
+
+        if AtFreq is None:
+            ModelMap=self.GiveModelImage()
+        else:
+            ModelMap=self.GiveModelImage(np.array([AtFreq]).ravel())
+            AlphaMap.fill(0)
+            
         nch,npol,_,_=ModelMap.shape
 
         for ch in range(nch):
