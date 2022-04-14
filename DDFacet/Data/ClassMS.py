@@ -1321,15 +1321,15 @@ class ClassMS():
         antenna_flagfrac = [flags1[rows].sum() / float(flags1[rows].size or 1) for rows in antenna_rows]
         print("  flagged fractions per antenna: %s" % " ".join(["%.2f" % frac for frac in antenna_flagfrac]), file=log)
 
-        print("lhjhgkljklhkhm")
-        print("lhjhgkljklhkhm")
-        print("lhjhgkljklhkhm")
-        print("lhjhgkljklhkhm")
-        print("lhjhgkljklhkhm")
-        print("lhjhgkljklhkhm")
-        print("lhjhgkljklhkhm")
-        print("lhjhgkljklhkhm")
-        ThresholdFlag=1
+        # print("lhjhgkljklhkhm")
+        # print("lhjhgkljklhkhm")
+        # print("lhjhgkljklhkhm")
+        # print("lhjhgkljklhkhm")
+        # print("lhjhgkljklhkhm")
+        # print("lhjhgkljklhkhm")
+        # print("lhjhgkljklhkhm")
+        # print("lhjhgkljklhkhm")
+        # ThresholdFlag=1
         FlagAntFrac = [ant for ant, frac in enumerate(antenna_flagfrac) if frac > ThresholdFlag]
         FlagAntNumber.update(FlagAntFrac)
         for A in FlagAntFrac:
