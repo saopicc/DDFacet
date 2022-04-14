@@ -154,7 +154,7 @@ class ClassVisServer():
         self._chunk_shape = [0, 0, 0]
 
         for msspec in self.MSList:
-            if type(msspec) is not str:
+            if not isinstance(msspec,str):
                 msname, ddid, field, column = msspec
             else:
                 msname, ddid, field, column = msspec, self.DicoSelectOptions["DDID"], self.DicoSelectOptions["Field"], self.ColName
@@ -410,7 +410,7 @@ class ClassVisServer():
 
     def SetImagingPars(self, OutImShape, CellSizeRad):
         self.OutImShape = OutImShape
-        self.CellSizeRad = CellSizeRad
+        self.CellSizeRad_x,self.CellSizeRad_y=self.CellSizeRad = CellSizeRad
 
     def CalcMeanBeam(self):
         AverageBeamMachine = ClassBeamMean.ClassBeamMean(self)
@@ -622,13 +622,13 @@ class ClassVisServer():
         self.FullImShape = self.FacetMachine.OutImShape
         self.PaddedFacetShape = self.FacetMachine.PaddedGridShape
         self.FacetShape = self.FacetMachine.FacetShape
-        self.CellSizeRad = self.FacetMachine.CellSizeRad
+        self.CellSizeRad_x,self.CellSizeRad_y=self.CellSizeRad = self.FacetMachine.CellSizeRad
 
     def setFOV(self, sh0, sh1, sh2, cell):
         self.FullImShape = sh0
         self.PaddedFacetShape = sh1
         self.FacetShape = sh2
-        self.CellSizeRad = cell
+        self.CellSizeRad_x,self.CellSizeRad_y = self.CellSizeRad = cell
 
     def collectBDA(self, base_job_id, DATA):
         """Called in I/O thread. Waits for BDA computation to complete (if any), then populates dict"""
@@ -666,7 +666,7 @@ class ClassVisServer():
                 elif self.GD["Comp"]["GridFoV"] == "Full":
                     _, _, nx, ny = self.FullImShape
                 mode = self.GD["Comp"]["BDAMode"]
-                FOV = self.CellSizeRad * nx * (np.sqrt(2.) / 2.) * 180. / np.pi
+                FOV =  np.sqrt((self.CellSizeRad_x*nx/2)**2+(self.CellSizeRad_y*ny/2)**2) * 180. / np.pi
                 self._smm_grid.computeSmearMappingInBackground(base_job_id, ms, DATA, FOV,
                                                           (1. - self.GD["Comp"]["GridDecorr"]),
                                                           ChanMappingGridding, mode)
@@ -683,7 +683,8 @@ class ClassVisServer():
                 elif self.GD["Comp"]["DegridFoV"] == "Full":
                     _, _, nx, ny = self.FullImShape
                 mode = self.GD["Comp"]["BDAMode"]
-                FOV = self.CellSizeRad * nx * (np.sqrt(2.) / 2.) * 180. / np.pi
+                FOV =  np.sqrt((self.CellSizeRad_x*nx/2)**2+(self.CellSizeRad_y*ny/2)**2) * 180. / np.pi
+                
                 self._smm_degrid.computeSmearMappingInBackground(base_job_id, ms, DATA, FOV,
                                                           (1. - self.GD["Comp"]["DegridDecorr"]),
                                                           ChanMappingDeGridding, mode)
@@ -746,7 +747,8 @@ class ClassVisServer():
         """Starts parallel jobs to load weights in the background"""
         self.VisWeights = None
         if self.GD["Misc"]["ConserveMemory"]:
-            APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event)
+            #APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event)
+            APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event)#,serial=True)
         else:
             APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event)#,serial=True)
         # APP.awaitEvents(self._calcweights_event)
@@ -802,7 +804,7 @@ class ClassVisServer():
                                 ms.ChanFreq,
                                 self.SigmoidInCut, self.SigmoidOutCut, 
                                 self.SigmoidOutRoll, self.SigmoidInRoll),
-                        counter=self._weightjob_counter, collect_result=False)
+                        counter=self._weightjob_counter, collect_result=False)#,serial=True)
             APP.awaitJobCounter(self._weightjob_counter, progress="Sigmoid Tapering")
 
     def _CalcWeights_handler(self):
@@ -872,25 +874,28 @@ class ClassVisServer():
         # in natural mode, leave the weights as is. In other modes, setup grid for calculations
         self._weight_grid = shared_dict.create("VisWeights.Grid")
         cell = npix = npixx = nbands = xymax = None    
-
+        self.CellSizeRad_x,self.CellSizeRad_y=self.CellSizeRad
         if self.Weighting != "natural":
-            nch, npol, npixIm, _ = self.FullImShape
-            FOV = self.CellSizeRad * npixIm
+            nch, npol, npixIm_x, npixIm_y = self.FullImShape
+            FOV_x = self.CellSizeRad_x * npixIm_x
+            FOV_y = self.CellSizeRad_y * npixIm_y
             nbands = self.NFreqBands
             
-            cell = 1. / (self.Super * FOV)
+            cell_u = 1. / (self.Super * FOV_x)
+            cell_v = 1. / (self.Super * FOV_y)
             if self.MFSWeighting or self.NFreqBands < 2:
                 nbands = 1
                 print("initializing weighting grid for single band (or MFS weighting)", file=log)
             else:
                 print("initializing weighting grids for %d bands" % nbands, file=log)
             # find max grid extent by considering _unflagged_ UVs
-            xymax = int(math.floor(self._uvmax / cell)) + 1
+            xymax = int(math.floor(self._uvmax / np.min([cell_u,cell_v]))) + 1
+            cell=cell_u,cell_v
             # grid will be from [-xymax,xymax] in U and [0,xymax] in V
             npixx = xymax * 2 + 1
             npixy = xymax + 1
             npix = npixx * npixy
-            print("Calculating imaging weights on an [%i,%i]x%i grid with cellsize %g" % (npixx, npixy, nbands, cell), file=log)
+            print("Calculating imaging weights on an [%i,%i]x%i grid with cellsize %g,%g" % (npixx, npixy, nbands, cell[0],cell[1]), file=log)
             grid0 = self._weight_grid.addSharedArray("grid", (nbands, npix), np.float64)
             # now run parallel jobs to accumulate weights
             parallel = num_valid_chunks > 1
@@ -901,7 +906,7 @@ class ClassVisServer():
                                    args=(self._weight_grid.readonly(),
                                          self._weight_dict[ims][ichunk].readwrite(),
                                          ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax, parallel),
-                                   counter=self._weightjob_counter, collect_result=False)
+                                   counter=self._weightjob_counter, collect_result=False)#,serial=True)
             # wait for results
             APP.awaitJobCounter(self._weightjob_counter, progress="Accumulate weights")
             if self.Weighting == "briggs" or self.Weighting == "robust":
@@ -921,7 +926,7 @@ class ClassVisServer():
                            args=(self._weight_grid.readonly(),
                                  self._weight_dict[ims][ichunk].readwrite(),
                                  ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax),
-                           counter=self._weightjob_counter, collect_result=False)
+                           counter=self._weightjob_counter, collect_result=False)#,serial=True)
         APP.awaitJobCounter(self._weightjob_counter, progress="Finalize weights")
         # delete stuff
         if self._weight_grid is not None:
@@ -1076,34 +1081,50 @@ class ClassVisServer():
     def _uv_to_index(self, ims, uv, weights, freqs, cell, npix, npixx, nbands, xymax):
         """Helper method: converts UV coordinates to indices into a UV-grid"""
         # flip sign of negative v values -- we'll only grid the top half of the plane
+        cell=np.array(cell,np.float64) 
+        cell_u,cell_v=cell
+
         uv[uv[:, 1] < 0] *= -1
         # convert u/v to lambda, and then to pixel offset
         uv = uv[..., np.newaxis] * freqs[np.newaxis, np.newaxis, :] / _cc
-        uv = np.floor(uv / cell).astype(int)
-        # u is offset, v isn't since it's the top half
-        x = uv[:, 0, :]
-        y = uv[:, 1, :]
+        #uv2 = np.floor(uv / cell.reshape((1,2,1))).astype(int)
+        u = uv[:, 0, :]
+        v = uv[:, 1, :]
+        x = np.floor(u / cell[0]).astype(int)
+        y = np.floor(v / cell[1]).astype(int)
+        # # u is offset, v isn't since it's the top half
+        # x = uv2[:, 0, :]
+        # y = uv2[:, 1, :]
+        #np.savez("indexIn.new.npz",x=x,y=y,xymax=xymax,DicoMSChanMapping=self.DicoMSChanMapping[ims])
         x += xymax  # offset, since X grid starts at -xymax
         # convert to index array -- this gives the number of the uv-bin on the grid
         #index = msw.addSharedArray("index", (uv.shape[0], len(freqs)), np.int64)
         index = np.zeros((uv.shape[0], len(freqs)), np.int32)
         index[...] = y * npixx + x
+        # np.savez("indexIn.new.npz",uv=uv,uv2=uv2,index=index,x=x,y=y,
+        #          xymax=xymax,cell=cell,
+        #          DicoMSChanMapping=self.DicoMSChanMapping[ims])
+        # stop
         # if we're in per-band weighting mode, then adjust the index to refer to each band's grid
         if nbands > 1:
             index += self.DicoMSChanMapping[ims][np.newaxis, :] * npix
         # zero weight refers to zero cell (otherwise it may end up outside the grid, since grid is
         # only big enough to accommodate the *unflagged* uv-points)
         index[weights == 0] = 0
+        #np.savez("indexIn2.new.npz",index=index,x=x,y=y,xymax=xymax,DicoMSChanMapping=self.DicoMSChanMapping[ims])
         return index
 
     def _accumulateWeights_handler (self, wg, msw, ims, ichunk, freqs, cell, npix, npixx, nbands, xymax, parallel=False):
         msname = "MS %d chunk %d"%(ims, ichunk)
+        
         try:
             ms = self.ListMS[ims]
             msname = "%s chunk %d"%(ms.MSName, ichunk)
             weights = msw["weight"]
             index = self._uv_to_index(ims, msw["uv"], weights, freqs, cell, npix, npixx, nbands, xymax)
+            #np.savez("index.new.npz",ims=ims,msw=msw["uv"], weights=weights, freqs=freqs, cell=cell, npix=npix, npixx=npixx, nbands=nbands, xymax=xymax)
             msw.delete_item("flags")
+            #np.savez("accumulateWeights_handler.new.npz",grid=wg["grid"], weights=weights.ravel(), index=index.ravel())
             if parallel:
                 _pyGridderSmearPols.pyAccumulateWeightsOntoGrid(wg["grid"], weights.ravel(), index.ravel())
             else:
@@ -1209,33 +1230,37 @@ class ClassVisServer():
         # setup uv-grid for non-natural weights
         if self.Weighting != "natural":
             self._weight_grid = shared_dict.create("VisWeights.Grid")
-            nch, npol, npixIm, _ = self.FullImShape
-            FOV = self.CellSizeRad * npixIm
+            nch, npol, npixIm_x, npixIm_y = self.FullImShape
+            FOV_x = self.CellSizeRad_x * npixIm_x
+            FOV_y = self.CellSizeRad_y * npixIm_y
             nbands = self.NFreqBands
-            cell = 1. / (self.Super * FOV)
+            cell_u = 1. / (self.Super * FOV_x)
+            cell_v = 1. / (self.Super * FOV_y)
             if self.MFSWeighting or self.NFreqBands < 2:
                 nbands = 1
                 print("initializing weighting grid for single band (or MFS weighting)", file=log)
             else:
                 print("initializing weighting grids for %d bands" % nbands, file=log)
             # find max grid extent by considering _unflagged_ UVs
-            xymax = int(math.floor(self._uvmax / cell)) + 1
+            xymax = int(math.floor(self._uvmax / np.min([cell_u,cell_v]))) + 1
             # grid will be from [-xymax,xymax] in U and [0,xymax] in V
             npixx = xymax * 2 + 1
             npixy = xymax + 1
             npix = npixx * npixy
-            print("Calculating imaging weights on an [%i,%i]x%i grid with cellsize %g" % (npixx, npixy, nbands, cell), file=log)
+            print("Calculating imaging weights on an [%i,%i]x%i grid with cellsize [%g,%g]" % (npixx, npixy, nbands, cell_u,cell_v), file=log)
             self._weight_grid.addSharedArray("grid", (nbands, npix), np.float64)
         else:
             nbands = self.NFreqBands
-            nch, npol, npixIm, _ = self.FullImShape
-            FOV = self.CellSizeRad * npixIm
-            cell = 1. / (self.Super * FOV)
-            xymax = int(math.floor(self._uvmax / cell)) + 1
+            nch, npol, npixIm_x, npixIm_y = self.FullImShape
+            FOV_x = self.CellSizeRad_x * npixIm_x
+            FOV_y = self.CellSizeRad_y * npixIm_y
+            cell_u = 1. / (self.Super * FOV_x)
+            cell_v = 1. / (self.Super * FOV_y)
+            xymax = int(math.floor(self._uvmax / np.min([cell_u,cell_v]))) + 1
             npixx = xymax * 2 + 1
             npixy = xymax + 1
             npix = npixx * npixy
-
+        cell=np.array([cell_u,cell_v])
         # scan through MSs one by one
         for ims, ms in enumerate(self.ListMS):
             msweights = self._weight_dict[ims]
@@ -1261,8 +1286,9 @@ class ClassVisServer():
                 # else accumulate onto uv grid
                 else:
                     self._accumulateWeights_handler(self._weight_grid, msw,
-                                         ims, ichunk, ms.ChanFreq, cell,
-                                         npix, npixx, nbands, xymax)
+                                                    ims, ichunk, ms.ChanFreq, cell,
+                                                    npix, npixx, nbands, xymax)
+                    #np.savez("msw.new.npz",**msw)
                                     
         # save wmax to cache
         cPickle.dump(wmax, open(wmax_path, "wb"))
@@ -1287,8 +1313,10 @@ class ClassVisServer():
                     grid1 = grid0[band, :]
                     avgW = (grid1 ** 2).sum() / grid1.sum()
                     sSq = numeratorSqrt ** 2 / avgW
+                    #np.savez("grids.new.npz",grid0=grid0,numeratorSqrt=numeratorSqrt,grid1=grid1,avgW=avgW,sSq=sSq)
                     grid1[...] = 1 + grid1 * sSq
 
+                    
             # rescan through MSs one by one to re-adjust the weights
             for ims, ms in enumerate(self.ListMS):
                 msweights = self._weight_dict[ims]

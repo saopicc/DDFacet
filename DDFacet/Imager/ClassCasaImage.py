@@ -37,7 +37,7 @@ from astropy.io import fits
 from astropy.wcs import WCS
 from DDFacet.report_version import report_version
 
-def FileToArray(FileName,CorrT):
+def FileToArray(FileName,CorrT=True):
     """ Read a FITS FileName file to an array """
     hdu=fits.open(FileName)
     NormImage=hdu[0].data
@@ -51,11 +51,16 @@ def FileToArray(FileName,CorrT):
         Sh=(nch,1,nx,ny)
         NormImage=NormImage.reshape(Sh)
 
+        
+    NormImageOut=NormImage
     if CorrT:
+        nx,ny=NormImage.shape[-2:]
+        Sh=(nch,1,ny,nx)
+        NormImageOut=np.zeros(Sh,dtype=NormImage.dtype)
         for ch in range(nch):
             for pol in range(npol):
-                NormImage[ch,pol]=NormImage[ch,pol].T[::-1]
-    return NormImage
+                NormImageOut[ch,pol]=NormImage[ch,pol].T[::-1]
+    return NormImageOut
 
 class ClassCasaimage():
 
@@ -88,7 +93,7 @@ class ClassCasaimage():
                                    "See FITS standard 3.0 (A&A 524 A42) Table 28 for the indices of the stokes "
                                    "parameters you want to image.")
         self.ImShape=ImShape
-        self.nch,self.npol,self.Npix,_ = ImShape
+        self.nch,self.npol,self.Npix_x,self.Npix_y = ImShape
 
         self.ImageName=ImageName
         #print "image refpix:",rad2hmsdms.rad2hmsdms(radec[0],Type="ra").replace(" ",":"),", ",rad2hmsdms.rad2hmsdms(radec[1],Type="dec").replace(" ",".")
@@ -113,12 +118,12 @@ class ClassCasaimage():
 
         self.w = WCS(naxis=4)
         self.w.wcs.ctype = ['RA---SIN','DEC--SIN','STOKES','FREQ']
-        self.w.wcs.cdelt[0] = -self.Cell/3600.0
-        self.w.wcs.cdelt[1] = self.Cell/3600.0
+        self.w.wcs.cdelt[0] = -self.Cell[0]/3600.0
+        self.w.wcs.cdelt[1] = self.Cell[1]/3600.0
         self.w.wcs.cdelt[2] = self.delta_stokes
         self.w.wcs.cunit = ['deg','deg','','Hz']
         self.w.wcs.crval = [self.radec[0]*180.0/np.pi,self.radec[1]*180.0/np.pi,self.sorted_stokes[0],0]
-        self.w.wcs.crpix = [1+(self.Npix-1)/2.0,1+(self.Npix-1)/2.0,1,1]
+        self.w.wcs.crpix = [1+(self.Npix_x-1)/2.0,1+(self.Npix_y-1)/2.0,1,1]
 
         self.fmean=None
         if self.Freqs is not None:
@@ -139,14 +144,20 @@ class ClassCasaimage():
     def setdata(self, dataIn, CorrT=False):
         #print>>log, "  ----> put data in casa image %s"%self.ImageName
 
-        data=dataIn.copy()
+        
+        
         if CorrT:
-            nch,npol,_,_=dataIn.shape
+            nch,npol,nx,ny=dataIn.shape
+            data=np.zeros((nch,npol,ny,nx),dtype=dataIn.dtype)
             for ch in range(nch):
                 for pol in range(npol):
                     #Need to place stokes data in increasing order because of the linear spacing assumption used in FITS
                     stokes_slice_id = self.Stokes.index(self.sorted_stokes[pol])
                     data[ch,pol]=dataIn[ch][stokes_slice_id][::-1].T
+                    
+        else:
+            data=dataIn.copy()
+
         self.imageFlipped = CorrT
         self.data = data
 

@@ -32,7 +32,7 @@ log=logger.getLogger("ClassModelMachine")
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Other import MyPickle
 from DDFacet.Other import reformat
-from DDFacet.ToolsDir.GiveEdges import GiveEdges
+from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric,GiveEdges
 from DDFacet.Imager import ClassModelMachine as ClassModelMachinebase
 from DDFacet.Imager import ClassFrequencyMachine, ClassScaleMachine
 import os
@@ -45,9 +45,12 @@ def substep(A, psf, sol, Ip, Iq, pq, npixpsf):
     :param psf: the psf (not necessarily the size of the image)
     :param Ip, Iq: indices of active set relative to image
     :param pq: the location of a component relative to the active set
-    :return: 
+    :return:
     """
-    halfnpixpsf = npixpsf//2
+    npixpsf_x,npixpsf_y=npixpsf
+    
+    halfnpixpsf_x = npixpsf_x//2
+    halfnpixpsf_y = npixpsf_y//2
     p = Ip[pq]
     q = Iq[pq]
     # loop over active indices
@@ -56,9 +59,9 @@ def substep(A, psf, sol, Ip, Iq, pq, npixpsf):
         # check that there is an overlap with psf
         delp = p - ip
         delq = q - iq
-        if abs(delp) <= halfnpixpsf and abs(delq) <= halfnpixpsf:
-            pp = halfnpixpsf - delp
-            qq = halfnpixpsf - delq
+        if abs(delp) <= halfnpixpsf_x and abs(delq) <= halfnpixpsf_y:
+            pp = halfnpixpsf_x - delp
+            qq = halfnpixpsf_y - delq
             A[i] -= sol * psf[pp, qq]
     return A
 
@@ -79,12 +82,18 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def setPSFServer(self, PSFServer):
         self.PSFServer = PSFServer
 
-        _, _, self.Npix, _ = self.PSFServer.ImageShape
-        self.NpixPadded = int(np.ceil(self.GD["Facets"]["Padding"] * self.Npix))
+        _, _, self.Npix_x, self.Npix_y = self.PSFServer.ImageShape
+        self.NpixPadded_x = int(np.ceil(self.GD["Facets"]["Padding"] * self.Npix_x))
+        self.NpixPadded_y = int(np.ceil(self.GD["Facets"]["Padding"] * self.Npix_y))
+        
         # make sure it is odd numbered
-        if self.NpixPadded % 2 == 0:
-            self.NpixPadded += 1
-        self.Npad = (self.NpixPadded - self.Npix) // 2
+        if self.NpixPadded_x % 2 == 0:
+            self.NpixPadded_x += 1
+        self.Npad_x = (self.NpixPadded_x - self.Npix_x) // 2
+        
+        if self.NpixPadded_y % 2 == 0:
+            self.NpixPadded_y += 1
+        self.Npad_y = (self.NpixPadded_y - self.Npix_y) // 2
 
     def setFreqMachine(self, GridFreqs, DegridFreqs, weights=None, PSFServer=None):
         self.PSFServer = PSFServer
@@ -123,8 +132,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.DoAbs = self.GD["Deconv"]["AllowNegative"]
         self.ScaleMachine = ClassScaleMachine.ClassScaleMachine(GD=self.GD, NCPU=self.NCPU, MaskArray=MaskArray)
         self.ScaleMachine.Init(PSFServer, self.FreqMachine, cachepath=cachepath, MaxBaseline=MaxBaseline)
-        self.NpixPSF = self.ScaleMachine.NpixPSF
-        self.halfNpixPSF = self.NpixPSF//2
+        self.NpixPSF_x,self.NpixPSF_y = self.ScaleMachine.NpixPSF
+        self.halfNpixPSF_x = self.NpixPSF_x//2
+        self.halfNpixPSF_y = self.NpixPSF_y//2
         self.Nscales = self.ScaleMachine.Nscales
         # Initialise CurrentScale variable
         self.CurrentScale = 999999
@@ -167,12 +177,12 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def setModelShape(self, ModelShape):
         self.ModelShape = ModelShape
-        self.Npix = self.ModelShape[-1]
+        self.Npix_x,self.Npix_y = self.ModelShape[-2:]
 
     def AppendComponentToDictStacked(self, key, Sols, iScale, Gain):
         """
-        Adds component to model dictionary at a scale specified by Scale. 
-        The dictionary corresponding to each scale is keyed on pixel values (l,m location tupple). 
+        Adds component to model dictionary at a scale specified by Scale.
+        The dictionary corresponding to each scale is keyed on pixel values (l,m location tupple).
         Each model component is therefore represented parametrically by a pixel value a scale and a set of coefficients
         describing the spectral axis.
         Currently only Stokes I is supported.
@@ -181,7 +191,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             Sols: Nd array of coeffs with length equal to the number of basis functions representing the component.
             iScale: the scale index
             Gain: clean loop gain
-            
+
         Added component list to dictionary for particular scale. This dictionary is stored in
         self.DicoSMStacked["Comp"][iScale] and has keys:
             "SolsArray": solutions ndArray with shape [#basis_functions,#stokes_terms]
@@ -243,7 +253,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                                            "'WSCMS-NumFreqBasisFuncs' or if you think this is a bug report it.")
 
                     if self.GD["WSCMS"]["MultiScale"] and iScale != 0:
-                        Aedge, Bedge = GiveEdges(x, y, nx, extent // 2, extent // 2, extent)
+                        Aedge, Bedge = GiveEdgesDissymetric(x, y, nx, ny, extent // 2, extent // 2, extent, extent)
 
                         x0d, x1d, y0d, y1d = Aedge
                         x0p, x1p, y0p, y1p = Bedge
@@ -267,10 +277,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         pa = 0.0
 
         # get in terms of number of cells
-        CellSizeRad = self.GD['Image']['Cell'] * np.pi / 648000
-
+        try:
+            CellSizeRad_x,CellSizeRad_y = np.array(self.GD['Image']['Cell']) * np.pi / 648000
+        except:
+            CellSizeRad_x=CellSizeRad_y = self.GD['Image']['Cell'] * np.pi / 648000
+            
         # get Gaussian kernel
-        GaussKern = ModFFTW.GiveGauss(self.Npix, CellSizeRad=CellSizeRad, GaussPars=(epar, epar, pa), parallel=False)
+        GaussKern = ModFFTW.GiveGauss([self.Npix_x,self.Npix_y], CellSizeRad=(CellSizeRad_x,CellSizeRad_y), GaussPars=(epar, epar, pa), parallel=False)
 
         # take FT
         Fs = np.fft.fftshift
@@ -294,22 +307,25 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         ModelImage = self.GiveModelImage(self.GridFreqs)
 
         # pad GausKern and take FT
-        GaussKern = np.pad(GaussKern, self.Npad, mode='constant')
-        FTshape, _ = GaussKern.shape
+        #GaussKern = np.pad(GaussKern, self.Npad, mode='constant')
+        GaussKern = np.pad(GaussKern, ((self.Npad_x, self.Npad_x),(self.Npad_y, self.Npad_y)), mode='constant')        
+        FTshape_x, FTshape_y = GaussKern.shape
         from scipy import fftpack as FT
         #GaussKernhat = FT.fft2(iFs(GaussKern))
         GaussKernhat = FFT(iFs(GaussKern))
 
         # pad and FT of ModelImage
-        ModelImagehat = np.zeros((self.Nchan, FTshape, FTshape), dtype=np.complex128)
-        ConvModelImage = np.zeros((self.Nchan, self.Npix, self.Npix), dtype=np.float64)
-        I = slice(self.Npad, -self.Npad)
+        ModelImagehat = np.zeros((self.Nchan, FTshape_x, FTshape_y), dtype=np.complex128)
+        ConvModelImage = np.zeros((self.Nchan, self.Npix_x, self.Npix_y), dtype=np.float64)
+        Ix = slice(self.Npad_x, -self.Npad_x)
+        Iy = slice(self.Npad_y, -self.Npad_y)
         for i in range(self.Nchan):
-            tmp_array = np.pad(ModelImage[i, 0], self.Npad, mode='constant')
+            #tmp_array = np.pad(ModelImage[i, 0], self.Npad, mode='constant')
+            tmp_array = np.pad(ModelImage[i, 0], ((self.Npad_x, self.Npad_x),(self.Npad_y, self.Npad_y)), mode='constant')
             # ModelImagehat[i] = FT.fft2(iFs(tmp_array)) * GaussKernhat
             ModelImagehat[i] = FFT(iFs(tmp_array)) * GaussKernhat
             # ConvModelImage[i] = Fs(FT.ifft2(ModelImagehat[i]))[I, I].real
-            ConvModelImage[i] = Fs(iFFT(ModelImagehat[i]))[I, I].real
+            ConvModelImage[i] = Fs(iFFT(ModelImagehat[i]))[Ix, Iy].real
 
         if ResidCube is not None:
             #ConvModelImage += ResidCube.squeeze()
@@ -341,7 +357,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             from africanus.model.spi.dask import fit_spi_components
             import dask.array as da
             _, ncomps = FitCube.shape
-            FitCubeDask = da.from_array(FitCube.T.astype(np.float64), chunks=(ncomps//nthreads, self.Nchan))
+            FitCubeDask = da.from_array(FitCube.T.astype(np.float64),
+                                        chunks=(np.maximum(100, ncomps//nthreads), self.Nchan))
             weightsDask = da.from_array(weights.astype(np.float64), chunks=(self.Nchan))
             freqsDask = da.from_array(np.array(self.GridFreqs).astype(np.float64), chunks=(self.Nchan))
 
@@ -370,11 +387,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         """
         Sub-minor loop subtraction
         """
-        N0 = Residual.shape[-1]
-        N1 = LocalSM.shape[-1]
+        N0x,N0y = Residual.shape[-2:]
+        N1x,N1y = LocalSM.shape[-2:]
 
         # Get overlap indices where psf should be subtracted
-        Aedge, Bedge = GiveEdges(xc, yc, N0, N1 // 2, N1 // 2, N1)
+        Aedge, Bedge = GiveEdgesDissymetric(xc, yc, N0x, N0y, N1x // 2, N1y // 2, N1x,N1y)
 
         x0d, x1d, y0d, y1d = Aedge
         x0p, x1p, y0p, y1p = Bedge
@@ -420,19 +437,19 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def do_minor_loop(self, Dirty, meanDirty, JonesNorm, WeightsChansImages, MaxDirty, Stopping_flux=None, RMS=None):
         """
-        Runs the sub-minor loop at a specific scale 
+        Runs the sub-minor loop at a specific scale
         :param Dirty: dirty cube
         :param meanDirty: mean dirty
         :param JonesNorm: "average" DDE map
         :param WeightsChansImages: The sum of the weights in each channel normalised to sum to one
         :param MaxDirty: maximum of mean dirty computed in last minor loop
         :param Stopping_flux: stopping flux for unconvolved mean image
-        :param RMS: RMS of mean dirty computed in last minor loop (for auto-masking) 
+        :param RMS: RMS of mean dirty computed in last minor loop (for auto-masking)
         :return: number of iterations k, the dominant scale
-        
+
         Components are only searched for in the active set A defined as all pixels in s scale convolved dirty
         above GD[WSCMS][SubMinorPeakFactor] * AbsConvMaxDirty. The PSF for A is the PSF twice convolved with the
-        dominant scale kernel. At the same time, once a component has been found in A, it is subtracted from the 
+        dominant scale kernel. At the same time, once a component has been found in A, it is subtracted from the
         dirty cube using the PSF once convolved with the scale kernel. The actual MeanDirty image is only updated
         once we drop back into the minor loop by computing the weighted sum over channels.
         """
@@ -536,7 +553,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             # Subtract fitted component from residual cube
             self.SubStep(xscale, yscale, self.ConvPSF * Fpol[:, None, None, None] * self.CurrentGain, Dirty.view())
             # subtract component from convolved dirty image
-            A = substep(A, self.Conv2PSFmean[0, 0], float(ConvMaxDirty * self.CurrentGain), Ip, Iq, pq, self.NpixPSF)
+            A = substep(A, self.Conv2PSFmean[0, 0], float(ConvMaxDirty * self.CurrentGain), Ip, Iq, pq, (self.NpixPSF_x,self.NpixPSF_y))
 
             # update scale dependent mask
             if self.ScaleMachine.AppendMaskComponents:

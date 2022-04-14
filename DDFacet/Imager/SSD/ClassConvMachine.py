@@ -190,8 +190,8 @@ class ClassConvMachineImages():
         SubModelImage[...,x0f:x1f,y0f:y1f]=SubModelImageIn[...,x0d:x1d,y0d:y1d]
 
         PSF=self.PSF
-        nPSF=PSF.shape[-1]
-        AedgeP,BedgeP=GiveEdgesDissymetric(Nin//2,Nin//2,Nin,Nin,nPSF//2,nPSF//2,nPSF,nPSF)
+        nPSFx,nPSFy=PSF.shape[-2:]
+        AedgeP,BedgeP=GiveEdgesDissymetric(Nin//2,Nin//2,Nin,Nin,nPSFx//2,nPSFy//2,nPSFx,nPSFy)
         x0dP,x1dP,y0dP,y1dP=AedgeP
         x0fP,x1fP,y0fP,y1fP=BedgeP
         SubPSF=PSF[...,x0fP:x1fP,y0fP:y1fP]
@@ -242,7 +242,7 @@ class ClassConvMachine():
         self.NPixListData=len(ListPixData)
         self.ArrayListPixData=np.array(self.ListPixData)
         self.ArrayListPixParms=np.array(self.ListPixParms)
-        self.NFreqBands,self.npol,self.NPixPSF,_=PSF.shape
+        self.NFreqBands,self.npol,self.NPixPSF_x,self.NPixPSF_y=PSF.shape
         self.invCM=None
         self.ConvMode=ConvMode
         # if ConvMode==None:
@@ -299,10 +299,11 @@ class ClassConvMachine():
             zAsq+=np.random.randn(*zAsq.shape)*AddNoise
 
 
-        N0x=zAsq.shape[-1]
+        N0x,N0y=zAsq.shape[-2:]
         xc0=N0x//2
-        N1=self.PSF.shape[-1]
-        Aedge,Bedge=GiveEdgesDissymetric(xc0,xc0,N0x,N0x,N1//2,N1//2,N1,N1)
+        yc0=N0y//2
+        N1x,N1y=self.PSF.shape[-2:]
+        Aedge,Bedge=GiveEdgesDissymetric(xc0,yc0,N0x,N0y,N1x//2,N1y//2,N1x,N1y)
         x0d,x1d,y0d,y1d=Aedge
         x0s,x1s,y0s,y1s=Bedge
         SubPSF=self.PSF[:,:,x0s:x1s,y0s:y1s]
@@ -422,8 +423,9 @@ class ClassConvMachine():
         T=ClassTimeIt.ClassTimeIt()
         T.disable()
         PSF=self.PSF
-        NPixPSF=PSF.shape[-1]
-        xc=yc=NPixPSF//2
+        NPixPSF_x,NPixPSF_y=PSF.shape[-2:]
+        xc=NPixPSF_x//2
+        yc=NPixPSF_y//2
         T.timeit("0")
         x1,y1=self.ArrayListPixParms[iPix:iPix+1].T
 
@@ -439,15 +441,15 @@ class ClassConvMachine():
         N1=x1.size
         T.timeit("1")
         dx=(x1.reshape((N1,1))-x0.reshape((1,N0))+xc).T
-        dy=(y1.reshape((N1,1))-y0.reshape((1,N0))+xc).T
+        dy=(y1.reshape((N1,1))-y0.reshape((1,N0))+yc).T
         T.timeit("2")
-        Cx=((dx>=0)&(dx<NPixPSF))
-        Cy=((dy>=0)&(dy<NPixPSF))
+        Cx=((dx>=0)&(dx<NPixPSF_x))
+        Cy=((dy>=0)&(dy<NPixPSF_y))
         C=(Cx&Cy)
         T.timeit("3")
         indPSF=np.arange(M.shape[-1]*M.shape[-2])
         indPSF_sel=indPSF[C.ravel()]
-        indPixPSF=dx.ravel()[C.ravel()]*NPixPSF+dy.ravel()[C.ravel()]
+        indPixPSF=dx.ravel()[C.ravel()]*NPixPSF_y+dy.ravel()[C.ravel()]
         T.timeit("4")
         if indPSF_sel.size!=indPSF.size:
             for iBand in range(self.NFreqBands):
@@ -471,24 +473,25 @@ class ClassConvMachine():
     def SetConvMatrix(self):
         #print>>log,"SetConvMatrix"
         PSF=self.PSF
-        NPixPSF=PSF.shape[-1]
+        NPixPSF_x,NPixPSF_y=PSF.shape[-2:]
 
 
         M=np.zeros((self.NFreqBands,1,self.NPixListData,self.NPixListParms),np.float32)
-        xc=yc=NPixPSF//2
+        xc=NPixPSF_x//2
+        yc=NPixPSF_y//2
 
         x0,y0=np.array(self.ListPixData).T
         x1,y1=np.array(self.ListPixParms).T
         N0=x0.size
         N1=x1.size
         dx=(x1.reshape((N1,1))-x0.reshape((1,N0))+xc).T
-        dy=(y1.reshape((N1,1))-y0.reshape((1,N0))+xc).T
-        Cx=((dx>=0)&(dx<NPixPSF))
-        Cy=((dy>=0)&(dy<NPixPSF))
+        dy=(y1.reshape((N1,1))-y0.reshape((1,N0))+yc).T
+        Cx=((dx>=0)&(dx<NPixPSF_x))
+        Cy=((dy>=0)&(dy<NPixPSF_y))
         C=(Cx&Cy)
         indPSF=np.arange(M.shape[-1]*M.shape[-2])
         indPSF_sel=indPSF[C.ravel()]
-        indPixPSF=dx.ravel()[C.ravel()]*NPixPSF+dy.ravel()[C.ravel()]
+        indPixPSF=dx.ravel()[C.ravel()]*NPixPSF_y+dy.ravel()[C.ravel()]
         for iBand in range(self.NFreqBands):
             PSF_Chan=PSF[iBand,0]
             M[iBand,0].flat[indPSF_sel] = PSF_Chan.flat[indPixPSF.ravel()]
@@ -504,13 +507,13 @@ class ClassConvMachine():
         N0=x0.size
         N1=x1.size
         dx=(x1.reshape((N1,1))-x0.reshape((1,N0))+xc).T
-        dy=(y1.reshape((N1,1))-y0.reshape((1,N0))+xc).T
-        Cx=((dx>=0)&(dx<NPixPSF))
-        Cy=((dy>=0)&(dy<NPixPSF))
+        dy=(y1.reshape((N1,1))-y0.reshape((1,N0))+yc).T
+        Cx=((dx>=0)&(dx<NPixPSF_x))
+        Cy=((dy>=0)&(dy<NPixPSF_y))
         C=(Cx&Cy)
         indPSF=np.arange(MParms.shape[-1]*MParms.shape[-2])
         indPSF_sel=indPSF[C.ravel()]
-        indPixPSF=dx.ravel()[C.ravel()]*NPixPSF+dy.ravel()[C.ravel()]
+        indPixPSF=dx.ravel()[C.ravel()]*NPixPSF_y+dy.ravel()[C.ravel()]
         for iBand in range(self.NFreqBands):
             PSF_Chan=PSF[iBand,0]
             MParms[iBand,0].flat[indPSF_sel] = PSF_Chan.flat[indPixPSF.ravel()]

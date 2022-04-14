@@ -500,11 +500,11 @@ def GiveBlocksRowsListBL_old(a0, a1, DATA, dPhi, l, channel_mapping):
     #if(ind.size <= 1):
     #    return
     nrows = ind.size
-    if(ind.size <= 1):
-        return None, None, None
     
-    # if not nrows:
+    # if(ind.size <= 1):
     #     return None, None, None
+    if not nrows:
+        return None, None, None
     C = 3e8
 
     GridChanMapping=channel_mapping

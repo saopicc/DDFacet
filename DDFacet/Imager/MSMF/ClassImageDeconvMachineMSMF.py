@@ -390,12 +390,13 @@ class ClassImageDeconvMachine():
         # self._MeanPSF=self.MSMachine._MeanPSF
 
 
-        NPSF = self.PSFServer.NPSF
+        NPSF_x,NPSF_y = self.PSFServer.NPSF
         #_,_,NPSF,_=self._PSF.shape
-        _, _, NDirty, _ = self._CubeDirty.shape
+        _, _, NDirty_x, NDirty_y = self._CubeDirty.shape
 
-        off = (NPSF-NDirty)//2
-        self.DirtyExtent = (off, off+NDirty, off, off+NDirty)
+        off_x = (NPSF_x-NDirty_x)//2
+        off_y = (NPSF_y-NDirty_y)//2
+        self.DirtyExtent = (off_x, off_x+NDirty_x, off_y, off_y+NDirty_y)
 
 #        if self._ModelImage is None:
 #            self._ModelImage=np.zeros_like(self._CubeDirty)
@@ -424,40 +425,40 @@ class ClassImageDeconvMachine():
         #             print>>log,ModColor.Str("Are you sure you supplied the correct cleaning mask?")
         
 
-    def GiveEdges(self,xc0,yc0,N0,xc1,yc1,N1):
-        M_xc=xc0
-        M_yc=yc0
-        NpixMain=N0
-        F_xc=xc1
-        F_yc=yc1
-        NpixFacet=N1
+    # def GiveEdges(self,xc0,yc0,N0,xc1,yc1,N1):
+    #     M_xc=xc0
+    #     M_yc=yc0
+    #     NpixMain=N0
+    #     F_xc=xc1
+    #     F_yc=yc1
+    #     NpixFacet=N1
                 
-        ## X
-        M_x0=M_xc-NpixFacet//2
-        x0main=np.max([0,M_x0])
-        dx0=x0main-M_x0
-        x0facet=dx0
+    #     ## X
+    #     M_x0=M_xc-NpixFacet//2
+    #     x0main=np.max([0,M_x0])
+    #     dx0=x0main-M_x0
+    #     x0facet=dx0
                 
-        M_x1=M_xc+NpixFacet//2
-        x1main=np.min([NpixMain-1,M_x1])
-        dx1=M_x1-x1main
-        x1facet=NpixFacet-dx1
-        x1main+=1
-        ## Y
-        M_y0=M_yc-NpixFacet//2
-        y0main=np.max([0,M_y0])
-        dy0=y0main-M_y0
-        y0facet=dy0
+    #     M_x1=M_xc+NpixFacet//2
+    #     x1main=np.min([NpixMain-1,M_x1])
+    #     dx1=M_x1-x1main
+    #     x1facet=NpixFacet-dx1
+    #     x1main+=1
+    #     ## Y
+    #     M_y0=M_yc-NpixFacet//2
+    #     y0main=np.max([0,M_y0])
+    #     dy0=y0main-M_y0
+    #     y0facet=dy0
         
-        M_y1=M_yc+NpixFacet//2
-        y1main=np.min([NpixMain-1,M_y1])
-        dy1=M_y1-y1main
-        y1facet=NpixFacet-dy1
-        y1main+=1
+    #     M_y1=M_yc+NpixFacet//2
+    #     y1main=np.min([NpixMain-1,M_y1])
+    #     dy1=M_y1-y1main
+    #     y1facet=NpixFacet-dy1
+    #     y1main+=1
 
-        Aedge=[x0main,x1main,y0main,y1main]
-        Bedge=[x0facet,x1facet,y0facet,y1facet]
-        return Aedge,Bedge
+    #     Aedge=[x0main,x1main,y0main,y1main]
+    #     Bedge=[x0facet,x1facet,y0facet,y1facet]
+    #     return Aedge,Bedge
 
 
     def SubStep(self,dx,dy,LocalSM):
@@ -468,14 +469,14 @@ class ClassImageDeconvMachine():
         #NpixFacet=self.SubPSF.shape[-1]
         #PSF=self.CubePSFScales[iScale]
         N0=self._MeanDirty.shape[-1]
-        N1=LocalSM.shape[-1]
+        N1x,N1y=LocalSM.shape[-2:]
 
         # PSF=PSF[N1/2-1:N1/2+2,N1/2-1:N1/2+2]
         # N1=PSF.shape[-1]
 
         #Aedge,Bedge=self.GiveEdges(xc,yc,N0,N1/2,N1/2,N1)
         N0x,N0y=self._MeanDirty.shape[-2::]
-        Aedge,Bedge=GiveEdgesDissymetric(xc,yc,N0x,N0y,N1//2,N1//2,N1,N1)
+        Aedge,Bedge=GiveEdgesDissymetric(xc,yc,N0x,N0y,N1x//2,N1y//2,N1x,N1y)
 
         #_,n,n=self.PSF.shape
         # PSF=self.PSF.reshape((n,n))
@@ -636,8 +637,9 @@ class ClassImageDeconvMachine():
         if self._niter >= self.MaxMinorIter:
             return "MaxIter", False, False
 
-        _, npol, npix, _ = self._MeanDirty.shape
-        xc = (npix)//2
+        _, npol, npix_x, npix_y = self._MeanDirty.shape
+        xc = (npix_x)//2
+        yc = (npix_y)//2
 
         # m0,m1=self._CubeDirty.min(),self._CubeDirty.max()
         # pylab.clf()
@@ -922,7 +924,7 @@ class ClassImageDeconvMachine():
                             (nch, npol, 1, 1))).copy())
                 #print "Fpol",Fpol
                 dx = x-xc
-                dy = y-xc
+                dy = y-yc
 
                 T.timeit("stuff")
 

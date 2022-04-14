@@ -115,25 +115,36 @@ class ClassScaleMachine(object):
         self.FWHMBeam = self.PSFServer.DicoVariablePSF["FWHMBeam"]
 
         # set reference key
-        _, _, self.Npix, _ = self.PSFServer.ImageShape
-        self.CentralFacetID = self.PSFServer.giveFacetID2(self.Npix//2, self.Npix//2)
+        _, _, self.Npix_x, self.Npix_y = self.PSFServer.ImageShape
+        self.CentralFacetID = self.PSFServer.giveFacetID2(self.Npix_x//2, self.Npix_y//2)
 
         # Set freqmachine
         self.FreqMachine = FreqMachine
         self.Nchan = self.FreqMachine.nchan
 
         # set scale convolve and FFTW related params
-        self.NpixPadded = int(np.ceil(self.GD["WSCMS"]["Padding"]*self.Npix))
+        self.NpixPadded_x = int(np.ceil(self.GD["WSCMS"]["Padding"]*self.Npix_x))
+        self.NpixPadded_y = int(np.ceil(self.GD["WSCMS"]["Padding"]*self.Npix_y))
         # make sure it is odd numbered
-        if not self.NpixPadded % 2:
-            self.NpixPadded += 1
-        self.Npad = (self.NpixPadded - self.Npix)//2
-        self.NpixPSF = self.PSFServer.NPSF  # need this to initialise the FTMachine
-        self.NpixPaddedPSF = int(np.ceil(self.GD["WSCMS"]["Padding"]*self.NpixPSF))
-        if not self.NpixPaddedPSF % 2:
-            self.NpixPaddedPSF += 1
-        self.NpadPSF = (self.NpixPaddedPSF - self.NpixPSF) // 2
+        if not self.NpixPadded_x % 2:
+            self.NpixPadded_x += 1
+        if not self.NpixPadded_y % 2:
+            self.NpixPadded_y += 1
+        self.Npad_x = (self.NpixPadded_x - self.Npix_x)//2
+        self.Npad_y = (self.NpixPadded_y - self.Npix_y)//2
+        
+        self.NpixPSF=self.NpixPSF_x,self.NpixPSF_y = self.PSFServer.NPSF  # need this to initialise the FTMachine
+        self.NpixPaddedPSF_x = int(np.ceil(self.GD["WSCMS"]["Padding"]*self.NpixPSF_x))
+        if not self.NpixPaddedPSF_x % 2:
+            self.NpixPaddedPSF_x += 1
+        self.NpadPSF_x = (self.NpixPaddedPSF_x - self.NpixPSF_x) // 2
 
+        self.NpixPaddedPSF_y = int(np.ceil(self.GD["WSCMS"]["Padding"]*self.NpixPSF_y))
+        if not self.NpixPaddedPSF_y % 2:
+            self.NpixPaddedPSF_y += 1
+        self.NpadPSF_y = (self.NpixPaddedPSF_y - self.NpixPSF_y) // 2
+        
+        
         self.set_coordinates()
 
         # get scales (in pixel units)
@@ -142,8 +153,9 @@ class ClassScaleMachine(object):
 
         # get the FFT and convolution utility
         self.FTMachine = FFTW_Manager(self.GD, self.Nchan, 1, self.Nscales,
-                                      self.Npix, self.NpixPadded, self.NpixPSF,
-                                      self.NpixPaddedPSF, nthreads=self.NCPU)
+                                      [self.Npix_x,self.Npix_y], [self.NpixPadded_x,self.NpixPadded_y],
+                                      [self.NpixPSF_x,self.NpixPSF_y], [self.NpixPaddedPSF_x,self.NpixPaddedPSF_y],
+                                      nthreads=self.NCPU)
 
         # set bias factors
         self.set_bias()
@@ -156,7 +168,7 @@ class ClassScaleMachine(object):
         if self.GD["WSCMS"]["AutoMask"]:
             self.AppendMaskComponents = True  # set to false once masking kicks in
             for iScale in range(self.Nscales):
-                self.ScaleMaskArray[str(iScale)] = np.ones((1, 1, self.Npix, self.Npix), dtype=np.bool)
+                self.ScaleMaskArray[str(iScale)] = np.ones((1, 1, self.Npix_x, self.Npix_y), dtype=np.bool)
         else:
             self.AppendMaskComponents = False
 
@@ -175,24 +187,29 @@ class ClassScaleMachine(object):
 
     def set_coordinates(self):
         # get pixel coordinates for unpadded image
-        n = self.Npix//2
-        x_unpadded, y_undpadded = np.mgrid[-n:n:1.0j * self.Npix, -n:n:1.0j * self.Npix]
+        nx = self.Npix_x//2
+        ny = self.Npix_y//2
+        x_unpadded, y_undpadded = np.mgrid[-nx:nx:1.0j * self.Npix_x, -ny:ny:1.0j * self.Npix_y]
         self.rsq_unpadded = x_unpadded**2 + y_undpadded**2
 
         # get pixel coordinates for padded image
-        n = self.NpixPadded//2
-        self.x_image, self.y_image = np.mgrid[-n:n:1.0j * self.NpixPadded, -n:n:1.0j * self.NpixPadded]
+        nx = self.NpixPadded_x//2
+        ny = self.NpixPadded_y//2
+        self.x_image, self.y_image = np.mgrid[-nx:nx:1.0j * self.NpixPadded_x, -ny:ny:1.0j * self.NpixPadded_y]
         # set corresponding frequencies (note they are fourier shifted so no need to iFs them later)
-        freqs = Fs(np.fft.fftfreq(self.NpixPadded))
-        self.u_image, self.v_image = np.meshgrid(freqs, freqs)
+        freqs_x = Fs(np.fft.fftfreq(self.NpixPadded_x))
+        freqs_y = Fs(np.fft.fftfreq(self.NpixPadded_y))
+        self.u_image, self.v_image = np.meshgrid(freqs_y, freqs_x)
         self.rhosq_image = self.u_image ** 2 + self.v_image ** 2
 
         # get pixel coordinates for facet
-        n = self.NpixPaddedPSF//2
-        self.x_facet, self.y_facet = np.mgrid[-n:n:1.0j * self.NpixPaddedPSF, -n:n:1.0j * self.NpixPaddedPSF]
+        nx = self.NpixPaddedPSF_x//2
+        ny = self.NpixPaddedPSF_y//2
+        self.x_facet, self.y_facet = np.mgrid[-nx:nx:1.0j * self.NpixPaddedPSF_x, -ny:ny:1.0j * self.NpixPaddedPSF_y]
         # set corresponding frequencies (note they are fourier shifted so no need to iFs them later)
-        freqs = Fs(np.fft.fftfreq(self.NpixPaddedPSF))
-        self.u_facet, self.v_facet = np.meshgrid(freqs, freqs)
+        freqs_x = Fs(np.fft.fftfreq(self.NpixPaddedPSF_x))
+        freqs_y = Fs(np.fft.fftfreq(self.NpixPaddedPSF_y))
+        self.u_facet, self.v_facet = np.meshgrid(freqs_y, freqs_x)
         self.rhosq_facet = self.u_facet ** 2 + self.v_facet ** 2
 
     def GaussianSymmetric(self, sig, amp=np.array([1.0]), support=None):
@@ -248,15 +265,21 @@ class ClassScaleMachine(object):
     # TODO - Set max scale with minimum baseline or facet size?
     def set_scales(self):
         if self.GD['WSCMS']["MaxScale"] is None:
-            MaxScale = self.Npix//4
+            MaxScale = np.max([self.Npix_x,self.Npix_y])//4
         else:
             MaxScale = self.GD['WSCMS']["MaxScale"]
         if self.GD["WSCMS"]["Scales"] is None:
             print("Setting scales automatically from theoretical minimum beam size", file=log)
             min_beam = 1.0/self.MaxBaseline  # computed at max frequency
-            cell_size_rad = self.GD["Image"]["Cell"] * np.pi / (180 * 3600)
-            FWHM0_pix = np.sqrt(2) * min_beam/cell_size_rad  # sqrt(2) is fiddle factor which gives approx same scales as wsclean
-            alpha0 = np.ceil(FWHM0_pix / 0.45)
+            try:
+                cell_x,cell_y=self.GD["Image"]["Cell"]
+            except:
+                cell_x=cell_y=self.GD["Image"]["Cell"]
+            cell_size_rad_x = cell_x * np.pi / (180 * 3600)
+            cell_size_rad_y = cell_y * np.pi / (180 * 3600)
+            FWHM0_pix_x = np.sqrt(2) * min_beam/cell_size_rad_x  # sqrt(2) is fiddle factor which gives approx same scales as wsclean
+            FWHM0_pix_y = np.sqrt(2) * min_beam/cell_size_rad_y  # sqrt(2) is fiddle factor which gives approx same scales as wsclean
+            alpha0 = np.ceil(np.mean([FWHM0_pix_x,FWHM0_pix_y]) / 0.45)
             if alpha0 % 2:
                 alpha0 += 1
             alphas = [alpha0, 4*alpha0]
@@ -376,18 +399,20 @@ class ClassScaleMachine(object):
         # get PSF for facet
         self.PSFServer.setFacet(iFacet)
         PSF, PSFmean = self.PSFServer.GivePSF()
-        npad = (self.NpixPaddedPSF - self.NpixPSF) // 2
-        I = slice(npad, self.NpixPaddedPSF - npad)
+        npad_x = (self.NpixPaddedPSF_x - self.NpixPSF_x) // 2
+        npad_y = (self.NpixPaddedPSF_y - self.NpixPSF_y) // 2
+        Ix = slice(npad_x, self.NpixPaddedPSF_x - npad_x)
+        Iy = slice(npad_y, self.NpixPaddedPSF_y - npad_y)
 
         # keep track of FT_meanPSF (we don't need to do this for every scale)
         if str(iFacet) not in self.FT_meanPSF:
-            self.FTMachine.xhat[...] = iFs(np.pad(PSFmean, ((0, 0), (0, 0), (npad, npad), (npad, npad)), mode='constant'), axes=(2, 3))
+            self.FTMachine.xhat[...] = iFs(np.pad(PSFmean, ((0, 0), (0, 0), (npad_x, npad_x), (npad_y, npad_y)), mode='constant'), axes=(2, 3))
             self.FTMachine.FFT()
             self.FT_meanPSF[str(iFacet)] = Fs(self.FTMachine.xhat.copy(), axes=(2, 3))
 
         # keep track of FT_PSF
         if str(iFacet) not in self.FT_PSF:
-            self.FTMachine.Chat[...] = iFs(np.pad(PSF, ((0, 0), (0, 0), (npad, npad), (npad, npad)), mode='constant'), axes=(2, 3))
+            self.FTMachine.Chat[...] = iFs(np.pad(PSF, ((0, 0), (0, 0), (npad_x, npad_x), (npad_y, npad_y)), mode='constant'), axes=(2, 3))
             self.FTMachine.CFFT()
             self.FT_PSF[str(iFacet)] = Fs(self.FTMachine.Chat.copy(), axes=(2, 3))
 
@@ -396,7 +421,7 @@ class ClassScaleMachine(object):
         self.FTMachine.xhat[...] = iFs(self.FT_meanPSF[str(iFacet)], axes=(2,3)) * scale_kernel
         # TODO - this FT should not be necessary since we only need the value at the central pixel
         self.FTMachine.iFFT()
-        ConvPSFmean = Fs(self.FTMachine.xhat.real.copy(), axes=(2,3))[:, :, I, I]
+        ConvPSFmean = Fs(self.FTMachine.xhat.real.copy(), axes=(2,3))[:, :, Ix, Iy]
         self.ConvPSFmeanMax = ConvPSFmean.max()  # just for logging scale info in Init()
 
         # a few things we need to keep track of if we are at the central facet and scale 0
@@ -404,7 +429,7 @@ class ClassScaleMachine(object):
             # get the normalisation factor for the ConvPSF's (must set ConvPSF for scale zero to unity)
             self.FTMachine.xhat[...] = iFs(self.FT_meanPSF[str(iFacet)], axes=(2, 3)) * scale_kernel ** 2
             self.FTMachine.iFFT()
-            Conv2PSF0 = Fs(self.FTMachine.xhat.real.copy(), axes=(2,3))[:, :, I, I]
+            Conv2PSF0 = Fs(self.FTMachine.xhat.real.copy(), axes=(2,3))[:, :, Ix, Iy]
             # LB - this normalisation factor is used to ensure that the twice convolved PSF for scale 0
             # (if we were using it) would be normalised to have a maximum of 1 and is applied to normalise
             # the PSF's
@@ -414,12 +439,12 @@ class ClassScaleMachine(object):
         # get PSF convolved with scale kernel for subtracting components from dirty cube
         self.FTMachine.Chat[...] = iFs(self.FT_PSF[str(iFacet)], axes=(2,3)) * scale_kernel
         self.FTMachine.iCFFT()
-        self.ConvPSFs[key] = Fs(self.FTMachine.Chat.real.copy(), axes=(2,3))[:, :, I, I]
+        self.ConvPSFs[key] = Fs(self.FTMachine.Chat.real.copy(), axes=(2,3))[:, :, Ix, Iy]
 
         # get twice convolved mean PSF for running sub-minor loop
         self.FTMachine.xhat[...] = iFs(self.FT_meanPSF[str(iFacet)], axes=(2,3)) * scale_kernel**2
         self.FTMachine.iFFT()
-        self.Conv2PSFmean[key] = Fs(self.FTMachine.xhat.real.copy(), axes=(2,3))[:, :, I, I]/self.Conv2PSFNormFactor
+        self.Conv2PSFmean[key] = Fs(self.FTMachine.xhat.real.copy(), axes=(2,3))[:, :, Ix, Iy]/self.Conv2PSFNormFactor
 
         # set gains
         gamma = self.GD['Deconv']['Gain']
@@ -430,15 +455,15 @@ class ClassScaleMachine(object):
 
     def do_scale_convolve(self, MeanDirty):
         # convolve mean dirty with each scale in parallel
-        I = slice(self.Npad, self.NpixPadded - self.Npad)
-        self.FTMachine.xhatim[...] = iFs(np.pad(MeanDirty[0:1], ((0, 0), (0,0), (self.Npad, self.Npad),
-                                                          (self.Npad, self.Npad)), mode='constant'), axes=(2, 3))
+        Ix = slice(self.Npad_x, self.NpixPadded_x - self.Npad_x)
+        Iy = slice(self.Npad_y, self.NpixPadded_y - self.Npad_y)
+        self.FTMachine.xhatim[...] = iFs(np.pad(MeanDirty[0:1], ((0, 0),(0,0),(self.Npad_x, self.Npad_x),(self.Npad_y, self.Npad_y)),mode='constant'), axes=(2, 3))
         self.FTMachine.FFTim()
         self.FTMachine.Shat[...] = self.FTMachine.xhatim
         kernels = self.GaussianSymmetricFT(self.sigmas[:, None, None, None], mode='Image')
         self.FTMachine.Shat *= iFs(kernels, axes=(2, 3))
         self.FTMachine.iSFFT()
-        ConvMeanDirtys = np.ascontiguousarray(Fs(self.FTMachine.Shat.real, axes=(2, 3))[:, :, I, I])
+        ConvMeanDirtys = np.ascontiguousarray(Fs(self.FTMachine.Shat.real, axes=(2, 3))[:, :, Ix, Iy])
 
         # reset the zero scale
         # LB - for scale 0 we might want to do scale selection based

@@ -40,7 +40,6 @@ import sys,os
 if "PYTHONPATH_FIRST" in os.environ.keys() and int(os.environ["PYTHONPATH_FIRST"]):
     sys.path = os.environ["PYTHONPATH"].split(":") + sys.path
 
-
 #import matplotlib
 # matplotlib.use('agg')
 import optparse
@@ -103,6 +102,11 @@ import DDFacet
 print("DDFacet version is",report_version())
 print("Using python package located at: " + os.path.dirname(DDFacet.__file__))
 print("Using driver file located at: " + __file__)
+
+# hack to avoid recursion depth issues in SSD
+
+sys.setrecursionlimit(10000)
+
 global Parset
 Parset = ReadCFG.Parset("%s/DefaultParset.cfg" % os.path.dirname(DDFacet.Parset.__file__))
 
@@ -473,7 +477,7 @@ if __name__ == "__main__":
         print(ModColor.Str("  the original underlying error may be reported in the log [possibly far] above."), file=log)
         report_error = True
     except:
-        if sys.exc_info()[0] is not WorkerProcessError and Exceptions.is_pdb_enabled():
+        if sys.exc_info()[0]!=WorkerProcessError and Exceptions.is_pdb_enabled():
             APP.terminate()
             raise
         else:

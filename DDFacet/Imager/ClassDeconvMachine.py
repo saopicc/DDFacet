@@ -369,8 +369,8 @@ class ClassImagerDeconv():
             self.FacetMachinePSF.appendMainField(ImageName="%s.psf" % self.BaseName, **MainFacetOptions)
             self.FacetMachinePSF.Init()
 
-        self.CellArcSec = (self.FacetMachine or self.FacetMachinePSF).Cell
-        self.CellSizeRad = (self.CellArcSec/3600.)*np.pi/180
+        self.CellArcSec_x,self.CellArcSec_y   = self.CellArcSec  = (self.FacetMachine or self.FacetMachinePSF).Cell
+        self.CellSizeRad_x,self.CellSizeRad_y = self.CellSizeRad = (self.CellArcSec/3600.)*np.pi/180
 
     def GiveMainFacetOptions(self):
         MainFacetOptions=self.GD["Image"].copy()
@@ -620,7 +620,7 @@ class ClassImagerDeconv():
             else:
                 print(ModColor.Str("============================ Loading cached dirty image ========================="), file=log)
                 print("found valid cached residual image in %s" % dirty_cachepath, file=log)
-            if type(self.GD["Cache"]["Dirty"]) is not str or not self.GD["Cache"]["Dirty"].startswith("force"):
+            if not isinstance(self.GD["Cache"]["Dirty"],str) or not self.GD["Cache"]["Dirty"].startswith("force"):
                 print(ModColor.Str("As near as we can tell, we can reuse this cache because it was produced"), file=log)
                 print(ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,"), file=log)
                 print(ModColor.Str("or if your MS has changed, please remove the cache, or run with --Cache-Dirty reset."), file=log)
@@ -650,7 +650,7 @@ class ClassImagerDeconv():
         if psf_valid:
             print(ModColor.Str("============================ Loading cached PSF ================================="), file=log)
             print("found valid cached PSF in %s" % psf_cachepath, file=log)
-            if type(self.GD["Cache"]["PSF"]) is not str or not self.GD["Cache"]["PSF"].startswith("force"):
+            if not isinstance(self.GD["Cache"]["PSF"],str) or not self.GD["Cache"]["PSF"].startswith("force"):
                 print(ModColor.Str("As near as we can tell, we can reuse this cache because it was produced"), file=log)
                 print(ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,"), file=log)
                 print(ModColor.Str("or if your MS has changed, please remove the cache, or run with --Cache-PSF reset."), file=log)
@@ -925,27 +925,30 @@ class ClassImagerDeconv():
 
 
         modelfile = self.GD["Predict"]["FromImage"]
+        
         # if model image is specified, we'll use that, rather than the ModelMachine
-        if modelfile is not None and modelfile != "":
+
+        if modelfile:
             print(ModColor.Str("Reading image file for the predict: %s" % modelfile), file=log)
-            FixedModelImage = ClassCasaImage.FileToArray(modelfile,True)
-            nch,npol,_,NPix=self.FacetMachine.OutImShape
-            nchModel,npolModel,_,NPixModel=FixedModelImage.shape
+            FixedModelImage = ClassCasaImage.FileToArray(modelfile)#,True)
+            nch,npol,NPix_x,NPix_y=self.FacetMachine.OutImShape
+            nchModel,npolModel,NPixModel_x,NPixModel_y=FixedModelImage.shape
             
-            if NPixModel!=NPix:
-                print(ModColor.Str("Model image spatial shape does not match DDFacet settings [%i vs %i]"%(FixedModelImage.shape[-1],NPix)), file=log)
+            if (NPixModel_x!=NPix_x) and (NPixModel_y!=NPix_y):
+                print(ModColor.Str("Model image spatial shape does not match DDFacet settings [(%i x %i) vs (%i x %i)]"%(NPixModel_x,NPix_x,NPixModel_y,NPix_y)), file=log)
                 CA=ClassAdaptShape(FixedModelImage)
                 FixedModelImage=CA.giveOutIm(NPix)
 
             if len(FixedModelImage.shape) != 4:
                 raise RuntimeError("Expect FITS file with 4 axis: NX, NY, NPOL, NCH. Cannot continue.")
-            nch, npol, ny, nx = FixedModelImage.shape
-            if ny != nx:
-                raise RuntimeError("Currently non-square images are not supported")
-            npixest, _ = EstimateNpix(float(self.GD["Image"]["NPix"]), Padding=1)
-            if nx != npixest:
-                raise RuntimeError("Number of pixels in FITS file (%d) does not match "
-                                   "image size (%d). Cannot continue." % (nx, npixest))
+            nch, npol, nx, ny = FixedModelImage.shape
+            # # if ny != nx:
+            # #     raise RuntimeError("Currently non-square images are not supported")
+            # npixest, _ = EstimateNpix(float(self.GD["Image"]["NPix"]), Padding=1)
+            # if nx != npixest:
+            #     raise RuntimeError("Number of pixels in FITS file (%d) does not match "
+            #                        "image size (%d). Cannot continue." % (nx, npixest))
+            
             if npol != 1:
                 raise RuntimeError("Unsupported: Polarization prediction is not defined")
             # for msi in self.VS.FreqBandChannelsDegrid:
@@ -1004,7 +1007,7 @@ class ClassImagerDeconv():
                             ThisChFixedModelImage=FixedModelImage[0:nch].copy()
                         else:
                             print(ModColor.Str("  Replicating %i-times the 1st channel"%(nch)), file=log)
-                            ThisChFixedModelImage=FixedModelImage[0].reshape((1,npol,NPix,NPix))*np.ones((np.unique(DATA["ChanMappingDegrid"]).size,1,1,1))
+                            ThisChFixedModelImage=FixedModelImage[0].reshape((1,npol,NPix_x,NPix_y))*np.ones((np.unique(DATA["ChanMappingDegrid"]).size,1,1,1))
 
                         self.FacetMachine.ToCasaImage(ThisChFixedModelImage,
                                                       ImageName="%s.cube.model"%(self.BaseName),
@@ -1025,9 +1028,9 @@ class ClassImagerDeconv():
                 NpixInside, _ = EstimateNpix(float(NpixInside), Padding=1)
                 print("  Zeroing model %s square [%i pixels]"%(SquareMaskMode,NpixInside),file=log)
                 dn=NpixInside//2
-                n=self.FacetMachine.Npix
+                nx,ny=self.FacetMachine.Npix
                 InSquare=np.zeros(ModelImage.shape,bool)
-                InSquare[:,:,n//2-dn:n//2+dn+1,n//2-dn:n//2+dn+1]=1
+                InSquare[:,:,nx//2-dn:nx//2+dn+1,ny//2-dn:ny//2+dn+1]=1
                 if SquareMaskMode=="Inside":
                     ModelImage[InSquare]=0
                 elif SquareMaskMode=="Outside":
@@ -1220,6 +1223,7 @@ class ClassImagerDeconv():
 
             repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
 
+            # self.FacetMachine.ToCasaImage(self.DeconvMachine.iIslandImage,ImageName="%s.labelFacet%2.2i"%(self.BaseName,iMajor),Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             if user_stopped:
                 print(ModColor.Str("user stop signal (SIGUSR1) received. This will be the last major cycle"))
                 continue_deconv = False
@@ -1620,15 +1624,34 @@ class ClassImagerDeconv():
 
         FWHMFact = 2. * np.sqrt(2. * np.log(2.))
 
-        fwhm = (bmaj * self.CellArcSec * FWHMFact / 3600.,
-                bmin * self.CellArcSec * FWHMFact / 3600.,
+        PixToRad_maj=np.sqrt((self.CellSizeRad_x*np.cos(theta))**2+(self.CellSizeRad_y*np.sin(theta))**2)
+        PixToRad_min=np.sqrt((self.CellSizeRad_x*np.sin(theta))**2+(self.CellSizeRad_y*np.cos(theta))**2)
+        
+        #fwhm = (bmaj * self.CellArcSec * FWHMFact / 3600.,
+        #        bmin * self.CellArcSec * FWHMFact / 3600.,
+        #        np.rad2deg(theta))
+        fwhm = (bmaj * PixToRad_maj*180/np.pi * FWHMFact,
+                bmin * PixToRad_min*180/np.pi * FWHMFact,
                 np.rad2deg(theta))
-        gausspars = (bmaj * self.CellSizeRad, bmin * self.CellSizeRad, theta)
-        print("\tsigma is %f, %f (FWHM is %f, %f), PA is %f deg" % (bmaj * self.CellArcSec,
-                                                                    bmin * self.CellArcSec,
-                                                                    bmaj * self.CellArcSec * FWHMFact,
-                                                                    bmin * self.CellArcSec * FWHMFact,
-                                                                    90-np.rad2deg(theta)), file=log)
+        
+        #gausspars = (bmaj * self.CellSizeRad, bmin * self.CellSizeRad, theta)
+
+
+        gausspars = (bmaj * PixToRad_maj,
+                     bmin * PixToRad_min,
+                     theta)
+        
+        gausspars_arcsec = (bmaj * PixToRad_maj*180/np.pi*3600,
+                            bmin * PixToRad_min*180/np.pi*3600,
+                            theta*180/np.pi)
+
+        
+        bmaj,bmin,th=gausspars_arcsec
+        print("\tsigma is %f, %f (FWHM is %f, %f), PA is %f deg" % (bmaj,
+                                                                    bmin,
+                                                                    bmaj * FWHMFact,
+                                                                    bmin * FWHMFact,
+                                                                    90-th), file=log)
         print("\tSecondary sidelobe at the level of %5.1f at a position of %i from the center" % sidelobes, file=log)
         return fwhm, gausspars, sidelobes
 
@@ -1678,6 +1701,7 @@ class ClassImagerDeconv():
             fit_err = None # don't care if user provided parameters
 
         self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg = beam, gausspars, sidelobes
+
         # MeanFacetPSF has a shape of 1,1,nx,ny, so need to cut that extra one off
         if self.VS.MultiFreqMode:
             self.FWHMBeam = []

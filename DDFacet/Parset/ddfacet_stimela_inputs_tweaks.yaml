@@ -1,0 +1,11 @@
+Data:
+  MS:
+    dtype: List[MS]
+    policies:
+      repeat: ','
+
+Log:
+  Memory:
+    default: true
+  Boring:
+    default: true
