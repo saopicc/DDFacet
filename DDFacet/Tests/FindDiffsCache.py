@@ -67,12 +67,12 @@ def DiffObjPrint(Obj0,Obj1,LLevel=[]):
         Sdiff=giveStrDiffObj(A0,A1)
         s="%s [%s] "%(giveStrTitle(LLevel),str(A0.shape))
         r=PNameValue(Name=s,Value=Sdiff)
-        if (r=="Different") and (float(Sdiff)>1000):
+        if (r=="Different") and (float(Sdiff)>1e-3):
             print("Same")
             nx,ny=A0.shape[-2:]
             op=np.real
             a0=op(A0.reshape((A0.size//(nx*ny),nx,ny))[0])
-            a1=op(A1.reshape((A1.size//(nx*ny),nx,ny))[0])
+            a1=op(A1.reshape((A1.size//(nx*ny),nx,ny))[0]).T[::-1,:]
             import pylab
             pylab.clf()
             ax=pylab.subplot(1,3,1)
@@ -84,7 +84,7 @@ def DiffObjPrint(Obj0,Obj1,LLevel=[]):
             pylab.subplot(1,3,3,sharex=ax,sharey=ax)
             pylab.imshow(a0-a1,interpolation="nearest")
             pylab.colorbar()
-            pylab.title(str(s))
+            pylab.suptitle(str(s)+" %f"%np.max(a0-a1))
             
             pylab.draw()
             pylab.show()

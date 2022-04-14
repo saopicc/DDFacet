@@ -1267,19 +1267,22 @@ class ClassDDEGridMachine():
         return ModelUVCorr
 
     def GridToIm(self, Grid):
-        #Grid *= (self.WTerm.OverS)**2
-        Dirty0 = self.getFFTWMachine().ifft(Grid.copy())
-        Dirty1=ModFFTW.FFTW_2Donly_np().ifft(Grid.copy())
-
-        print("ljksdqlkqfkjhqdmqdkl")
-        print("ljksdqlkqfkjhqdmqdkl")
-        print("ljksdqlkqfkjhqdmqdkl")
-        print("ljksdqlkqfkjhqdmqdkl")
-        print("ljksdqlkqfkjhqdmqdkl")
-        print("ljksdqlkqfkjhqdmqdkl")
-        print(np.max(Dirty0-Dirty1))
-        print("ljksdqlkqfkjhqdmqdkl")
-        print("ljksdqlkqfkjhqdmqdkl")
+        Grid *= (self.WTerm.OverS)**2
+        Dirty = self.getFFTWMachine().ifft(Grid)
         
-        Dirty = Grid.copy()
+        # # Dirty = (Grid.T[::-1,:])
+        # # Grid *= (self.WTerm.OverS)**2
+        # Dirty0 = self.getFFTWMachine().ifft(Grid.copy())
+        # Dirty1=ModFFTW.FFTW_2Donly_np().ifft(Grid.copy())
+        # print("ljksdqlkqfkjhqdmqdkl")
+        # print("ljksdqlkqfkjhqdmqdkl")
+        # print("ljksdqlkqfkjhqdmqdkl")
+        # print("ljksdqlkqfkjhqdmqdkl")
+        # print("ljksdqlkqfkjhqdmqdkl")
+        # print("ljksdqlkqfkjhqdmqdkl")
+        # print(np.max(Dirty0-Dirty1))
+        # print("ljksdqlkqfkjhqdmqdkl")
+        # print("ljksdqlkqfkjhqdmqdkl")
+        # Dirty = Grid.T[::-1,:].copy()
+        
         return Dirty
