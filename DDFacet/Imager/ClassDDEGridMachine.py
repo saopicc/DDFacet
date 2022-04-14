@@ -522,6 +522,7 @@ class ClassDDEGridMachine():
         T = ClassTimeIt.ClassTimeIt("InitCF_ClassDDEGridMachine")
         T.disable()
 
+        l0,m0=self.lmShift
         self.WTerm = ModCF.ClassWTermModified(Cell=self.Cell,
                                               Sup=self.Sup,
                                               Npix=self.Npix,
@@ -529,7 +530,7 @@ class ClassDDEGridMachine():
                                               wmax=wmax,
                                               Nw=self.Nw,
                                               OverS=self.OverS,
-                                              lmShift=self.lmShift,
+                                              lmShift=(m0,l0),#self.lmShift,
                                               cf_dict=cf_dict,
                                               compute_cf=compute_cf,
                                               IDFacet=self.IDFacet)
