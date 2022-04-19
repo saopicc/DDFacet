@@ -19,9 +19,15 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
 from DDFacet.Other import logger
-log= logger.getLogger("ClassATCABeam")
+log= logger.getLogger("ClassNenuBeam")
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
+
+# NENUFAR DEPENDENCIES
+from nenupy.instru import MiniArray, NenuFAR, Polarization, NenuFAR_Configuration
+from nenupy.astro.pointing import Pointing
+
+
 
 import numpy as np
 
@@ -38,14 +44,26 @@ def AngDist(ra0,dec0,ra1,dec1):
         if D<-1.: D=-1.
     return AC(D)
 
-class ClassATCABeam():
+class ClassNenuBeam():
     def __init__(self,MS,GD):
         self.GD=GD
         self.MS=MS
         self.SR=None
         self.CalcFreqDomains()
-        
 
+        # define pointing
+        #self.pointing=Pointing.target_tracking()
+
+        # define array, reading from the dataset
+
+
+        print("farts")
+        stop
+
+        # calculate beam response
+
+
+        
 
     def getBeamSampleTimes(self,times, **kwargs):
         DtBeamMin = self.GD["DtBeamMin"]
@@ -152,8 +170,8 @@ class ClassATCABeam():
         NBand=len(DicoCoefs)
 
                 
-        chanBand0=np.zeros((ChanFreqs.size),dtype=np.int)
-        chanBand1=np.zeros((ChanFreqs.size),dtype=np.int)
+        chanBand0=np.zeros((ChanFreqs.size),dtype=int)
+        chanBand1=np.zeros((ChanFreqs.size),dtype=int)
         xNull=np.zeros((ChanFreqs.size,),np.float32)
         yNull=np.zeros((ChanFreqs.size,),np.float32)
         beamfreq0=np.zeros((ChanFreqs.size,),np.float32)
@@ -176,7 +194,7 @@ class ClassATCABeam():
             chanBand1[ich]=band1
             NoMatch=False
             if NoMatch:
-                raise NotImplementedError("The ATCA %s beam is not modeled for that frequency (channel %i @ %.3f MHz)"%(self.ATCABeamType,ich,ChanFreqs[ich]/1e6))
+                raise NotImplementedError("The NenuFAR beam is not modeled for that frequency (channel %i @ %.3f MHz)"%(self.ATCABeamType,ich,ChanFreqs[ich]/1e6))
         self.DicoCoefs=DicoCoefs
         self.chanBand0=chanBand0
         self.chanBand1=chanBand1
@@ -242,19 +260,6 @@ class ClassATCABeam():
             #     continue
             
             MeanBeam[:,:,ich,:,:]=np.mean(Beam[:,:,indCh,:,:],axis=2)
-
-        # # to deal with this weird MS
-        # print(self.VisToJonesChanMapping)
-        # print(self.VisToJonesChanMapping)
-        # print(self.VisToJonesChanMapping)
-        # if len(L_ichZero)>0:
-        #     M=np.mean(MeanBeam[:,:,:,0,0],axis=-1)
-        #     for ich in L_ichZero:
-        #         for iAnt in range(na):
-        #             for iDir in range(nd):
-        #                 j=M[iDir,iAnt]
-        #                 MeanBeam[iDir,iAnt,ich,0,0]=j
-        #                 MeanBeam[iDir,iAnt,ich,1,1]=j
             
         T.timeit("1")
 

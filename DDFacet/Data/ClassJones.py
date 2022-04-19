@@ -971,7 +971,7 @@ class ClassJones():
             self.BeamMachine = ClassATCABeam.ClassATCABeam(self.MS,GD["Beam"])
             self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam
         elif GD["Beam"]["Model"] == "NENUFAR":
-            self.BeamMachine = ClassNenuBeam(self.MS,GD["Beam"])
+            self.BeamMachine = ClassNenuBeam.ClassNenuBeam(self.MS,GD["Beam"])
             self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam
         else:
             raise ValueError("Unknown keyword for Beam-Model. Only accepts 'FITS', 'LOFAR', 'GMRT', 'ATCA' or 'NENUFAR'")
