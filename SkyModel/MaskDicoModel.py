@@ -57,7 +57,7 @@ def main(options=None):
     
     if options.MaskName:
         MM.CleanMaskedComponants(options.MaskName,InvertMask=options.InvertMask)
-
+        
     if options.FilterNegComp:
         MM.RemoveNegComponants()
 

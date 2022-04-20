@@ -109,13 +109,13 @@ class ClassIslandDistanceMachine():
 
     def CalcLabelImage(self,ListIslands):
         print("  calculating label image", file=log)
-        _,_,nx,_=self._MaskArray.shape
-        Labels=np.zeros((nx,nx),dtype=np.float32)
+        _,_,nx,ny=self._MaskArray.shape
+        Labels=np.zeros((nx,ny),dtype=np.float32)
 
         for iIsland,ThisIsland in enumerate(ListIslands):
             x,y=np.array(ThisIsland).T
             Labels[np.int32(x),np.int32(y)]=iIsland+1
-        return Labels.reshape((1,1,nx,nx))
+        return Labels.reshape((1,1,nx,ny))
 
     def BreakLargeIslands(self,ListIslands):
         if self.GD["SSDClean"]["MaxIslandSize"]:
@@ -349,14 +349,14 @@ class ClassIslandDistanceMachine():
     def giveEdgesIslands(self,ListIslands):
         print("  extracting Island edges", file=log)
         ListEdgesIslands=[]
-        _,_,nx,_=self._MaskArray.shape
+        _,_,nx,ny=self._MaskArray.shape
         #Ed=np.zeros_like(self._MaskArray)
         for Island in ListIslands:
             x,y=np.array(Island).T
             EdgesIsland=[]
             for iPix in range(x.size):
                 xc,yc=x[iPix],y[iPix]
-                Aedge,Bedge=GiveEdgesDissymetric(xc,yc,nx,nx,1,1,3,3)
+                Aedge,Bedge=GiveEdgesDissymetric(xc,yc,nx,ny,1,1,3,3)
                 x0d,x1d,y0d,y1d=Aedge
                 m=self._MaskArray[0,0][x0d:x1d,y0d:y1d]
                 if 1 in m:

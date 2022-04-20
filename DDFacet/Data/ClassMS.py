@@ -719,7 +719,7 @@ class ClassMS():
                     np.save(datapath, visdata)
                     self.cache.saveCache("Data.npy")
         # create flag array (if flagbuf is not None, array uses memory of buffer)
-        flags = DATA.addSharedArray("flags", shape=datashape, dtype=bool)
+        flags = DATA.addSharedArray("flags", shape=datashape, dtype=np.bool)
         # check cache for flags
         if use_cache:
             flagpath, flagvalid = self.cache.checkCache("Flags.npy", dict(time=self._start_time), ignore_key=(use_cache=="force"))
@@ -779,6 +779,7 @@ class ClassMS():
         DATA["dt"]  = self.dt
         DATA["dnu"] = self.ChanWidth
 
+            
         if self.zero_flag and visdata is not None:
             visdata[flags] = 1e10
 
@@ -1244,6 +1245,7 @@ class ClassMS():
 
         FlagAntNumber = set()
 
+        
         if self.DicoSelectOptions["UVRangeKm"]:
             d0, d1 = self.DicoSelectOptions["UVRangeKm"]
             print("  flagging uv data outside uv distance of [%5.2f~%5.2f] km" % (d0, d1), file=log)
@@ -1290,6 +1292,37 @@ class ClassMS():
                 iAnt, self.StationNames[iAnt], Dist[iAnt] / 1e3), file=log)
                 FlagAntNumber.add(iAnt)
 
+
+        try:
+            Cell_x,Cell_y=self.GD["Image"]["Cell"]
+        except:
+            Cell_x=Cell_y=self.GD["Image"]["Cell"]
+        Cell_x*=np.pi/180/3600
+        Cell_y*=np.pi/180/3600
+        f_x=1./Cell_x/3
+        f_y=1./Cell_y/3
+        u,v,w=uvw.T
+        fd_u=u.reshape((-1,1))*self.ChanFreq.reshape((1,-1))/3e8
+        fd_v=v.reshape((-1,1))*self.ChanFreq.reshape((1,-1))/3e8
+        fd_uv=np.sqrt((fd_u/f_x)**2+(fd_v/f_y)**2)
+        flag_Nyquist=(fd_uv>1)#(fd_u>f_x)|(fd_v>f_y))
+        fraction_flag_Nyquist=100*np.count_nonzero(flag_Nyquist)/flag_Nyquist.size
+        if fraction_flag_Nyquist>0:
+            if self.GD["Selection"]["AutoFlagNyquist"]:
+                log.print("Fraction of uv points beyond Nyquist sampling: %.2f%%"%fraction_flag_Nyquist)
+                log.print("  flagging uv-points that are further than Nyquist sampling")
+                _,_,npol=flags.shape
+                #flags0=flags.copy()
+                flag_Nyquist=flag_Nyquist.reshape((u.size,self.ChanFreq.size,1))*np.ones((1,1,npol),bool)
+                flags[flag_Nyquist]=1
+                #print(np.count_nonzero(flags0),np.count_nonzero(flags))
+            else:
+                log.print(ModColor.Str("Fraction of uv points beyond Nyquist sampling: %.2f%%"%fraction_flag_Nyquist))
+                log.print(ModColor.Str("  you might want to either (i) chose a smaller pixel size, or (ii) unselect longest uv-points/baselines, or (iii) use --Selection-AutoFlagNyquist=True"))
+        else:
+            log.print("Your pixel size is small enough, longest baselines will be properly modeled")
+            
+                
         # C0=(A0 == 7) & (A1 == 17)
         # C1=(A1 == 7) & (A0 == 17)
         # ind = np.where(np.logical_not(C0|C1))[0]
@@ -1305,12 +1338,20 @@ class ClassMS():
         antenna_flagfrac = [flags1[rows].sum() / float(flags1[rows].size or 1) for rows in antenna_rows]
         print("  flagged fractions per antenna: %s" % " ".join(["%.2f" % frac for frac in antenna_flagfrac]), file=log)
 
-        
-        # FlagAntFrac = [ant for ant, frac in enumerate(antenna_flagfrac) if frac > ThresholdFlag]
-        # FlagAntNumber.update(FlagAntFrac)
-        # for A in FlagAntFrac:
-        #     print("    antenna %i has ~%4.1f%s of flagged data (more than %4.1f%s)" % \
-        #                  (A, antenna_flagfrac[A] * 100, "%", ThresholdFlag * 100, "%"), file=log)
+        # print("lhjhgkljklhkhm")
+        # print("lhjhgkljklhkhm")
+        # print("lhjhgkljklhkhm")
+        # print("lhjhgkljklhkhm")
+        # print("lhjhgkljklhkhm")
+        # print("lhjhgkljklhkhm")
+        # print("lhjhgkljklhkhm")
+        # print("lhjhgkljklhkhm")
+        # ThresholdFlag=1
+        FlagAntFrac = [ant for ant, frac in enumerate(antenna_flagfrac) if frac > ThresholdFlag]
+        FlagAntNumber.update(FlagAntFrac)
+        for A in FlagAntFrac:
+            print("    antenna %i has ~%4.1f%s of flagged data (more than %4.1f%s)" % \
+                         (A, antenna_flagfrac[A] * 100, "%", ThresholdFlag * 100, "%"), file=log)
 
         if self.DicoSelectOptions["FlagAnts"]:
             FlagAnts = self.DicoSelectOptions["FlagAnts"]
@@ -1325,6 +1366,9 @@ class ClassMS():
 
         for A in FlagAntNumber:
             flags[antenna_rows[A], :, :] = True
+            
+        
+        print("Fraction of flagged data: %.2f %s"%(100*np.count_nonzero(flags==1)/flags.size,"%"), file=log)
         print("Flags updated", file=log)
 
     def __str__(self):
@@ -1752,9 +1796,9 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
     Ultimately, returns a list of (MSName, ddid, field) tuples, where MSName is a proper MS path, and ddid
     and field are indices.
     """
-    if type(MSName) is list:
+    if isinstance(MSName,list):
         print("multi-MS mode", file=log)
-    elif type(MSName) is not str:
+    elif not isinstance(MSName,str):
         raise TypeError("MSName parameter must be a list or a filename")
     elif MSName.endswith(".txt"):
         MSName0 = MSName

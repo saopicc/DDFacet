@@ -310,7 +310,7 @@ class ClassDDEGridMachine():
     def __init__(self,
                  GD,
                  ChanFreq,
-                 Npix,
+                 NpixIn,
                  lmShift=(0., 0.),
                  IDFacet=0,
                  SpheNorm=True,
@@ -346,6 +346,14 @@ class ClassDDEGridMachine():
         #import pdb; pdb.set_trace()
         T = ClassTimeIt.ClassTimeIt("Init_ClassDDEGridMachine")
         T.disable()
+
+        if isinstance(NpixIn,np.ndarray) or isinstance(NpixIn,list):
+            Npix_x,Npix_y=NpixIn
+        else:
+            Npix_x=Npix_y=NpixIn
+
+        self.Npix=Npix_x,Npix_y
+            
         self.GD = GD
         self.IDFacet = IDFacet
         self.SpheNorm = SpheNorm
@@ -367,13 +375,19 @@ class ClassDDEGridMachine():
         elif Precision == "D":
             self.dtype = np.complex128
 
-        self.dtype = np.complex64
         T.timeit("0")
         if Padding is None:
             Padding = GD["Facets"]["Padding"]
-        
-        self.NonPaddedNpix, Npix = EstimateNpix(Npix, Padding)
-        self.Padding = Npix/float(self.NonPaddedNpix)
+
+
+            
+        self.NonPaddedNpix_x, Npix_x = EstimateNpix(Npix_x, Padding)
+        self.NonPaddedNpix_y, Npix_y = EstimateNpix(Npix_y, Padding)
+        self.Padding_x = Npix_x/float(self.NonPaddedNpix_x)
+        self.Padding_y = Npix_y/float(self.NonPaddedNpix_y)
+        self.Npix_x=Npix_x
+        self.Npix_y=Npix_y
+        self.Npix=Npix_x,Npix_y
         # self.Padding=Padding
 
         self.LSmear = []
@@ -398,33 +412,42 @@ class ClassDDEGridMachine():
         self.SkyType=1
         self.PolMap=np.array([0, 5, 5, 0], np.int32)
         self.PolModeID=0
-        self.Npix = Npix
+        self.Npix_x = Npix_x
+        self.Npix_y = Npix_y
 
         self.NFreqBands = NFreqBands
         self.NonPaddedShape = (
             self.NFreqBands,
             self.npol,
-            self.NonPaddedNpix,
-            self.NonPaddedNpix)
+            self.NonPaddedNpix_x,
+            self.NonPaddedNpix_y)
 
-        self.GridShape = (self.NFreqBands, self.npol, self.Npix, self.Npix)
+        self.GridShape = (self.NFreqBands, self.npol, self.Npix_x, self.Npix_y)
 
-        x0 = (self.Npix-self.NonPaddedNpix)//2  # +1
-        self.PaddingInnerCoord = (x0, x0+self.NonPaddedNpix)
+        x0 = (self.Npix_x-self.NonPaddedNpix_x)//2  # +1
+        y0 = (self.Npix_y-self.NonPaddedNpix_y)//2  # +1
+        self.PaddingInnerCoord = (x0, x0+self.NonPaddedNpix_x, y0, y0+self.NonPaddedNpix_y)
 
         T.timeit("1")
 
         OverS = GD["CF"]["OverS"]
         Support = GD["CF"]["Support"]
         Nw = GD["CF"]["Nw"]
-        Cell = GD["Image"]["Cell"]
-
+        CellIn = GD["Image"]["Cell"]
+        
+        try:
+            Cell_x,Cell_y=CellIn
+        except:
+            Cell_x=Cell_y=CellIn
+            
         # T=ClassTimeIt.ClassTimeIt("ClassImager")
         # T.disable()
-
-        self.Cell = Cell
-        self.incr = (
-            np.array([-Cell, Cell], dtype=np.float64)/3600.)*(np.pi/180)
+        
+        #Cell_x*=-1
+        #Cell_y=-1
+        
+        self.Cell = Cell_x,Cell_y
+        self.incr = (np.array([-Cell_y, -Cell_x], dtype=np.float64)/3600.)*(np.pi/180)
         # CF.fill(1.)
         # print self.ChanEquidistant
         # self.FullScalarMode=int(GD["DDESolutions"]["FullScalarMode"])
@@ -437,7 +460,6 @@ class ClassDDEGridMachine():
             self.JonesType = 1
         elif JonesMode == "Full":
             self.JonesType = 2
-
         T.timeit("3")
 
         self.ChanFreq = ChanFreq
@@ -445,6 +467,10 @@ class ClassDDEGridMachine():
         self.WProj = True
         self.Nw = Nw
         self.OverS = OverS
+
+        # l0,m0=lmShift
+        # lmShift=m0,l0
+        
         self.lmShift = lmShift
 
         T.timeit("4")
@@ -495,6 +521,8 @@ class ClassDDEGridMachine():
     def InitCF(self, cf_dict, compute_cf, wmax):
         T = ClassTimeIt.ClassTimeIt("InitCF_ClassDDEGridMachine")
         T.disable()
+
+        l0,m0=self.lmShift
         self.WTerm = ModCF.ClassWTermModified(Cell=self.Cell,
                                               Sup=self.Sup,
                                               Npix=self.Npix,
@@ -502,7 +530,7 @@ class ClassDDEGridMachine():
                                               wmax=wmax,
                                               Nw=self.Nw,
                                               OverS=self.OverS,
-                                              lmShift=self.lmShift,
+                                              lmShift=(m0,l0),#self.lmShift,
                                               cf_dict=cf_dict,
                                               compute_cf=compute_cf,
                                               IDFacet=self.IDFacet)
@@ -512,30 +540,30 @@ class ClassDDEGridMachine():
     def setSols(self, times, xi):
         self.Sols = {"times": times, "xi": xi}
 
-    def ShiftVis(self, uvw, vis, reverse=False):
-        l0, m0 = self.lmShift
-        u, v, w = uvw.T
-        U = u.reshape((u.size, 1))
-        V = v.reshape((v.size, 1))
-        W = w.reshape((w.size, 1))
-        n0 = np.sqrt(1-l0**2-m0**2)-1
-        if reverse:
-            corr = np.exp(-self.UVNorm*(U*l0+V*m0+W*n0))
-        else:
-            corr = np.exp(self.UVNorm*(U*l0+V*m0+W*n0))
+    # def ShiftVis(self, uvw, vis, reverse=False):
+    #     l0, m0 = self.lmShift
+    #     u, v, w = uvw.T
+    #     U = u.reshape((u.size, 1))
+    #     V = v.reshape((v.size, 1))
+    #     W = w.reshape((w.size, 1))
+    #     n0 = np.sqrt(1-l0**2-m0**2)-1
+    #     if reverse:
+    #         corr = np.exp(-self.UVNorm*(U*l0+V*m0+W*n0))
+    #     else:
+    #         corr = np.exp(self.UVNorm*(U*l0+V*m0+W*n0))
         
-        U += W*self.WTerm.Cu
-        V += W*self.WTerm.Cv
+    #     U += W*self.WTerm.Cu
+    #     V += W*self.WTerm.Cv
 
-        corr = corr.reshape((U.size, self.UVNorm.size, 1))
-        vis *= corr
+    #     corr = corr.reshape((U.size, self.UVNorm.size, 1))
+    #     vis *= corr
 
-        U = U.reshape((U.size,))
-        V = V.reshape((V.size,))
-        W = W.reshape((W.size,))
-        uvw = np.array((U, V, W)).T.copy()
+    #     U = U.reshape((U.size,))
+    #     V = V.reshape((V.size,))
+    #     W = W.reshape((W.size,))
+    #     uvw = np.array((U, V, W)).T.copy()
 
-        return uvw, vis
+    #     return uvw, vis
 
     def reinitGrid(self):
         # self.Grid.fill(0)
@@ -567,7 +595,12 @@ class ClassDDEGridMachine():
                     uvw_dt.dtype), str(
                     np.float64)))
 
-        self.LSmear=[uvw_dt,DT,Dnu,DoSmearTime,DoSmearFreq,lmin,mmin]
+        # self.LSmear=[uvw_dt,DT,Dnu,DoSmearTime,DoSmearFreq,lmin,mmin]
+        uvw_dt1=uvw_dt.copy()
+        uvw_dt1[:,0]=uvw_dt[:,1]
+        uvw_dt1[:,1]=uvw_dt[:,0]
+        uvw_dt=uvw_dt1
+        self.LSmear=[uvw_dt,DT,Dnu,DoSmearTime,DoSmearFreq,mmin,lmin]
 
     def GiveParamJonesList(self, DicoJonesMatrices, times, A0, A1, uvw, gridder=False, degridder=False):
 
@@ -723,6 +756,8 @@ class ClassDDEGridMachine():
             ChanMapping = np.zeros((visIn.shape[1],), np.int64)
         self.ChanMappingGrid = ChanMapping
 
+
+        
         Grid = ResidueGrid
 
         if Grid.dtype != self.dtype:
@@ -746,11 +781,20 @@ class ClassDDEGridMachine():
                     vis.shape), str(
                     flag.shape)))
 
-        u, v, w = uvw.T
+        #u, v, w = uvw.T
 
         l0, m0 = self.lmShift
-        FacetInfos = np.float64(
-            np.array([self.WTerm.Cu, self.WTerm.Cv, l0, m0, self.IDFacet]))
+        # FacetInfos = np.float64(
+        #    np.array([self.WTerm.Cu, self.WTerm.Cv, l0, m0, self.IDFacet]))
+        
+        # l0,m0 = self.lmShift
+        # FacetInfos = np.float64(np.array([self.WTerm.Cv, self.WTerm.Cu, l0, m0, self.IDFacet]))
+        
+        FacetInfos = np.float64(np.array([self.WTerm.Cu,self.WTerm.Cv,m0,l0,self.IDFacet]))
+        uvw=uvw.copy()
+        v0=uvw[:,1].copy()
+        uvw[:,1]=uvw[:,0]
+        uvw[:,0]=v0
 
         self.CheckTypes(
             Grid=Grid,
@@ -782,6 +826,34 @@ class ClassDDEGridMachine():
         #T2= ClassTimeIt.ClassTimeIt("Gridder")
         #T2.disable()
         T.timeit("stuff")
+
+        if self.IDFacet==10:
+            D=locals()
+
+            Ds={}
+            for k in D.keys():
+                if k not in ["self","T"]:
+                    Ds[k]=D[k]
+            D=Ds
+            import DDFacet.Other.MyPickle
+            DDFacet.Other.MyPickle.DicoNPToFile(D,"DDEGM.DoPSF_%i.%3.3i.new.DicoPickle"%(DoPSF,self.IDFacet))
+            # LSubDico=["DicoJonesMatrices","DicoJones_Beam","Dirs","Jones"]
+            # for ThisDicoName in LSubDico:
+            #     Ds=D[ThisDicoName]
+            #     for k in Ds.keys():
+            #         D["%s.%s"%(ThisDicoName,k)]=Ds[k]
+                    
+            # for k in LSubDico:
+            #     del(D[k])
+                
+            # for k in ["vis","uvw","flag","W"]:
+            #     D[k]=D[k].copy()
+
+
+            # np.savez("DDEGM.DoPSF_%i.%3.3i.new.npz"%(DoPSF,self.IDFacet),**D)
+
+
+            
         if False: # # self.GD["Comp"]["GridMode"] == 0:  # really deprecated for now
             raise RuntimeError("Deprecated flag. Please use BDA gridder")
         elif self.GD["RIME"]["BackwardMode"] == "BDA-grid":
@@ -790,32 +862,37 @@ class ClassDDEGridMachine():
                 ChanEquidistant,
                 self.SkyType,
                 self.PolModeID]
-            _pyGridderSmear.pyGridderWPol(Grid,
-                                          vis,
-                                          uvw,
-                                          flag,
-                                          W,
-                                          SumWeigths,
-                                          DoPSF,
-                                          self.WTerm.Wplanes,
-                                          self.WTerm.WplanesConj,
-                                          np.array([self.WTerm.RefWave,
-                                                    self.WTerm.wmax,
-                                                    len(self.WTerm.Wplanes),
-                                                    self.WTerm.OverS],
-                                                   dtype=np.float64),
-                                          self.incr.astype(np.float64),
-                                          freqs,
-                                          [self.PolMap,
-                                              FacetInfos],
-                                          ParamJonesList,
-                                          self._bda_grid,
-                                          sparsification if sparsification is not None else np.array([], dtype=bool),
-                                          OptimisationInfos,
-                                          self.LSmear,
-                                          np.int32(ChanMapping),
-                                          np.array(self.DataCorrelationFormat).astype(np.uint16),
-                                          np.array(self.ExpectedOutputStokes).astype(np.uint16))
+            if self.dtype == np.complex64:
+                gridfun = _pyGridderSmear.pyGridderWPol32
+            else:
+                gridfun = _pyGridderSmear.pyGridderWPol64
+            gridfun(Grid,
+                    vis,
+                    uvw,
+                    flag,
+                    W,
+                    SumWeigths,
+                    DoPSF,
+                    self.WTerm.Wplanes,
+                    self.WTerm.WplanesConj,
+                    np.array([self.WTerm.RefWave,
+                            self.WTerm.wmax,
+                            len(self.WTerm.Wplanes),
+                            self.WTerm.OverS],
+                            dtype=np.float64),
+                    self.incr.astype(np.float64),
+                    freqs,
+                    [self.PolMap,
+                        FacetInfos],
+                    ParamJonesList,
+                    self._bda_grid,
+                    sparsification if sparsification is not None else np.array([], dtype=np.bool),
+                    OptimisationInfos,
+                    self.LSmear,
+                    np.int32(ChanMapping),
+                    np.array(self.DataCorrelationFormat).astype(np.uint16),
+                    np.array(self.ExpectedOutputStokes).astype(np.uint16))
+        #endif BDA-grid
 
             T.timeit("gridder")
             T.timeit("grid %d" % self.IDFacet)
@@ -825,6 +902,8 @@ class ClassDDEGridMachine():
                 ChanEquidistant,
                 self.SkyType,
                 self.PolModeID]
+            if self.dtype != np.complex64:
+                raise RuntimeError("Classic BDA does not support double accumulation gridding")
             _pyGridderSmearClassic.pyGridderWPol(Grid,
                                           vis,
                                           uvw,
@@ -854,6 +933,8 @@ class ClassDDEGridMachine():
         else:
             raise ValueError("unknown --RIME-BackwardMode %s"%self.GD["RIME"]["BackwardMode"])
 
+        # np.save("Grid2_%2.2i.npy"%self.IDFacet,Grid)
+        # stop
         T.timeit("gridder")
         T.timeit("grid %d" % self.IDFacet)
 
@@ -869,7 +950,7 @@ class ClassDDEGridMachine():
         A1=None,
         Jones=None):
         if not isinstance(Grid, type(None)):
-            if not(Grid.dtype == np.complex64):
+            if not(Grid.dtype == self.dtype):
                 raise NameError(
                     'Grid.dtype %s %s' %
                     (str(
@@ -979,8 +1060,17 @@ class ClassDDEGridMachine():
                     flag.shape)))
 
         l0, m0 = self.lmShift
-        FacetInfos = np.float64(
-            np.array([self.WTerm.Cu, self.WTerm.Cv, l0, m0, self.IDFacet]))
+        # FacetInfos = np.float64(
+        #     np.array([self.WTerm.Cu, self.WTerm.Cv, l0, m0, self.IDFacet]))
+
+        #m0, l0 = self.lmShift
+        FacetInfos = np.float64(np.array([self.WTerm.Cu,self.WTerm.Cv,m0,l0,self.IDFacet]))
+        uvw=uvw.copy()
+        v0=uvw[:,1].copy()
+        uvw[:,1]=uvw[:,0]
+        uvw[:,0]=v0
+
+        
         Row0, Row1 = Row0Row1
         if Row1 == -1:
             Row1 = uvw.shape[0]
@@ -1183,5 +1273,20 @@ class ClassDDEGridMachine():
     def GridToIm(self, Grid):
         Grid *= (self.WTerm.OverS)**2
         Dirty = self.getFFTWMachine().ifft(Grid)
-
+        
+        # # Dirty = (Grid.T[::-1,:])
+        # # Grid *= (self.WTerm.OverS)**2
+        # Dirty0 = self.getFFTWMachine().ifft(Grid.copy())
+        # Dirty1=ModFFTW.FFTW_2Donly_np().ifft(Grid.copy())
+        # print("ljksdqlkqfkjhqdmqdkl")
+        # print("ljksdqlkqfkjhqdmqdkl")
+        # print("ljksdqlkqfkjhqdmqdkl")
+        # print("ljksdqlkqfkjhqdmqdkl")
+        # print("ljksdqlkqfkjhqdmqdkl")
+        # print("ljksdqlkqfkjhqdmqdkl")
+        # print(np.max(Dirty0-Dirty1))
+        # print("ljksdqlkqfkjhqdmqdkl")
+        # print("ljksdqlkqfkjhqdmqdkl")
+        # Dirty = Grid.T[::-1,:].copy()
+        
         return Dirty

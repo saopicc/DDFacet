@@ -17,13 +17,14 @@ import numpy as np
 if __name__=="__main__":
 
 
-    SS=sys.argv[1::]
-
-    RegFile=None
-    S=[f for f in SS if ".reg"!=f[-4:]]
-    Sr=[f for f in SS if ".reg"==f[-4:]]
-    if len(Sr)>=1:
-        RegFile=Sr[0]
+    S0=sys.argv[1::]
+    S=[]
+    Sr=""
+    for s in S0:
+        if s[-4:]!=".reg":
+            S.append(s)
+        else:
+            Sr="-regions load all %s"%s
     
     ll=glob.glob(S[-1])
     im=image(ll[-1])
@@ -38,10 +39,8 @@ if __name__=="__main__":
 
     S=" ".join(S)
 
-    ss="ds9 -cmap bb -scalelims %f %f %s -lock slice image -lock frame wcs -lock scale yes -match scalelimits -match scale -match colorbar -lock colorbar yes -view vertical"%(vmin,vmax,S)
+    ss="ds9 -cmap bb -scalelims %f %f %s -lock slice image -lock frame wcs -lock scale yes -match scalelimits -match scale -match colorbar -lock colorbar yes -view vertical %s"%(vmin,vmax,S,Sr)
 
-    if RegFile is not None:
-        ss+=" -regions load all %s"%RegFile
     
     print(ss)
     os.system(ss)

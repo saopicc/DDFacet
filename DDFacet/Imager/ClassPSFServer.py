@@ -57,9 +57,9 @@ class ClassPSFServer():
         self.DicoVariablePSF=DicoVariablePSF
         self.CubeVariablePSF=DicoVariablePSF["CubeVariablePSF"]
         self.CubeMeanVariablePSF=DicoVariablePSF["CubeMeanVariablePSF"]
-        self.NFacets,nch,npol,NPixMin,_=self.CubeVariablePSF.shape
-        self.ShapePSF=nch,npol,NPixMin,NPixMin
-        self.NPSF=NPixMin
+        self.NFacets,nch,npol,NPixMin_x,NPixMin_y=self.CubeVariablePSF.shape
+        self.ShapePSF=nch,npol,NPixMin_x,NPixMin_y
+        self.NPSF=NPixMin_x,NPixMin_y
 
         self.ImageShape = self.DicoVariablePSF["ImageCube"].shape
 
@@ -124,7 +124,7 @@ class ClassPSFServer():
 
             
         dmin=1e6
-        CellSizeRad=self.DicoVariablePSF["CellSizeRad"]
+        CellSizeRad_x,CellSizeRad_y=self.DicoVariablePSF["CellSizeRad"]
         _,_,nx,ny=self.DicoVariablePSF["OutImShape"]
 
 
@@ -142,11 +142,14 @@ class ClassPSFServer():
         
         for iFacet in range(self.NFacets):
             
-            l=CellSizeRad*(xp-nx//2)
-            m=CellSizeRad*(yp-ny//2)
+            l=CellSizeRad_x*(xp-nx//2)
+            m=CellSizeRad_y*(yp-ny//2)
             
-            #lSol,mSol=self.DicoVariablePSF["Facets"][iFacet]["lmSol"]
-            lSol,mSol=self.DicoVariablePSF["Facets"][iFacet]["l0m0"]
+            #l=CellSizeRad_y*(xp-nx//2)
+            #m=CellSizeRad_x*(yp-ny//2)
+            
+            lSol,mSol=self.DicoVariablePSF["Facets"][iFacet]["lmSol"]
+            #lSol,mSol=self.DicoVariablePSF["Facets"][iFacet]["l0m0"]
             #print "lsol, msol = ",lSol,mSol #,self.DicoVariablePSF[iFacet]["pixCentral"][0],self.DicoVariablePSF[iFacet]["pixCentral"][1]
 
             d=np.sqrt((l-lSol)**2+(m-mSol)**2)
@@ -159,14 +162,19 @@ class ClassPSFServer():
                 dmin=d
                 ClosestFacet0=iFacet
 
-                
-        # print("[%i, %i] ->  %i"%(xp,yp,ClosestFacet))
-        # print("[%i, %i] ->  %i"%(xp,yp,ClosestFacet0))
+
+        # print("===============")
+        # iSol0=self.DicoVariablePSF["Facets"][ClosestFacet0]["iSol"]
+        # iSol=self.DicoVariablePSF["Facets"][ClosestFacet]["iSol"]
+        # print("Poly [%i, %i] ->  iFacet=%i [iSol=%i]"%(xp,yp,ClosestFacet,iSol))
+        # print("Dist [%i, %i] ->  iFacet=%i [iSol=%i]"%(xp,yp,ClosestFacet0,iSol0))
 
         
         if ClosestFacet==-1:
             ClosestFacet=ClosestFacet0
-
+        #ClosestFacet=ClosestFacet0
+        
+        #print(ClosestFacet,iSol)
         return ClosestFacet
 
 

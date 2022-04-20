@@ -79,24 +79,31 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
     def setFacetsLocs(self):
         NFacets = self.NFacets
-        Npix = self.GD["Image"]["NPix"]
+        if isinstance(self.GD["Image"]["NPix"],int):
+            Npix_x=Npix_y=self.GD["Image"]["NPix"]
+        elif isinstance(self.GD["Image"]["NPix"],list):
+            Npix_x,Npix_y=self.GD["Image"]["NPix"]
+            
         Padding = self.GD["Facets"]["Padding"]
         self.Padding = Padding
-        Npix, _ = EstimateNpix(float(Npix), Padding=1)
-        self.Npix = Npix
-        self.OutImShape = (self.nch, self.npol, self.Npix, self.Npix)
+        Npix_x, _ = EstimateNpix(float(Npix_x), Padding=1)
+        Npix_y, _ = EstimateNpix(float(Npix_y), Padding=1)
+        self.Npix_x = Npix_x
+        self.Npix_y = Npix_y
+        self.OutImShape = (self.nch, self.npol, self.Npix_x, self.Npix_y)
 
-        RadiusTot = self.CellSizeRad * self.Npix / 2
-        self.RadiusTot = RadiusTot
+        RadiusTot_x = self.CellSizeRad_x * self.Npix_x / 2
+        self.RadiusTot_x = RadiusTot_x
+        RadiusTot_y = self.CellSizeRad_y * self.Npix_y / 2
+        self.RadiusTot_y = RadiusTot_y
 
         lMainCenter, mMainCenter = 0., 0.
         self.lmMainCenter = lMainCenter, mMainCenter
-        self.CornersImageTot = np.array(
-            [[lMainCenter - RadiusTot, mMainCenter - RadiusTot],
-             [lMainCenter + RadiusTot, mMainCenter - RadiusTot],
-             [lMainCenter + RadiusTot, mMainCenter + RadiusTot],
-             [lMainCenter - RadiusTot, mMainCenter + RadiusTot]])
-
+        self.CornersImageTot = np.array([[lMainCenter - RadiusTot_x, mMainCenter - RadiusTot_y],
+                                         [lMainCenter + RadiusTot_x, mMainCenter - RadiusTot_y],
+                                         [lMainCenter + RadiusTot_x, mMainCenter + RadiusTot_y],
+                                         [lMainCenter - RadiusTot_x, mMainCenter + RadiusTot_y]])
+        
         # MSName = self.GD["Data"]["MS"]
         # if ".txt" in MSName:
         #     f = open(MSName)
@@ -179,25 +186,27 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                         
         if SolsFile=="": SolsFile=None
 
-
         if SolsFile and (not (".npz" in SolsFile)) and (not (".h5" in SolsFile)):
             Method = SolsFile
             # ThisMSName = reformat.reformat(
             #     os.path.abspath(MSName), LastSlash=False)
             # SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, Method)
             SolsFile=GiveSolsFile(SolsFile)
-
-        
-        
         
         if SolsFile is not None and not ".h5" in SolsFile:
-            from killMS.Parset import ReadCFG as ReadCFGkMS
-            PName=SolsFile[0:-4]+".parset"
-            DoCheckParset=os.path.isfile(PName)
-            if not DoCheckParset:
-                log.print(ModColor.Str("File %s does not exist - can't check parset consistencies"%PName))
-                # raise RuntimeError("File %s does not exist..."%PName)
-            else:
+            DoCheckParset=False
+            if "killMS" in SolsFile:
+                try:
+                    from killMS.Parset import ReadCFG as ReadCFGkMS
+                    PName=SolsFile[0:-4]+".parset"
+                    DoCheckParset=os.path.isfile(PName)
+                    if not DoCheckParset:
+                        log.print(ModColor.Str("File %s does not exist - can't check parset consistencies"%PName))
+                except:
+                    log.print(ModColor.Str("Cannot import killMS - can't check parset consistencies"))
+                    DoCheckParset=False
+                    
+            if DoCheckParset:
                 print("reading %s"%PName,file=log)
                 GDkMS=ReadCFGkMS.Parset(PName).DicoPars
                 DoCheckParset=False
@@ -295,19 +304,37 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         else:
             print("Taking facet directions from regular grid", file=log)
             regular_grid = True
-            CellSizeRad = (self.GD["Image"][
-                           "Cell"] / 3600.) * np.pi / 180
-            lrad = Npix * CellSizeRad * 0.5
+            #CellSizeRad = (self.GD["Image"]["Cell"] / 3600.) * np.pi / 180
+            
+            
+            NpixFacet_x = Npix_x // NFacets
+            NpixFacet_y = Npix_y // NFacets
+            NpixFacet=np.min([NpixFacet_x,NpixFacet_y])
+            NFacets_x=Npix_x//NpixFacet
+            NFacets_y=Npix_y//NpixFacet
+            
+            NpixFacet_x = Npix_x // NFacets_x
+            NpixFacet_y = Npix_y // NFacets_y
 
-            NpixFacet = Npix // NFacets
-            lfacet = NpixFacet * CellSizeRad * 0.5
+            CellSizeRad_x=self.CellSizeRad_x
+            lfacet = NpixFacet_x * CellSizeRad_x * 0.5
+            lrad = Npix_x * CellSizeRad_x * 0.5
             lcenter_max = lrad - lfacet
+            
+            
+            CellSizeRad_y=self.CellSizeRad_y
+            mfacet = NpixFacet_y * CellSizeRad_y * 0.5
+            mrad = Npix_y * CellSizeRad_y * 0.5
+            mcenter_max = mrad - mfacet
 
-            lFacet, mFacet, = np.mgrid[
-                -lcenter_max: lcenter_max: (NFacets) * 1j, -
-                lcenter_max: lcenter_max: (NFacets) * 1j]
+            #NFacets_x=Npix_x//NpixFacet
+            #NFacets_y=Npix_y//NpixFacet
+
+            
+            lFacet, mFacet, = np.mgrid[-lcenter_max: lcenter_max: (NFacets_x) * 1j, -mcenter_max: mcenter_max: (NFacets_y) * 1j]
             lFacet = lFacet.flatten()
             mFacet = mFacet.flatten()
+
         print("  There are %i Jones-directions" % lFacet.size, file=log)
 
 
@@ -319,10 +346,10 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         NodesCat = np.zeros(
             (raSols.size,),
-            dtype=[('ra', np.float32),
-                   ('dec', np.float32),
-                   ('l', np.float32),
-                   ('m', np.float32)])
+            dtype=[('ra', np.float),
+                   ('dec', np.float),
+                   ('l', np.float),
+                   ('m', np.float)])
         NodesCat = NodesCat.view(np.recarray)
         NodesCat.ra = raSols
         NodesCat.dec = decSols
@@ -406,13 +433,14 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         # SubDivide
         def GiveDiam(polygon):
             lPoly, mPoly = polygon.T
-            l0 = np.max([lMainCenter - RadiusTot, lPoly.min()])
-            l1 = np.min([lMainCenter + RadiusTot, lPoly.max()])
-            m0 = np.max([mMainCenter - RadiusTot, mPoly.min()])
-            m1 = np.min([mMainCenter + RadiusTot, mPoly.max()])
+            l0 = np.max([lMainCenter - RadiusTot_x, lPoly.min()])
+            l1 = np.min([lMainCenter + RadiusTot_x, lPoly.max()])
+            m0 = np.max([mMainCenter - RadiusTot_y, mPoly.min()])
+            m1 = np.min([mMainCenter + RadiusTot_y, mPoly.max()])
             dl = l1 - l0
             dm = m1 - m0
-            diam = np.max([dl, dm])
+            #diam = np.max([dl, dm])
+            diam = abs(dl),abs(dm)
             return diam, (l0, l1, m0, m1)
 
         DiamMax = self.GD["Facets"]["DiamMax"] * np.pi / 180
@@ -440,8 +468,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             polygonFacetCut = np.array(P0Cut[0])
             # polygonFacetCut=ClosePolygon(polygonFacetCut)
 
-            diam, (l0, l1, m0, m1) = GiveDiam(polygonFacetCut)
-            if diam < DMax:
+            (diam_x,diam_y), (l0, l1, m0, m1) = GiveDiam(polygonFacetCut)
+            
+            if diam_x < DMax and diam_y < DMax:
                 return [polygonFacetCut]
 
             Nl = int((l1 - l0) / DMax) + 1
@@ -559,8 +588,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             DicoPolygon[iFacet] = {}
             poly = LPolygonNew[iFacet]
             DicoPolygon[iFacet]["poly"] = poly
-            diam, (l0, l1, m0, m1) = GiveDiam(poly)
-            DicoPolygon[iFacet]["diam"] = diam
+            (diam_x,diam_y), (l0, l1, m0, m1) = GiveDiam(poly)
+            DicoPolygon[iFacet]["diam"] = diam_x,diam_y
             DicoPolygon[iFacet]["diamMin"] = np.min([(l1 - l0), (m1 - m0)])
             xc, yc = np.mean(poly[:, 0]), np.mean(poly[:, 1])
             DicoPolygon[iFacet]["xyc"] = xc, yc
@@ -584,12 +613,10 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         #     pylab.show(block=False)
         #     pylab.pause(0.1)
         #     if ind.size==2: stop
-
-
             
         for iFacet in sorted(DicoPolygon.keys()):
             diam = DicoPolygon[iFacet]["diamMin"]
-            #print(iFacet,diam,DiamMin)
+            # print(iFacet,diam,DiamMin)
             if diam < DiamMin:
                 dmin = 1e6
                 xc0, yc0 = DicoPolygon[iFacet]["xyc"]
@@ -673,13 +700,13 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.JonesDirCat = np.zeros(
             (NodesCat.shape[0],),
             dtype=[('Name', '|S200'),
-                   ('ra', np.float32),
-                   ('dec', np.float32),
-                   ('SumI', np.float32),
+                   ('ra', np.float),
+                   ('dec', np.float),
+                   ('SumI', np.float),
                    ("Cluster", int),
-                   ("l", np.float32),
-                   ("m", np.float32),
-                   ("I", np.float32)])
+                   ("l", np.float),
+                   ("m", np.float),
+                   ("I", np.float)])
         self.JonesDirCat = self.JonesDirCat.view(np.recarray)
         self.JonesDirCat.I = 1
         self.JonesDirCat.SumI = 1
@@ -691,11 +718,11 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.JonesDirCat.Cluster = range(NJonesDir)
 
         print("Sizes (%i facets):" % (self.JonesDirCat.shape[0]), file=log)
-        print("   - Main field :   [%i x %i] pix" % (self.Npix, self.Npix), file=log)
+        print("   - Main field :   [%i x %i] pix" % (self.Npix_x, self.Npix_y), file=log)
 
 
-        l_m_Diam = np.zeros((NFacets, 4), np.float32)
-        l_m_Diam[:, 3] = np.arange(NFacets)
+        l_m_Diam = np.zeros((NFacets, 5), np.float32)
+        l_m_Diam[:, 4] = np.arange(NFacets)
 
         Np = 10000
         D = {}
@@ -728,7 +755,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             # mc=np.sum(Y*mask)/np.sum(mask)
             # dl=np.max(np.abs(X[mask==1]-lc))
             # dm=np.max(np.abs(Y[mask==1]-mc))
-            diam = 2 * np.max([dl, dm])
+            #diam = 2 * np.max([dl, dm])
+            diam_x = 2 * dl
+            diam_y = 2 * dm
 
             ######################
             # lc=(l0+l1)/2.
@@ -739,19 +768,21 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
             l_m_Diam[iFacet, 0] = lc
             l_m_Diam[iFacet, 1] = mc
-            l_m_Diam[iFacet, 2] = diam
+            l_m_Diam[iFacet, 2] = diam_x
+            l_m_Diam[iFacet, 3] = diam_y
 
         self.SpacialWeigth = {}
         self.DicoImager = {}
 
         # sort facets by size, unless we're in regular grid mode
         if not regular_grid:
-            indDiam = np.argsort(l_m_Diam[:, 2])[::-1]
+            dd=np.max(l_m_Diam[:,2:4],axis=1)
+            indDiam = np.argsort(dd)[::-1]
             l_m_Diam = l_m_Diam[indDiam]
 
         for iFacet in range(l_m_Diam.shape[0]):
             self.DicoImager[iFacet] = {}
-            self.DicoImager[iFacet]["Polygon"] = D[l_m_Diam[iFacet, 3]]["Polygon"]
+            self.DicoImager[iFacet]["Polygon"] = D[l_m_Diam[iFacet, 4]]["Polygon"]
             
 
         if self.GD["Facets"].get("FluxPaddingAppModel",None) is not None:
@@ -769,8 +800,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             # Hash_ModelImage=hash(a.data.tobytes())
             
             _,_,nx,ny=self.OutImShape
-            Dx=self.CellSizeRad * nx/2
-            Dy=self.CellSizeRad * ny/2
+            Dx=self.CellSizeRad_x * nx/2
+            Dy=self.CellSizeRad_y * ny/2
 
             from DDFacet.Other import ClassTimeIt
             T=ClassTimeIt.ClassTimeIt("FluxPaddingAppModel")
@@ -831,20 +862,23 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         ###############
                 
         for iFacet in range(l_m_Diam.shape[0]):
-            x0 = round(l_m_Diam[iFacet, 0] / self.CellSizeRad)
-            y0 = round(l_m_Diam[iFacet, 1] / self.CellSizeRad)
+            x0 = round(l_m_Diam[iFacet, 0] / self.CellSizeRad_x)
+            y0 = round(l_m_Diam[iFacet, 1] / self.CellSizeRad_y)
             # if x0 % 2 == 0:
             #     x0 += 1
             # if y0 % 2 == 0:
             #     y0 += 1
-            l0 = x0 * self.CellSizeRad
-            m0 = y0 * self.CellSizeRad
-            diam = round(
-                l_m_Diam[
-                    iFacet,
-                    2] / self.CellSizeRad) * self.CellSizeRad
+            l0 = x0 * self.CellSizeRad_x
+            m0 = y0 * self.CellSizeRad_y
+            diam_x = round(l_m_Diam[iFacet,2] / self.CellSizeRad_x) * self.CellSizeRad_x
+            diam_y = round(l_m_Diam[iFacet,3] / self.CellSizeRad_y) * self.CellSizeRad_y
+            
             # self.AppendFacet(iFacet,l0,m0,diam)
-            self.AppendFacet(iFacet, l0, m0, diam)
+            self.AppendFacet(iFacet, l0, m0, diam_x,diam_y)
+
+
+
+            
 
 
 
@@ -862,13 +896,13 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 
         self.DicoImager=DicoImager
         
-        NpixMax = np.max([self.DicoImager[iFacet]["NpixFacet"]
-                          for iFacet in sorted(self.DicoImager.keys())])
-        NpixMaxPadded = np.max(
-            [self.DicoImager[iFacet]["NpixFacetPadded"]
-             for iFacet in sorted(self.DicoImager.keys())])
-        self.PaddedGridShape = (1, 1, NpixMaxPadded, NpixMaxPadded)
-        self.FacetShape = (1, 1, NpixMax, NpixMax)
+        NpixMax_x = np.max([self.DicoImager[iFacet]["NpixFacet"][0] for iFacet in sorted(self.DicoImager.keys())])
+        NpixMax_y = np.max([self.DicoImager[iFacet]["NpixFacet"][1] for iFacet in sorted(self.DicoImager.keys())])
+        NpixMaxPadded_x = np.max([self.DicoImager[iFacet]["NpixFacetPadded"][0] for iFacet in sorted(self.DicoImager.keys())])
+        NpixMaxPadded_y = np.max([self.DicoImager[iFacet]["NpixFacetPadded"][1] for iFacet in sorted(self.DicoImager.keys())])
+        self.PaddedGridShape = (1, 1, NpixMaxPadded_x, NpixMaxPadded_y)
+        self.FacetShape = (1, 1, NpixMax_x, NpixMax_y)
+
 
             
         dmin = 1
@@ -906,9 +940,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         # Find the minimum l,m in the facet (for decorrelation calculation)
         for iFacet in self.DicoImager.keys():
             #Create smoothned facet tessel mask:
-            Npix = self.DicoImager[iFacet]["NpixFacetPadded"]
+            Npix_x,Npix_y = self.DicoImager[iFacet]["NpixFacetPadded"]
             l0, l1, m0, m1 = self.DicoImager[iFacet]["lmExtentPadded"]
-            X, Y = np.mgrid[l0:l1:Npix//10 * 1j, m0:m1:Npix//10 * 1j]
+            X, Y = np.mgrid[l0:l1:Npix_x//10 * 1j, m0:m1:Npix_y//10 * 1j]
             XY = np.dstack((X, Y))
             XY_flat = XY.reshape((-1, 2))
             vertices = self.DicoImager[iFacet]["Polygon"]
@@ -929,13 +963,13 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             
         self.FacetDirCat = np.zeros((len(self.DicoImager),),
                                     dtype=[('Name', '|S200'),
-                                           ('ra', np.float32),
-                                           ('dec', np.float32),
-                                           ('SumI', np.float32),
+                                           ('ra', np.float),
+                                           ('dec', np.float),
+                                           ('SumI', np.float),
                                            ("Cluster", int),
-                                           ("l", np.float32),
-                                           ("m", np.float32),
-                                           ("I", np.float32)])
+                                           ("l", np.float),
+                                           ("m", np.float),
+                                           ("I", np.float)])
         self.FacetDirCat = self.FacetDirCat.view(np.recarray)
         self.FacetDirCat.I = 1
         self.FacetDirCat.SumI = 1

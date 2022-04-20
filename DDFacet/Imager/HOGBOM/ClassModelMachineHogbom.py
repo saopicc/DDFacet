@@ -56,13 +56,20 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def setPSFServer(self, PSFServer):
         self.PSFServer = PSFServer
 
-        _, _, self.Npix, _ = self.PSFServer.ImageShape
-        self.NpixPadded = int(np.ceil(self.GD["Facets"]["Padding"] * self.Npix))
+        _, _, self.Npix_x, self.Npix_y = self.PSFServer.ImageShape
+        self.NpixPadded_x = int(np.ceil(self.GD["Facets"]["Padding"] * self.Npix_x))
         # make sure it is odd numbered
-        if self.NpixPadded % 2 == 0:
-            self.NpixPadded += 1
-        self.Npad = (self.NpixPadded - self.Npix) // 2
+        if self.NpixPadded_x % 2 == 0:
+            self.NpixPadded_x += 1
+        self.Npad_x = (self.NpixPadded_x - self.Npix_x) // 2
 
+        self.NpixPadded_y = int(np.ceil(self.GD["Facets"]["Padding"] * self.Npix_y)) 
+        if self.NpixPadded_y % 2 == 0:
+            self.NpixPadded_y += 1
+        self.Npad_y = (self.NpixPadded_y - self.Npix_y) // 2
+        self.Npix=np.array([self.Npix_x, self.Npix_y])
+
+        
     def setFreqMachine(self, GridFreqs, DegridFreqs, weights=None, PSFServer=None):
         self.PSFServer = PSFServer
         # Initiaise the Frequency Machine
@@ -163,16 +170,16 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         at the same position, but different fluxes, alphas etc.
 
         """
-            
+
         DicoComp = self.DicoSMStacked["Comp"]
         ref_freq = self.DicoSMStacked["RefFreq"]
-        
+
         if FreqIn is None:
            FreqIn=np.array([ref_freq], dtype=np.float32)
 
         # Assumptions:
         # DicoSMStacked is a dictionary of "Solution" dictionaries
-        # keyed on (l, m), corresponding to some point  source. 
+        # keyed on (l, m), corresponding to some point  source.
         # Components associated with the source for each scale are
         # located in self.ListScales.
 
@@ -249,8 +256,18 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         pa = 0.0
 
         # get in terms of number of cells
-        CellSizeRad = self.GD['Image']['Cell'] * np.pi / 648000
+        
+        
+        try:
+            Cell_x,Cell_y=self.GD['Image']['Cell']
+        except:
+            Cell_x=Cell_y=self.GD['Image']['Cell']
+        CellSizeRad_x= Cell_x * np.pi / 648000
+        CellSizeRad_y= Cell_y * np.pi / 648000
+        
+        CellSizeRad=CellSizeRad_x,CellSizeRad_y
 
+        
         # get Gaussian kernel
         GaussKern = ModFFTW.GiveGauss(self.Npix, CellSizeRad=CellSizeRad, GaussPars=(epar, epar, pa), parallel=False)
 
@@ -263,6 +280,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         if not nthreads:
             import multiprocessing
             nthreads = multiprocessing.cpu_count()
+        else:
+            from multiprocessing.pool import ThreadPool
+            import dask
+
+            dask.config.set(pool=ThreadPool(nthreads))
         FFT = lambda x: pyfftw.interfaces.numpy_fft.fft2(x, axes=(-2, -1), planner_effort='FFTW_ESTIMATE', threads=nthreads) #, norm='ortho')
         iFFT = lambda x: pyfftw.interfaces.numpy_fft.ifft2(x, axes=(-2, -1), planner_effort='FFTW_ESTIMATE', threads=nthreads) #, norm='ortho')
 
@@ -270,22 +292,24 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         ModelImage = self.GiveModelImage(self.GridFreqs)
 
         # pad GausKern and take FT
-        GaussKern = np.pad(GaussKern, self.Npad, mode='constant')
-        FTshape, _ = GaussKern.shape
+        #GaussKern = np.pad(GaussKern, self.Npad, mode='constant')
+        GaussKern = np.pad(GaussKern, ((self.Npad_x,self.Npad_x),(self.Npad_y,self.Npad_y)), mode='constant')
+        FTshape_x, FTshape_y = GaussKern.shape
         from scipy import fftpack as FT
         #GaussKernhat = FT.fft2(iFs(GaussKern))
         GaussKernhat = FFT(iFs(GaussKern))
 
         # pad and FT of ModelImage
-        ModelImagehat = np.zeros((self.Nchan, FTshape, FTshape), dtype=np.complex128)
-        ConvModelImage = np.zeros((self.Nchan, self.Npix, self.Npix), dtype=np.float64)
-        I = slice(self.Npad, -self.Npad)
+        ModelImagehat = np.zeros((self.Nchan, FTshape_x, FTshape_y), dtype=np.complex128)
+        ConvModelImage = np.zeros((self.Nchan, self.Npix_x, self.Npix_y), dtype=np.float64)
+        Ix = slice(self.Npad_x, -self.Npad_x)
+        Iy = slice(self.Npad_y, -self.Npad_y)
         for i in range(self.Nchan):
-            tmp_array = np.pad(ModelImage[i, 0], self.Npad, mode='constant')
+            tmp_array = np.pad(ModelImage[i, 0], ((self.Npad_x,self.Npad_x),(self.Npad_y,self.Npad_y)), mode='constant')
             # ModelImagehat[i] = FT.fft2(iFs(tmp_array)) * GaussKernhat
             ModelImagehat[i] = FFT(iFs(tmp_array)) * GaussKernhat
             # ConvModelImage[i] = Fs(FT.ifft2(ModelImagehat[i]))[I, I].real
-            ConvModelImage[i] = Fs(iFFT(ModelImagehat[i]))[I, I].real
+            ConvModelImage[i] = Fs(iFFT(ModelImagehat[i]))[Ix, Iy].real
 
         if ResidCube is not None:
             #ConvModelImage += ResidCube.squeeze()
@@ -315,19 +339,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         try:
             import traceback
             from africanus.model.spi.dask import fit_spi_components
-            NCPU = self.GD["Parallel"]["NCPU"]
-            if NCPU:
-                from multiprocessing.pool import ThreadPool
-                import dask
-
-                dask.config.set(pool=ThreadPool(NCPU))
-            else:
-                import multiprocessing
-                NCPU = multiprocessing.cpu_count()
-
             import dask.array as da
             _, ncomps = FitCube.shape
-            FitCubeDask = da.from_array(FitCube.T.astype(np.float64), chunks=(ncomps//NCPU, self.Nchan))
+            FitCubeDask = da.from_array(FitCube.T.astype(np.float64),
+                                        chunks=(np.maximum(100, ncomps//nthreads), self.Nchan))
             weightsDask = da.from_array(weights.astype(np.float64), chunks=(self.Nchan))
             freqsDask = da.from_array(np.array(self.GridFreqs).astype(np.float64), chunks=(self.Nchan))
 
@@ -392,7 +407,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         """ Makes a numpy model for use for killms calibration using SkyModel/MakeModel.py """
         nchan, npol, nx, ny = self.ModelShape
         assert nx == ny, "Only works with square images for now"
-        self.Npix = nx 
+        self.Npix = nx
         self.Nchan = len(self.GridFreqs)
         self.NpixPadded = int(np.ceil(self.GD["Facets"]["Padding"] * self.Npix))
         # make sure it is odd numbered

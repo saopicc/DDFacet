@@ -43,6 +43,7 @@ from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Data.ClassStokes import ClassStokes
 from DDFacet.Data.PointingProvider import PointingProvider
 from DDFacet.Data.ClassMS import ClassMS
+from DDFacet.Data.ClassFITSBeam import is_pattern
 
 from astropy import wcs as pywcs
 from pyrap.measures import measures
@@ -94,6 +95,10 @@ class ClassMontblancMachine(object):
         # Configure the Beam upfront
         if GD["Beam"]["Model"] == "FITS":
             fits_file_spec = GD["Beam"]["FITSFile"]
+            if not is_pattern(fits_file_spec):
+                raise RuntimeError("DFT mode currently only support single frequency range "
+                                   "station-independent beams. "
+                                   "--Beam--FITSFile must be a single pattern.")
             l_axis = GD["Beam"]["FITSLAxis"]
             m_axis = GD["Beam"]["FITSMAxis"]
             self._beam_prov = FitsBeamSourceProvider(fits_file_spec,

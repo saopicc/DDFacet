@@ -1,0 +1,946 @@
+Data:
+  MS:
+    info: Single MS name, or list of comma-separated MSs, or name of *.txt file listing
+      MSs.   Note that each MS may also be specified as a glob pattern (e.g. *.MS),
+      and may be suffixed with "//Dx" and/or "//Fy" to select specific DATA_DESC_ID
+      and FIELD_IDs in the MS. "x" and "y" can take the form of a single number, a
+      Pythonic range (e.g. "0:16"), an inclusive range ("0~15"), or "*" to select
+      all. E.g. "foo.MS//D*//F0:2" selects all DDIDs, and fields 0 and 1 from foo.MS.
+      If D and/or F is not specified, --Selection-Field and --Selection-DDID is used
+      as the default.
+    required: false
+    dtype: List[MS]
+    policies:
+      repeat: ','
+  ColName:
+    info: 'MS column to image (Default: CORRECTED_DATA)'
+    required: false
+    dtype: str
+  ChunkHours:
+    info: 'Process data in chunks of <=N hours. Use 0 for no chunking. (Default: 0.0)'
+    required: false
+    dtype: float
+  Sort:
+    info: 'if True, data will be resorted by baseline-time order internally. This
+      usually speeds up processing. (Default: False)'
+    required: false
+    dtype: bool
+Predict:
+  ColName:
+    info: MS column to write predict to. Can be empty to disable.
+    required: false
+    dtype: str
+  MaskSquare:
+    info: Use this field if you want to predict (in/out)side a square region. Syntax
+      is (MaskOutSide,NpixInside). For example setting (0,1000) will predict the outer
+      (1000x1000) square only
+    required: false
+  FromImage:
+    info: In --Image-Mode=Predict, will predict data from this image, rather than
+      --Data-InitDicoModel
+    required: false
+    dtype: str
+  InitDicoModel:
+    info: Resume deconvolution from given DicoModel
+    required: false
+    dtype: str
+  Overwrite:
+    info: 'Allow overwriting of predict column (Default: True)'
+    required: false
+    dtype: bool
+Selection:
+  Field:
+    info: 'default FIELD_ID to read, if not specified in --Data-MS. (Default: 0)'
+    required: false
+    dtype: int
+  DDID:
+    info: 'default DATA_DESC_ID to read, if not specified in --Data-MS. (Default:
+      0)'
+    required: false
+    dtype: int
+  TaQL:
+    info: additional TaQL selection string
+    required: false
+    dtype: str
+  ChanStart:
+    info: 'First channel (Default: 0)'
+    required: false
+    dtype: int
+  ChanEnd:
+    info: 'Last channel+1, -1 means up and including last channel. (Default: -1)'
+    required: false
+    dtype: int
+  ChanStep:
+    info: 'Channel stepping (Default: 1)'
+    required: false
+    dtype: int
+  FlagAnts:
+    info: List of antennas to be flagged, e.g. "RS,CS017LBA"
+    required: false
+  UVRangeKm:
+    info: 'Select baseline range (Default: [0, 2000])'
+    required: false
+  TimeRange:
+    info: Select time range (two comma separated values) containing UTC start and
+      end times in ISO8601
+    required: false
+  DistMaxToCore:
+    info: Select antennas by specifying a maximum distance to core
+    required: false
+Output:
+  Mode:
+    info: 'What to do. (Default: Clean)'
+    required: false
+  Clobber:
+    info: 'Allow overwriting of existing parset and images (can''t be specified via
+      parset!) (Default: False)'
+    required: false
+    dtype: bool
+  Name:
+    info: 'Base name of output images (Default: image)'
+    required: false
+    dtype: str
+  ShiftFacetsFile:
+    info: Astrometric correction per facet, when Image-Mode=RestoreAndShift
+    required: false
+  RestoringBeam:
+    info: ''
+    required: false
+  Also:
+    info: Save also these images (i.e. adds to the default set of --Output-Images)
+    required: false
+    dtype: str
+  Cubes:
+    info: Also save cube versions for these images (only MmRrIi codes recognized)
+    required: false
+    dtype: str
+  Images:
+    info: 'Combination of letter codes indicating what images to save. Uppercase for
+      intrinsic flux scale [D]irty, [M]odel, [C]onvolved model, [R]esiduals, restored
+      [I]mage; Lowercase for apparent flux scale  [d]irty, [m]odel, [c]onvolved model,
+      [r]esiduals, restored [i]mage; Other images: [P]SF, [N]orm, [n]orm facets, [S]
+      flux scale, [A]lpha (spectral index), [X] mixed-scale (intrinsic model, apparent
+      residuals, i.e. Cyrils original output), [o] intermediate mOdels (Model_i),
+      [e] intermediate rEsiduals (Residual_i), [k] intermediate masK image, [z] intermediate
+      auto mask-related noiZe image, [g] intermediate dirty images (only if [Debugging]
+      SaveIntermediateDirtyImages is enabled). [F] intrinsic MFS restored image [f]
+      apparent MFS restored image Use "all" to save all. (Default: DdPAMRIikze)'
+    required: false
+  StokesResidues:
+    info: 'After cleaning Stokes I, output specified residues if [r] or [R] is specified
+      in option Output-Images. Note that the imager does not perform deconvolution
+      on any Stokes products other than I - it only outputs residues. (Default: I)'
+    required: false
+SPIMaps:
+  AlphaThreshold:
+    info: 'Multiple of the RMS in final residual which determines threshold for fitting
+      alpha map. (Default: 15)'
+    required: false
+    dtype: int
+Image:
+  NPix:
+    info: 'Image size. (Default: 5000)'
+    required: false
+    dtype: int
+  Cell:
+    info: 'Cell size. (Default: 5.0)'
+    required: false
+    dtype: float
+  PhaseCenterRADEC:
+    info: 'Use non-default phase centre. If "align" is used, all MSs will be rephased
+      to the phase centre of the first MS. Otherwise, specify [HH:MM:SS,DD:MM:SS]
+      direction. If empty, no rephasing is done. (Default: align)'
+    required: false
+  SidelobeSearchWindow:
+    info: 'Size of PSF subwindow (centred around the main lobe) to search for the
+      highest sidelobe when fitting the PSF size. (Default: 200)'
+    required: false
+    dtype: int
+Facets:
+  NFacets:
+    info: 'Number of facets to use. (Default: 3)'
+    required: false
+    dtype: int
+  CatNodes:
+    info: ''
+    required: false
+  DiamMax:
+    info: 'Max facet size, for tessellations. Larger facets will be broken up. (Default:
+      180.0)'
+    required: false
+    dtype: float
+  DiamMin:
+    info: 'Min facet size, for tessellations. Smaller facets will be merged. (Default:
+      0.0)'
+    required: false
+    dtype: float
+  MixingWidth:
+    info: 'Sigma of the gaussian (in pixels) being used to mix the facets on their
+      edges (Default: 10)'
+    required: false
+  PSFOversize:
+    info: 'For cleaning, use oversize PSF relative to size of facet. (Default: 1.0)'
+    required: false
+    dtype: float
+  PSFFacets:
+    info: 'Number of PSF facets to make. 0: same as NFacets (one PSF per facet) 1:
+      one PSF for entire field. (Default: 0)'
+    required: false
+    dtype: int
+  Padding:
+    info: 'Facet padding factor. (Default: 1.7)'
+    required: false
+    dtype: float
+  Circumcision:
+    info: 'Set to non-0 to override NPixMin computation in FacetsToIm(). Debugging
+      option, really. (Default: 0)'
+    required: false
+Weight:
+  ColName:
+    info: 'Read data weights from specified column. Use WEIGHT_SPECTRUM or WEIGHT,
+      more rarely IMAGING_WEIGHT. (Default: WEIGHT_SPECTRUM)'
+    required: false
+    dtype: str
+  Mode:
+    info: 'Image weighting. (Default: Briggs)'
+    required: false
+  MFS:
+    info: 'If True, MFS uniform/Briggs weighting is used (all channels binned onto
+      one uv grid). If 0, binning is per-band. (Default: True)'
+    required: false
+    dtype: bool
+  Robust:
+    info: 'Briggs robustness parameter, from -2 to 2. (Default: 0.0)'
+    required: false
+    dtype: float
+  SuperUniform:
+    info: 'Super/subuniform weighting: FoV for weighting purposes is taken as X*Image_Size
+      (Default: 1.0)'
+    required: false
+    dtype: float
+  OutColName:
+    info: Save the internally computed weights into this column
+    required: false
+    dtype: str
+  EnableSigmoidTaper:
+    info: 'Toggles sigmoid tapering type:bool (Default: 0)'
+    required: false
+  SigmoidTaperInnerCutoff:
+    info: 'Inner taper cutoff in uvwavelengths type:float (Default: 0.0)'
+    required: false
+  SigmoidTaperOuterCutoff:
+    info: 'Outer taper cutoff in uvwavelengths type:float (Default: 0.0)'
+    required: false
+  SigmoidTaperInnerRolloffStrength:
+    info: 'Rolloff strength on inner taper if enabled. 1.0 is essentially a boxcar,
+      0.0 means very long rolloffs type:float (Default: 0.5)'
+    required: false
+  SigmoidTaperOuterRolloffStrength:
+    info: 'Rolloff strength on outer taper if enabled. 1.0 is essentially a boxcar,
+      0.0 means very long rolloffs type:float (Default: 0.5)'
+    required: false
+RIME:
+  Precision:
+    info: 'Single or double precision gridding. DEPRECATED? (Default: S)'
+    required: false
+  PolMode:
+    info: '(DIRTY ONLY) Polarization mode. (Default: I)'
+    required: false
+  FFTMachine:
+    info: ' (Default: FFTW)'
+    required: false
+  ForwardMode:
+    info: 'Forward predict mode. (Default: BDA-degrid)'
+    required: false
+  BackwardMode:
+    info: 'Backward mode. (Default: BDA-grid)'
+    required: false
+  DecorrMode:
+    info: decorrelation mode
+    required: false
+  DecorrLocation:
+    info: 'where decorrelation is estimated (Default: Edge)'
+    required: false
+CF:
+  OverS:
+    info: 'Oversampling factor. (Default: 11)'
+    required: false
+    dtype: int
+  Support:
+    info: 'CF support size. (Default: 7)'
+    required: false
+    dtype: int
+  Nw:
+    info: 'Number of w-planes. Setting this to 1 enables AIPS style faceting. (Default:
+      100)'
+    required: false
+    dtype: int
+  wmax:
+    info: 'Maximum w coordinate. Visibilities with larger w will not be gridded. If
+      0, no maximum is imposed. (Default: 0.0)'
+    required: false
+    dtype: float
+Comp:
+  GridDecorr:
+    info: 'Maximum BDA decorrelation factor (gridding) (Default: 0.02)'
+    required: false
+    dtype: float
+  GridFoV:
+    info: 'FoV over which decorrelation factor is computed (gridding) (Default: Facet)'
+    required: false
+  DegridDecorr:
+    info: 'Maximum BDA decorrelation factor (degridding) (Default: 0.02)'
+    required: false
+    dtype: float
+  DegridFoV:
+    info: 'FoV over which decorrelation factor is computed (degridding) (Default:
+      Facet)'
+    required: false
+  Sparsification:
+    info: 'apply sparsification compression to initial major cycles. Sparsification
+      refers to throwing away random visibilities. Supply a list of factors: e.g.
+      100,30,10 would mean only 1/100 of the data is used for the first major cycle,
+      1/30 for the second, 1/10 for the third, and full data for the fourth cycle
+      onwards. This can substantially accelerate deconvolution of deep observations,
+      since, in these regimes, very little sensitivity is required for model construction
+      in the initial cycles. (Default: 0)'
+    required: false
+  BDAMode:
+    info: 'BDA block computation mode. 1 for Cyril''s old mode, 2 for Oleg''s new
+      mode. 2 is faster but see issue #319. (Default: 1)'
+    required: false
+  BDAJones:
+    info: 'If disabled, gridders and degridders will apply a Jones terms per visibility.
+      If ''grid'', gridder will apply them per BDA block, if ''both'' so will the
+      degridder. This is faster but possibly less accurate, if you have rapidly evolving
+      Jones terms. (Default: 0)'
+    required: false
+Parallel:
+  NCPU:
+    info: 'Number of CPUs to use in parallel mode. 0: use all available. 1: disable
+      parallelism. (Default: 0)'
+    required: false
+    dtype: int
+  Affinity:
+    info: 'pin processes to cores. -1/1/2 determines stepping used in selecting cores.
+      Alternatively specifies a list of length NCPU. Alternatively "disable" to disable
+      affinity settings Alternatively "enable_ht" uses stepping of 1 (equivalent to
+      Parallel.Affinity=1), will use all vthreads - the obvious exception is if HT
+      is disabled at BIOS level Alternatively "disable_ht" autodetects the NUMA layout
+      of the chip for Debian-based systems and dont use both vthreads per core Use
+      1 if unsure. (Default: 1)'
+    required: false
+  MainProcessAffinity:
+    info: 'this should be set to a core that is not used by forked processes, this
+      option is ignored when using option "disable or disable_ht" for Parallel.Affinity
+      (Default: 0)'
+    required: false
+Cache:
+  Reset:
+    info: 'Reset all caches (including PSF and dirty image) (Default: False)'
+    required: false
+    dtype: bool
+  SmoothBeam:
+    info: 'Reset cached smmoth beam (Default: auto)'
+    required: false
+  Weight:
+    info: 'Reset cached smmoth beam (Default: auto)'
+    required: false
+  PSF:
+    info: 'Cache PSF data. (Default: auto)'
+    required: false
+  Dirty:
+    info: 'Cache dirty image data. (Default: auto)'
+    required: false
+  VisData:
+    info: 'Cache visibility data and flags at runtime. (Default: auto)'
+    required: false
+  LastResidual:
+    info: 'Cache last residual data (at end of last minor cycle) (Default: True)'
+    required: false
+    dtype: bool
+  Dir:
+    info: Directory to store caches in. Default is to keep cache next to the MS, but
+      this can cause performance issues with e.g. NFS volumes. If you have fast local
+      storage, point to it. %metavar:DIR
+    required: false
+  DirWisdomFFTW:
+    info: 'Directory in which to store the FFTW wisdom files (Default: ~/.fftw_wisdom)'
+    required: false
+  ResetWisdom:
+    info: 'Reset Wisdom file (Default: False)'
+    required: false
+    dtype: bool
+  CF:
+    info: 'Cache convolution functions. With many CPUs, may be faster to recompute.
+      (Default: True)'
+    required: false
+    dtype: bool
+  HMP:
+    info: 'Cache HMP basis functions. With many CPUs, may be faster to recompute.
+      (Default: False)'
+    required: false
+    dtype: bool
+Beam:
+  Model:
+    info: Beam model to use.
+    required: false
+  At:
+    info: 'when DDESolutions are enabled, compute beam per facet, or per larger solution
+      tessel (Default: facet)'
+    required: false
+  LOFARBeamMode:
+    info: 'LOFAR beam mode. (Default: AE)'
+    required: false
+  NBand:
+    info: 'Number of channels over which same beam value is used. 0 means use every
+      channel. (Default: 0)'
+    required: false
+    dtype: int
+  CenterNorm:
+    info: 'Normalize beam so that its amplitude at the centre is 1. (Default: False)'
+    required: false
+    dtype: bool
+  Smooth:
+    info: 'Compute the interpolated smooth beam (Default: False)'
+    required: false
+  SmoothNPix:
+    info: 'Number of pixels the beam is evaluated and smoothed (Default: 11)'
+    required: false
+    dtype: int
+  FITSFile:
+    info: 'Beam FITS file pattern. A beam pattern consists of eight FITS files, i.e.
+      a real and imaginary part for each of the four Jones terms. The following substitutions
+      are performed to form up the eight filenames: $(corr) or $(xy) is replaced by
+      the Jones element label (e.g. "xx" or "rr"), $(reim) is replaced by "re" or
+      "im", $(realimag) is replaced by "real" or "imag". Uppercase variables are replaced
+      by uppercase values, e.g. $(REIM) by "RE" pr "IM". Use "unity" if you want to
+      apply a unity matrix for the E term (e.g. only want to do visibility derotations).
+      Correlation labels (XY or RL) are determined by reading the MS, but may be overridden
+      by the FITSFeed option. (Default: beam_$(corr)_$(reim).fits)'
+    required: false
+  FITSFeed:
+    info: If set, overrides correlation labels given by the measurement set.
+    required: false
+  FITSFeedSwap:
+    info: 'swap feed patterns (X to Y and R to L) (Default: False)'
+    required: false
+    dtype: bool
+  DtBeamMin:
+    info: 'change in minutes on which the beam is re-evaluated (Default: 5.0)'
+    required: false
+    dtype: float
+  FITSParAngleIncDeg:
+    info: 'increment in PA in degrees at which the beam is to be re-evaluated (on
+      top of DtBeamMin) (Default: 5.0)'
+    required: false
+    dtype: float
+  FITSLAxis:
+    info: 'L axis of FITS file. Minus sign indicates reverse coordinate convention.
+      (Default: -X)'
+    required: false
+    dtype: str
+  FITSMAxis:
+    info: 'M axis of FITS file. Minus sign indicates reverse coordinate convention.
+      (Default: Y)'
+    required: false
+    dtype: str
+  FITSVerbosity:
+    info: 'set to >0 to have verbose output from FITS interpolator classes. (Default:
+      0)'
+    required: false
+    dtype: int
+  FITSFrame:
+    info: 'coordinate frame for FITS beams. Currently, alt-az, equatorial and zenith
+      mounts are supported. (Default: altaz)'
+    required: false
+  FeedAngle:
+    info: 'offset feed angle to add to parallactic angle (Default: 0.0)'
+    required: false
+    dtype: float
+  ApplyPJones:
+    info: 'derotate visibility data (only when FITS beam is active and also time sampled)
+      (Default: 0)'
+    required: false
+  FlipVisibilityHands:
+    info: 'apply anti-diagonal matrix if FITS beam is enabled effectively swapping
+      X and Y or R and L and their respective hands (Default: 0)'
+    required: false
+Freq:
+  BandMHz:
+    info: 'Gridding cube frequency step. If 0, --Freq-NBand is used instead. (Default:
+      0.0)'
+    required: false
+    dtype: float
+  DegridBandMHz:
+    info: 'Degridding cube frequency step. If 0, --Freq-NDegridBand is used instead.
+      (Default: 0.0)'
+    required: false
+    dtype: float
+  NBand:
+    info: 'Number of image bands for gridding. (Default: 1)'
+    required: false
+    dtype: int
+  NDegridBand:
+    info: 'Number of image bands for degridding. 0 means degrid each channel. (Default:
+      0)'
+    required: false
+    dtype: int
+DDESolutions:
+  DDSols:
+    info: Name of the DDE solution file
+    required: false
+  SolsDir:
+    info: Name of the directry of the DDE Solutions which contains <SolsDir>/<MSNames>/killMS.<SolsName>.sols.npz
+    required: false
+  GlobalNorm:
+    info: 'Option to normalise the Jones matrices (options: MeanAbs, MeanAbsAnt, BLBased
+      or SumBLBased). See code for more detail'
+    required: false
+  JonesNormList:
+    info: 'Deprecated? (Default: AP)'
+    required: false
+  JonesMode:
+    info: ' (Default: Full)'
+    required: false
+  DDModeGrid:
+    info: 'In the gridding step, apply Jones matrices Amplitude (A) or Phase (P) or
+      Amplitude&Phase (AP) (Default: AP)'
+    required: false
+  DDModeDeGrid:
+    info: 'In the degridding step, apply Jones matrices Amplitude (A) or Phase (P)
+      or Amplitude&Phase (AP) (Default: AP)'
+    required: false
+  ScaleAmpGrid:
+    info: 'Deprecated? (Default: 0)'
+    required: false
+  ScaleAmpDeGrid:
+    info: 'Deprecated? (Default: 0)'
+    required: false
+  CalibErr:
+    info: 'Deprecated? (Default: 10.0)'
+    required: false
+  Type:
+    info: 'Deprecated? (Default: Nearest)'
+    required: false
+  Scale:
+    info: 'Deprecated? (Default: 1.0)'
+    required: false
+  gamma:
+    info: 'Deprecated? (Default: 4.0)'
+    required: false
+  RestoreSub:
+    info: 'Deprecated? (Default: False)'
+    required: false
+  ReWeightSNR:
+    info: 'Deprecated? (Default: 0.0)'
+    required: false
+PointingSolutions:
+  PointingSolsCSV:
+    info: Filename of CSV containing time-variable pointing solutions. None initializes
+      all antenna pointing offsets to 0, 0
+    required: false
+  InterpolationMode:
+    info: 'Interpolation mode (Default: LERP)'
+    required: false
+Deconv:
+  Mode:
+    info: 'Deconvolution algorithm. (Default: HMP)'
+    required: false
+  MaxMajorIter:
+    info: 'Max number of major cycles. (Default: 20)'
+    required: false
+    dtype: int
+  MaxMinorIter:
+    info: 'Max number of (overall) minor cycle iterations (HMP, Hogbom). (Default:
+      20000)'
+    required: false
+    dtype: int
+  AllowNegative:
+    info: 'Allow negative components (HMP, Hogbom). (Default: True)'
+    required: false
+    dtype: bool
+  Gain:
+    info: 'Loop gain (HMP, Hogbom). (Default: 0.1)'
+    required: false
+    dtype: float
+  FluxThreshold:
+    info: 'Absolute flux threshold at which deconvolution is stopped  (HMP, Hogbom,
+      SSD). (Default: 0.0)'
+    required: false
+    dtype: float
+  CycleFactor:
+    info: 'Cycle factor: used to set a minor cycle stopping threshold based on PSF
+      sidelobe level  (HMP, Hogbom). Use 0 to disable, otherwise 2.5 is a reasonable
+      value, but may lead to very shallow minor cycle. (Default: 0.0)'
+    required: false
+    dtype: float
+  RMSFactor:
+    info: 'Set minor cycle stopping threshold to X*{residual RMS at start of major
+      cycle}  (HMP, Hogbom, SSD). (Default: 0.0)'
+    required: false
+    dtype: float
+  PeakFactor:
+    info: 'Set minor cycle stopping threshold to X*{peak residual at start of major
+      cycle}  (HMP, Hogbom, SSD). (Default: 0.15)'
+    required: false
+    dtype: float
+  PrevPeakFactor:
+    info: 'Set minor cycle stopping threshold to X*{peak residual at end of previous
+      major cycle} (HMP). (Default: 0.0)'
+    required: false
+    dtype: float
+  NumRMSSamples:
+    info: 'How many samples to draw for RMS computation. Use 0 to use all pixels (most
+      precise). (Default: 10000)'
+    required: false
+    dtype: int
+  ApproximatePSF:
+    info: 'when --Comp-Sparsification is on, use approximate (i.e. central facet)
+      PSF for cleaning while operating above the given sparsification factor (SF).
+      This speeds up HMP reinitialization in major cycles. A value of 1-10 is sensible.
+      Set to 0 to always use precise per-facet PSF. (Default: 0)'
+    required: false
+  PSFBox:
+    info: 'determines the size of the PSF subtraction box used in CLEAN-style deconvolution
+      (if appropriate). Use "auto" (or "sidelobe") for a Clark-CLEAN-style box taken
+      out to a certain sidelobe (faster). Use "full" to subtract the full PSF, Hogbom-style
+      (more accurate, can also combine with --Image-PSFOversize for maximum accuracy).
+      Use an integer number to set an explicit box radius, in pixels. (HMP) (Default:
+      auto)'
+    required: false
+Mask:
+  External:
+    info: External clean mask image (FITS format).
+    required: false
+  Auto:
+    info: 'Do automatic masking (Default: False)'
+    required: false
+  SigTh:
+    info: 'set Threshold (in sigma) for automatic masking (Default: 10)'
+    required: false
+  FluxImageType:
+    info: 'If Auto enabled, does the cut of SigTh either on the ModelConv or the Restored
+      (Default: ModelConv)'
+    required: false
+Noise:
+  MinStats:
+    info: 'The parameters to compute the noise-map-based mask for step i+1 from the
+      residual image at step i. Should be [box_size,box_step] (Default: [60, 2])'
+    required: false
+  BrutalHMP:
+    info: 'If noise map is computed, this option enabled, it first computes an image
+      plane deconvolution with a high gain value, and compute the noise-map-based
+      mask using the brutal-restored image (Default: True)'
+    required: false
+HMP:
+  Alpha:
+    info: 'List of alphas to fit. (Default: [-1.0, 1.0, 11])'
+    required: false
+  Scales:
+    info: 'List of scales to use. (Default: [0])'
+    required: false
+  Ratios:
+    info: '@cyriltasse please document (Default: [''''])'
+    required: false
+  NTheta:
+    info: 'Number of PA steps to use. (Default: 6)'
+    required: false
+  SolverMode:
+    info: 'Solver mode: pseudoinverse, or non-negative least squares. (Default: PI)'
+    required: false
+  AllowResidIncrease:
+    info: 'Allow the maximum residual to increase by at most this much relative to
+      the lowest residual, before bailing out due to divergence. (Default: 0.1)'
+    required: false
+  MajorStallThreshold:
+    info: 'Major cycle stall threshold. If the residual at the beginning of a major
+      cycle is above X*residual at the beginning of the previous major cycle, then
+      we consider the deconvolution stalled and bail out. (Default: 0.8)'
+    required: false
+    dtype: float
+  Taper:
+    info: 'Weighting taper size for HMP fit. If 0, determined automatically. (Default:
+      0)'
+    required: false
+    dtype: int
+  Support:
+    info: 'Basis function support size. If 0, determined automatically. (Default:
+      0)'
+    required: false
+    dtype: int
+  PeakWeightImage:
+    info: weigh the peak finding by given image
+    required: false
+  Kappa:
+    info: 'Regularization parameter. If stddev of per-alpha solutions exceeds the
+      maximum solution amplitude divided by Kappa, forces a fully-regularized solution.
+      Use 0 for no such regularization. (Default: 0.0)'
+    required: false
+    dtype: float
+  OuterSpaceTh:
+    info: ' (Default: 2.0)'
+    required: false
+  FractionRandomPeak:
+    info: ''
+    required: false
+Hogbom:
+  PolyFitOrder:
+    info: 'polynomial order for frequency fitting (Default: 4)'
+    required: false
+WSCMS:
+  NumFreqBasisFuncs:
+    info: 'number of basis functions to use for the fit to the frequency axis (Default:
+      4)'
+    required: false
+  MultiScale:
+    info: 'whether to use multi-scale or not (recommended to use Hogbom if not using
+      multi-scale) (Default: True)'
+    required: false
+  MultiScaleBias:
+    info: 'scale bias parameter (smaller values give more weight to larger scales)
+      (Default: 0.55)'
+    required: false
+  ScaleBasis:
+    info: 'the kind of scale kernels to use (only Gauss available for now) (Default:
+      Gauss)'
+    required: false
+  Scales:
+    info: Scale sizes in pixels/FWHM eg. [0, 4, 8, 16] (if None determined automatically)
+    required: false
+  MaxScale:
+    info: 'The maximum extent of the scale functions in pixels (Default: 250)'
+    required: false
+  NSubMinorIter:
+    info: 'Number of iterations for the sub minor loop (Default: 250)'
+    required: false
+  SubMinorPeakFact:
+    info: 'Peak factor of sub minor loop (Default: 0.85)'
+    required: false
+  MinorStallThreshold:
+    info: 'if the peak in the minor cycle decreases by less than this fraction it
+      has stalled and we go back to the major cycle (Default: 1e-07)'
+    required: false
+  MinorDivergenceFactor:
+    info: 'if the peak flux increases by more than this fraction between minor cycles
+      then it has diverged and we go back to a major cycle (Default: 1.3)'
+    required: false
+  AutoMask:
+    info: 'whether to use scale dependent auto-masking (Default: True)'
+    required: false
+  AutoMaskThreshold:
+    info: Threshold at which the scale dependent mask should be fixed.
+    required: false
+  AutoMaskRMSFactor:
+    info: 'Default multiple of RMS at which to start AutoMasking in case no (Default:
+      3)'
+    required: false
+  CacheSize:
+    info: 'the number of items to keep in the cache dict before spilling over to disk
+      (Default: 3)'
+    required: false
+  Padding:
+    info: 'padding in the minor cycle. Can often be much smaller than facet padding
+      (Default: 1.2)'
+    required: false
+Montblanc:
+  TensorflowServerTarget:
+    info: URL for the TensorflowServer, e.g. grpc://tensorflow.server.com:8888/
+    required: false
+    dtype: str
+  LogFile:
+    info: None to dump as Output-Name.montblanc.log, otherwise user-specified filename
+    required: false
+  MemoryBudget:
+    info: 'Predictor memory budget in GiB (Default: 4.0)'
+    required: false
+    dtype: float
+  LogLevel:
+    info: 'Log level to write to console, rest of the messages goes to log file (Default:
+      WARNING)'
+    required: false
+    dtype: str
+  SolverDType:
+    info: 'Data type used in solver, (Default: double)'
+    required: false
+    dtype: str
+  DriverVersion:
+    info: 'Backend to use, (Default: tf)'
+    required: false
+    dtype: str
+SSDClean:
+  Parallel:
+    info: 'Enable parallel mode. (Default: True)'
+    required: false
+    dtype: bool
+  IslandDeconvMode:
+    info: 'Moresane, GA, Sasir, ... (Default: GA)'
+    required: false
+  SSDSolvePars:
+    info: ' (Default: [''S'', ''Alpha''])'
+    required: false
+  SSDCostFunc:
+    info: ' (Default: [''Chi2'', ''MinFlux''])'
+    required: false
+  BICFactor:
+    info: ' (Default: 0.0)'
+    required: false
+  ArtifactRobust:
+    info: ' (Default: False)'
+    required: false
+  ConvFFTSwitch:
+    info: ' (Default: 1000)'
+    required: false
+  NEnlargePars:
+    info: ' (Default: 0)'
+    required: false
+  NEnlargeData:
+    info: ' (Default: 2)'
+    required: false
+  RestoreMetroSwitch:
+    info: ' (Default: 0)'
+    required: false
+  MinMaxGroupDistance:
+    info: ' (Default: [10, 50])'
+    required: false
+GAClean:
+  NSourceKin:
+    info: ' (Default: 50)'
+    required: false
+  NMaxGen:
+    info: ' (Default: 50)'
+    required: false
+  MinSizeInit:
+    info: ' (Default: 10)'
+    required: false
+  InitType:
+    info: ' (Default: HMP)'
+    required: false
+  AlphaInitHMP:
+    info: ' (Default: [-4.0, 1.0, 6])'
+    required: false
+  ScalesInitHMP:
+    info: ' (Default: [0, 1, 2, 4, 8, 16, 24, 32])'
+    required: false
+  GainInitHMP:
+    info: ' (Default: 0.1)'
+    required: false
+  RatiosInitHMP:
+    info: ' (Default: [''''])'
+    required: false
+  NThetaInitHMP:
+    info: ' (Default: 4)'
+    required: false
+  MaxMinorIterInitHMP:
+    info: ' (Default: 10000)'
+    required: false
+  AllowNegativeInitHMP:
+    info: ' (Default: False)'
+    required: false
+  RMSFactorInitHMP:
+    info: ' (Default: 3.0)'
+    required: false
+  ParallelInitHMP:
+    info: 'run island init in parallel. Serial mode may reduce RAM pressure, and could
+      be useful for debugging. (Default: True)'
+    required: false
+    dtype: bool
+  NCPU:
+    info: 'number of cores to use for parallel fitness calculations (in large-island
+      mode). Default of 0 means use as many as specified by --Parallel-NCPU. If you
+      find yourself running out of memory here, you might want to specify a small
+      number of cores for this step. (Default: 0)'
+    required: false
+    dtype: int
+MORESANE:
+  NMajorIter:
+    info: 'Maximum number of iterations allowed in the major loop. Exit condition.
+      (Default: 200)'
+    required: false
+  NMinorIter:
+    info: 'Maximum number of iterations allowed in the minor loop. Serves as an exit
+      condition when the SNR is does not reach a maximum. (Default: 200)'
+    required: false
+  Gain:
+    info: 'Loop gain for the deconvolution. (Default: 0.1)'
+    required: false
+  ForcePositive:
+    info: 'Boolean specifier for whether or not a model must be strictly positive.
+      (Default: True)'
+    required: false
+  SigmaCutLevel:
+    info: 'Number of sigma at which thresholding is to be performed. (Default: 1)'
+    required: false
+Log:
+  Memory:
+    info: 'log memory use (Default: False)'
+    required: false
+    dtype: bool
+    default: true
+  Boring:
+    info: 'disable progress bars and other pretty console output (Default: False)'
+    required: false
+    dtype: bool
+    default: true
+  Append:
+    info: 'append to log file if it exists (default truncates) (Default: False)'
+    required: false
+    dtype: bool
+Debug:
+  PauseWorkers:
+    info: 'Pauses worker processes upon launch (with SIGSTOP). Useful to attach gdb
+      to workers. (Default: False)'
+    required: false
+    dtype: bool
+  FacetPhaseShift:
+    info: 'Shift in facet coordinates in arcseconds for l and m (this phase steers
+      the sky over the image plane). (Default: [0.0, 0.0])'
+    required: false
+  PrintMinorCycleRMS:
+    info: 'Compute and print RMS in minor cycle iterations. (Default: False)'
+    required: false
+    dtype: bool
+  DumpCleanSolutions:
+    info: 'Dump intermediate minor cycle solutions to a file. Use 0 or 1, or give
+      an explicit list of things to dump (Default: 0)'
+    required: false
+  DumpCleanPostageStamps:
+    info: Also dump postage stamps when cleaning within a radius R of X,Y. Implies
+      --Debug-DumpCleanSolutions.
+    required: false
+  CleanStallThreshold:
+    info: 'Throw an exception when a fitted CLEAN component is below this threshold
+      in flux. Useful for debugging. (Default: 0.0)'
+    required: false
+    dtype: float
+  MemoryGreedy:
+    info: 'Enable memory-greedy mode. Retain certain shared arrays in RAM as long
+      as possible. (Default: True)'
+    required: false
+    dtype: bool
+  APPVerbose:
+    info: 'Verbosity level for multiprocessing. (Default: 0)'
+    required: false
+    dtype: int
+  Pdb:
+    info: 'Invoke pdb on unexpected error conditions (rather than exit).  If set to
+      ''auto'', then invoke pdb only if --Log-Boring is 0. (Default: auto)'
+    required: false
+Misc:
+  RandomSeed:
+    info: seed random number generator with explicit seed, if given. Useful for reproducibility
+      of the random-based optimizations (sparsification, etc.).
+    required: false
+  ParsetVersion:
+    info: 'parset version number, for migration purposes. Can''t be specified on command
+      line. (Default: 0.2)'
+    required: false
+  ConserveMemory:
+    info: 'if true, tries to minimize memory use at possible expense of runtime. (Default:
+      0)'
+    required: false
+  IgnoreDeprecationMarking:
+    info: 'if true, tries to run deprecated modes.  Currently this means that deconvolution
+      machines are reset and reinitialized each major cycle. (Default: False)'
+    required: false
+    dtype: bool

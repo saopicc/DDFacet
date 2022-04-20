@@ -108,8 +108,9 @@ class ClassMaskMachine():
             if f[0].header["NAXIS"] != 4:
                 raise RuntimeError("External Mask must be 4 dimensional: RA x DEC x STOKES x CHAN")
             
-        nch,npol,_,_=MaskImage.shape
-        MaskArray=np.zeros(MaskImage.shape,np.bool8)
+        nch,npol,nx,ny=MaskImage.shape
+        MaskArray=np.zeros((nch,npol,ny,nx),np.bool8)
+        
         for ch in range(nch):
             for pol in range(npol):
                 MaskArray[ch,pol,:,:]=np.bool8(MaskImage[ch,pol].T[::-1].copy())[:,:]

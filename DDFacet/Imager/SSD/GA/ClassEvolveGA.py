@@ -15,11 +15,11 @@ import random
 import psutil
 from DDFacet.Imager.SSD import ClassArrayMethodSSD
 
-def FilterIslandsPix(ListIn,Npix):
+def FilterIslandsPix(ListIn,Npix_x,Npix_y):
     ListOut=[]
     for x,y in ListIn:
-        Cx=((x>=0)&(x<Npix))
-        Cy=((y>=0)&(y<Npix))
+        Cx=((x>=0)&(x<Npix_x))
+        Cy=((y>=0)&(y<Npix_y))
         if (Cx&Cy):
             ListOut.append([x,y])
     return ListOut
@@ -44,9 +44,9 @@ class ClassEvolveGA():
             ListPixParms=np.array([x.ravel().tolist(),y.ravel().tolist()]).T.tolist()
         self.IslandBestIndiv=IslandBestIndiv
 
-        _,_,Npix,_=Dirty.shape
-        ListPixData=FilterIslandsPix(ListPixData,Npix)
-        ListPixParms=FilterIslandsPix(ListPixParms,Npix)
+        _,_,Npix_x,Npix_y=Dirty.shape
+        ListPixData=FilterIslandsPix(ListPixData,Npix_x,Npix_y)
+        ListPixParms=FilterIslandsPix(ListPixParms,Npix_x,Npix_y)
         
 
         self.iIsland=iIsland

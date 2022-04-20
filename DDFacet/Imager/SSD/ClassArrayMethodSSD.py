@@ -96,7 +96,7 @@ class ClassArrayMethodSSD():
         self.PixVariance=PixVariance
         self.FreqsInfo=FreqsInfo
         
-        self.NFreqBands,self.npol,self.NPixPSF,_=PSF.shape
+        self.NFreqBands,self.npol,self.NPixPSF_x,self.NPixPSF_y=PSF.shape
         self.PM=ClassParamMachine(ListPixParms,ListPixData,FreqsInfo,SolveParam=GD["SSDClean"]["SSDSolvePars"])
         self.PM.setFreqs(FreqsInfo)
         self.ConvMachine.setParamMachine(self.PM)
@@ -123,16 +123,17 @@ class ClassArrayMethodSSD():
     def SetDirtyArrays(self,Dirty):
         print("SetConvMatrix", file=log)
         PSF=self.PSF
-        NPixPSF=PSF.shape[-1]
+        NPixPSF_x,NPixPSF_y=PSF.shape[-2:]
         if self.ListPixData is None:
-            x,y=np.mgrid[0:NPixPSF:1,0:NPixPSF:1]
+            x,y=np.mgrid[0:NPixPSF_x:1,0:NPixPSF_y:1]
             self.ListPixData=np.array([x.ravel().tolist(),y.ravel().tolist()]).T.tolist()
         if self.ListPixParms is None:
-            x,y=np.mgrid[0:NPixPSF:1,0:NPixPSF:1]
+            x,y=np.mgrid[0:NPixPSF_x:1,0:NPixPSF_y:1]
             self.ListPixParms=np.array([x.ravel().tolist(),y.ravel().tolist()]).T.tolist()
 
         self.DirtyArray=np.zeros((self.NFreqBands,1,self.NPixListData),np.float32)
-        xc=yc=NPixPSF//2
+        xc=NPixPSF_x//2
+        yc=NPixPSF_y//2
 
         x0,y0=np.array(self.ListPixData).T
         for iBand in range(self.NFreqBands):
@@ -197,7 +198,7 @@ class ClassArrayMethodSSD():
 
     def ToConvArray(self,V,OutMode="Data",Noise=False):
         A=self.PM.GiveModelArray(V)
-        if Noise is not False:
+        if Noise:
             A+=np.random.randn(*A.shape)*Noise
         A=self.ConvMachine.Convolve(A,OutMode=OutMode)
         return A
@@ -215,14 +216,16 @@ class ClassArrayMethodSSD():
             ArrayMode="Array"
         else:
             Asq=self.PM.ModelToSquareArray(self.DirtyArrayParms.copy(),TypeInOut=("Parms","Parms"))
-            _,npol,NPix,_=Asq.shape
-            A=np.mean(Asq,axis=0).reshape((NPix,NPix))
+            _,npol,NPix_x,NPix_y=Asq.shape
+            A=np.mean(Asq,axis=0).reshape((NPix_x,NPix_y))
             Mask=(A==0)
-            _,_,NPixPSF,_=PSF.shape
-            PSFMean=np.mean(PSF,axis=0).reshape((NPixPSF,NPixPSF))
+            _,_,NPixPSF_x,NPixPSF_y=PSF.shape
+            PSFMean=np.mean(PSF,axis=0).reshape((NPixPSF_x,NPixPSF_y))
             ArrayMode="Image"
-            xcPSF=NPixPSF//2
-            xcDirty=NPix//2
+            xcPSF=NPixPSF_x//2
+            xcDirty=NPix_x//2
+            ycPSF=NPixPSF_y//2
+            ycDirty=NPix_y//2
             SModelArray=np.zeros_like(A)
 
         MaxA=np.max(A)
@@ -283,15 +286,20 @@ class ClassArrayMethodSSD():
                 f=A[iPix,jPix]
                 if np.abs(f)<Th: break
                 dx=iPix-xcDirty
-                dy=jPix-xcDirty
+                dy=jPix-ycDirty
                 ThisPSF=np.roll(np.roll(PSFMean,dx,axis=0),dy,axis=1)
-                ThisPSFCut=ThisPSF[xcPSF-NPixPSF//2:xcPSF+NPixPSF//2+1,xcPSF-NPixPSF//2:xcPSF+NPixPSF//2+1]
+                ThisPSFCut=ThisPSF[xcPSF-NPixPSF_x//2:xcPSF+NPixPSF_x//2+1,ycPSF-NPixPSF_y//2:ycPSF+NPixPSF_y//2+1]
 
-                NMin=np.min([A.shape[-1],ThisPSFCut.shape[-1]])
-                xc0=A.shape[-1]//2
-                xc1=ThisPSFCut.shape[-1]//2
+                NMin_x=np.min([A.shape[-2],ThisPSFCut.shape[-2]])
+                xc0=A.shape[-2]//2
+                xc1=ThisPSFCut.shape[-2]//2
+                
+                NMin_y=np.min([A.shape[-1],ThisPSFCut.shape[-1]])
+                yc0=A.shape[-1]//2
+                yc1=ThisPSFCut.shape[-1]//2
+                
                 #pylab.subplot(1,3,2); pylab.imshow(ThisPSFCut,interpolation="nearest")
-                A[xc0-NMin//2:xc0+NMin//2+1,xc0-NMin//2:xc0+NMin//2+1]-=gain*f*ThisPSFCut[xc1-NMin//2:xc1+NMin//2+1,xc1-NMin//2:xc1+NMin//2+1]
+                A[xc0-NMin_x//2:xc0+NMin_x//2+1,yc0-NMin_y//2:yc0+NMin_y//2+1]-=gain*f*ThisPSFCut[xc1-NMin_x//2:xc1+NMin_x//2+1,yc1-NMin_y//2:yc1+NMin_y//2+1]
                 A[Mask]=0
                 #pylab.subplot(1,3,3); pylab.imshow(A,interpolation="nearest")
                 #pylab.draw()
