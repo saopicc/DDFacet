@@ -27,16 +27,23 @@ def _to_shm (path):
 _allowed_key_types = dict(int=int, str=str, bool=bool)
 
 def attach(name, load=True, readwrite=True):
+    #print("Attache %s"%name)
     return SharedDict(name, reset=False, load=load, readwrite=readwrite)
 
 def create(name):
     return SharedDict(name, reset=True)
 
 def dict_to_shm(name, D):
+    #print("To SHM: %s"%name)
     Ds=create(name)
     for key in D.keys():
         Ds[key]=D[key]
     return Ds
+
+def delDict(Name):
+    D=attach(Name)
+    D.delete()
+    os.system("rm -fr %s" % D.path)
 
 
 class SharedDictRepresentation(object):
