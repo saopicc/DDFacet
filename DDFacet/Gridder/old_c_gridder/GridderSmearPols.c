@@ -275,7 +275,7 @@ void griddername(PyArrayObject *grid, \
     double *incr=p_float64(increment);\
     double *Pfreqs=p_float64(freqs);\
     uvwScale_p[0]=fnGridX*incr[0];\
-    uvwScale_p[1]=fnGridX*incr[1];\
+    uvwScale_p[1]=fnGridY*incr[1];\
     double C=2.99792458e8;\
     int inx;\
     /* Loop over all visibility rows to process. */\
@@ -1451,7 +1451,7 @@ void degriddername(PyArrayObject *grid, \
     double *incr=p_float64(increment);\
     double *Pfreqs=p_float64(freqs);\
     uvwScale_p[0]=fnGridX*incr[0];\
-    uvwScale_p[1]=fnGridX*incr[1];\
+    uvwScale_p[1]=fnGridY*incr[1];\
     double C=2.99792458e8;\
     int inx;\
     \
