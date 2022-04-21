@@ -101,7 +101,7 @@ class ClassNenuBeam():
         # get number of directions for later iterations
         nd=len(ras)
         # initialise internal beam matrix shape
-        Beam=np.zeros((nd,self.MS.na,self.MS.NSPWChan,2,2),dtype=complex)
+        Beam=np.zeros((nd,self.MS.na,self.MS.NSPWChan,2,2),dtype=float)
         ### convert time to astropy object with units of mjd for nenupy use
         time=Time(time/24./3600,format="mjd",scale="utc")
         ### create skycoord object of pointing direction: phase centre of MS
@@ -126,8 +126,15 @@ class ClassNenuBeam():
         ma_rotated_like = list(map(miniarrays_rotated_like, rotations.reshape(6, 1)))
         available_rotations = dict(zip(rotations.astype(str), ma_rotated_like))
         # beams
+
+        ### below is the rotation optimisation initialisation
         beam_rot = {}
         for rotation, mas in available_rotations.items():
+            # redefine pointing per rotation - at time of writing this is necessary to avoid
+            # errors due to the initial pointing object being modified at each call (21/04/2022)
+            pointing=Pointing.target_tracking(target=obs_coords,
+                                              time=time,
+                                              duration=TimeDelta(1, format="sec"))
             # loop 6 iterations
             ma = MiniArray(index=mas[0])
             ### calculate beam response
@@ -148,9 +155,6 @@ class ClassNenuBeam():
                 # for polarisations: a prioi NW is XX, NE is YY
                 Beam[idir,i,:,0,0]=beam_rot[rotation_key][0][0,:,0,idir] # polarisation 1
                 Beam[idir,i,:,1,1]=beam_rot[rotation_key][1][0,:,0,idir] # polarisation 2
-
-        #print("End of debug")
-        #stop
 
         T.timeit("0")
         MeanBeam=np.zeros((nd,self.MS.na,self.NChanJones,2,2),dtype=Beam.dtype)
