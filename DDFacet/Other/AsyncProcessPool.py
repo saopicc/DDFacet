@@ -938,6 +938,8 @@ _init_default()
 
 def init(ncpu=None, affinity=None, parent_affinity=0, num_io_processes=1, verbose=0, pause_on_start=False):
     global APP
+    if APP is None:
+        APP = AsyncProcessPool()
     APP.init(ncpu, affinity, parent_affinity, num_io_processes, verbose, pause_on_start=pause_on_start)
 
 
