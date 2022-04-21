@@ -70,6 +70,7 @@ from DDFacet.Other import Multiprocessing
 import SkyModel.Other.ModColor   # because it's duplicated there
 from DDFacet.Other import progressbar
 from DDFacet.Other.AsyncProcessPool import APP, WorkerProcessError
+from DDFacet.Other import AsyncProcessPool
 import six
 if six.PY3:
     from DDFacet.cbuild.Gridder import _pyArrays3x as _pyArrays
@@ -457,6 +458,16 @@ if __name__ == "__main__":
 
     retcode = report_error = 0
 
+    GD=OP.DicoConfig
+    APP=AsyncProcessPool.APP
+    if APP is None:
+        AsyncProcessPool.init(ncpu=GD["Parallel"]["NCPU"],
+                              affinity=GD["Parallel"]["Affinity"],
+                              parent_affinity=GD["Parallel"]["MainProcessAffinity"],
+                              verbose=GD["Debug"]["APPVerbose"],
+                              pause_on_start=GD["Debug"]["PauseWorkers"])
+        APP=AsyncProcessPool.APP
+    
     try:
         main(OP, messages)
         print(ModColor.Str(

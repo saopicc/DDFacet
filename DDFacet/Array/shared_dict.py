@@ -13,6 +13,7 @@ from DDFacet.Array import NpShared
 import numpy as np
 import traceback
 import collections
+import glob
 
 SHM_PREFIX = "/dev/shm/"
 SHM_PREFIX_LEN = len(SHM_PREFIX)

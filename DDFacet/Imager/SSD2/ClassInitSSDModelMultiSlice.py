@@ -25,7 +25,7 @@ from .ClassConvMachine import ClassConvMachineImages
 from DDFacet.Array import shared_dict
 import psutil
 from DDFacet.Other.progressbar import ProgressBar
-from DDFacet.Other.AsyncProcessPool import APP
+from DDFacet.Other import AsyncProcessPool as APP
 
 SilentModules=["ClassPSFServer",
                "ClassImageDeconvMachine",
@@ -48,7 +48,7 @@ class ClassInitSSDModelParallel():
 
         self.InitMachine = ClassInitSSDModel(self.GD, NFreqBands, RefFreq, MainCache, IdSharedMem)
         self.NCPU=(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
-        APP.registerJobHandlers(self)
+        APP.APP.registerJobHandlers(self)
 
         
 
@@ -100,7 +100,7 @@ class ClassInitSSDModelParallel():
         for iIsland,Island in enumerate(ListIslands):
             if not ListDoIsland or ListDoIsland[iIsland]:
                 subdict = DicoInitIndiv.addSubdict(iIsland)
-                APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
+                APP.APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
                            args=(subdict.writeonly(), 
                                  iIsland, 
                                  Island,
@@ -108,7 +108,7 @@ class ClassInitSSDModelParallel():
                                  DicoDirty.readonly(),
                                  ParmDict.readonly(), 
                                  1))
-        APP.awaitJobResults("InitIsland:*", progress="Init islands MultiSlice")
+        APP.APP.awaitJobResults("InitIsland:*", progress="Init islands MultiSlice")
         DicoInitIndiv.reload()
             
         ParmDict.delete()

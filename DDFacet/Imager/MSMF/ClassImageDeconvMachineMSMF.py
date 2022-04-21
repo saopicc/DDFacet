@@ -41,7 +41,7 @@ from DDFacet.Imager.ClassPSFServer import ClassPSFServer
 from DDFacet.Imager import ClassGainMachine
 from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 from DDFacet.Other import MyPickle
-from DDFacet.Other.AsyncProcessPool import APP
+from DDFacet.Other import AsyncProcessPool as APP
 from DDFacet.Array import shared_dict
 
 # # if not running under a profiler, declare a do-nothing @profile decorator
@@ -73,7 +73,7 @@ class ClassImageDeconvMachine():
                  ):
         """
         ImageDeconvMachine constructor. Note that this should be called pretty much when setting up the imager,
-        before APP workers are started, because the object registers APP handlers.
+        before APP.APP workers are started, because the object registers APP.APP handlers.
         """
         self.IdSharedMem=IdSharedMem
         self.SearchMaxAbs=SearchMaxAbs
@@ -108,7 +108,7 @@ class ClassImageDeconvMachine():
         self.MaskMachine=None
         self.ParallelMode=ParallelMode
         if self.ParallelMode:
-            APP.registerJobHandlers(self)
+            APP.APP.registerJobHandlers(self)
 
         # we are in a worker
         if not self.ParallelMode:
@@ -301,7 +301,7 @@ class ClassImageDeconvMachine():
                         if self.ParallelMode:
                             args=(fcdict.writeonly(), MSM0.ScaleFuncs.readonly(), self.DicoVariablePSF.readonly(),
                                   iFacet, self.SideLobeLevel, self.OffsetSideLobe, False)
-                            APP.runJob("InitHMP:%d"%iFacet, self._initMSM_handler,
+                            APP.APP.runJob("InitHMP:%d"%iFacet, self._initMSM_handler,
                                        args=args)
                         else:
                             self.DicoMSMachine[iFacet] = \
@@ -309,7 +309,7 @@ class ClassImageDeconvMachine():
                                                     self.SideLobeLevel, self.OffsetSideLobe, MSM0=MSM0, verbose=False)
 
                 if self.ParallelMode and self.PSFServer.NFacets>1:
-                    APP.awaitJobResults("InitHMP:*", progress="Init HMP")
+                    APP.APP.awaitJobResults("InitHMP:*", progress="Init HMP")
                     self.facetcache.reload()
 
             #        t = ClassTimeIt.ClassTimeIt()

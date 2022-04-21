@@ -928,16 +928,17 @@ class AsyncProcessPool (object):
 
 APP = None
 
-def _init_default():
+def _init_default(force=False):
     global APP
-    if APP is None:
+    if APP is None or force:
         APP = AsyncProcessPool()
         APP.init(psutil.cpu_count(), affinity=0, num_io_processes=1, verbose=0)
 
-_init_default()
+# _init_default()
 
 def init(ncpu=None, affinity=None, parent_affinity=0, num_io_processes=1, verbose=0, pause_on_start=False):
     global APP
+    APP = AsyncProcessPool()
     APP.init(ncpu, affinity, parent_affinity, num_io_processes, verbose, pause_on_start=pause_on_start)
 
 
