@@ -41,7 +41,7 @@ logger.setSilent(["NpShared"])
 from DDFacet.Data import ClassSmearMapping
 from DDFacet.Data import ClassJones
 from DDFacet.Array import shared_dict
-from DDFacet.Other import AsyncProcessPool as APP
+from DDFacet.Other.AsyncProcessPool import APP
 from DDFacet.Other import reformat
 import six
 import DDFacet.Other.PrintList
@@ -72,11 +72,11 @@ class ClassVisServer():
                  LofarBeam=None,
                  AddNoiseJy=None):
         self.GD = GD
-        if APP.APP is not None:
-            APP.APP.registerJobHandlers(self)
-            self._weightjob_counter = APP.APP.createJobCounter("VisWeights")
-            self._taperjob_counter = APP.APP.createJobCounter("TaperWeights")
-            self._calcweights_event = APP.APP.createEvent("VisWeights")
+        if APP is not None:
+            APP.registerJobHandlers(self)
+            self._weightjob_counter = APP.createJobCounter("VisWeights")
+            self._taperjob_counter = APP.createJobCounter("TaperWeights")
+            self._calcweights_event = APP.createEvent("VisWeights")
             self._app_id = "VS"
 
         self.MSList = [ MSList ] if isinstance(MSList, str) else MSList
@@ -429,7 +429,7 @@ class ClassVisServer():
         iMS, iChunk = DATA["iMS"], DATA["iChunk"]
         self._put_vis_column_label = "%d.%d" % (iMS+1, iChunk+1)
         self._put_vis_column_job_id = "PutData:%d:%d" % (iMS, iChunk)
-        APP.APP.runJob(self._put_vis_column_job_id, self. visPutColumnHandler, args=(DATA.readonly(), field, column, likecol), io=0)#,serial=True)
+        APP.runJob(self._put_vis_column_job_id, self. visPutColumnHandler, args=(DATA.readonly(), field, column, likecol), io=0)#,serial=True)
 
     def visPutColumnHandler (self, DATA, field, column, likecol):
         iMS, iChunk = DATA["iMS"], DATA["iChunk"]
@@ -443,7 +443,7 @@ class ClassVisServer():
 
     def collectPutColumnResults(self):
         if self._put_vis_column_job_id:
-            APP.APP.awaitJobResults(self._put_vis_column_job_id, progress="Writing %s" % self._put_vis_column_label)
+            APP.awaitJobResults(self._put_vis_column_job_id, progress="Writing %s" % self._put_vis_column_label)
             self._put_vis_column_job_id = None
 
     def startChunkLoadInBackground(self, last_cycle=False):
@@ -480,7 +480,7 @@ class ClassVisServer():
             # in single-chunk mode, DATA may already be loaded, in which case we do nothing
             if self.nTotalChunks > 1 or self.DATA is None:
                 # tell the IO thread to start loading the chunk
-                APP.APP.runJob(self._next_chunk_name, self._handler_LoadVisChunk,
+                APP.runJob(self._next_chunk_name, self._handler_LoadVisChunk,
                            args=(self._next_chunk_name, self.iCurrentMS, self.iCurrentChunk), 
                            io=0)#,serial=True)
             return self._next_chunk_label
@@ -499,7 +499,7 @@ class ClassVisServer():
             np.copyto(self.DATA["data"], self._saved_data)
         else:
             # await completion of data loading jobs (which, presumably, includes smear mapping)
-            APP.APP.awaitJobResults(self._next_chunk_name, timing="Reading %s"%self._next_chunk_label )
+            APP.awaitJobResults(self._next_chunk_name, timing="Reading %s"%self._next_chunk_label )
             # reload the data dict -- background thread will now have populated it
             self.DATA = shared_dict.attach(self._next_chunk_name)
             self.DATA["label"] = self._next_chunk_label
@@ -722,7 +722,7 @@ class ClassVisServer():
     def awaitWeights(self):
         if self.VisWeights is None:
             # ensure the background calculation is complete
-            APP.APP.awaitEvents(self._calcweights_event)
+            APP.awaitEvents(self._calcweights_event)
             # load shared dict prepared in background thread
             self.VisWeights = shared_dict.attach("VisWeights")
             # check for errors
@@ -747,11 +747,11 @@ class ClassVisServer():
         """Starts parallel jobs to load weights in the background"""
         self.VisWeights = None
         if self.GD["Misc"]["ConserveMemory"]:
-            #APP.APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event)
-            APP.APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event)#,serial=True)
+            #APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event)
+            APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event)#,serial=True)
         else:
-            APP.APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event)#,serial=True)
-        # APP.APP.awaitEvents(self._calcweights_event)
+            APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event)#,serial=True)
+        # APP.awaitEvents(self._calcweights_event)
 
     def _sigtaper(self, msw, chanfreq, inner_cut, outer_cut, outer_taper_strength, inner_taper_strength): 
         u = msw["uv"][:, 0]
@@ -798,14 +798,14 @@ class ClassVisServer():
                 print("\t Inner Rolloff Strength {0:.2f}".format(self.SigmoidInRoll), file=log)
                 print("\t Outer Rolloff Strength {0:.2f}".format(self.SigmoidOutRoll), file=log)
                 self.HasPrintedTaperingSettings = True
-            # APP.APP will handle any serialization if NCPU == 1
-            APP.APP.runJob("SigmoidTaper:%d:%d" % (ims, ichunk), self._sigtaper,
+            # APP will handle any serialization if NCPU == 1
+            APP.runJob("SigmoidTaper:%d:%d" % (ims, ichunk), self._sigtaper,
                         args=(self._weight_dict[ims][ichunk].readwrite(),
                                 ms.ChanFreq,
                                 self.SigmoidInCut, self.SigmoidOutCut, 
                                 self.SigmoidOutRoll, self.SigmoidInRoll),
                         counter=self._weightjob_counter, collect_result=False)#,serial=True)
-            APP.APP.awaitJobCounter(self._weightjob_counter, progress="Sigmoid Tapering")
+            APP.awaitJobCounter(self._weightjob_counter, progress="Sigmoid Tapering")
 
     def _CalcWeights_handler(self):
         self._weight_dict = shared_dict.create("VisWeights")
@@ -839,11 +839,11 @@ class ClassVisServer():
             msweights = self._weight_dict[ims]
             for ichunk in range(len(ms.getChunkRow0Row1())):
                 msw = msweights[ichunk]
-                APP.APP.runJob("LoadWeights:%d:%d"%(ims,ichunk), self._loadWeights_handler,
+                APP.runJob("LoadWeights:%d:%d"%(ims,ichunk), self._loadWeights_handler,
                            args=(msw.writeonly(), ims, ichunk, self._ignore_vis_weights),
                            counter=self._weightjob_counter, collect_result=False)#,serial=True)
         # wait for results
-        APP.APP.awaitJobCounter(self._weightjob_counter, progress="Load weights")
+        APP.awaitJobCounter(self._weightjob_counter, progress="Load weights")
         self._weight_dict.reload()
         wmax = self._uvmax = 0
         num_valid_chunks = 0
@@ -902,13 +902,13 @@ class ClassVisServer():
             for ims, ms in enumerate(self.ListMS):
                 for ichunk in range(len(ms.getChunkRow0Row1())):
                     if "weight" in self._weight_dict[ims][ichunk]:
-                        APP.APP.runJob("AccumWeights:%d:%d" % (ims, ichunk), self._accumulateWeights_handler,
+                        APP.runJob("AccumWeights:%d:%d" % (ims, ichunk), self._accumulateWeights_handler,
                                    args=(self._weight_grid.readonly(),
                                          self._weight_dict[ims][ichunk].readwrite(),
                                          ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax, parallel),
                                    counter=self._weightjob_counter, collect_result=False)#,serial=True)
             # wait for results
-            APP.APP.awaitJobCounter(self._weightjob_counter, progress="Accumulate weights")
+            APP.awaitJobCounter(self._weightjob_counter, progress="Accumulate weights")
             if self.Weighting == "briggs" or self.Weighting == "robust":
                 numeratorSqrt = 5.0 * 10 ** (-self.Robust)
                 grid0 = self._weight_grid["grid"]
@@ -922,12 +922,12 @@ class ClassVisServer():
         for ims, ms in enumerate(self.ListMS):
             for ichunk in range(len(ms.getChunkRow0Row1())):
                 self._CalcSigmoidTaper(ims, ms, ichunk)
-                APP.APP.runJob("FinalizeWeights:%d:%d" % (ims, ichunk), self._finalizeWeights_handler,
+                APP.runJob("FinalizeWeights:%d:%d" % (ims, ichunk), self._finalizeWeights_handler,
                            args=(self._weight_grid.readonly(),
                                  self._weight_dict[ims][ichunk].readwrite(),
                                  ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax),
                            counter=self._weightjob_counter, collect_result=False)#,serial=True)
-        APP.APP.awaitJobCounter(self._weightjob_counter, progress="Finalize weights")
+        APP.awaitJobCounter(self._weightjob_counter, progress="Finalize weights")
         # delete stuff
         if self._weight_grid is not None:
             self._weight_grid.delete()

@@ -33,15 +33,15 @@ log = logger.getLogger("ClassSmearMapping")
 
 from DDFacet.Other import Multiprocessing, ClassTimeIt
 from DDFacet.Array import shared_dict
-from DDFacet.Other import AsyncProcessPool as APP
+from DDFacet.Other.AsyncProcessPool import APP
 
 bda_dicts = {}
 
 class SmearMappingMachine (object):
     def __init__ (self, name=None, mode=2):
         self.name = name or "SMM.%x"%id(self)
-        APP.APP.registerJobHandlers(self)
-        self._job_counter = APP.APP.createJobCounter(self.name)
+        APP.registerJobHandlers(self)
+        self._job_counter = APP.createJobCounter(self.name)
         self._data = self._blockdict = self._sizedict = None
 
     def _smearmapping_worker(self, DATA, blockdict, sizedict, a0, a1, dPhi, l, channel_mapping, mode):
@@ -73,7 +73,7 @@ class SmearMappingMachine (object):
             for a1 in range(MS.na):
                 if a0 != a1:
                     self._nbl += 1
-                    APP.APP.runJob("%s:%s:%d:%d" % (base_job_id, self.name, a0, a1), self._smearmapping_worker,
+                    APP.runJob("%s:%s:%d:%d" % (base_job_id, self.name, a0, a1), self._smearmapping_worker,
                                counter=self._job_counter, collect_result=False,
                                args=(DATA.readonly(), blockdict.writeonly(), sizedict.writeonly(), a0, a1, dPhi, l,
                                      channel_mapping, mode))
@@ -81,7 +81,7 @@ class SmearMappingMachine (object):
 
 
     def collectSmearMapping (self, DATA, field):
-        APP.APP.awaitJobCounter(self._job_counter, progress="Mapping %s"%self.name, total=self._nbl, timeout=1)
+        APP.awaitJobCounter(self._job_counter, progress="Mapping %s"%self.name, total=self._nbl, timeout=1)
         self._outdict.reload()
         #self._outdict.save("bda.dict")
         blockdict = self._outdict["blocks"]

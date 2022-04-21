@@ -40,6 +40,7 @@ import sys,os
 if "PYTHONPATH_FIRST" in os.environ.keys() and int(os.environ["PYTHONPATH_FIRST"]):
     sys.path = os.environ["PYTHONPATH"].split(":") + sys.path
 
+
 #import matplotlib
 # matplotlib.use('agg')
 import optparse
@@ -70,7 +71,6 @@ from DDFacet.Other import Multiprocessing
 import SkyModel.Other.ModColor   # because it's duplicated there
 from DDFacet.Other import progressbar
 from DDFacet.Other.AsyncProcessPool import APP, WorkerProcessError
-from DDFacet.Other import AsyncProcessPool
 import six
 if six.PY3:
     from DDFacet.cbuild.Gridder import _pyArrays3x as _pyArrays
@@ -103,11 +103,6 @@ import DDFacet
 print("DDFacet version is",report_version())
 print("Using python package located at: " + os.path.dirname(DDFacet.__file__))
 print("Using driver file located at: " + __file__)
-
-# hack to avoid recursion depth issues in SSD
-
-sys.setrecursionlimit(10000)
-
 global Parset
 Parset = ReadCFG.Parset("%s/DefaultParset.cfg" % os.path.dirname(DDFacet.Parset.__file__))
 
@@ -458,16 +453,6 @@ if __name__ == "__main__":
 
     retcode = report_error = 0
 
-    GD=OP.DicoConfig
-    APP=AsyncProcessPool.APP
-    if APP is None:
-        AsyncProcessPool.init(ncpu=GD["Parallel"]["NCPU"],
-                              affinity=GD["Parallel"]["Affinity"],
-                              parent_affinity=GD["Parallel"]["MainProcessAffinity"],
-                              verbose=GD["Debug"]["APPVerbose"],
-                              pause_on_start=GD["Debug"]["PauseWorkers"])
-        APP=AsyncProcessPool.APP
-    
     try:
         main(OP, messages)
         print(ModColor.Str(
@@ -488,7 +473,7 @@ if __name__ == "__main__":
         print(ModColor.Str("  the original underlying error may be reported in the log [possibly far] above."), file=log)
         report_error = True
     except:
-        if sys.exc_info()[0]!=WorkerProcessError and Exceptions.is_pdb_enabled():
+        if sys.exc_info()[0] is not WorkerProcessError and Exceptions.is_pdb_enabled():
             APP.terminate()
             raise
         else:

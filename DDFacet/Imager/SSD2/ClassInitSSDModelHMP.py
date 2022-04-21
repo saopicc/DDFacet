@@ -20,14 +20,14 @@ from DDFacet.Imager import ClassMaskMachine
 from DDFacet.Array import shared_dict
 import psutil
 from DDFacet.Other.progressbar import ProgressBar
-from DDFacet.Other import AsyncProcessPool as APP
+from DDFacet.Other.AsyncProcessPool import APP
 
 class ClassInitSSDModelParallel():
     def __init__(self, GD, NFreqBands, RefFreq, MainCache=None, IdSharedMem=""):
         self.GD=GD
         self.InitMachine = ClassInitSSDModel(GD, NFreqBands, RefFreq, MainCache, IdSharedMem)
         self.NCPU=(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
-        APP.APP.registerJobHandlers(self)
+        APP.registerJobHandlers(self)
 
     def Init(self, DicoVariablePSF, GridFreqs, DegridFreqs):
         self.DicoVariablePSF=DicoVariablePSF
@@ -98,7 +98,7 @@ class ClassInitSSDModelParallel():
 #         for iIsland,Island in enumerate(ListBigIslands):
 #             if not ListDoIsland or ListDoBigIsland[iIsland]:
 #                 subdict = DicoInitIndiv.addSubdict(iIsland)
-#                 # APP.APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
+#                 # APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
 #                 #            args=(subdict.writeonly(), iIsland, Island,
 #                 #                  self.DicoVariablePSF.readonly(), DicoDirty.readonly(),
 #                 #                  ParmDict.readonly(), self.InitMachine.DeconvMachine.facetcache.readonly(),self.NCPU),serial=True)
@@ -108,16 +108,16 @@ class ClassInitSSDModelParallel():
 #                                         self.NCPU)
 #                 pBAR.render(nDone+1, NParallel)
 #                 nDone+=1
-# #        APP.APP.awaitJobResults("InitIsland:*", progress="Init islands")
+# #        APP.awaitJobResults("InitIsland:*", progress="Init islands")
 #         print>>log,"Initialise small islands (parallelised over islands)"
 #         for iIsland,Island in enumerate(ListSmallIslands):
 #             if not ListDoIsland or ListDoSmallIsland[iIsland]:
 #                 subdict = DicoInitIndiv.addSubdict(iIsland)
-#                 APP.APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
+#                 APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
 #                            args=(subdict.writeonly(), iIsland, Island,
 #                                  self.DicoVariablePSF.readonly(), DicoDirty.readonly(),
 #                                  ParmDict.readonly(), self.InitMachine.DeconvMachine.facetcache.readonly(),1))
-#         APP.APP.awaitJobResults("InitIsland:*", progress="Init islands")
+#         APP.awaitJobResults("InitIsland:*", progress="Init islands")
 #         DicoInitIndiv.reload()
 
 
@@ -142,7 +142,7 @@ class ClassInitSSDModelParallel():
           for iIsland,Island in enumerate(ListIslands):
             if not ListDoIsland or ListDoIsland[iIsland]:
                 subdict = DicoInitIndiv.addSubdict(iIsland)
-                APP.APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
+                APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
                            args=(subdict.writeonly(), 
                                  iIsland, 
                                  Island,
@@ -152,7 +152,7 @@ class ClassInitSSDModelParallel():
                                  self.InitMachine.DeconvMachine.facetcache.readonly() 
                                     if self.InitMachine.DeconvMachine.facetcache is not None else None,
                                  1))
-          APP.APP.awaitJobResults("InitIsland:*", progress="Init islands HMP")
+          APP.awaitJobResults("InitIsland:*", progress="Init islands HMP")
           DicoInitIndiv.reload()
         
         ParmDict.delete()
@@ -172,7 +172,7 @@ class ClassInitSSDModel():
     def __init__(self, GD, NFreqBands, RefFreq, MainCache=None, IdSharedMem=""):
         """Constructs initializer. 
         Note that this should be called pretty much when setting up the imager,
-        before APP.APP workers are started, because the object registers APP.APP handlers.
+        before APP workers are started, because the object registers APP handlers.
         """
         self.GD = copy.deepcopy(GD)
         self.GD["Parallel"]["NCPU"] = 1

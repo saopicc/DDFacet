@@ -47,7 +47,7 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdges,GiveEdgesDissymetric
 from DDFacet.Imager.ClassImToGrid import ClassImToGrid
 from DDFacet.Data.ClassStokes import ClassStokes
 log=logger.getLogger("ClassFacetMachine")
-from DDFacet.Other import AsyncProcessPool as APP
+from DDFacet.Other.AsyncProcessPool import APP
 import numexpr
 import six
 if six.PY3:
@@ -112,9 +112,9 @@ class ClassFacetMachine():
                                            PolMode)
         self.npol = self.StokesConverter.NStokesInImage()
         self.Parallel = True
-        if APP.APP is not None:
-            APP.APP.registerJobHandlers(self)
-            self._fft_job_counter = APP.APP.createJobCounter("fft")
+        if APP is not None:
+            APP.registerJobHandlers(self)
+            self._fft_job_counter = APP.createJobCounter("fft")
             self._app_id = ("FMPSF" if DoPSF else "FM") if custom_id is None else custom_id
 
         DicoConfigGM = {}
@@ -922,9 +922,9 @@ class ClassFacetMachine():
         # up to workers to load/save cache
         for iFacet in getattr(self.DicoImager, "iterkeys", self.DicoImager.keys)():
             facet_dict = self._CF.addSubdict(iFacet)
-            APP.APP.runJob("%s.InitCF.f%s"%(self._app_id, iFacet), self._initcf_worker,
+            APP.runJob("%s.InitCF.f%s"%(self._app_id, iFacet), self._initcf_worker,
                             args=(iFacet, facet_dict.readwrite(), cachepath, cachevalid, wmax))#,serial=True)
-        #workers_res=APP.APP.awaitJobResults("%s.InitCF.*"%self._app_id, progress="Init CFs")
+        #workers_res=APP.awaitJobResults("%s.InitCF.*"%self._app_id, progress="Init CFs")
 
 
     def _initcf_worker (self, iFacet, facet_dict, cachepath, cachevalid, wmax):
@@ -1003,7 +1003,7 @@ class ClassFacetMachine():
 
     def awaitInitCompletion (self):
         if not self.IsDDEGridMachineInit:
-            workers_res=APP.APP.awaitJobResults("%s.InitCF.*"%self._app_id, progress="Init CFs")
+            workers_res=APP.awaitJobResults("%s.InitCF.*"%self._app_id, progress="Init CFs")
             self._CF.reload()
             # mark cache as safe
             for res in workers_res:
@@ -1266,10 +1266,10 @@ class ClassFacetMachine():
             W = np.float32(W.reshape((self.VS.NFreqBands, npol, 1, 1)))
 
             for iFacet in facets:
-                APP.APP.runJob("buildpsf:%s"%iFacet, self._buildFacetSlice_worker,
+                APP.runJob("buildpsf:%s"%iFacet, self._buildFacetSlice_worker,
                            args=(iFacet, self._facet_grids.readonly(), DicoVariablePSF.writeonly(), self._CF[iFacet].readonly(),
                                  self.DicoImager[iFacet]["SumJonesNorm"], self.DicoImager[iFacet]["SumWeights"], W))
-            APP.APP.awaitJobResults("buildpsf:*", progress="Build PSF facet slices")
+            APP.awaitJobResults("buildpsf:*", progress="Build PSF facet slices")
             DicoVariablePSF.reload()
 
             NFacets = len(DicoVariablePSF)
@@ -1307,9 +1307,9 @@ class ClassFacetMachine():
             
             NPixMin= NPixMin_x,NPixMin_y
             for iFacet in facets:
-                APP.APP.runJob("cutpsf:%s" % iFacet, self._cutFacetSlice_worker, args=(iFacet, DicoImages.readonly(), nch, NPixMin))
+                APP.runJob("cutpsf:%s" % iFacet, self._cutFacetSlice_worker, args=(iFacet, DicoImages.readonly(), nch, NPixMin))
                 
-            APP.APP.awaitJobResults("cutpsf:*", progress="Cut PSF facet slices")
+            APP.awaitJobResults("cutpsf:*", progress="Cut PSF facet slices")
 
             DicoImages["CentralFacet"] = self.iCentralFacet
             DicoImages["MeanJonesBand"] = []
@@ -1399,10 +1399,10 @@ class ClassFacetMachine():
             fmr_dict = DicoImages.addSubdict("FacetMeanResidual")
 
             for iFacet in sorted(self.DicoImager.keys()):
-                APP.APP.runJob("facetmeanresidual:%s" % iFacet, self._computeFacetMeanResidual_worker,
+                APP.runJob("facetmeanresidual:%s" % iFacet, self._computeFacetMeanResidual_worker,
                            args=(iFacet, fmr_dict.writeonly(), self._facet_grids.readonly(), self._CF.readonly(),
                                  self.DicoImager[iFacet]["SumWeights"], self.DicoImager[iFacet]["SumJonesNorm"], WBAND))#,serial=True)
-            APP.APP.awaitJobResults("facetmeanresidual:*", progress="Mean per-facet dirties")
+            APP.awaitJobResults("facetmeanresidual:*", progress="Mean per-facet dirties")
             fmr_dict.reload()
 
             # Build a residual image consisting of multiple continuum bands
@@ -1776,7 +1776,7 @@ class ClassFacetMachine():
         self._grid_job_label = DATA["label"]
         self._grid_job_id = "%s.Grid.%s:" % (self._app_id, self._grid_job_label)
         for iFacet in self.DicoImager.keys():
-            APP.APP.runJob("%sF%d" % (self._grid_job_id, iFacet), self._grid_worker,
+            APP.runJob("%sF%d" % (self._grid_job_id, iFacet), self._grid_worker,
                             args=(iFacet, DATA.readonly(), self._CF[iFacet].readonly(),
                                   self._facet_grids.readonly()))#,serial=True)
 
@@ -1801,7 +1801,7 @@ class ClassFacetMachine():
         self._smooth_job_label=DATA["label"]
         JobName="StackBeam%sF"%self._smooth_job_label
         for iDir in range(self.AverageBeamMachine.NDir):
-            APP.APP.runJob("%s%d" % (JobName,iDir), 
+            APP.runJob("%s%d" % (JobName,iDir), 
                        self._SmoothAverageBeam_worker,
                        args=(DATA.readonly(), iDir))#,serial=True)
 
@@ -1864,7 +1864,7 @@ class ClassFacetMachine():
         if self._grid_job_id is None:
             return
         # collect results of grid workers
-        results = APP.APP.awaitJobResults(self._grid_job_id+"*",progress=
+        results = APP.awaitJobResults(self._grid_job_id+"*",progress=
                             ("Grid PSF %s" if self.DoPSF else "Grid %s") % self._grid_job_label)
 
         for DicoResult in results:
@@ -1881,7 +1881,7 @@ class ClassFacetMachine():
            self.AverageBeamMachine.SmoothBeam is None and\
            self._smooth_job_label is not None:
             JobName="StackBeam%sF"%self._smooth_job_label
-            APP.APP.awaitJobResults(JobName+"*",
+            APP.awaitJobResults(JobName+"*",
                                 progress=("Stack Beam %s" % self._smooth_job_label))
 
         return True
@@ -1911,17 +1911,17 @@ class ClassFacetMachine():
         # run FFT jobs
         self._fft_job_id = "%s.FFT:" % self._app_id
         for iFacet in self.DicoImager.keys():
-            APP.APP.runJob("%sF%d" % (self._fft_job_id, iFacet), self._fft_worker,
+            APP.runJob("%sF%d" % (self._fft_job_id, iFacet), self._fft_worker,
                             args=(iFacet, self._CF[iFacet].readonly(), self._facet_grids.readonly()),
                             )
-        # APP.APP.awaitJobResults(self._fft_job_id+"*", progress=("FFT PSF" if self.DoPSF else "FFT"))
+        # APP.awaitJobResults(self._fft_job_id+"*", progress=("FFT PSF" if self.DoPSF else "FFT"))
 
     def collectFourierTransformResults (self):
         if self._fft_job_id is None:
             return
         # collect results of FFT workers
         # (use label of previous gridding job for the progress bar)
-        APP.APP.awaitJobResults(self._fft_job_id+"*", progress=("FFT PSF" if self.DoPSF else "FFT"))
+        APP.awaitJobResults(self._fft_job_id+"*", progress=("FFT PSF" if self.DoPSF else "FFT"))
         self._fft_job_id = None
 
     def _set_model_grid_worker(self, iFacet, model_dict, cf_dict, ChanSel, ToSHMDict=False,ToGrid=False,ApplyNorm=True,DoReturn=True,
@@ -1968,11 +1968,11 @@ class ClassFacetMachine():
         log.print("Total grid size expected to be %.2f GB (complex64)"%STot)
         self._set_model_grid_job_id = "%s.MakeGridModel:" % (self._app_id)
         for iFacet in self.DicoImager.keys():
-            APP.APP.runJob("%sF%d" % (self._set_model_grid_job_id, iFacet), 
+            APP.runJob("%sF%d" % (self._set_model_grid_job_id, iFacet), 
                        self._set_model_grid_worker,
                        args=(iFacet, self._model_dict.readwrite(), self._CF[iFacet].readwrite(),#.readonly(),
                              ChanSel,ToSHMDict,ToGrid,ApplyNorm,False,DeleteZeroValuedGrids))#,serial=True)
-        APP.APP.awaitJobResults(self._set_model_grid_job_id + "*", progress="Make model grids")
+        APP.awaitJobResults(self._set_model_grid_job_id + "*", progress="Make model grids")
         del(self._model_dict["Image"])
 
     # #####################################################"
@@ -2032,12 +2032,12 @@ class ClassFacetMachine():
 
 
         for iFacet in self.DicoImager.keys():
-            APP.APP.runJob("convolveShiftF%d" % (iFacet), 
+            APP.runJob("convolveShiftF%d" % (iFacet), 
                        self._convolveShift_worker,
                        args=(iFacet, d_mat, dl,dm,
                              self._model_dict.readonly(),DicoImages.readonly(),self._CF.readonly(),
                              RestoredFacetDict.readwrite(),PSFGaussParsAvg))#,serial=True)
-        APP.APP.awaitJobResults("convolveShiftF*", progress="Build restored facets")
+        APP.awaitJobResults("convolveShiftF*", progress="Build restored facets")
 
         RestoredFacetDict.reload()
         for iFacet in sorted(self.DicoImager.keys()):
@@ -2140,10 +2140,10 @@ class ClassFacetMachine():
         self._degrid_job_id = "%s.Degrid.%s:" % (self._app_id, self._degrid_job_label)
 
         for iFacet in self.DicoImager.keys():
-            APP.APP.runJob("%sF%d" % (self._degrid_job_id, iFacet), self._degrid_worker,
+            APP.runJob("%sF%d" % (self._degrid_job_id, iFacet), self._degrid_worker,
                             args=(iFacet, DATA.readonly(), self._CF[iFacet].readonly(),
                                   ChanSel, self._model_dict.readonly()))#,serial=True)
-        #APP.APP.awaitJobResults(self._degrid_job_id + "*", progress="Degrid %s" % self._degrid_job_label)
+        #APP.awaitJobResults(self._degrid_job_id + "*", progress="Degrid %s" % self._degrid_job_label)
 
 
     def collectDegriddingResults(self):
@@ -2155,7 +2155,7 @@ class ClassFacetMachine():
         if self._degrid_job_id is None:
             return
         # collect results of degrid workers
-        APP.APP.awaitJobResults(self._degrid_job_id + "*", progress="Degrid %s" % self._degrid_job_label)
+        APP.awaitJobResults(self._degrid_job_id + "*", progress="Degrid %s" % self._degrid_job_label)
         self._degrid_job_id = None
         return True
 
