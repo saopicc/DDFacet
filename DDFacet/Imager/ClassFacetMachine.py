@@ -923,7 +923,7 @@ class ClassFacetMachine():
         for iFacet in getattr(self.DicoImager, "iterkeys", self.DicoImager.keys)():
             facet_dict = self._CF.addSubdict(iFacet)
             APP.runJob("%s.InitCF.f%s"%(self._app_id, iFacet), self._initcf_worker,
-                            args=(iFacet, facet_dict.readwrite(), cachepath, cachevalid, wmax),serial=True)
+                            args=(iFacet, facet_dict.readwrite(), cachepath, cachevalid, wmax))#,serial=True)
         #workers_res=APP.awaitJobResults("%s.InitCF.*"%self._app_id, progress="Init CFs")
 
 

@@ -554,15 +554,25 @@ class ClassWTermModified():
                 # n_1=(1./np.sqrt(1.-l0**2-m0**2))*(l0*l+m0*m)
                 W = np.exp(-2.*1j*np.pi*wl*(n_1))
                 
-                # ###################
-                import pylab
-                pylab.clf()
-                pylab.imshow(np.angle(W),interpolation="nearest",extent=(l.min(),l.max(),m.min(),m.max()),vmin=-np.pi,vmax=np.pi)
-                pylab.draw()
-                pylab.show(block=False)
-                pylab.pause(0.1)
-                T.timeit("3b")
-                # ###################
+                # # ###################
+                # if i==Nw-1:
+                #     import pylab
+                #     pylab.clf()
+                #     Wm=np.load("W_Master.%i.npy"%self.IDFacet)
+                #     print(W.shape,Wm.shape)
+                #     ax=pylab.subplot(1,3,1)
+                #     mm=np.max([l.max(),m.max()])
+                #     pylab.imshow(np.angle(Wm),interpolation="nearest",vmin=-np.pi,vmax=np.pi,extent=(-mm,mm,-mm,mm))#l.min(),l.max(),m.min(),m.max()))
+                #     pylab.subplot(1,3,2,sharex=ax,sharey=ax)
+                #     pylab.imshow(np.angle(W).T,interpolation="nearest",vmin=-np.pi,vmax=np.pi,extent=(l.min(),l.max(),m.min(),m.max()))
+                #     pylab.subplot(1,3,3,sharex=ax,sharey=ax)
+                #     pylab.imshow((Wm-W.T).real,interpolation="nearest",extent=(l.min(),l.max(),m.min(),m.max()))
+                #     pylab.suptitle(str(W.shape))
+                #     pylab.draw()
+                #     pylab.show()#block=False)
+                #     pylab.pause(0.1)
+                #     T.timeit("3b")
+                # # ###################
 
                 # ####
                 # W.fill(1.)
@@ -640,8 +650,8 @@ class ClassWTermModified():
                 #     np.savez("W%3.3i.%3.3i.new.npz"%(i,self.IDFacet),**(locals()))
                 if fzW.shape[0]!=fzW.shape[1]: stop
                 if fzWconj.shape[0]!=fzWconj.shape[1]: stop
-                fzW = self.GiveReorgCF(fzW.T.copy())
-                fzWconj = self.GiveReorgCF(fzWconj.T.copy())
+                fzW = self.GiveReorgCF(fzW.copy())
+                fzWconj = self.GiveReorgCF(fzWconj.copy())
 
                 fzW = np.require(fzW.copy(), requirements=["A", "C"])
                 fzWconj = np.require(fzWconj.copy(), requirements=["A", "C"])
