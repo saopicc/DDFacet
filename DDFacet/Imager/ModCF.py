@@ -262,12 +262,12 @@ def MakeSphe(Support, NpixIm):
     return CF, fCF, ifzfCF
 
 
-def GiveSupports(FOVrad, w, NSphe):
-    fmax = np.pi*w*FOVrad*np.sqrt(2.)/2
-    Nw = FOVrad*fmax
-    Nw = np.pi*w*FOVrad**2/np.sqrt(2.)
-    N = np.sqrt(Nw**2+NSphe**2)
-    return N
+# def GiveSupports(FOVrad, w, NSphe):
+#     fmax = np.pi*w*FOVrad*np.sqrt(2.)/2
+#     Nw = FOVrad*fmax
+#     Nw = np.pi*w*FOVrad**2/np.sqrt(2.)
+#     N = np.sqrt(Nw**2+NSphe**2)
+#     return N
 
 
 def Give_dn(l0, m0, rad=None, order=4):
@@ -475,7 +475,6 @@ class ClassWTermModified():
             SupMax_y = Sup
         SupMax=int(np.max([SupMax_x,SupMax_y]))
         Sups = np.int64(np.linspace(Sup, np.max([SupMax, Sup]), Nw))
-
         w = np.linspace(0, wmax, Nw)
 
         # FOVrad=lrad*2.
@@ -554,15 +553,16 @@ class ClassWTermModified():
                 # n_1=np.sqrt(1.-(l-l0)**2-(m-m0)**2)-1
                 # n_1=(1./np.sqrt(1.-l0**2-m0**2))*(l0*l+m0*m)
                 W = np.exp(-2.*1j*np.pi*wl*(n_1))
-                # # ###################
-                # import pylab
-                # pylab.clf()
-                # pylab.imshow(np.angle(W),interpolation="nearest",extent=(l.min(),l.max(),m.min(),m.max()),vmin=-np.pi,vmax=np.pi)
-                # pylab.draw()
-                # pylab.show(block=False)
-                # pylab.pause(0.1)
-                # T.timeit("3b")
-                # # ###################
+                
+                # ###################
+                import pylab
+                pylab.clf()
+                pylab.imshow(np.angle(W),interpolation="nearest",extent=(l.min(),l.max(),m.min(),m.max()),vmin=-np.pi,vmax=np.pi)
+                pylab.draw()
+                pylab.show(block=False)
+                pylab.pause(0.1)
+                T.timeit("3b")
+                # ###################
 
                 # ####
                 # W.fill(1.)
@@ -615,7 +615,7 @@ class ClassWTermModified():
                 # # W=ThisSphe
 
                 zW = ZeroPad(W, outshape=(W.shape[0]*self.OverS,W.shape[1]*self.OverS))
-
+                
                 # T.timeit("3d")
 
                 # ####
@@ -638,6 +638,8 @@ class ClassWTermModified():
                 # # fzWconj.fill(2+3*1j)
                 # if i==10 and self.IDFacet==10:
                 #     np.savez("W%3.3i.%3.3i.new.npz"%(i,self.IDFacet),**(locals()))
+                if fzW.shape[0]!=fzW.shape[1]: stop
+                if fzWconj.shape[0]!=fzWconj.shape[1]: stop
                 fzW = self.GiveReorgCF(fzW.T.copy())
                 fzWconj = self.GiveReorgCF(fzWconj.T.copy())
 
