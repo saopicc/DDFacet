@@ -27,6 +27,12 @@ def _to_shm (path):
 
 _allowed_key_types = dict(int=int, str=str, bool=bool)
 
+def exists(name):
+    if not name.startswith(SharedDict.basepath):
+        name = os.path.join(SharedDict.basepath, name)
+    return os.path.isdir(name)
+
+
 def attach(name, load=True, readwrite=True):
     # if not name.startswith(SharedDict.basepath):
     #     name = os.path.join(SharedDict.basepath, name)
