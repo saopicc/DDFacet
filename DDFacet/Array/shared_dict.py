@@ -28,7 +28,13 @@ def _to_shm (path):
 _allowed_key_types = dict(int=int, str=str, bool=bool)
 
 def attach(name, load=True, readwrite=True):
-    #print("Attache %s"%name)
+    # if not name.startswith(SharedDict.basepath):
+    #     name = os.path.join(SharedDict.basepath, name)
+    # if not os.path.isdir(name):
+    #     print("%s does not exist"%name)
+    #     return None
+    # else:
+    #     print(name)
     return SharedDict(name, reset=False, load=load, readwrite=readwrite)
 
 def create(name):
@@ -43,8 +49,9 @@ def dict_to_shm(name, D):
 
 def delDict(Name):
     D=attach(Name)
-    D.delete()
-    os.system("rm -fr %s" % D.path)
+    if D is not None:
+        D.delete()
+        os.system("rm -fr %s" % D.path)
 
 
 class SharedDictRepresentation(object):

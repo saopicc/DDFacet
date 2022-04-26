@@ -33,7 +33,7 @@ from DDFacet.Other import reformat
 from DDFacet.Other import ModColor
 from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 from DDFacet.Other import Exceptions
-from killMS.Other import ClassGiveSolsFile
+from DDFacet.Other import ClassGiveSolsFile
 
 from DDFacet.Data.ClassJones import _parse_solsfile, _which_solsfile
 import os, glob

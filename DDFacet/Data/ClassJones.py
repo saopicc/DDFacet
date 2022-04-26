@@ -37,7 +37,7 @@ from DDFacet.Data import ClassFITSBeam
 from DDFacet.Data import ClassGMRTBeam
 from DDFacet.Data import ClassATCABeam as ClassATCABeam
 # import ClassSmoothJones is not used anywhere, should be able to remove it
-from killMS.Other import ClassGiveSolsFile
+from DDFacet.Other import ClassGiveSolsFile
 
 import tables
 import glob
@@ -806,7 +806,7 @@ class ClassJones():
             #         if not os.path.isdir(DirName):
             #             os.makedirs(DirName)
             #         SolsFile="%s/killMS.%s.sols.npz"%(DirName,SolsFile)
-                    
+            
             CGiveSaveFileName=ClassGiveSolsFile.ClassGive_kMSFileName(self.MS.MSName,GD=self.GD)
             SolsFile=CGiveSaveFileName.GiveFileName(SolsFile,Type="Sols")
 
