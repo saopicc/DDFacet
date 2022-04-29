@@ -19,23 +19,22 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-from DDFacet.compatibility import range
-
 import time
 
 import numpy as np
 import psutil
 import pylab
-from DDFacet.Array import NpShared
 
+from collections import deque
+import sys
 
 #pylab.ion()
 
 def GivePolygon(x,y):
+    if isinstance(x,deque):
+        x=list(x)
+    if isinstance(y,deque):
+        y=list(y)
     X=[0]+x+[np.max(x)]
     if type(y)==np.ndarray:
         y=y.tolist()
@@ -43,50 +42,53 @@ def GivePolygon(x,y):
     Y=[0]+y+[0]
     return X,Y
 
-def monitorMem():
-    LMem=[]
-    LSMem=[]
-    LSMemAvail=[]
-    LMemAvail=[]
-    LMemTotal=[]
-    LShared=[]
-    LCPU=[]
-    t0=time.time()
-    LT=[]
-    Swap0=None
 
 
-    while True:
-        # process = psutil.Process(os.getpid())
-        # mem = process.get_memory_info()[0] / float(2 ** 20) 
+
+class ClassMemMonitor():
+
+    def __init__(self,dt=0.5,NMax=None):
+        self.dt=dt
+        self.NMax=NMax
+        self.LMem=deque(maxlen=NMax)
+        self.LSMem=deque(maxlen=NMax)
+        self.LSMemAvail=deque(maxlen=NMax)
+        self.LMemAvail=deque(maxlen=NMax)
+        self.LMemTotal=deque(maxlen=NMax)
+        self.LShared=deque(maxlen=NMax)
+        self.LCPU=deque(maxlen=NMax)
+        self.LT=deque(maxlen=NMax)
+        self.t0=time.time()
+        self.Swap0=None
+        
+    def update(self):
         vmem=psutil.virtual_memory()
         
         mem=vmem.used/float(2**20)
-        LMem.append(mem)
+        self.LMem.append(mem)
+        
         memAvail=vmem.available/float(2**20)
-        LMemAvail.append(memAvail)
+        self.LMemAvail.append(memAvail)
         
         memTotal=vmem.total/float(2**20)
-        LMemTotal.append(memTotal)
+        self.LMemTotal.append(memTotal)
 
         
 
 
         smem=psutil.swap_memory()
         Smem=smem.used/float(2**20)
-        if Swap0 is None:
-            Swap0=Smem
-        LSMem.append(Smem-Swap0)
+        if self.Swap0 is None:
+            self.Swap0=Smem
+        self.LSMem.append(Smem-self.Swap0)
 
         SmemAvail=smem.total/float(2**20)
-        LSMemAvail.append(SmemAvail)
+        self.LSMemAvail.append(SmemAvail)
 
+        TotSeen=np.array(self.LMemAvail)+np.array(self.LMem)
+        Cache=TotSeen-np.array(self.LMemTotal)
         
-
-        TotSeen=np.array(LMemAvail)+np.array(LMem)
-        Cache=TotSeen-np.array(LMemTotal)
-        
-        PureRAM=np.array(LMem)-Cache
+        self.PureRAM=np.array(self.LMem)-Cache
         
         # Shared= NpShared.SizeShm()
         # if not Shared: Shared=0.#LShared[-1]
@@ -94,105 +96,82 @@ def monitorMem():
 
 
         cpu=psutil.cpu_percent()
-        LCPU.append(cpu)
-        LT.append((time.time()-t0)/60)
+        self.LCPU.append(cpu)
+        self.LT.append((time.time()-self.t0)/60)
 
+    def plot(self):
+
+
+        LMem=self.LMem
+        LSMem=self.LSMem
+        LSMemAvail=self.LSMemAvail
+        LMemAvail=self.LMemAvail
+        LMemTotal=self.LMemTotal
+        LShared=self.LShared
+        LCPU=self.LCPU
+        LT=self.LT
+        t0=self.t0
+        
         ax = pylab.subplot(111)
         ax2 = ax.twinx()
 
-        if len(LMem)>2:
-            #pylab.clf()
-            # pylab.subplot(1,2,1)
-            # pylab.plot(LMem)
-            # pylab.plot(LMemAvail)
-            # pylab.plot(np.array(LMemAvail)+np.array(LMem))
-            # pylab.subplot(1,2,2)
-            # pylab.plot(LCPU)
+        if len(LMem)<2: return
 
-            # pylab.draw()
-            # pylab.show(False)
-            # pylab.pause(0.01)
+        ax.cla()
+        
+        # Total Available
+        x,y=GivePolygon(LT,LMemTotal)
+        ax.fill(x,y,'black', alpha=0.1, edgecolor='black')
 
-            ax.cla()
+        # Cache
+        # ax.plot(LT,LMemTotal-np.array(LMem),lw=2,color="green")
+        x,y=GivePolygon(LT,np.array(LMem))
+        ax.fill(x,y,'black', alpha=0.1, edgecolor='blue',lw=2)
+        
+        # Total used excluding cache
+        #x,y=GivePolygon(LT,np.array(LShared)+np.array(PureRAM))
+        x,y=GivePolygon(LT,np.array(self.PureRAM))
+        ax.fill(x,y,'black', alpha=0.3, edgecolor='blue',lw=2)
+        
+        # memory
+        # ax.plot(LT,PureRAM,lw=2,color="blue")
+        x,y=GivePolygon(LT,self.PureRAM)
+        ax.fill(x,y,'green', alpha=0.3, edgecolor='green',lw=2,hatch="//")
+
+        # swap
+        x,y=GivePolygon(LT,LSMem)
+        #ax.fill(x,y,'', alpha=1, edgecolor='red',lw=2,hatch="/")
+        ax.fill(x,y,'gray', alpha=0.3, edgecolor='red',lw=1,hatch="*")
+        # ax.plot(LT,np.array(LSMem),lw=2,ls=":",color="blue")
+        # ax.plot(LT,np.array(LSMemAvail),lw=2,ls=":",color="red")
             
-            # Total Available
-            #ax.plot(LT,LMemTotal,lw=2,color="black",ls=":")
-            x,y=GivePolygon(LT,LMemTotal)
-            ax.fill(x,y,'black', alpha=0.1, edgecolor='black')
-
-            # Cache
-            # ax.plot(LT,LMemTotal-np.array(LMem),lw=2,color="green")
-            x,y=GivePolygon(LT,np.array(LMem))
-            ax.fill(x,y,'black', alpha=0.1, edgecolor='blue',lw=2)
-
-            # Total used excluding cache
-            #x,y=GivePolygon(LT,np.array(LShared)+np.array(PureRAM))
-            x,y=GivePolygon(LT,np.array(PureRAM))
-            ax.fill(x,y,'black', alpha=0.3, edgecolor='blue',lw=2)
-
-            # memory
-            # ax.plot(LT,PureRAM,lw=2,color="blue")
-            x,y=GivePolygon(LT,PureRAM)
-            ax.fill(x,y,'green', alpha=0.3, edgecolor='green',lw=2,hatch="//")
-
-
-            # # Shared
-            # #ax.plot(LT,LShared,lw=2,color="black")
-            # x,y=GivePolygon(LT,LShared)
-            # ax.fill(x,y,'red', alpha=0.3, edgecolor='red',lw=2,hatch="\\")
-            # #ax.plot(LT,TotSeen,lw=2,color="red")
-
-            # # Total Used
-            # ax.plot(LT,np.array(LMem),lw=2,color="blue",ls="--")
-            
-
-            # swap
-            x,y=GivePolygon(LT,LSMem)
-            #ax.fill(x,y,'', alpha=1, edgecolor='red',lw=2,hatch="/")
-            ax.fill(x,y,'gray', alpha=0.3, edgecolor='red',lw=1,hatch="*")
-            # ax.plot(LT,np.array(LSMem),lw=2,ls=":",color="blue")
-            # ax.plot(LT,np.array(LSMemAvail),lw=2,ls=":",color="red")
-            
-            # CPU
-            ax2.plot(LT,LCPU, color="black",ls="--")
-
-            #ax.legend(loc=0)
-            ax.grid()
-
-            
-            ax.set_ylabel("Mem [MB]")
-            ax2.set_ylabel("CPU [%]")
-            ax.set_xlabel("Time [min.]")
-            #ax2.set_ylabel(r"Temperature ($^\circ$C)")
-            #ax2.set_ylim(0, 35)
-            ax.set_xlim(np.min(LT),np.max(LT))
-            ax.set_ylim(0,1.1*np.max(LMemTotal))
-            
-            #ax2.legend(loc=0)
-
-            pylab.draw()
-            #pylab.show()
-            pylab.show(block=False)
-            pylab.pause(0.1)
-
-
-        time.sleep(0.1)
-
-
-
-class ClassMemMonitor():
-
-    def __init__(self,dt=0.5):
-        self.dt=dt
-        pass
-
-
+        # CPU
+        ax2.plot(LT,LCPU, color="black",ls="--")
+        
+        #ax.legend(loc=0)
+        ax.grid()
+        
+        
+        ax.set_ylabel("Mem [MB]")
+        ax2.set_ylabel("CPU [%]")
+        ax.set_xlabel("Time [min.]")
+        #ax2.set_ylabel(r"Temperature ($^\circ$C)")
+        #ax2.set_ylim(0, 35)
+        ax.set_xlim(np.min(LT),np.max(LT))
+        ax.set_ylim(0,1.1*np.max(LMemTotal))
+        
+        #ax2.legend(loc=0)
+        
+        pylab.draw()
+        pylab.show(block=False)
+        pylab.pause(0.1)
+        
     def start(self):
-
-        #t = threading.Thread(target=monitorMem)
-        #t.start()
-
-        monitorMem()
+        while True:
+            for i in range(20):
+                self.update()
+                time.sleep(0.1)
+            self.plot()
 
 
 def test():
@@ -201,5 +180,9 @@ def test():
     
 
 if __name__=="__main__":
-    MM=ClassMemMonitor()
+    NMax=None
+    if len(sys.argv)>1:
+        NMax=int(sys.argv[1])
+    MM=ClassMemMonitor(NMax=NMax)
     MM.start()
+

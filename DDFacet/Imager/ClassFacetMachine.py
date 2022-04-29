@@ -1937,7 +1937,7 @@ class ClassFacetMachine():
         model_dict[iFacet]["SumFlux"] = SumFlux
         
         if DeleteZeroValuedGrids and SumFlux==0:
-            # print("Not storing grids for %i"%iFacet)
+            log.print("Model has zero flux, not storing grids for Facet #%i"%iFacet)
             ModelGrid=False
             cf_dict.delete()
             
