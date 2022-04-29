@@ -32,10 +32,8 @@ import psutil
 import pylab
 from DDFacet.Array import NpShared
 
-from tqdm import tqdm
-from time import sleep
-import psutil
 
+#pylab.ion()
 
 def GivePolygon(x,y):
     X=[0]+x+[np.max(x)]
@@ -175,26 +173,12 @@ def monitorMem():
             pylab.draw()
             #pylab.show()
             pylab.show(block=False)
-            pylab.pause(0.5)
+            pylab.pause(0.1)
 
 
-        time.sleep(0.5)
+        time.sleep(0.1)
 
 
-
-# class ClassMemMonitor():
-
-#     def __init__(self,dt=0.5):
-#         self.dt=dt
-#         pass
-
-
-#     def start(self):
-
-#         #t = threading.Thread(target=monitorMem)
-#         #t.start()
-
-#         monitorMem()
 
 class ClassMemMonitor():
 
@@ -202,72 +186,18 @@ class ClassMemMonitor():
         self.dt=dt
         pass
 
-    def start(self):
-        with tqdm(total=100, desc='cpu%', position=1) as cpubar, tqdm(total=100, desc='ram%', position=0) as rambar:
-            while True:
-                rambar.n=psutil.virtual_memory().percent
-                cpubar.n=psutil.cpu_percent()
-                rambar.refresh()
-                cpubar.refresh()
-                sleep(self.dt)
-#pylab.ion()
 
-        
+    def start(self):
+
+        #t = threading.Thread(target=monitorMem)
+        #t.start()
+
+        monitorMem()
+
 
 def test():
-    import plotext as plt
-    import numpy as np
-    
-    import plotext as plt
-    
-    l = 1000
-    frames = 200
-    
-    plt.title("Streaming Data")
-    # plt.clc()
-    for i in range(frames):
-        plt.clt()
-        plt.cld()
-        y = plt.sin(periods = 2, length = l, phase = 2 * i  / frames)
-        plt.scatter(y)
-        plt.show()
-        
-    # l = 50
-    # x = np.arange(l) + 1
-    # f = 2 * np.pi / l
-    # y = np.sin(2 * f * x)
-    
-    # import plotext as plt
-    # y = plt.sin() # sinusoidal signal 
-    # plt.scatter(y)
-    # plt.title("Scatter Plot")
-    # plt.show()
-
-# from math import cos
-#     from math import pi
-
-#     # ------------------------------------------------------------------------------
-
-#     from asciichartpy import plot
-    
-#     # ------------------------------------------------------------------------------
-    
-#     width = 90
-#     series = [7 * round(cos(i * ((pi * 4) / width)), 2) for i in range(width)]
-    
-#     print(plot(series))
-    
-#     series = [2.0] * width
-    
-#     print(plot(series))
-#     print(plot(series, {'height':5}))
-    
-#     series = [0.0] * width
-    
-#     print(plot(series))
-#     print(plot(series, {'height':5}))
-#     # MM=ClassMemMonitor()
-#     # MM.start()
+    MM=ClassMemMonitor()
+    MM.start()
     
 
 if __name__=="__main__":
