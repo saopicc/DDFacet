@@ -10,7 +10,7 @@ def ReadFromNp(Cat0):
                                 ('Ealpha',np.float),('kill',np.int),('Cluster',np.int),('Type',np.int),('Gmin',np.float),\
                                 ('Gmaj',np.float),('Gangle',np.float),("Select",np.int),('l',np.float),('m',np.float),("Exclude",bool)])
     Cat=Cat.view(np.recarray)
-    Cat.RefFreq=1.
+    Cat.RefFreq=100.e6
 
     Cat.ra[0:ns]=Cat0.ra
     Cat.dec[0:ns]=Cat0.dec

@@ -50,6 +50,7 @@ class ClassSM():
                  DoREG=False,SaveNp=False,NCluster=0,DoPlot=True,Tigger=False,\
                  FromExt=None,ClusterMethod=1,SelSource=False,DoPrint=True,ListBody=None,
                  radecCenter=None):
+        self.ClusterCatExt=None
         self.ClusterMethod=ClusterMethod
         self.infile_cluster=infile_cluster
         self.TargetList=infile
@@ -279,7 +280,8 @@ class ClassSM():
                 self.SourceCat.Exclude[d<ExcludeCat.Radius[j]]=True
 
         if FromClusterCat and (NCluster==0):
-            self.ClusterCat=np.load(FromClusterCat).view(np.recarray)
+            self.ClusterCatExt=self.ClusterCat=np.load(FromClusterCat).view(np.recarray)
+            
             NCluster=self.ClusterCat.shape[0]
             RA=self.SourceCat.ra
             DEC=self.SourceCat.dec
@@ -300,6 +302,21 @@ class ClassSM():
             NZeroFlux=np.count_nonzero(self.ClusterCat.SumI==0)
             if NZeroFlux!=0:
                 log.print("There are %i zero flux directions (on %i directions)"%(NZeroFlux,self.NDir))
+                ind=np.where(self.ClusterCat.SumI==0)[0]
+                for iDirNull in ind:
+                    c=self.SourceCat[0:1].copy()
+                    c=c.view(np.recarray)
+                    c.ra[0]=self.ClusterCat.ra[iDirNull]
+                    c.dec[0]=self.ClusterCat.ra[iDirNull]
+                    c.Sref[0]=0
+                    c.I[0]=0
+                    c.Gmaj[0]=0
+                    c.Gmin[0]=0
+                    c.Type[0]=0
+                    c.Cluster[0]=iDirNull
+                    self.SourceCat=np.concatenate([self.SourceCat,c],axis=0)
+                    self.SourceCat=self.SourceCat.view(np.recarray)
+
             return
                 
         if NCluster==0:
@@ -605,7 +622,9 @@ class ClassSM():
 
 
     def CutEmptyDirs(self):
+
         self.ClusterCatOrig=self.ClusterCat.copy()
+        # there can be missing Cluster number in SourceCat.Cluster
         self.NDirsOrig=self.ClusterCat.shape[0]
         self.NDir=self.ClusterCat.shape[0]
 
@@ -614,7 +633,7 @@ class ClassSM():
         iDirNew=0
         Keep=np.zeros((self.NDir,),bool)
         HasRemoved=0
-
+        
         for iDir in range(self.ClusterCat.size):
             if AppFlux[iDir]==0:
                 HasRemoved=1
@@ -633,27 +652,33 @@ class ClassSM():
             ind=np.where(self.SourceCat.Cluster==iClusterOrig)[0]
             self.SourceCat.Cluster[ind]=iClusterNew
             
-        self.Dirs=np.arange(self.ClusterCat.size).tolist()#sorted((np.where(Keep==1)[0]).tolist())
+        self.Dirs=np.sort(np.unique(self.SourceCat.Cluster))#arange(self.ClusterCat.size).tolist()#sorted((np.where(Keep==1)[0]).tolist())
         #self.Dirs=sorted((np.where(Keep==1)[0]).tolist())
         self.NDir=len(self.Dirs)
         if not HasRemoved:
             log.print(ModColor.Str("All directions have been kept in the solve"))
         else:
             log.print(ModColor.Str("There are %i directions left in the solve"%self.NDir))
-        
+
         
             
         
         
     def BuildClusterCat(self):
+        if self.ClusterCatExt is not None:
+            self.ClusterCat=self.ClusterCatExt.copy()
+            self.ClusterCatOrig=self.ClusterCatExt.copy()
+            return
         ClusterCat=np.zeros((len(self.Dirs),),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),("Cluster",int)])
         ClusterCat=ClusterCat.view(np.recarray)
         icat=0
         for d in self.Dirs:
             cat=self.SourceCat[self.SourceCat.Cluster==d]
             l,m=self.CoordMachine.radec2lm(cat.ra, cat.dec)
-            lmean,mmean=np.sum(l*cat.I)/np.sum(cat.I),np.sum(m*cat.I)/np.sum(cat.I)
-
+            if cat.I.max()>0:
+                lmean,mmean=np.sum(l*cat.I)/np.sum(cat.I),np.sum(m*cat.I)/np.sum(cat.I)
+            else:
+                lmean,mmean=np.mean(l),np.mean(m)
             ramean,decmean=self.CoordMachine.lm2radec(np.array([lmean]),np.array([mmean]))
             ClusterCat.ra[icat]=ramean
             ClusterCat.dec[icat]=decmean
@@ -662,8 +687,8 @@ class ClassSM():
             icat+=1
         #print ClusterCat.ra
         self.ClusterCat=ClusterCat
-        
-        
+        self.ClusterCatOrig=self.ClusterCat.copy()
+
 
     def radec2lm_scalar(self,ra,dec,rarad0=None,decrad0=None):
         if rarad0==None:

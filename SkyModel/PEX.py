@@ -58,7 +58,9 @@ def read_options():
     f = open("last_MakePModel.obj","wb")
     pickle.dump(options,f)
 
-def mainFromExt(im=None,Osm="", PSF="",Pfact=1,DoPlot=1,DoPrint=0,Boost=3,snr=7.,NoiseImage=None,NoiseBox=None,ChSlice=0,ChFreq=0):
+def mainFromExt(im=None,Osm="", PSF="",Pfact=1,DoPlot=1,DoPrint=0,Boost=3,snr=7.,NoiseImage=None,NoiseBox=None,
+                MaskImage=None,
+                ChSlice=0,ChFreq=0):
     class O:
         def __init__(self,**kwargs):
             for key in kwargs.keys(): setattr(self,key,kwargs[key])
@@ -286,6 +288,7 @@ def main(options=None):
     SM.D_FITS=D_FITS
     SM.Rename()
     SM.SavePickle()
+
     return SM
 
 
