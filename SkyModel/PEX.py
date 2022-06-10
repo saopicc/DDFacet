@@ -17,7 +17,7 @@ from DDFacet.Other import logger
 log=logger.getLogger("PEX")
 
 from pyrap.images import image
-from SkyModel.Other.progressbar import ProgressBar
+from DDFacet.Other.progressbar import ProgressBar
 from SkyModel.Other import reformat
 from SkyModel.Sky import ClassSM
 from SkyModel.Other import rad2hmsdms
@@ -212,7 +212,7 @@ def main(options=None):
 
     
     ImOut=np.zeros_like(b)
-    pBAR = ProgressBar('white', block='=', empty=' ',Title="Fit islands")
+    pBAR = ProgressBar(Title="Fit islands")
 
     #log.print "ion"
     #import pylab
@@ -222,7 +222,7 @@ def main(options=None):
     import pylab
     for i in range(len(Islands.ListX)):
         comment='Isl %i/%i' % (i+1,len(Islands.ListX))
-        pBAR.render(int(100* float(i+1) / len(Islands.ListX)), comment)
+        pBAR.render(float(i+1) , len(Islands.ListX))
 
         xin,yin,zin=np.array(Islands.ListX[i]),np.array(Islands.ListY[i]),np.array(Islands.ListS[i])
         xm=int(np.sum(xin*zin)/np.sum(zin))

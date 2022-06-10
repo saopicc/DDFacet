@@ -2,6 +2,8 @@ from __future__ import division, absolute_import, print_function
 from __future__ import division, absolute_import, print_function
 import numpy as np
 import regions
+from DDFacet.Other import logger
+log=logger.getLogger("ModRegFile")
 
 def test():
     R=RegToNp()
@@ -9,6 +11,57 @@ def test():
     R.Cluster()
 
 from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
+from astropy.coordinates import SkyCoord
+import astropy.units as u
+import copy
+
+def radecRad2Reg(regFile,ra,dec,
+                 label=None,
+                 Type="Box",
+                 Color="blue",
+                 width=4):
+    if label is None:
+        label=[""]*ra.size
+
+    meta={'label': 'Cal5',
+         'select': '1',
+         'highlite': '1',
+         'fixed': '0',
+         'edit': '1',
+         'move': '1',
+         'delete': '1',
+         'include': True,
+         'source': '1',
+         'text': 'Cal5'}
+    visual={'color': 'green',
+            'dashlist': '8 3',
+            'linewidth': '4',
+            'font': 'helvetica',
+            'dash': '0',
+            'symbol': 's',
+            'symsize': '20',
+            'fontsize': '10',
+            'fontstyle': 'normal',
+            'fontweight': 'roman'}
+
+    Lr=[]
+    for iReg in range(ra.size):
+        ra0,dec0=ra[iReg],dec[iReg]
+        center = SkyCoord(ra[iReg],dec[iReg], unit='rad', frame='fk5')
+        m=copy.deepcopy(meta)
+        v=copy.deepcopy(visual)
+        m["label"]=label[iReg]
+        m["text"]=label[iReg]
+        v["linewidth"]=width
+        v["color"]=Color.lower()
+        
+        Lr.append(regions.PointSkyRegion(center, meta=m, visual=v))
+    R=regions.Regions(Lr)
+    
+    log.print("Writting %s"%regFile)
+    R.write(regFile,overwrite=1)
+    
+
 
 
 class PolygonNpToReg():

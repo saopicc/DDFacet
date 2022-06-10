@@ -58,7 +58,11 @@ def IndivToPolygon(indiv,PolyCut):
             warnings.warn("One or more Voronoi regions is a 0 area polygon. Ignoring it.")
             polygon = np.array([[0,0],[0,0],[0,0]])
 
-        PP=(Polygon.Polygon(polygon) & Polygon.Polygon(PolyCut))
+        if PolyCut is not None:
+            PP=(Polygon.Polygon(polygon) & Polygon.Polygon(PolyCut))
+        else:
+            PP=Polygon.Polygon(polygon)
+            
         if PP.area()>0:
             LPolygon.append(np.array(PP[0]))
         else:
@@ -153,6 +157,18 @@ class ClassMetricDEAP():
             NPerNode[iC]=np.count_nonzero(setSourcesThisNode)/NMeanPerFacet
         return NPerNode
     
+    def NPerFacet(self):
+        xc=self.xc
+        S=self.S
+        NPerNode=np.zeros((xc.size,),np.float32)
+        NMeanPerFacet=self.x.size/float(xc.size)
+        for iC in self.setNodes:
+            #NPerNode[iC]=np.count_nonzero(ind==iC)
+            #if ind.size==0: continue
+            setSourcesThisNode=(self.indSourceToNode==iC)
+            NPerNode[iC]=np.count_nonzero(setSourcesThisNode)/NMeanPerFacet
+        return NPerNode
+    
     def aspectRatioPerFacet(self):
         AspectRatio=np.zeros((self.xc.size,),np.float32)
         for iC,Poly in enumerate(self.ListPolygons):
@@ -161,6 +177,25 @@ class ClassMetricDEAP():
 
         return AspectRatio
 
+    def minNode2NodeDistance(self):
+        xc=self.xc
+        yc=self.yc
+        d=np.sqrt((xc.reshape((-1,1))-xc.reshape((1,-1)))**2+(yc.reshape((-1,1))-yc.reshape((1,-1)))**2)
+        nNodes=xc.size
+        a=np.triu(d,k=1)
+        b=a[a!=0]
+        dMin=b.min()
+        return dMin
+
+    def node2NodeDistance(self):
+        xc=self.xc
+        yc=self.yc
+        d=np.sqrt((xc.reshape((-1,1))-xc.reshape((1,-1)))**2+(yc.reshape((-1,1))-yc.reshape((1,-1)))**2)
+        nNodes=xc.size
+        a=np.triu(d,k=1)
+        b=a[a!=0]
+        return b
+    
     def meanDistancePerFacet(self):
         xc=self.xc
         MeanDistanceToNode=np.zeros((xc.size,),np.float32)
@@ -172,6 +207,20 @@ class ClassMetricDEAP():
             S=self.S[setSourcesThisNode]
             MeanDistanceToNode[iC]=giveMeanDistanceToNode(self.xc[iC],self.yc[iC],x,y,S,Poly)
         return MeanDistanceToNode
+
+    def brightestFluxPerFacet(self):
+        xc=self.xc
+        brightestFluxPerFacet = np.zeros((xc.size,),np.float32)
+        for iC in self.setNodes:
+            Poly=self.ListPolygons[iC]
+            setSourcesThisNode=(self.indSourceToNode==iC)
+            x=self.x[setSourcesThisNode]
+            y=self.y[setSourcesThisNode]
+            S=self.S[setSourcesThisNode]
+            brightestFluxPerFacet[iC]=np.max(S)
+        return brightestFluxPerFacet
+    
+
     
     def overlapPerFacet(self):
         if self.Polygons is None:

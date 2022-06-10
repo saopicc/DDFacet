@@ -513,7 +513,7 @@ class ClassIslandDistanceMachine():
         return result
 
     def calcDistanceMatrixMinParallel(self,ListIslands,Parallel=True):
-        Parallel=False
+        #Parallel=False
         NIslands=len(ListIslands)
         self.D=np.zeros((NIslands,NIslands),np.float32)
         self.dx=np.zeros((NIslands,NIslands),np.int32)

@@ -16,10 +16,11 @@ class ClassAppendSource():
     def __init__(self,SM,ListBody):
         self.ListBody=ListBody
         self.SM=SM
-
+        
         
     def appendAll(self):
         ListBody=self.ListBody
+            
         for Body in ListBody:
             tm = Time(Body["Time"] / 86400.0, scale="utc", format='mjd')
             if Body["Name"]=="Sun": 

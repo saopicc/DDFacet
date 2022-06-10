@@ -36,6 +36,7 @@ from matplotlib.path import Path
 from astropy.io import fits
 from SkyModel.Mask.ClassBrightFaintPerFacet import ClassBrightFaintPerFacet
 from SkyModel.Mask.ClassBrightFaintOverAll import ClassBrightFaintOverAll
+from SkyModel.Mask.ClassBrightFaintOverAllDEAP import ClassBrightFaintOverAllDEAP
 import SkyModel.MaskDicoModel
 
 def PutDataInNewImage(oldfits,newfits,data):
@@ -743,6 +744,14 @@ def main(options=None):
                                         Restored=MaskMachine.Restored,
                                         FitsFile=MaskMachine.FitsFile,
                                         incr_rad=MaskMachine.incr_rad)
+            ImBright=CBF.giveBrightFaintMask()
+        elif options.SplitBrightFaintMethod=="OverallDEAP":
+            from SkyModel.Mask.ClassBrightFaintOverAllDEAP import ClassBrightFaintOverAllDEAP
+            CBF=ClassBrightFaintOverAllDEAP(options=MaskMachine.options,
+                                            ImMask=MaskMachine.ImMask,
+                                            Restored=MaskMachine.Restored,
+                                            FitsFile=MaskMachine.FitsFile,
+                                            incr_rad=MaskMachine.incr_rad)
             ImBright=CBF.giveBrightFaintMask()
 
         InDicoModel="%s.DicoModel"%options.BaseImageName

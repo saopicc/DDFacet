@@ -102,8 +102,8 @@ def giveFitness(Indiv,
     NPerFacet=CMD.NPerFacet()
     meanDistancePerFacet=CMD.meanDistancePerFacet()
     overlapPerFacet=CMD.overlapPerFacet()
-
-
+    brightestFluxPerFacet=CMD.brightestFluxPerFacet()
+    node2NodeDistance=CMD.node2NodeDistance()
     
     Fitness=0
     if FitnessType=="Fair":
@@ -117,6 +117,12 @@ def giveFitness(Indiv,
         
         Fitness+= -np.mean(meanDistancePerFacet)*10
         Fitness+= -np.sum(overlapPerFacet)*1e5
+    elif FitnessType=="BrightCal":
+        Fitness+=-np.std(brightestFluxPerFacet)
+        Fitness+= -1e5*np.count_nonzero(NPerFacet==0)
+        Fitness+= -np.mean(meanDistancePerFacet)*10
+        Fitness+= -np.sum(overlapPerFacet)*1e5
+        Fitness+= (node2NodeDistance).min()
     elif FitnessType=="PrimaryBeam":
         Fitness+= -1e5*np.count_nonzero(NPerFacet==0)
         Fitness+= -np.sum(overlapPerFacet)*1e5

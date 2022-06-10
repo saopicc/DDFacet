@@ -1042,6 +1042,7 @@ class ClassJones():
         DicoBeam["tm"]=np.zeros((Tm.size,),np.float64)
         DicoBeam["FreqDomains"]=FreqDomains
         
+
         
         rac,decc=self.MS.OriginalRadec
         pBAR= ProgressBar(Title="  Init E-Jones ")#, HeaderSize=10,TitleSize=13)
