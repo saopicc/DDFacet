@@ -33,7 +33,10 @@ import sys
 
 pkg='DDFacet'
 skymodel_pkg='SkyModel'
-__version__ = "0.6.0.0"
+__version__ = "0.7.0.0"
+# Bump when building for a new release version of Python
+MAJ_REQ = 3
+MIN_REQ = 8
 build_root=os.path.dirname(__file__)
 
 try:
@@ -41,6 +44,18 @@ try:
 except ImportError as e:
     raise ImportError("Pybind11 not installed. Please install C++ binding package pybind11 before running DDFacet install. "
                       "You should not see this message unless you are not running pip install (19.x) -- run pip install!")
+
+# it seems the deprecated python setup.py install does not check the
+# version numbers required by the package in the descriptor. Although this is
+# not an issue with pip install, this leads to issues with upstream
+# packages.
+if not (sys.version_info.major == MAJ_REQ and sys.version_info.minor == MIN_REQ):
+    print("Your Python version '{}' is not officially supported. This package "
+          "requires version {}".format(sys.version,
+                                       "{}.{}".format(MAJ_REQ,
+                                                      MIN_REQ)))
+    print("You should not be seeing this message unless you are not using pip "
+          "install to install this software. Please use pip install")
 
 def backend(compile_options):
     if compile_options is not None:
@@ -117,38 +132,39 @@ def readme():
         return f.read()
 
 def requirements():
+    # Only upgrade these when testing with a new release version
+    # this should avoid upstream breakage on released versions
     requirements = ["nose >= 1.3.7; python_version >= '3'", 
-                    "Cython >= 0.25.2; python_version >= '3'", 
-                    "numpy >= 1.15.1; python_version >= '3'", 
-                    "sharedarray >= 3.2.0; python_version >= '3'", 
-                    "Polygon3 >= 3.0.8; python_version >= '3'", 
-                    "pyFFTW >= 0.10.4; python_version >= '3'", 
-                    "astropy >= 3.0; python_version >= '3'", 
-                    "deap >= 1.0.1; python_version >= '3'", 
-                    "ptyprocess>=0.5; python_version >= '3'", 
-                    "ipdb >= 0.10.3; python_version >= '3'", 
-                    "python-casacore >= 3.0.0; python_version >= '3'", 
-                    "pyephem >= 3.7.6.0; python_version >= '3'", 
-                    "numexpr >= 2.6.2; python_version >= '3'", 
-                    "matplotlib >= 2.0.0; python_version >= '3'", 
-                    "scipy >= 1.3.3; python_version >= '3'", 
-                    "astLib >= 0.8.0; python_version >= '3'", 
-                    "psutil >= 5.2.2; python_version >= '3'", 
-                    "py-cpuinfo >= 3.2.0; python_version >= '3'", 
-                    "tables >= 3.6.0; python_version >= '3'", 
-                    "prettytable >= 0.7.2; python_version >= '3'", 
-                    "pybind11 >= 2.2.2; python_version >= '3'", 
-                    "configparser >= 3.7.1; python_version >= '3'", 
-                    "pandas >=0.23.3; python_version >= '3'", 
-                    "ruamel.yaml >= 0.15.92; python_version >= '3'", 
-                    "pylru >= 1.1.0; python_version >= '3'", 
-                    "six >= 1.12.0; python_version >= '3'", 
-                    "pybind11 >= 2.2.2; python_version >= '3'", 
-                    "dask[array] >= 1.1.0; python_version >= '3'", 
-                    "codex-africanus[dask] >= 0.2.10; python_version >= '3'", 
-                    "regions",
-                    "pywavelets",
-                    "tqdm"
+                    "Cython >= 0.25.2, <= 0.29.30; python_version >= '3'", 
+                    "numpy >= 1.15.1, <= 1.19.5; python_version >= '3'", 
+                    "sharedarray >= 3.2.0, <= 3.2.1; python_version >= '3'", 
+                    "Polygon3 >= 3.0.8, <= 3.0.9.1; python_version >= '3'", 
+                    "pyFFTW >= 0.10.4, <= 0.12.0; python_version >= '3'", 
+                    "astropy >= 3.0, <= 4.1; python_version >= '3'", 
+                    "deap >= 1.0.1, <= 1.3.1; python_version >= '3'", 
+                    "ptyprocess>=0.5, <= 0.7.0; python_version >= '3'", 
+                    "ipdb >= 0.10.3, <=0.13.9; python_version >= '3'", 
+                    "python-casacore >= 3.0.0, <=3.4.0; python_version >= '3'", 
+                    "pyephem >= 3.7.6.0, <=9.99; python_version >= '3'", 
+                    "numexpr >= 2.6.2,<=2.8.1; python_version >= '3'", 
+                    "matplotlib >= 2.0.0,<=3.3.4; python_version >= '3'", 
+                    "scipy >= 1.3.3,<=1.5.4; python_version >= '3'", 
+                    "astLib >= 0.8.0,<=0.11.7; python_version >= '3'", 
+                    "psutil >= 5.2.2,<=5.9.1; python_version >= '3'", 
+                    "py-cpuinfo >= 3.2.0,<=8.0.0; python_version >= '3'", 
+                    "tables >= 3.6.0,<=3.7.0; python_version >= '3'", 
+                    "prettytable >= 0.7.2,<=2.5.0; python_version >= '3'", 
+                    "pybind11 >= 2.2.2,<=2.9.2; python_version >= '3'", 
+                    "configparser >= 3.7.1,<=5.2.0; python_version >= '3'", 
+                    "pandas >=0.23.3,<=1.1.5; python_version >= '3'", 
+                    "ruamel.yaml >= 0.15.92,<=0.17.21; python_version >= '3'", 
+                    "pylru >= 1.1.0,<=1.2.1; python_version >= '3'", 
+                    "six >= 1.12.0,<=1.16.0; python_version >= '3'", 
+                    "dask[array] >= 1.1.0,<=2021.3.0; python_version >= '3'", 
+                    "codex-africanus[dask] <= 0.2.10; python_version >= '3'", 
+                    "regions <=0.5",
+                    "pywavelets <=1.1.1",
+                    "tqdm<=4.64.0"
                     ] 
     install_requirements = requirements
 
@@ -175,7 +191,7 @@ setup(name=pkg,
                 'build': custom_build,
                 'build_ext': custom_build_ext
                },
-      python_requires='>=3.0,<3.7',
+      python_requires='>=3.0,<{}'.format("{}.{}".format(MAJ_REQ, MIN_REQ+1)),
       packages=[pkg, skymodel_pkg],
       install_requires=requirements(),
       include_package_data=True,

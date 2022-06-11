@@ -1,5 +1,5 @@
 [build-system]
 requires = ["setuptools", 
             "wheel", 
-            "numpy>=1.15.1", # Ubuntu 18.04
+            "numpy>=1.15.1,<=1.19.5",
             "pybind11 >= 2.2.2"]
