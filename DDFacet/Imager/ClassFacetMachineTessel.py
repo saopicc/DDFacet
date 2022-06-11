@@ -31,8 +31,15 @@ from scipy.spatial import Voronoi, ConvexHull
 from SkyModel.Sky import ModVoronoi
 from DDFacet.Other import reformat
 from DDFacet.Other import ModColor
+from DDFacet.Imager.ModModelMachine import ClassModModelMachine
+from DDFacet.Other import Exceptions
+
+from DDFacet.Data.ClassJones import _parse_solsfile, _which_solsfile
+import os, glob
+
 from DDFacet.Data.ClassJones import _parse_solsfile
 import os
+
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 import tables
 
@@ -42,6 +49,7 @@ import Polygon
 from DDFacet.ToolsDir import rad2hmsdms
 from DDFacet.Other import logger
 log = logger.getLogger("ClassFacetMachineTessel")
+from pyrap.images import image
 
 
 class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
@@ -91,6 +99,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         if isinstance(SolsFile, list):
             SolsFile = self.GD["DDESolutions"]["DDSols"][0]
 
+        if SolsFile=="": SolsFile=None
+
+
         if SolsFile and (not (".npz" in SolsFile)) and (not (".h5" in SolsFile)):
             Method = SolsFile
             # ThisMSName = reformat.reformat(
@@ -107,8 +118,81 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                     os.makedirs(DirName)
                 SolsFile = "%s/killMS.%s.sols.npz"%(DirName,SolsFile)
 
+        
+        
+        
+        if SolsFile is not None and not ".h5" in SolsFile:
+            DoCheckParset=False
+            if "killMS" in SolsFile:
+                try:
+                    from killMS.Parset import ReadCFG as ReadCFGkMS
+                    PName=SolsFile[0:-4]+".parset"
+                    DoCheckParset=os.path.isfile(PName)
+                    if not DoCheckParset:
+                        log.print(ModColor.Str("File %s does not exist - can't check parset consistencies"%PName))
+                except:
+                    log.print(ModColor.Str("Cannot import killMS - can't check parset consistencies"))
+                    DoCheckParset=False
+                    
+            if DoCheckParset:
+                print("reading %s"%PName,file=log)
+                GDkMS=ReadCFGkMS.Parset(PName).DicoPars
+                DoCheckParset=False
+                
+            
+                Ls=[]
+            
+                def CheckField(D0,k0,D1,k1):
+                    try:
+                        v0=GDkMS[D0][k0]
+                        v1=self.GD[D1][k1]
+                        if v0=="": v0=None
+                        if v1=="": v1=None
+                        if v0!=v1:
+                            Ls.append("!!! kMS parameter [[%s][%s] = %s] differs from DDF [[%s][%s] = %s]"%(D0,k0,str(v0),D1,k1,str(v1)))
+                    except:
+                        pass
+                
+            
+                CheckField("Beam",'BeamModel',"Beam","Model")
+                CheckField("Beam",'NChanBeamPerMS',"Beam","NBand")
+                CheckField("Beam",'BeamAt', "Beam","At") # tessel/facet
+                CheckField("Beam",'LOFARBeamMode', "Beam","LOFARBeamMode")     # A/AE
+                CheckField("Beam",'DtBeamMin', "Beam","DtBeamMin")
+                CheckField("Beam",'CenterNorm', "Beam","CenterNorm")
+                CheckField("Beam",'FITSFile', "Beam","FITSFile")
+                CheckField("Beam",'FITSParAngleIncDeg', "Beam","FITSParAngleIncDeg")
+                CheckField("Beam",'FITSLAxis', "Beam","FITSLAxis")
+                CheckField("Beam",'FITSMAxis', "Beam","FITSMAxis")
+                CheckField("Beam",'FITSFeed', "Beam","FITSFeed") 
+                # CheckField("Beam",'FITSVerbosity', "Beam","FITSVerbosity")
+                CheckField("Beam","FeedAngle", "Beam","FeedAngle")
+                CheckField("Beam",'ApplyPJones', "Beam","ApplyPJones")
+                CheckField("Beam",'FlipVisibilityHands', "Beam","FlipVisibilityHands")
+                CheckField("Beam",'FITSFeedSwap',"Beam","FITSFeedSwap")
+    
+                CheckField("ImageSkyModel",'MaxFacetSize',"Facets","DiamMax")
+                CheckField("ImageSkyModel",'MinFacetSize',"Facets","DiamMin")
+                CheckField("SkyModel",'Decorrelation',"RIME","DecorrMode")
+    
+                if len(Ls)>0:
+                    log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
+                    log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
+                    log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
+                    log.print(ModColor.Str("!!! The following parameters are different in kMS/DDF, and you may think whether this has an effect or not..."))
+                    for l in Ls:
+                        log.print(ModColor.Str(l))
+                    log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
+                    log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
+                    log.print(ModColor.Str("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"))
+                else:
+                    log.print(ModColor.Str("All kMS/DDF beam parameters are the same...",col="green"))
+    
+        if (self.GD["Facets"]["CatNodes"] is not None) and (SolsFile is not None):
+            log.print(ModColor.Str("Both --Facets-CatNodes and --DDESolutions-DDSols are specified which might have different clusterings..."))
 
-
+            
+                
 #        if "CatNodes" in self.GD.keys():
         regular_grid = False
         if self.GD["Facets"]["CatNodes"] is not None:
@@ -246,6 +330,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         print("Saving Nodes catalog in %s (Nfacets:%i)" % (NodeFile, NFacets), file=log)
         np.save(NodeFile, NodesCat)
 
+        
         for iFacet, polygon0 in zip(range(len(LPolygon)), LPolygon):
             # polygon0 = vertices[region]
             P = polygon0.tolist()
@@ -346,6 +431,41 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                     
                 # polyOut=ClosePolygon(polyOut)
                 LPoly.append(polyOut)
+
+                # ################################
+                # def CloseLoop(x,y):
+                #     x=np.concatenate([x,np.array([x[0]])])
+                #     y=np.concatenate([y,np.array([y[0]])])
+                #     return x,y
+                # if False:#DoPlot:
+                #     # np.savez("Poly%i.npz"%self.iSave,
+                #     #          polySquare=polySquare,
+                #     #          polygonFacetCut=polygonFacetCut)
+                #     import pylab
+                #     # pylab.clf()
+                #     x,y=polygonFacetCut.T
+                #     x,y=CloseLoop(x,y)
+                #     #pylab.plot(x,y,color="blue")
+                #     x,y=polygonFacet.T
+                #     x,y=CloseLoop(x,y)
+                #     #pylab.plot(x,y,color="blue",ls=":",lw=3)
+                #     x,y=np.array(PFOV[0]).T
+                #     x,y=CloseLoop(x,y)
+                #     pylab.plot(x,y,color="black")
+                #     x,y=polySquare.T
+                #     x,y=CloseLoop(x,y)
+                #     pylab.plot(x,y,color="green",ls=":",lw=3)
+                #     x,y=polyOut.T
+                #     x,y=CloseLoop(x,y)
+                #     pylab.plot(x,y,color="red",ls="--",lw=3)
+                #     pylab.scatter(x,y,c="red")
+                #     pylab.xlim(self.RadiusTot,-self.RadiusTot)
+                #     pylab.ylim(-self.RadiusTot,self.RadiusTot)
+                #     pylab.title("iSave=%i"%self.iSave)
+                #     pylab.draw()
+                #     pylab.show(block=True)
+                #     #pylab.pause(0.5)
+                # #############################
                 
                 self.iSave+=1
 
@@ -370,6 +490,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         # VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green",labels=[str(i) for i in range(len(LPolygonNew))])
 
         DicoPolygon = {}
+        # import pylab
+        # Lx,Ly=[],[]
         for iFacet in range(len(LPolygonNew)):
             DicoPolygon[iFacet] = {}
             poly = LPolygonNew[iFacet]
@@ -382,7 +504,26 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             dSol = np.sqrt((xc - lFacet) ** 2 + (yc - mFacet) ** 2)
             ind=np.where(dSol == np.min(dSol))[0][0:1]
             DicoPolygon[iFacet]["iSol"] = ind
+            # if ind.size==2: stop
+            # Lx.append(xc)
+            # Ly.append(yc)
+            # print(iFacet,DicoPolygon[iFacet]["iSol"])
+            
 
+        # for iFacet in list(DicoPolygon.keys()):
+        #     pylab.clf()
+        #     pylab.scatter(lFacet,mFacet,c="red")
+        #     pylab.scatter(Lx,Ly,c="blue")
+        #     ind=DicoPolygon[iFacet]["iSol"]
+        #     pylab.scatter(lFacet[ind],mFacet[ind],c="green")
+        #     pylab.scatter(Lx[iFacet],Ly[iFacet],c="black")
+        #     pylab.draw()
+        #     pylab.show(block=False)
+        #     pylab.pause(0.1)
+        #     if ind.size==2: stop
+
+
+            
         for iFacet in sorted(DicoPolygon.keys()):
             diam = DicoPolygon[iFacet]["diamMin"]
             #print(iFacet,diam,DiamMin)
@@ -547,8 +688,77 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         for iFacet in range(l_m_Diam.shape[0]):
             self.DicoImager[iFacet] = {}
-            self.DicoImager[iFacet]["Polygon"] = D[
-                l_m_Diam[iFacet, 3]]["Polygon"]
+            self.DicoImager[iFacet]["Polygon"] = D[l_m_Diam[iFacet, 3]]["Polygon"]
+            
+
+        if self.GD["Facets"].get("FluxPaddingAppModel",None) is not None:
+            NameModel=self.GD["Facets"]["FluxPaddingAppModel"]
+            log.print("Computing individual facet flux density for facet-dependent padding...")
+            ModelImage=image(NameModel).getdata()
+            nch,npol,_,_=ModelImage.shape
+            ModelImage=np.mean(ModelImage[:,0,:,:],axis=0)
+            ModelImage=(ModelImage.T[::-1]).copy()
+            _,_,nx,ny=self.OutImShape
+            Dx=self.CellSizeRad * nx/2
+            Dy=self.CellSizeRad * ny/2
+
+            from DDFacet.Other import ClassTimeIt
+            T=ClassTimeIt.ClassTimeIt("FluxPaddingAppModel")
+            T.disable()
+            lg, mg = X, Y = np.mgrid[-Dx:Dx:nx * 1j, -Dy:Dy:ny * 1j]
+            for iFacet in self.DicoImager.keys():
+                vertices = self.DicoImager[iFacet]["Polygon"]
+                lp,mp=vertices.T
+
+                # indx=((lg>=lp.min())&(lg<lp.max()))
+                # indy=((mg>=mp.min())&(mg<mp.max()))
+                # ind=(indx&indy)
+                
+                lg1, mg1 = np.mgrid[-Dx:Dx:nx * 1j], np.mgrid[-Dy:Dy:ny * 1j]
+                indx=((lg1>=lp.min())&(lg1<lp.max()))
+                indy=((mg1>=mp.min())&(mg1<mp.max()))
+                ind1=(indx.reshape((-1,1))*indy.reshape((1,-1)))
+                # print(np.allclose(ind,ind1))
+                # stop
+                ind=ind1
+                
+                ModelImage_s=ModelImage[ind]
+                X,Y=lgs,mgs=lg[ind],mg[ind]
+                
+                XY = np.dstack((X, Y))
+                XY_flat = XY.reshape((-1, 2))
+                T.timeit("build s")
+                
+                mpath = Path(vertices)  # the vertices of the polygon
+                mask_flat = mpath.contains_points(XY_flat)
+                T.timeit("contains")
+                mask = mask_flat.reshape(X.shape)
+                Ft=np.max(ModelImage_s.flat[mask.ravel()])
+                # log.print("Flux Facet [%.3i] = %f"%(iFacet,Ft))
+                self.DicoImager[iFacet]["MaxFlux"]=Ft
+                Ft=np.sum(ModelImage_s.flat[mask.ravel()])
+                self.DicoImager[iFacet]["TotalFlux"]=Ft
+                T.timeit("rest")
+
+            # lg, mg = X, Y = np.mgrid[-Dx:Dx:nx * 1j, -Dy:Dy:ny * 1j]
+            # XY = np.dstack((X, Y))
+            # XY_flat = XY.reshape((-1, 2))
+            # for iFacet in self.DicoImager.keys():
+            #     vertices = self.DicoImager[iFacet]["Polygon"]
+            #     mpath = Path(vertices)  # the vertices of the polygon
+            #     mask_flat = mpath.contains_points(XY_flat)
+            #     T.timeit("contains")
+            #     mask = mask_flat.reshape(X.shape)
+            #     Ft=np.max(ModelImage.flat[mask.ravel()])
+            #     log.print("Flux Facet [%.3i] = %f"%(iFacet,Ft))
+            #     self.DicoImager[iFacet]["MaxFlux"]=Ft
+            #     Ft=np.sum(ModelImage.flat[mask.ravel()])
+            #     self.DicoImager[iFacet]["TotalFlux"]=Ft
+            #     T.timeit("rest")
+
+        ###############
+                
+        for iFacet in range(l_m_Diam.shape[0]):
             x0 = round(l_m_Diam[iFacet, 0] / self.CellSizeRad)
             y0 = round(l_m_Diam[iFacet, 1] / self.CellSizeRad)
             # if x0 % 2 == 0:
@@ -563,6 +773,10 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                     2] / self.CellSizeRad) * self.CellSizeRad
             # self.AppendFacet(iFacet,l0,m0,diam)
             self.AppendFacet(iFacet, l0, m0, diam)
+
+
+
+            
 
         # self.MakeMasksTessel()
 
@@ -624,8 +838,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             indx,indy=np.where(R==np.min(R))
             lmin,mmin=X[indx[0],indy[0]],Y[indx[0],indy[0]]
             self.DicoImager[iFacet]["lm_min"]=lmin,mmin
-            
 
+
+            
         self.FacetDirCat = np.zeros((len(self.DicoImager),),
                                     dtype=[('Name', '|S200'),
                                            ('ra', np.float),
@@ -662,53 +877,3 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             ss = "%s, %s, %f, %f" % (sra, sdec,ra,dec)
             f.write(ss+'\n')
         f.close()
-
-# <<<<<<< HEAD
-# #===============================================
-# #===============================================
-# #===============================================
-# #===============================================
-
-
-# class WorkerImager(ClassFacetMachine.WorkerImager):
-#     def init(self, DicoJob):
-#         iFacet=DicoJob["iFacet"]
-#         #Create smoothned facet tessel mask:
-#         Npix = self.DicoImager[iFacet]["NpixFacetPadded"]
-#         l0, l1, m0, m1 = self.DicoImager[iFacet]["lmExtentPadded"]
-#         X, Y = np.mgrid[l0:l1:Npix * 1j, m0:m1:Npix * 1j]
-#         XY = np.dstack((X, Y))
-#         XY_flat = XY.reshape((-1, 2))
-#         vertices = self.DicoImager[iFacet]["Polygon"]
-#         mpath = Path(vertices)  # the vertices of the polygon
-#         mask_flat = mpath.contains_points(XY_flat)
-
-
-
-#         mask = mask_flat.reshape(X.shape)
-
-#         mpath = Path(self.CornersImageTot)
-#         mask_flat2 = mpath.contains_points(XY_flat)
-#         mask2 = mask_flat2.reshape(X.shape)
-#         mask[mask2 == 0] = 0
-
-
-#         GaussPars = (10, 10, 0)
-
-#         SpacialWeigth = np.float32(mask.reshape((1, 1, Npix, Npix)))
-#         SpacialWeigth = ModFFTW.ConvolveGaussian(SpacialWeigth, CellSizeRad=1, GaussPars=[GaussPars])
-#         SpacialWeigth = SpacialWeigth.reshape((Npix, Npix))
-#         SpacialWeigth /= np.max(SpacialWeigth)
-#         NameSpacialWeigth = "%sSpacialWeight.Facet_%3.3i" % (self.FacetDataCache, iFacet)
-#         NpShared.ToShared(NameSpacialWeigth, SpacialWeigth)
-#         #Initialize a grid machine per facet:
-#         self.GiveGM(iFacet)
-#         self.result_queue.put({"Success": True, "iFacet": iFacet})
-
-
-
-
-
-# =======
-# >>>>>>> issue-255
-

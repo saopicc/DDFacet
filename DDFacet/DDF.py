@@ -22,6 +22,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+from pyrap.tables  import table
 
 from DDFacet.compatibility import range
 
@@ -38,7 +39,6 @@ os.environ["OMP_NUM_THREADS"] = "1"
 import sys,os
 if "PYTHONPATH_FIRST" in os.environ.keys() and int(os.environ["PYTHONPATH_FIRST"]):
     sys.path = os.environ["PYTHONPATH"].split(":") + sys.path
-
 
 #import matplotlib
 # matplotlib.use('agg')
@@ -102,6 +102,11 @@ import DDFacet
 print("DDFacet version is",report_version())
 print("Using python package located at: " + os.path.dirname(DDFacet.__file__))
 print("Using driver file located at: " + __file__)
+
+# hack to avoid recursion depth issues in SSD
+
+sys.setrecursionlimit(10000)
+
 global Parset
 Parset = ReadCFG.Parset("%s/DefaultParset.cfg" % os.path.dirname(DDFacet.Parset.__file__))
 
@@ -280,6 +285,7 @@ def main(OP=None, messages=[]):
                                                   deconvolve=("Clean" in Mode))
 
     Imager.Init()
+        
 
     # Imager.testDegrid()
     # stop

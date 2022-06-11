@@ -32,7 +32,6 @@ else:
     import cPickle
 import math, os, traceback
 
-
 from DDFacet.Data import ClassMS
 from DDFacet.Data.ClassStokes import ClassStokes
 from DDFacet.Other import ModColor
@@ -43,7 +42,9 @@ from DDFacet.Data import ClassSmearMapping
 from DDFacet.Data import ClassJones
 from DDFacet.Array import shared_dict
 from DDFacet.Other.AsyncProcessPool import APP
+from DDFacet.Other import reformat
 import six
+import DDFacet.Other.PrintList
 if six.PY3:
     from DDFacet.cbuild.Gridder import _pyGridderSmearPols3x as _pyGridderSmearPols
 else:
@@ -98,7 +99,13 @@ class ClassVisServer():
         self.SigmoidInRoll = GD["Weight"]["SigmoidTaperInnerRolloffStrength"]
         self.SigmoidOutRoll = GD["Weight"]["SigmoidTaperOuterRolloffStrength"]
 
+        SubColName=None
+        
+        if ColName is not None and "-" in ColName:
+            Spl=ColName.split("-")
+            ColName,SubColName=Spl[0],Spl[1:]
         self.ColName = ColName
+        self.SubColName = SubColName
         self.CountPickle = 0
         self.DicoSelectOptions = GD["Selection"]
         self.TaQL = self.DicoSelectOptions.get("TaQL", None)
@@ -139,8 +146,8 @@ class ClassVisServer():
                 1 else None,
                 ChanStep)
 
-        min_freq = 1e+999
-        max_freq = 0
+        min_freq_Data = 1e+999
+        max_freq_Data = 0
 
         # max chunk shape accumulated here
         self._chunk_shape = [0, 0, 0]
@@ -151,7 +158,10 @@ class ClassVisServer():
             else:
                 msname, ddid, field, column = msspec, self.DicoSelectOptions["DDID"], self.DicoSelectOptions["Field"], self.ColName
             MS = ClassMS.ClassMS(
-                msname, Col=column or self.ColName, DoReadData=False,
+                msname,
+                Col=column or self.ColName,
+                SubCol=self.SubColName,
+                DoReadData=False,
                 AverageTimeFreq=(1, 3),
                 Field=field, DDID=ddid, TaQL=self.TaQL,
                 TimeChunkSize=self.TMemChunkSize, ChanSlice=chanslice,
@@ -163,8 +173,8 @@ class ClassVisServer():
             self.ListMS.append(MS)
             # accumulate global set of frequencies, and min/max frequency
             global_freqs.update(MS.ChanFreq)
-            min_freq = min(min_freq, (MS.ChanFreq-MS.ChanWidth/2).min())
-            max_freq = max(max_freq, (MS.ChanFreq+MS.ChanWidth/2).max())
+            min_freq_Data = min(min_freq_Data, (MS.ChanFreq-MS.ChanWidth/2).min())
+            max_freq_Data = max(max_freq_Data, (MS.ChanFreq+MS.ChanWidth/2).max())
 
             # accumulate largest chunk shape
             for row0, row1 in MS.getChunkRow0Row1():
@@ -210,29 +220,37 @@ class ClassVisServer():
         # make list of unique frequencies
         self.GlobalFreqs = np.array(sorted(global_freqs))
 
-
+        
         self.RefFreq=np.mean(self.GlobalFreqs)
 
 
-        bandwidth = max_freq - min_freq
-        print("Total bandwidth is %g MHz (%g to %g MHz), with %d channels" % (
-            bandwidth*1e-6, min_freq*1e-6, max_freq*1e-6, len(global_freqs)), file=log)
+        # bandwidth = max_freq - min_freq
+        # print("Total bandwidth is %g MHz (%g to %g MHz), with %d channels" % (
+        #     bandwidth*1e-6, min_freq*1e-6, max_freq*1e-6, len(global_freqs)), file=log)
+        
+        max_freq_Cube, min_freq_Cube = max_freq_Data, min_freq_Data
+        bandwidth_Cube = max_freq_Cube - min_freq_Cube
+        log.print("Total bandwidth is %g MHz (%g to %g MHz), with %d channels" % (bandwidth_Cube*1e-6, min_freq_Data*1e-6, max_freq_Data*1e-6, len(global_freqs)))
 
         # print>>log,"GlobalFreqs: %d: %s"%(len(self.GlobalFreqs),repr(self.GlobalFreqs))
 
         # OMS: ok couldn't resist adding a bandwidth option since I need it for 3C147
         # if this is 0, then looks at NFreqBands parameter
         grid_bw = self.GD["Freq"]["BandMHz"]*1e+6
-
+        
+        if self.GD["Freq"].get("FMinMHz",None): min_freq_Cube=self.GD["Freq"]["FMinMHz"]*1e6
+        if self.GD["Freq"].get("FMaxMHz",None): max_freq_Cube=self.GD["Freq"]["FMaxMHz"]*1e6
+        bandwidth_Cube =  max_freq_Cube - min_freq_Cube
+        
         if grid_bw:
-            grid_bw = min(grid_bw, bandwidth)
+            grid_bw = min(grid_bw, bandwidth_Cube)
             NFreqBands = self.GD["Freq"][
-                "NBand"] = int(math.ceil(bandwidth/grid_bw))
+                "NBand"] = int(math.ceil(bandwidth_Cube/grid_bw))
         else:
             NFreqBands = np.min(
                 [self.GD["Freq"]["NBand"],
                  len(self.GlobalFreqs)])  # self.nMS])
-            grid_bw = bandwidth/NFreqBands
+            grid_bw = bandwidth_Cube/NFreqBands
 
         self.NFreqBands = NFreqBands
         self.MultiFreqMode = NFreqBands > 1
@@ -241,8 +259,8 @@ class ClassVisServer():
                 "MultiFrequency Mode: ON, %dx%g MHz bands" %
                 (NFreqBands, grid_bw*1e-6)), file=log)
 
-            if not ("Alpha" in self.GD["SSDClean"]["SSDSolvePars"]):
-                self.GD["SSDClean"]["SSDSolvePars"].append("Alpha")
+            # if not ("Alpha" in self.GD["SSDClean"]["SSDSolvePars"]):
+            #     self.GD["SSDClean"]["SSDSolvePars"].append("Alpha")
 
         else:
             self.GD["Freq"]["NBand"] = 1
@@ -265,12 +283,12 @@ class ClassVisServer():
 
         # grid_band: array of ints, same size as self.GlobalFreqs, giving the
         # grid band number of each frequency channel
-        grid_band = np.floor((self.GlobalFreqs - min_freq)/grid_bw).astype(int)
+        grid_band = np.floor((self.GlobalFreqs - min_freq_Cube)/grid_bw).astype(int)
         # freq_to_grid_band: mapping from frequency to grid band number
         freq_to_grid_band = dict(zip(self.GlobalFreqs, grid_band))
         # print>>log,sorted(freq_to_grid_band.items())
 
-        self.FreqBandCenters = min_freq+grid_bw/2 + np.arange(0, self.NFreqBands)*grid_bw
+        self.FreqBandCenters = np.linspace(min_freq_Cube+grid_bw/2, max_freq_Cube-grid_bw/2,self.NFreqBands)
 
         self.FreqBandChannels = []
         # freq_to_grid_band_chan: mapping from frequency to channel number
@@ -344,17 +362,28 @@ class ClassVisServer():
 
             print("%s   Bandwidth is %g MHz (%g to %g MHz), gridding bands are %s" % (
                 MS, bw*1e-6, min_freq*1e-6, max_freq*1e-6, ", ".join(map(str, set(bands)))), file=log)
-            print("Grid band mapping: %s" % (" ".join(map(str, bands))), file=log)
-            print("Grid chan mapping: %s" % (
-                " ".join(map(str, self.DicoMSChanMappingChan[iMS]))), file=log)
-            print("Degrid chan mapping: %s" % (
-                " ".join(map(str, self.DicoMSChanMappingDegridding[iMS]))), file=log)
-            print("Degrid frequencies: %s" % (" ".join(
-                                                         ["%.2f" %
-                                                          (x * 1e-6)
-                                                          for x in self.FreqBandChannelsDegrid
-                                                          [iMS]])), file=log)
 
+            
+            
+            # print("Grid band mapping: %s" % (" ".join(map(str, bands))), file=log)
+            # print("Grid chan mapping: %s" % (
+            #     " ".join(map(str, self.DicoMSChanMappingChan[iMS]))), file=log)
+            # print("Degrid chan mapping: %s" % (
+            #     " ".join(map(str, self.DicoMSChanMappingDegridding[iMS]))), file=log)
+            # print("Degrid frequencies: %s" % (" ".join(
+            #                                              ["%.2f" %
+            #                                               (x * 1e-6)
+            #                                               for x in self.FreqBandChannelsDegrid
+            #                                               [iMS]])), file=log)
+
+            print("Grid band mapping: %s" % DDFacet.Other.PrintList.ListToStr(bands), file=log)
+            print("Grid chan mapping: %s" % DDFacet.Other.PrintList.ListToStr(self.DicoMSChanMappingChan[iMS]), file=log)
+            print("Degrid chan mapping: %s" % DDFacet.Other.PrintList.ListToStr(self.DicoMSChanMappingDegridding[iMS]), file=log)
+            s=" ".join(["%.2f" % (x * 1e-6) for x in self.FreqBandChannelsDegrid[iMS]])
+            print("Degrid frequencies: %s" % DDFacet.Other.PrintList.ListToStr(s.split(" ")), file=log)
+
+
+            
 #            print>>log,MS
 
             # print>>log,"FreqBandChannelsDegrid %s"%repr(self.FreqBandChannelsDegrid[iMS])
@@ -394,7 +423,7 @@ class ClassVisServer():
         iMS, iChunk = DATA["iMS"], DATA["iChunk"]
         self._put_vis_column_label = "%d.%d" % (iMS+1, iChunk+1)
         self._put_vis_column_job_id = "PutData:%d:%d" % (iMS, iChunk)
-        APP.runJob(self._put_vis_column_job_id, self. visPutColumnHandler, args=(DATA.readonly(), field, column, likecol), io=0)
+        APP.runJob(self._put_vis_column_job_id, self. visPutColumnHandler, args=(DATA.readonly(), field, column, likecol), io=0)#,serial=True)
 
     def visPutColumnHandler (self, DATA, field, column, likecol):
         iMS, iChunk = DATA["iMS"], DATA["iChunk"]
@@ -522,8 +551,8 @@ class ClassVisServer():
         DATA["ChanMappingDegrid"] = self.DicoMSChanMappingDegridding[iMS]
         DATA["FreqMappingDegrid"] = self.FreqBandChannelsDegrid[iMS]
 
-        print("  channel Mapping Gridding  : %s" % str(DATA["ChanMapping"]), file=log)
-        print("  channel Mapping DeGridding: %s" % str(DATA["ChanMappingDegrid"]), file=log)
+        print("  channel Mapping Gridding  : %s" % DDFacet.Other.PrintList.ListToStr(DATA["ChanMapping"]), file=log)
+        print("  channel Mapping DeGridding: %s" % DDFacet.Other.PrintList.ListToStr(DATA["ChanMappingDegrid"]), file=log)
 
         if freqs.size > 1:
             DATA["freqs"] = np.float64(freqs)
@@ -540,18 +569,32 @@ class ClassVisServer():
         weights = self.GetVisWeights(iMS, iChunk)
         DATA["Weights"] = weights
         
-        if self.GD["Weight"]["OutColName"]:
+        if self.GD["Weight"]["OutColName"] and self.GD["Output"]["Mode"]!="Predict":
+            # When the MS doesn't have an IMAGING_WEIGHT column
+            ColDesc={'valueType': 'float',
+                     'dataManagerType': 'StandardStMan',
+                     'dataManagerGroup': 'SSMVar',
+                     'option': 4,
+                     'maxlen': 0,
+                     'comment': '',
+                     'ndim': 1,
+                     'shape': np.array([DATA["freqs"].size]),
+                     '_c_order': True,
+                     'keywords': {}}
+            
             ms.PutVisColumn(self.GD["Weight"]["OutColName"],
                             DATA["Weights"],
                             DATA["ROW0"],
                             DATA["ROW1"],
                             likecol="IMAGING_WEIGHT",
+                            ColDesc=ColDesc,
                             sort_index=DATA["sort_index"])
 
         
         if weights is None:
             print(ModColor.Str("This chunk is all flagged or has zero weight."), file=log)
             return
+        
         if DATA["sort_index"] is not None and DATA["Weights"] is not 1:
             DATA["Weights"] = DATA["Weights"][DATA["sort_index"]]
 
@@ -699,7 +742,7 @@ class ClassVisServer():
         if self.GD["Misc"]["ConserveMemory"]:
             APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event)
         else:
-            APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event)
+            APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event)#,serial=True)
         # APP.awaitEvents(self._calcweights_event)
 
     def _sigtaper(self, msw, chanfreq, inner_cut, outer_cut, outer_taper_strength, inner_taper_strength): 
@@ -790,7 +833,7 @@ class ClassVisServer():
                 msw = msweights[ichunk]
                 APP.runJob("LoadWeights:%d:%d"%(ims,ichunk), self._loadWeights_handler,
                            args=(msw.writeonly(), ims, ichunk, self._ignore_vis_weights),
-                           counter=self._weightjob_counter, collect_result=False)
+                           counter=self._weightjob_counter, collect_result=False)#,serial=True)
         # wait for results
         APP.awaitJobCounter(self._weightjob_counter, progress="Load weights")
         self._weight_dict.reload()
@@ -905,7 +948,7 @@ class ClassVisServer():
             tab = ms.GiveMainTable()
     #        print>>log,"  %d.%d reading %s UVW" % (ims+1, ichunk+1, ms.MSName)
             uvw = tab.getcol("UVW", row0, nrows)
-            flags = np.empty((nrows, len(ms.ChanFreq), len(ms.CorrelationIds)), np.bool)
+            flags = np.empty((nrows, len(ms.ChanFreq), len(ms.CorrelationIds)), bool)
             # print>>log,(ms.cs_tlc,ms.cs_brc,ms.cs_inc,flags.shape)
     #        print>>log,"  reading FLAG"
             tab.getcolslicenp("FLAG", flags, ms.cs_tlc, ms.cs_brc, ms.cs_inc, row0, nrows)
@@ -936,33 +979,63 @@ class ClassVisServer():
                 return
             msw["uv"] = uv
             msw["flags"] = rowflags
+            
             # now read the weights
             weight = msw.addSharedArray("weight", (nrows, ms.Nchan), np.float32)
-            weight_col = self.GD["Weight"]["ColName"]
-            if weight_col == "WEIGHT_SPECTRUM":
-                w = tab.getcol(weight_col, row0, nrows)[:, chanslice]
-    #            print>> log, "  reading column %s for the weights, shape is %s" % (weight_col, w.shape)
-                if ms._reverse_channel_order:
-                    w = w[:, ::-1, :]
-                # take mean weight across correlations and apply this to all
-                weight[...] = w.mean(axis=2)
-            elif weight_col == "None" or weight_col == None:
-    #            print>> log, "  Selected weights columns is None, filling weights with ones"
-                weight.fill(1)
-            elif weight_col == "WEIGHT":
-                w = tab.getcol(weight_col, row0, nrows)
-    #            print>> log, "  reading column %s for the weights, shape is %s, will expand frequency axis" % (weight_col, w.shape)
-                # take mean weight across correlations, and expand to have frequency axis
-                weight[...] = w.mean(axis=1)[:, np.newaxis]
-            else:
-                # in all other cases (i.e. IMAGING_WEIGHT) assume a column
-                # of shape NRow,NFreq to begin with, check for this:
-                w = tab.getcol(weight_col, row0, nrows)[:, chanslice]
-    #            print>> log, "  reading column %s for the weights, shape is %s" % (weight_col, w.shape)
-                if w.shape != valid.shape:
-                    raise TypeError("weights column expected to have shape of %s" %
-                        (valid.shape,))
-                weight[...] = w
+            List_weight_col = self.GD["Weight"]["ColName"]
+            if not isinstance(List_weight_col,list):
+                List_weight_col=[List_weight_col]
+            weight.fill(1.)
+
+            for weight_col in List_weight_col:
+                print("reading weighting column %s"%weight_col, file=log)
+                if weight_col == "WEIGHT_SPECTRUM":
+                    w = tab.getcol(weight_col, row0, nrows)[:, chanslice]
+        #            print>> log, "  reading column %s for the weights, shape is %s" % (weight_col, w.shape)
+                    if ms._reverse_channel_order:
+                        w = w[:, ::-1, :]
+                    # take mean weight across correlations and apply this to all
+                    weight[...] *= w.mean(axis=2)
+                elif weight_col == "None" or weight_col == None:
+                    #            print>> log, "  Selected weights columns is None, filling weights with ones"
+                    pass#weight.fill(1)
+                elif weight_col == "Lucky_kMS" and self.GD["DDESolutions"]["DDSols"]:
+                    ID=row0
+                    SolsName=self.GD["DDESolutions"]["DDSols"]
+                    SolsDir=self.GD["DDESolutions"]["SolsDir"]
+                    if SolsDir is None:
+                        FileName="%skillMS.%s.Weights.%i.npy"%(reformat.reformat(ms.MSName),SolsName,ID)
+                    else:
+                        _MSName=reformat.reformat(ms.MSName).split("/")[-2]
+                        DirName=os.path.abspath("%s%s"%(reformat.reformat(SolsDir),_MSName))
+                        if not os.path.isdir(DirName):
+                            os.makedirs(DirName)
+                        FileName="%s/killMS.%s.Weights.%i.npy"%(DirName,SolsName,ID)
+                    log.print( "  loading weights from file: %s"%FileName)
+                    w=np.load(FileName)
+                    weight[...] *= w
+                elif ".npy" in weight_col:
+                    ID=row0
+                    FileName=weight_col
+                    log.print( "  loading weights from file: %s"%FileName)
+                    w=np.load(FileName)
+                    weight[...] *= w[row0:row0+nrows,...]
+                elif weight_col == "WEIGHT":
+                    w = tab.getcol(weight_col, row0, nrows)
+        #            print>> log, "  reading column %s for the weights, shape is %s, will expand frequency axis" % (weight_col, w.shape)
+                    # take mean weight across correlations, and expand to have frequency axis
+                    weight[...] *= w.mean(axis=1)[:, np.newaxis]
+                else:
+                    # in all other cases (i.e. IMAGING_WEIGHT) assume a column
+                    # of shape NRow,NFreq to begin with, check for this:
+                    w = tab.getcol(weight_col, row0, nrows)[:, chanslice]
+        #            print>> log, "  reading column %s for the weights, shape is %s" % (weight_col, w.shape)
+                    if w.shape != valid.shape:
+                        raise TypeError("weights column expected to have shape of %s" %
+                            (valid.shape,))
+                    weight[...] *= w
+                # end for wieghcol loop
+            
             # flagged points get zero weight
             weight *= valid
             nullweight = (weight==0).all()

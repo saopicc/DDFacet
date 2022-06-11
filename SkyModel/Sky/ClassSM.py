@@ -23,16 +23,33 @@ from DDFacet.ToolsDir import ModCoord
 class ClassSM():
     def __init__(self,infile,infile_cluster="",killdirs=[],invert=False,DoPrintCat=False,\
                      ReName=False,DoREG=False,SaveNp=False,NCluster=0,DoPlot=True,Tigger=False,\
-                     FromExt=None,ClusterMethod=1,SelSource=False):
+                     FromExt=None,ClusterMethod=1,SelSource=False,DoPrint=True):
         self.ClusterMethod=ClusterMethod
         self.infile_cluster=infile_cluster
         self.TargetList=infile
         self.Type="Catalog"
-        self.DoPrint=True
-        if (type(infile).__name__=="instance") or (type(infile).__name__=="ClassImageSM"):
-            Cat=infile.SourceCat
+        self.DoPrint=DoPrint
+        if (type(infile).__name__=="instance") or (type(infile).__name__=="ClassImageSM") or (type(infile).__name__=="ClassSM"):
+            Cat=infile.SourceCat.copy()
             Cat=Cat.view(np.recarray)
             self.DoPrint=0
+# =======
+#         if "instance" in str(type(infile)):
+#             ClusterCat=infile.ClusterCat.copy()
+#             NN=ClusterCat.shape[0]
+#             Cat=np.zeros((NN,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('Sref',np.float),('I',np.float),('Q',np.float),\
+#                                                        ('U',np.float),('V',np.float),('RefFreq',np.float),('alpha',np.float),('ESref',np.float),\
+#                                                        ('Ealpha',np.float),('kill',np.int),('Cluster',np.int),('Type',np.int),('Gmin',np.float),\
+#                                                        ('Gmaj',np.float),('Gangle',np.float),("Select",np.int),('l',np.float),('m',np.float),
+#                                                        ("Exclude",bool)])
+#             Cat=Cat.view(np.recarray)
+#             Cat.RefFreq=1.
+#             Cat.ra[:]=ClusterCat.ra
+#             Cat.dec[:]=ClusterCat.dec
+#             Cat.I[:]=ClusterCat.SumI[:]
+#             Cat.Cluster=np.arange(NN)
+#             Cat.Sref[:]=ClusterCat.SumI[:]
+# >>>>>>> TestASKAP
         elif ".npy" in infile:
             Cat=np.load(infile)
             Cat=Cat.view(np.recarray)
@@ -90,11 +107,17 @@ class ClassSM():
                     Name=self.SourceCat.Name[i]
                     if "byte" in type(Name).__name__: Name=Name.decode("utf-8")
                     if StrPiece in Name: self.SourceCat.kill[i]=1
+                    
         if invert:
             ind0=np.where(self.SourceCat.kill==0)[0]
             ind1=np.where(self.SourceCat.kill==1)[0]
             self.SourceCat.kill[ind0]=1
             self.SourceCat.kill[ind1]=0
+
+        # print(self.SourceCat.Name)
+        # print(self.SourceCat.kill)
+            
+        #log.print(ModColor.Str())
 
     def Save(self):
         infile=self.infile
@@ -124,6 +147,9 @@ class ClassSM():
         #print "   - Cluster File Name: %s"%self.infile_cluster
         print("   - Number of Sources  = ",self.SourceCat.shape[0])
         print("   - Number of Directions  = ",self.NDir)
+        Np=np.count_nonzero(self.SourceCat.Type==0)
+        Ng=np.count_nonzero(self.SourceCat.Type==1)
+        print("   - Number of [ POINT | GAUSSIANS ] : [ %i | %i ]"%(Np,Ng))
         print()
 
     def Cluster(self,NCluster=1,DoPlot=True,PreCluster="",FromClusterCat=""):
@@ -443,8 +469,8 @@ class ClassSM():
     def Calc_LM(self,rac,decc):
         Cat=self.SourceCat
         if not("l" in list(Cat.dtype.fields.keys())):
-            Cat=RecArrayOps.AppendField(Cat,('l',float))
-            Cat=RecArrayOps.AppendField(Cat,('m',float))
+            Cat=RecArrayOps.AppendField(Cat,'l',float)
+            Cat=RecArrayOps.AppendField(Cat,'m',float)
 
         Cat.l,Cat.m=self.radec2lm_scalar(self.SourceCat.ra,self.SourceCat.dec,rac,decc)
         self.SourceCat=Cat
@@ -452,8 +478,8 @@ class ClassSM():
 
         Cat=self.ClusterCat
         if not("l" in list(Cat.dtype.fields.keys())):
-            Cat=RecArrayOps.AppendField(Cat,('l',float))
-            Cat=RecArrayOps.AppendField(Cat,('m',float))
+            Cat=RecArrayOps.AppendField(Cat,'l',float)
+            Cat=RecArrayOps.AppendField(Cat,'m',float)
         Cat.l,Cat.m=self.radec2lm_scalar(self.ClusterCat.ra,self.ClusterCat.dec,rac,decc)
         self.ClusterCat=Cat
     # def Calc_LM(self,rac,decc):

@@ -19,9 +19,12 @@ echo "----------------------------------------------"
 #build using docker file in directory:
 cd $PROJECTS_DIR/DDFacet
 IMAGENAME="ddf"
-docker build -t "$IMAGENAME:$BUILD_NUMBER" --no-cache=true .
+#check that it still builds on 18.04
+docker build -t "$IMAGENAME:$BUILD_NUMBER" --no-cache=true -f docker.1804 .
+#test on 20.04
+docker build -t "$IMAGENAME:$BUILD_NUMBER" --no-cache=true -f docker.2004 .
 docker run -m 100g --cap-add sys_ptrace \
-				   --memory-swap=-1 \
+		   --memory-swap=-1 \
                    --shm-size=150g \
                    --rm=true \
                    --name=$IMAGENAME$BUILD_NUMBER \
