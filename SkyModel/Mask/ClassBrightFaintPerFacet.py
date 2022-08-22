@@ -188,7 +188,7 @@ class ClassBrightFaintPerFacet():
                 PutAllIslands=True
                 for iIsland,Island in enumerate(ListIslands):
                     x,y=np.array(Island).T
-                    MaskBright[x,y]=1
+                    MaskBright[x,y]=0
                 continue
 
 
