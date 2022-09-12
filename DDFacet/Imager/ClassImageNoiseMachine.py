@@ -135,7 +135,7 @@ class ClassImageNoiseMachine():
         F=1.-(1.-f)**n
         ratio=np.abs(np.interp(0.5,F,x))
 
-        Noise=-scipy.ndimage.filters.minimum_filter(Acopy,SBox)/ratio
+        Noise=-scipy.ndimage.minimum_filter(Acopy,SBox)/ratio
 
         NPixStats=10000
         IndStats=np.int64(np.linspace(0,Noise.size-1,NPixStats))

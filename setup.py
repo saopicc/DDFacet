@@ -148,7 +148,8 @@ def requirements():
                     "codex-africanus[dask] >= 0.2.10; python_version >= '3'", 
                     "regions",
                     "pywavelets",
-                    "tqdm"
+                    "tqdm",
+                    "nenupy"
                     ] 
     install_requirements = requirements
 
@@ -175,7 +176,7 @@ setup(name=pkg,
                 'build': custom_build,
                 'build_ext': custom_build_ext
                },
-      python_requires='>=3.0,<3.7',
+      python_requires='>=3.0,<4.0',
       packages=[pkg, skymodel_pkg],
       install_requires=requirements(),
       include_package_data=True,
