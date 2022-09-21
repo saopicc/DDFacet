@@ -1193,6 +1193,7 @@ class ClassDDEGridMachine():
                 self.LSmear, np.int32(ChanMapping),
                 np.array(self.DataCorrelationFormat).astype(np.uint16),
                 np.array(self.ExpectedOutputStokes).astype(np.uint16))
+            vis[flag]=0
         elif self.GD["RIME"]["ForwardMode"]=="BDA-degrid-classic":
             OptimisationInfos = [
                 self.JonesType,
