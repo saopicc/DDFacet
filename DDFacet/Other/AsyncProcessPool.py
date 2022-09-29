@@ -273,7 +273,7 @@ class AsyncProcessPool (object):
             print("Parent and I/O affinities not specified, leaving unset", file=log)
         else:
             print(ModColor.Str("Fixing parent process to vthread %d" % self.parent_affinity, col="green"), file=log)
-            psutil.Process().cpu_affinity(range(self.ncpu) if not self.parent_affinity else [self.parent_affinity])
+        psutil.Process().cpu_affinity(range(self.ncpu) if not self.parent_affinity else [self.parent_affinity])
 
         # if NCPU is 0, set to number of CPUs on system
         if not self.ncpu:

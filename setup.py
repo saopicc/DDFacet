@@ -33,7 +33,7 @@ import sys
 
 pkg='DDFacet'
 skymodel_pkg='SkyModel'
-__version__ = "0.7.1.0"
+__version__ = "0.7.0.0"
 # Bump when building for a new release version of Python
 MAJ_REQ = 3
 MIN_REQ = 8
