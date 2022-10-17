@@ -680,6 +680,7 @@ class ClassImagerDeconv():
 
                 # get loaded chunk from I/O thread, schedule next chunk
                 # self.VS.startChunkLoadInBackground()
+                self.VS.collectPutColumnResults()
                 DATA = self.VS.collectLoadedChunk(start_next=True)
 
                 if type(DATA) is str:
