@@ -140,7 +140,7 @@ def requirements():
                     "sharedarray >= 3.2.0, <= 3.2.1; python_version >= '3'", 
                     "Polygon3 >= 3.0.8, <= 3.0.9.1; python_version >= '3'", 
                     "pyFFTW >= 0.10.4, <= 0.12.0; python_version >= '3'", 
-                    "astropy >= 3.0, <= 4.1; python_version >= '3'", 
+                    "astropy >= 3.0, <= 5.1; python_version >= '3'", 
                     "deap >= 1.0.1, <= 1.3.1; python_version >= '3'", 
                     "ptyprocess>=0.5, <= 0.7.0; python_version >= '3'", 
                     "ipdb >= 0.10.3, <=0.13.9; python_version >= '3'", 
