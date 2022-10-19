@@ -446,6 +446,7 @@ class ClassVisServer():
         if self._put_vis_column_job_id:
             APP.awaitJobResults(self._put_vis_column_job_id, progress="Writing %s" % self._put_vis_column_label)
             self._put_vis_column_job_id = None
+            
 
     def startChunkLoadInBackground(self, last_cycle=False):
         """
@@ -489,6 +490,7 @@ class ClassVisServer():
     def collectLoadedChunk(self, start_next=True, last_cycle=False):
         # previous data dict can now be discarded from shm
         if self.nTotalChunks > 1 and self.DATA is not None:
+            print("Delete shared dict %s"%self.DATA.path, file=log)
             self.DATA.delete()
             self.DATA = None
         # if no next chunk scheduled, we're at end
