@@ -44,6 +44,39 @@ def AngDist(ra0,ra1,dec0,dec1):
     return AC(D)
 
 
+class ClassSMConcat():
+    def __init__(self,LSM):
+        self.Type="Hybrid"
+        self.LSM=LSM
+
+
+    def ComputeMapping(self):
+        self.NDir=np.sum([SM.NDir for SM in self.LSM])
+        self.ClusterCat=np.concatenate([SM.ClusterCat for SM in self.LSM])
+        self.ClusterCat=self.ClusterCat.view(np.recarray)
+        self.iDir_to_SMiDir={}
+        iDir=0
+        for SM in self.LSM:
+            for iDirThisSM in range(SM.NDir):
+                self.iDir_to_SMiDir[iDir]=(SM,iDirThisSM)
+                iDir+=1
+        self.MapClusterCatOrigToCut=np.concatenate([SM.MapClusterCatOrigToCut for SM in self.LSM])
+        self.NDirsOrig=np.sum([SM.NDirsOrig for SM in self.LSM])
+        self.ClusterCatOrig=np.concatenate([SM.ClusterCatOrig for SM in self.LSM])
+        self.ClusterCatOrig=self.ClusterCatOrig.view(np.recarray)
+
+
+                
+    def Calc_LM(self,rac,decc):
+        for SM in self.LSM:
+            if SM.Type=="Catalog":
+                SM.Calc_LM(rac,decc)
+
+    def give_SM_iDir(self,iDir):
+        return self.iDir_to_SMiDir[iDir]
+
+
+
 class ClassSM():
     def __init__(self,infile,infile_cluster="",killdirs=[],invert=False,DoPrintCat=False,\
                  ReName=False,
