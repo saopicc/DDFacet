@@ -64,8 +64,7 @@ class ClassSMConcat():
         self.NDirsOrig=np.sum([SM.NDirsOrig for SM in self.LSM])
         self.ClusterCatOrig=np.concatenate([SM.ClusterCatOrig for SM in self.LSM])
         self.ClusterCatOrig=self.ClusterCatOrig.view(np.recarray)
-        log.print("Parameter space has %i directions"%self.NDir)
-        
+        log.print("Parameter space has %i directions (of %i before flux cut)"%(self.NDir,self.NDirsOrig))
 
                 
     def Calc_LM(self,rac,decc):
@@ -718,7 +717,9 @@ class ClassSM():
             ClusterCat.dec[icat]=decmean
             ClusterCat.SumI[icat]=np.sum(cat.I)
             ClusterCat.Cluster[icat]=d
+            ClusterCat.Name[icat]=cat["Name"][0].decode("ascii").split(".")[-1]
             icat+=1
+
         #print ClusterCat.ra
         self.ClusterCat=ClusterCat
         self.ClusterCatOrig=self.ClusterCat.copy()

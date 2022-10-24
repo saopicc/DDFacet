@@ -47,7 +47,7 @@ class ClassAppendSource():
                 A.Type=2
                 A.Gmaj=30./60*np.pi/180
                 A.Gmin=A.Gmaj
-                A.Name="c%is%i."%(C,0)
+                A.Name="c%is%i.ATeam_%s"%(C,0,Body["Name"])
 
 
 
@@ -79,7 +79,7 @@ class ClassAppendSource():
                 A.Cluster[:]=C
                 Ns=A.shape[0]
                 for iSource in range(Ns):
-                    A.Name[iSource]="c%is%i."%(C,iSource)
+                    A.Name[iSource]="c%is%i.ATeam_%s"%(C,iSource,Body["Name"])
 
             self.SM.SourceCat=np.hstack([self.SM.SourceCat,A])
             self.SM.SourceCat=self.SM.SourceCat.view(np.recarray)
