@@ -64,7 +64,8 @@ class ClassSMConcat():
         self.NDirsOrig=np.sum([SM.NDirsOrig for SM in self.LSM])
         self.ClusterCatOrig=np.concatenate([SM.ClusterCatOrig for SM in self.LSM])
         self.ClusterCatOrig=self.ClusterCatOrig.view(np.recarray)
-
+        log.print("Parameter space has %i directions"%self.NDir)
+        
 
                 
     def Calc_LM(self,rac,decc):
