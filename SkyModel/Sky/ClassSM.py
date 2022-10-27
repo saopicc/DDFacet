@@ -102,7 +102,7 @@ class ClassSM():
         self.DDF_GD=None
         self.InputCatIsEmpty=False
         self.ClusterCat=None
-        
+        self.ModelIsClustered=False
         if (type(infile).__name__=="instance") or (type(infile).__name__=="ClassImageSM") or (type(infile).__name__=="ClassSM"):
             Cat=infile.SourceCat.copy()
             Cat=Cat.view(np.recarray)
@@ -128,7 +128,7 @@ class ClassSM():
         elif ".fits"==infile[-5:]:
             Cat,self.D_FITS=ModSMFromFITS.ReadSMFromFITS(infile)
         else:
-            Cat=ReadBBSModel(infile,infile_cluster=infile_cluster)
+            Cat,self.ModelIsClustered=ReadBBSModel(infile,infile_cluster=infile_cluster)
             
             Cat.Gmaj[Cat.Type==2]*=2.*np.sqrt(2.*np.log(2))
             Cat.Gmin[Cat.Type==2]*=2.*np.sqrt(2.*np.log(2))
@@ -187,11 +187,14 @@ class ClassSM():
 
         if self.ClusterCat is None:
             self.Dirs=sorted(list(set(self.SourceCat.Cluster.tolist())))
-            self.NDir=np.max(self.SourceCat.Cluster)+1
+            self.NDir=0
+            if self.SourceCat.size>0:
+                self.NDir=np.max(self.SourceCat.Cluster)+1
             self.NSources=Cat.shape[0]
             self.BuildClusterCat()
             self.Dirs=sorted(list(set(self.SourceCat.Cluster.tolist())))
-            self.NDir=np.max(self.SourceCat.Cluster)+1
+            if self.SourceCat.size>0:
+                self.NDir=np.max(self.SourceCat.Cluster)+1
             self.NSources=Cat.shape[0]
 
 

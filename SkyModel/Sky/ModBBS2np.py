@@ -200,8 +200,8 @@ def ReadBBSModelNew(infile,infile_cluster="",nSources=1000,PatchName=None):
     Cat=Cat[Cat.ra!=0.]
     # print Cat.Name
     # print Cat.kill
-
     if infile_cluster!="":
+        ModelIsClustered=True
         ifile  = open(infile_cluster, "rb")
         reader = csv.reader(ifile)
         while True:
@@ -216,6 +216,7 @@ def ReadBBSModelNew(infile,infile_cluster="",nSources=1000,PatchName=None):
                 ind=np.where(Cat.Name==F[i])[0]
                 Cat.Cluster[ind[0]]=cluster
     else:
+        ModelIsClustered=False
         Cat.Cluster=list(range(Cat.shape[0]))
 
     # if (killhere==0)|(len(killdirs)>0):
@@ -240,7 +241,7 @@ def ReadBBSModelNew(infile,infile_cluster="",nSources=1000,PatchName=None):
     #     else: Cat.kill[:]=1
 
     Cat.Sref=Cat.I
-    return Cat
+    return Cat,ModelIsClustered
 
 
 
@@ -313,8 +314,9 @@ def ReadBBSModelOld(infile,infile_cluster="",nSources=10000,PatchName=None):
             if L[0].startswith("#"): break
             if len(L[0].replace(" ",""))==0: break
             if iPatch is not None and len(L)>iPatch:
-                if PatchName.strip() not in L[iPatch].strip():
-                    break
+                if PatchName is not None:
+                    if PatchName.strip() not in L[iPatch].strip():
+                        break
             ok=1
             donekey[i]=True
             L[i]=L[i].replace(" ","")
@@ -446,6 +448,7 @@ def ReadBBSModelOld(infile,infile_cluster="",nSources=10000,PatchName=None):
     # print Cat.kill
 
     if infile_cluster!="":
+        IsClustered=True
         ifile  = open(infile_cluster, "rb")
         reader = csv.reader(ifile)
         while True:
@@ -460,13 +463,14 @@ def ReadBBSModelOld(infile,infile_cluster="",nSources=10000,PatchName=None):
                 ind=np.where(Cat.Name==F[i])[0]
                 Cat.Cluster[ind[0]]=cluster
     elif "patch" in F:
+        IsClustered=True
         LPatch=np.unique(Cat.Patch)
         for iCluster,PatchName in enumerate(LPatch):
             ind=np.where(Cat.Patch==PatchName)[0]
             log.print("  [%s#%i] %i sources"%(PatchName.decode("ascii"),iCluster,ind.size))
             Cat.Cluster[ind]=iCluster
-            
     else:
+        IsClustered=False
         Cat.Cluster=list(range(Cat.shape[0]))
 
     # if (killhere==0)|(len(killdirs)>0):
@@ -492,4 +496,5 @@ def ReadBBSModelOld(infile,infile_cluster="",nSources=10000,PatchName=None):
 
     Cat.Sref=Cat.I
 
-    return Cat
+    return Cat,IsClustered
+

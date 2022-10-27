@@ -219,6 +219,7 @@ def main(options=None):
                        DoREG=True,SaveNp=True,
                        SelSource=DoSelect,ClusterMethod=CMethod)
 
+
     if False:#True:
         print("Removing fake gaussians", file=log)
         Cat=SM.SourceCat
@@ -249,7 +250,8 @@ def main(options=None):
     if options.NoGaussian:
         SM.SourceCat["Type"]=0
 
-    if np.allclose(np.unique(SM.SourceCat.Cluster),np.zeros((1,))):
+    
+    if not SM.ModelIsClustered:
         PreCluster=options.ds9PreClusterFile
         SM.Cluster(NCluster=NCluster,DoPlot=DoPlot,PreCluster=PreCluster,
                    FromClusterCat=options.FromClusterCat)
