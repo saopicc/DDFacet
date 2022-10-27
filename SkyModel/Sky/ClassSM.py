@@ -30,6 +30,13 @@ from . import ModRegFile
 import time
 from DDFacet.ToolsDir import ModCoord
 
+dtypeSourceList=[('Name','|S200'),('Patch','|S200'),('ra',np.float),('dec',np.float),('Sref',np.float),('I',np.float),('Q',np.float),\
+                 ('U',np.float),('V',np.float),('RefFreq',np.float),('alpha',np.float),('ESref',np.float),\
+                 ('Ealpha',np.float),('kill',np.int),('Cluster',np.int),('Type',np.int),('Gmin',np.float),\
+                 ('Gmaj',np.float),('Gangle',np.float),("Select",np.int),('l',np.float),('m',np.float),("Exclude",bool)]
+
+dtypeClusterCat=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),("Cluster",int),('l',np.float),('m',np.float)]
+
 def AngDist(ra0,ra1,dec0,dec1):
     AC=np.arccos
     C=np.cos
@@ -52,8 +59,10 @@ class ClassSMConcat():
 
     def ComputeMapping(self):
         self.NDir=np.sum([SM.NDir for SM in self.LSM])
+        self.NDirMain=self.NDir
         self.ClusterCat=np.concatenate([SM.ClusterCat for SM in self.LSM])
         self.ClusterCat=self.ClusterCat.view(np.recarray)
+
         self.iDir_to_SMiDir={}
         iDir=0
         for SM in self.LSM:
@@ -65,7 +74,7 @@ class ClassSMConcat():
         self.ClusterCatOrig=np.concatenate([SM.ClusterCatOrig for SM in self.LSM])
         self.ClusterCatOrig=self.ClusterCatOrig.view(np.recarray)
         log.print("Parameter space has %i directions (of %i before flux cut)"%(self.NDir,self.NDirsOrig))
-
+        
                 
     def Calc_LM(self,rac,decc):
         for SM in self.LSM:
@@ -102,10 +111,7 @@ class ClassSM():
             Cat=np.load(infile)
             Cat=Cat.view(np.recarray)
         elif infile=="Empty":
-            Cat=np.zeros((0,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('Sref',np.float),('I',np.float),('Q',np.float),\
-                                     ('U',np.float),('V',np.float),('RefFreq',np.float),('alpha',np.float),('ESref',np.float),\
-                                     ('Ealpha',np.float),('kill',np.int),('Cluster',np.int),('Type',np.int),('Gmin',np.float),\
-                                     ('Gmaj',np.float),('Gangle',np.float),("Select",np.int),('l',np.float),('m',np.float),("Exclude",bool)])
+            Cat=np.zeros((0,),dtype=dtypeSourceList)
             Cat=Cat.view(np.recarray)
             self.InputCatIsEmpty=True
         elif infile[-7:]==".pickle":
@@ -187,6 +193,7 @@ class ClassSM():
             self.Dirs=sorted(list(set(self.SourceCat.Cluster.tolist())))
             self.NDir=np.max(self.SourceCat.Cluster)+1
             self.NSources=Cat.shape[0]
+
 
         self.SetSelection()
 
@@ -571,7 +578,7 @@ class ClassSM():
 
         
     def ComputeClusterCatWeightedPos(self):
-        ClusterCatMean=np.zeros((self.ClusterCat.ra.size,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),("Cluster",int)])
+        ClusterCatMean=np.zeros((self.ClusterCat.ra.size,),dtype=dtypeClusterCat)
         ClusterCatMean=ClusterCatMean.view(np.recarray)
         
         ClusterCat=self.ClusterCat
@@ -702,7 +709,7 @@ class ClassSM():
             self.ClusterCat=self.ClusterCatExt.copy()
             self.ClusterCatOrig=self.ClusterCatExt.copy()
             return
-        ClusterCat=np.zeros((len(self.Dirs),),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),("Cluster",int)])
+        ClusterCat=np.zeros((len(self.Dirs),),dtype=dtypeClusterCat)
         ClusterCat=ClusterCat.view(np.recarray)
         icat=0
         for d in self.Dirs:
@@ -717,7 +724,11 @@ class ClassSM():
             ClusterCat.dec[icat]=decmean
             ClusterCat.SumI[icat]=np.sum(cat.I)
             ClusterCat.Cluster[icat]=d
-            ClusterCat.Name[icat]=cat["Name"][0].decode("ascii").split(".")[-1]
+            if "Patch" in cat.dtype.fields.keys() and len(cat["Patch"][0].decode("ascii"))>0:
+                ClusterCat.Name[icat]=cat["Patch"][0].decode("ascii")
+            else:
+                ClusterCat.Name[icat]=cat["Name"][0].decode("ascii").split(".")[-1]
+
             icat+=1
 
         #print ClusterCat.ra

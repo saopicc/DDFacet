@@ -48,15 +48,17 @@ class ClassAppendSource():
                 A.Gmaj=30./60*np.pi/180
                 A.Gmin=A.Gmaj
                 A.Name="c%is%i.ATeam_%s"%(C,0,Body["Name"])
-
-
-
-                
-            elif Body["Name"]=="CygA" or Body["Name"]=="CasA" or Body["Name"]=="VirA" or Body["Name"]=="TauA":
-                path = os.path.dirname(os.path.abspath(__file__))
-                FName="%s/Models/LOFAR/%s.txt"%(path,Body["Name"])
-                A=ReadBBSModel(FName)
-                log.print("  [%s] Reading file %s"%(Body["Name"],FName))
+            else:
+                if Body["FileName"]=="Default":
+                    path = os.path.dirname(os.path.abspath(__file__))
+                    FName="%s/Models/LOFAR/%s.txt"%(path,Body["Name"])
+                    log.print("  [%s] Reading file %s"%(Body["Name"],FName))
+                    A=ReadBBSModel(FName)
+                else:
+                    FName=Body["FileName"]
+                    log.print("  [%s] Reading file %s"%(Body["Name"],FName))
+                    A=ReadBBSModel(FName,PatchName=Body["Name"])
+                    
                 ra,dec=np.mean(A.ra),np.mean(A.dec)
                 d=angDist(self.SM.rarad,ra,self.SM.decrad,dec)*180/np.pi
                 ras  = rad2hmsdms(ra,Type="ra").replace(" ",":")
@@ -83,5 +85,5 @@ class ClassAppendSource():
 
             self.SM.SourceCat=np.hstack([self.SM.SourceCat,A])
             self.SM.SourceCat=self.SM.SourceCat.view(np.recarray)
-                
+            
                 

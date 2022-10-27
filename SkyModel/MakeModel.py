@@ -195,7 +195,7 @@ def main(options=None):
         # CasaImage.close()
 
     if options.RemoveNegComp==1:
-        print("Removing negative component")
+        log.print("Removing negative component")
         Cat=np.load(SkyModel)
         print(Cat.shape)
         Cat=Cat.view(np.recarray)
@@ -248,10 +248,13 @@ def main(options=None):
 
     if options.NoGaussian:
         SM.SourceCat["Type"]=0
-        
-    PreCluster=options.ds9PreClusterFile
-    SM.Cluster(NCluster=NCluster,DoPlot=DoPlot,PreCluster=PreCluster,
-               FromClusterCat=options.FromClusterCat)
+
+    if np.allclose(np.unique(SM.SourceCat.Cluster),np.zeros((1,))):
+        PreCluster=options.ds9PreClusterFile
+        SM.Cluster(NCluster=NCluster,DoPlot=DoPlot,PreCluster=PreCluster,
+                   FromClusterCat=options.FromClusterCat)
+    else:
+        log.print("There is already some clustering in the SkyModel (probably specified in the txt skymodel)")
     SM.MakeREG()
     SM.DDF_GD=GD
     SM.Save()
