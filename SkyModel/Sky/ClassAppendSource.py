@@ -53,11 +53,11 @@ class ClassAppendSource():
                     path = os.path.dirname(os.path.abspath(__file__))
                     FName="%s/Models/LOFAR/%s.txt"%(path,Body["Name"])
                     log.print("  [%s] Reading file %s"%(Body["Name"],FName))
-                    A=ReadBBSModel(FName)
+                    A,IsClustered=ReadBBSModel(FName)
                 else:
                     FName=Body["FileName"]
                     log.print("  [%s] Reading file %s"%(Body["Name"],FName))
-                    A=ReadBBSModel(FName,PatchName=Body["Name"])
+                    A,IsClustered=ReadBBSModel(FName,PatchName=Body["Name"])
                     
                 ra,dec=np.mean(A.ra),np.mean(A.dec)
                 d=angDist(self.SM.rarad,ra,self.SM.decrad,dec)*180/np.pi
