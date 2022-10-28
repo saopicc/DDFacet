@@ -62,7 +62,6 @@ class ClassSMConcat():
         self.NDirMain=self.NDir
         self.ClusterCat=np.concatenate([SM.ClusterCat for SM in self.LSM])
         self.ClusterCat=self.ClusterCat.view(np.recarray)
-
         self.iDir_to_SMiDir={}
         iDir=0
         for SM in self.LSM:
@@ -74,8 +73,13 @@ class ClassSMConcat():
         self.ClusterCatOrig=np.concatenate([SM.ClusterCatOrig for SM in self.LSM])
         self.ClusterCatOrig=self.ClusterCatOrig.view(np.recarray)
         log.print("Parameter space has %i directions (of %i before flux cut)"%(self.NDir,self.NDirsOrig))
+
+    # def setDicoJonesDirToPreApplyDirs(self,radec):
+    #     for SM in self.LSM:
+    #         SM.setDicoJonesDirToPreApplyDirs(radec)
+
+
         
-                
     def Calc_LM(self,rac,decc):
         for SM in self.LSM:
             if SM.Type=="Catalog":
@@ -133,6 +137,7 @@ class ClassSM():
             Cat.Gmaj[Cat.Type==2]*=2.*np.sqrt(2.*np.log(2))
             Cat.Gmin[Cat.Type==2]*=2.*np.sqrt(2.*np.log(2))
 
+        self.DicoJonesDirToPreApplyDirs=None
         self.SourceCat=Cat
         self.killdirs=killdirs
         self.invert=invert
@@ -205,6 +210,18 @@ class ClassSM():
 
         #self.print_sm2()
 
+    # def setDicoJonesDirToPreApplyDirs(self,radecPreapply):
+    #     ra1,dec1=radecPreapply
+    #     ra1,dec1=ra1.reshape((1,-1)),dec1.reshape((1,-1))
+    #     ra0,dec0=self.ClusterCat.ra.reshape((-1,1)),self.ClusterCat.dec.reshape((-1,1))
+    #     d=AngDist(ra0,ra1,dec0,dec1)
+    #     iDirPreApply=np.argmin(d,axis=1)
+    #     self.DicoJonesDirToPreApplyDirs=iDirPreApply
+        
+    # def givePreApplyDirs(self,iClusterDir):
+        
+    #     return self.DicoJonesDirToPreApplyDirs[iClusterDir]
+        
     def SetSelection(self):
         Cat=self.SourceCat
         killdirs=self.killdirs

@@ -35,10 +35,10 @@ class ClassAppendSource():
                 A.I=1000.
                 A.Sref=A.I
                 if not self.SM.InputCatIsEmpty:
-                    A.RefFreq=self.SM.SourceCat.RefFreq[0]
+                    #A.RefFreq=self.SM.SourceCat.RefFreq[0]
                     C=np.max(self.SM.SourceCat.Cluster)+1
                 else:
-                    A.RefFreq=100e6
+                    #A.RefFreq=100e6
                     C=0
                     self.SM.InputCatIsEmpty=False
                 
@@ -67,10 +67,10 @@ class ClassAppendSource():
 
 
                 if not self.SM.InputCatIsEmpty:
-                    A.RefFreq=self.SM.SourceCat.RefFreq[0]
+                    #A.RefFreq=self.SM.SourceCat.RefFreq[0]
                     C=np.max(self.SM.SourceCat.Cluster)+1
                 else:
-                    A.RefFreq=100e6
+                    #A.RefFreq=100e6
                     C=0
                     self.SM.InputCatIsEmpty=False
 
@@ -85,5 +85,5 @@ class ClassAppendSource():
 
             self.SM.SourceCat=np.hstack([self.SM.SourceCat,A])
             self.SM.SourceCat=self.SM.SourceCat.view(np.recarray)
-            
+
                 
