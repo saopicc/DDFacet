@@ -43,6 +43,7 @@ class ClassAppendSource():
                     self.SM.InputCatIsEmpty=False
                 
                         
+                A.RefFreq=100e6
                 A.Cluster=C
                 A.Type=2
                 A.Gmaj=30./60*np.pi/180
