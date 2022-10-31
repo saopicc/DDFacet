@@ -137,6 +137,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         if isinstance(SolsFile, list):
             # SolsFile=self.GD["DDESolutions"]["DDSols"][0]
             ListNDir=[]
+
+            
             for SolsFile in self.GD["DDESolutions"]["DDSols"]:
                 S=np.load(GiveSolsFile(SolsFile))
                 ListNDir.append(S["ClusterCat"].size)
@@ -161,8 +163,10 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 SRef = GiveSolsFile(self.GD["DDESolutions"]["DDSols"][iNMax])
                 NMax=ListNDir.max()
                 NDirLeft=np.unique(ListNDir).tolist()
-                NDirLeft.remove(1)
-                NDirLeft.remove(NMax)
+                if 1 in NDirLeft:
+                    NDirLeft.remove(1)
+                if NMax in NDirLeft:
+                    NDirLeft.remove(NMax)
                 if len(NDirLeft)>0:
                     raise RuntimeError("Something is wrong, solution files should either contain 1 or N directions"%dCut)
                 
