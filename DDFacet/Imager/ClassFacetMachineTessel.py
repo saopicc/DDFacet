@@ -154,6 +154,11 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                         d=AngDist(ra0,dec0,ra1,dec1)
                         dCut=1
                         if d*180/np.pi*3600>dCut:
+                            import pylab
+                            pylab.scatter(SRef["ClusterCat"]["ra"][:],SRef["ClusterCat"]["dec"][:],color="red")
+                            pylab.scatter(S["ClusterCat"]["ra"][:],S["ClusterCat"]["dec"][:],color="blue",marker="+")
+                            pylab.draw()
+                            pylab.show()
                             raise RuntimeError("Angular distance between nodes greater than %f arcsec"%dCut)
                 log.print(ModColor.Str("Directions in various solution files are aligned...",col="green"))
                 SolsFile = self.GD["DDESolutions"]["DDSols"][0]
