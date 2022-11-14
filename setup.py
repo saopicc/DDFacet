@@ -33,7 +33,7 @@ import sys
 
 pkg='DDFacet'
 skymodel_pkg='SkyModel'
-__version__ = "0.7.1.0"
+__version__ = "0.7.2.0"
 # Bump when building for a new release version of Python
 MAJ_REQ = 3
 MIN_REQ = 8
@@ -140,7 +140,7 @@ def requirements():
                     "sharedarray >= 3.2.0, <= 3.2.1; python_version >= '3'", 
                     "Polygon3 >= 3.0.8, <= 3.0.9.1; python_version >= '3'", 
                     "pyFFTW >= 0.10.4, <= 0.12.0; python_version >= '3'", 
-                    "astropy >= 3.0, <= 4.1; python_version >= '3'", 
+                    "astropy >= 3.0, <= 5.1; python_version >= '3'", 
                     "deap >= 1.0.1, <= 1.3.1; python_version >= '3'", 
                     "ptyprocess>=0.5, <= 0.7.0; python_version >= '3'", 
                     "ipdb >= 0.10.3, <=0.13.9; python_version >= '3'", 
