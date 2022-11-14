@@ -71,11 +71,11 @@ RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-$GNUCOMPILER 100
     update-alternatives --install /usr/bin/x86_64-linux-gnu-gfortran x86_64-linux-gnu-gfortran /usr/bin/gfortran-$GNUCOMPILER 100
 
 ## All python dependencies go into venv
+ENV NUMPYVER 1.19.5
+
 WORKDIR /opt
 RUN virtualenv venv -p python${PYTHONVER}
 RUN . /opt/venv/bin/activate && python -m pip install -U pip setuptools wheel
-## Current workaround for numpy >=1.20 numerical issues. We will only support numpy < 1.20
-RUN . /opt/venv/bin/activate && python -m pip install -U numpy==1.19.5
 
 ########################################
 # build SOFA
@@ -143,7 +143,7 @@ RUN wget https://github.com/casacore/casacore/archive/v3.4.0.tar.gz && \
     tar xvf v3.4.0.tar.gz && \
     rm v3.4.0.tar.gz && \
     cd /opt/python-casacore-3.4.0 && \
-    . /opt/venv/bin/activate && python -m pip install . && \
+    . /opt/venv/bin/activate && python -m pip install . "numpy==${NUMPYVER}" && \
     cd / && \
     python -c "from pyrap.tables import table as tbl"
 
@@ -172,7 +172,7 @@ WORKDIR /opt
 # Get MeqTrees universe python packages
 WORKDIR /opt
 
-RUN . /opt/venv/bin/activate && python -m pip install purr owlcat kittens meqtrees-cattery astro-tigger-lsm && \
+RUN . /opt/venv/bin/activate && python -m pip install purr owlcat kittens meqtrees-cattery astro-tigger-lsm "numpy==${NUMPYVER}" && \
     wget https://github.com/ska-sa/meqtrees-timba/archive/refs/tags/v1.8.3.tar.gz && \
     tar zxvf v1.8.3.tar.gz && \
     rm v1.8.3.tar.gz && \
@@ -192,7 +192,7 @@ RUN . /opt/venv/bin/activate && python -m pip install purr owlcat kittens meqtre
     wget https://github.com/ska-sa/pyxis/archive/v1.7.4.3.tar.gz && \
     tar zxvf v1.7.4.3.tar.gz && \
     rm v1.7.4.3.tar.gz && \
-    python -m pip install /opt/pyxis-1.7.4.3 nose && \
+    python -m pip install /opt/pyxis-1.7.4.3 nose "numpy==${NUMPYVER}" && \
     cd /opt/pyxis-1.7.4.3/Pyxis/recipes/meqtrees-batch-test && \
     python -m "nose" && \
     rm -r /opt/pyxis-1.7.4.3
@@ -233,7 +233,7 @@ ADD .gitmodules /opt/DDFacet/.gitmodules
 RUN cd /opt/DDFacet/ && git submodule update --init --recursive && cd /
 # Finally install DDFacet
 RUN rm -rf /opt/DDFacet/DDFacet/cbuild
-RUN . /opt/venv/bin/activate && python -m pip install "/opt/DDFacet[dft-support,moresane-support,testing-requirements,fits-beam-support,kms-support]"
+RUN . /opt/venv/bin/activate && python -m pip install -U "/opt/DDFacet[dft-support,moresane-support,testing-requirements,fits-beam-support,kms-support]"
 
 # test montblanc install
 WORKDIR /tmp
