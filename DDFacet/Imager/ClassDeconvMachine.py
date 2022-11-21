@@ -145,6 +145,9 @@ class ClassImagerDeconv():
 
         self.Precision=self.GD["RIME"]["Precision"]#"S"
         self.PolMode=self.GD["RIME"]["PolMode"]
+        accepted_pol_modes = ["I", "IQ", "IU", "IQU", "IV", "IQUV"]
+        if self.PolMode not in accepted_pol_modes:
+            raise ValueError(f"Polarization mode {self.PolMode} not an accepted values. Only takes '{','.join(accepted_pol_modes)}'")
         self.PSFFacets = self.GD["Facets"]["PSFFacets"]
         self.HasDeconvolved=False
         self.Parallel = self.GD["Parallel"]["NCPU"] != 1
@@ -289,8 +292,6 @@ class ClassImagerDeconv():
                 if self.NMajor>3:
                     print(ModColor.Str("  Your number of major iterations (%i) seem too high for SSD2, we advice using a maximum of 3..."%self.NMajor), file=log)
             elif self.GD["Deconv"]["Mode"] == "Hogbom":
-                if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
-                    raise NotImplementedError("Multi-polarization CLEAN is not supported in Hogbom")
                 from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
                 self.DeconvMachine=ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(**MinorCycleConfig)
                 print("Using Hogbom algorithm", file=log)
@@ -337,14 +338,18 @@ class ClassImagerDeconv():
         """Creates FacetMachines for data and/or PSF"""
         self.StokesFacetMachine = self.FacetMachine = self.FacetMachinePSF = None
         MainFacetOptions = self.GiveMainFacetOptions()
-        if self.do_stokes_residue:
-            self.StokesFacetMachine = ClassFacetMachine(self.VS,
-                                                        self.GD,
-                                                        Precision=self.Precision,
-                                                        PolMode=self.GD["Output"]["StokesResidues"],
-                                                        custom_id="STOKESFM")
-            self.StokesFacetMachine.appendMainField(ImageName="%s.image"%self.BaseName,**MainFacetOptions)
-            self.StokesFacetMachine.Init()
+        if self.do_stokes_residue :
+            if self.GD["RIME"]["PolMode"] != "I":
+                print("Warning: Performing polarization CLEAN. Will not output Stokes residuals", file=log)
+                self.do_stokes_residue = False
+            else:
+                self.StokesFacetMachine = ClassFacetMachine(self.VS,
+                                                            self.GD,
+                                                            Precision=self.Precision,
+                                                            PolMode=self.GD["Output"]["StokesResidues"],
+                                                            custom_id="STOKESFM")
+                self.StokesFacetMachine.appendMainField(ImageName="%s.image"%self.BaseName,**MainFacetOptions)
+                self.StokesFacetMachine.Init()
 
         if self.do_data:
             self.FacetMachine = ClassFacetMachine(self.VS, self.GD,
@@ -568,9 +573,7 @@ class ClassImagerDeconv():
                 # note that collectLoadedChunk() will destroy the current DATA dict, so we must make sure
                 # the gridding jobs of the previous chunk are finished
                 self.FacetMachinePSF.collectGriddingResults()
-                # Polarization psfs is not going to be supported. We can only make dirty maps
-                if self.VS.StokesConverter.RequiredStokesProducts() != ['I']:
-                    raise RuntimeError("Unsupported: Polarization PSF creation is not defined")
+
                 # get loaded chunk from I/O thread, schedule next chunk
                 # self.VS.startChunkLoadInBackground()
                 DATA = self.VS.collectLoadedChunk(start_next=True)
@@ -1064,8 +1067,12 @@ class ClassImagerDeconv():
 
 
             if self.PredictMode == "BDA-degrid" or self.PredictMode == "Classic" or self.PredictMode == "BDA-degrid-classic":  # latter for backwards compatibility
+                if self.VS.StokesConverter.RequiredStokesProducts() != ["I"] and self.PredictMode != "BDA-degrid":
+                    raise RuntimeError("Only mode BDA-degrid supports full Stokes degridding")
                 self.FacetMachine.getChunkInBackground(DATA)
             elif self.PredictMode == "Montblanc":
+                if self.VS.StokesConverter.RequiredStokesProducts() != ["I"]:
+                    raise RuntimeError("DFT mode currently only supports Stokes I deconvolution")
                 model = self.GiveMontblancPredict(DATA, predict)
             else:
                 raise ValueError("Invalid PredictMode '%s'" % self.PredictMode)
@@ -1125,14 +1132,9 @@ class ClassImagerDeconv():
         # if running in NMajor=0 mode, then we simply want to subtract/predict the model probably
         self.GiveDirty(psf=True, sparsify=sparsify, last_cycle=(NMajor==0))
 
-        # Polarization clean is not going to be supported. We can only make dirty maps
-        if self.VS.StokesConverter.RequiredStokesProducts() != ['I']:
-            raise RuntimeError("Unsupported: Polarization cleaning is not"\
-                               " supported. Maybe you meant Output-StokesResidues"\
-                               " instead?")
-
         self.DicoImagesPSF.reload()
         self.DicoImagesPSF["DicoImager"]=copy.deepcopy((self.FacetMachinePSF.DicoImager or self.FacetMachine.DicoImager))
+
         # This just keeps track of padded grid size for use in Hogbom-MultiScale (Can just use DicoImager instead? Is it passed in anywhere?)
         if self.GD["Deconv"]["Mode"] == "WSCMS" or self.GD["Deconv"]["Mode"] == "Hogbom":
             self.DicoImagesPSF["PaddedPSFInfo"] = {}
@@ -1369,8 +1371,12 @@ class ClassImagerDeconv():
                     print("last major cycle: model visibilities will be stored to %s"%predict_colname, file=log)
 
                 if self.PredictMode == "BDA-degrid" or self.PredictMode == "Classic" or self.PredictMode == "DeGridder" or self.PredictMode == "BDA-degrid-classic":
+                    if self.VS.StokesConverter.RequiredStokesProducts() != ["I"] and self.PredictMode != "BDA-degrid":
+                        raise RuntimeError("Only mode BDA-degrid supports full Stokes degridding")
                     self.FacetMachine.getChunkInBackground(DATA)
                 elif self.PredictMode == "Montblanc":
+                    if self.VS.StokesConverter.RequiredStokesProducts() != ["I"]:
+                        raise RuntimeError("DFT mode currently only supports Stokes I deconvolution")
                     model = self.GiveMontblancPredict(DATA, DATA["data"])
                 else:
                     raise ValueError("Invalid PredictMode '%s'" % self.PredictMode)
@@ -1499,7 +1505,7 @@ class ClassImagerDeconv():
             Output-StokesResidues, Stokes residues stored in self.DicoDirty
          """
          print(ModColor.Str("============================== Making Stokes residual maps ===================="), file=log)
-         print(ModColor.Str ("WARNING: Stokes parameters other than I have not been deconvolved. Use these maps"
+         print(ModColor.Str ("WARNING: Stokes parameters other than I may have not been deconvolved. Use these maps"
                                   " only as a debugging tool"), file=log)
 
          # tell the I/O thread to go load the first chunk
@@ -1545,8 +1551,12 @@ class ClassImagerDeconv():
             else:
                 print("reusing model image from previous chunk", file=log)
             if self.PredictMode == "BDA-degrid" or self.PredictMode == "DeGridder" or self.PredictMode == "Classic" or self.PredictMode == "BDA-degrid-classic":
+                if self.VS.StokesConverter.RequiredStokesProducts() != ["I"] and self.PredictMode != "BDA-degrid":
+                    raise RuntimeError("Only mode BDA-degrid supports full Stokes degridding")
                 self.FacetMachine.getChunkInBackground(DATA)
             elif self.PredictMode == "Montblanc":
+                if self.VS.StokesConverter.RequiredStokesProducts() != ["I"]:
+                    raise RuntimeError("DFT only supports Stokes I predict")
                 model = self.GiveMontblancPredict(DATA, DATA["data"])
             else:
                 raise ValueError("Invalid PredictMode '%s'" % self.PredictMode)

@@ -38,12 +38,16 @@ import scipy.ndimage
 import os
 from pyrap.images import image # don't remove - part of KMS requirements
 from SkyModel.Sky import ClassSM # don't remove - part of KMS requirements
+from DDFacet.Data.ClassStokes import ClassStokes
+
 
 class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def __init__(self,*args,**kwargs):
         ClassModelMachinebase.ClassModelMachine.__init__(self, *args, **kwargs)
         self.DicoSMStacked={}
         self.DicoSMStacked["Type"]="Hogbom"
+        self.model_stokes = ClassStokes([1,2,3,4], # does not matter at this point
+                                        self.GD["RIME"]["PolMode"]).RequiredStokesProducts()
 
     def setRefFreq(self, RefFreq, Force=False):
         if self.RefFreq is not None and not Force:
@@ -112,7 +116,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def setModelShape(self, ModelShape):
         self.ModelShape = ModelShape
 
-    def AppendComponentToDictStacked(self, key, Sols, pol_array_index=0):
+    def AppendComponentToDictStacked(self, key, Sols, pol_array_index):
         """
         Adds component to model dictionary (with key l,m location tupple). Each
         component may contain #basis_functions worth of solutions. Note that
@@ -134,17 +138,30 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                              "model cube the solution should be stored at. Please report this bug.")
 
         DicoComp = self.DicoSMStacked.setdefault("Comp", {})
-
+        stokes = self.model_stokes[pol_array_index]
         if not (key in DicoComp.keys()):
             DicoComp[key] = {}
-            for p in range(npol):
-                DicoComp[key]["SolsArray"] = np.zeros((Sols.size, npol), np.float32)
-                DicoComp[key]["SumWeights"] = np.zeros((npol), np.float32)
+            if self.model_stokes[pol_array_index] == "I":
+                DicoComp[key][f"SolsArray_{stokes}"] = np.zeros(Sols.size, np.float32)
+            elif self.model_stokes[pol_array_index] == "Q":
+                DicoComp[key][f"SolsArray_{stokes}"] = np.zeros(Sols.size, np.float32)
+            elif self.model_stokes[pol_array_index] == "U":
+                DicoComp[key][f"SolsArray_{stokes}"] = np.zeros(Sols.size, np.float32)
+            elif self.model_stokes[pol_array_index] == "V":
+                DicoComp[key][f"SolsArray_{stokes}"] = np.zeros(Sols.size, np.float32)
+
+            DicoComp[key]["SumWeights"] = np.zeros((npol), np.float32)
 
         SolNorm = Sols.ravel() * self.GD["Deconv"]["Gain"]
-
         DicoComp[key]["SumWeights"][pol_array_index] += 1.0
-        DicoComp[key]["SolsArray"][:, pol_array_index] += SolNorm
+    
+        try:
+            _ = DicoComp[key][f"SolsArray_{stokes}"].shape
+        except KeyError:
+            DicoComp[key][f"SolsArray_{stokes}"] = np.zeros(Sols.size, np.float32)
+        
+        DicoComp[key][f"SolsArray_{stokes}"][:] += SolNorm
+        
 
     def GiveModelList(self, FreqIn=None, DoAbs=False, threshold=0.1):
         """
@@ -182,10 +199,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             returns a tuple with the following information
             (ModelType, coordinate, vector of STOKES solutions per basis function, alpha, shape data)
             """
-            sa = component["SolsArray"]
+            sa = component["SolsArray_I"]
+            stokesI_nu = sa[:]
             return [("Delta",                         # type
                      coord,                           # coordinate
-                     self.FreqMachine.Eval_Degrid(sa, FreqIn).flatten(), # only a solution for I
+                     self.FreqMachine.Eval_Degrid(stokesI_nu, FreqIn).flatten(), # only a solution for I
                      ref_freq,                        # reference frequency
                      np.nan,                          # supposed to be alpha estimate but not used anymore
                      None)]                           # shape
@@ -193,7 +211,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # Lazily iterate through DicoComp entries and associated ListScales and SolsArrays,
         # assigning values to arrays
         source_iter = itertools.chain.from_iterable(_model_map(coord, comp)
-            for coord, comp in getattr(DicoComp, "iteritems", DicoComp.items)())
+            for coord, comp in getattr(DicoComp, "iteritems", DicoComp.items)() if "SolsArray_I" in comp)
 
         # Create list with iterator results
         return [s for s in source_iter]
@@ -222,20 +240,35 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         DicoSM = {}
         for key in DicoComp.keys():
             for pol in range(npol):
-                Sol = DicoComp[key]["SolsArray"][:, pol]  # /self.DicoSMStacked[key]["SumWeights"]
-                x, y = key
+                if self.model_stokes[pol] == "I" or self.model_stokes[pol] == "V":
+                    keyS = "SolsArray_I" if self.model_stokes[pol] == "I" else "SolsArray_V"
+                    # first check if the corresponding key exist already
+                    if DicoComp[key].get(keyS) is not None:
+                        Sol = DicoComp[key][keyS][:]  # /self.DicoSMStacked[key]["SumWeights"]
+                        x, y = key
 
-                try:
-                    interp = self.FreqMachine.Eval_Degrid(Sol, FreqIn)
-                except:
-                    interp = np.polyval(Sol[::-1], FreqIn / RefFreq)
+                        try:
+                            interp = self.FreqMachine.Eval_Degrid(Sol, FreqIn)
+                        except:
+                            interp = np.polyval(Sol[::-1], FreqIn / RefFreq)
 
-                if interp is None:
-                    raise RuntimeError("Could not interpolate model onto degridding bands. Inspect your data, check "
+                        if interp is None:
+                            raise RuntimeError("Could not interpolate model onto degridding bands. Inspect your data, check "
                                        "'Hogbom-NumFreqBasisFuncs' or if you think this is a bug report it.")
-                else:
-                    ModelImage[:, pol, x, y] += interp
+                        else:
+                            ModelImage[:, pol, x, y] += interp
+                elif self.model_stokes[pol] == "Q" or self.model_stokes[pol] == "U":
+                    # first check if the corresponding key exist already
+                    keyS = "SolsArray_Q" if self.model_stokes[pol] == "Q" else "SolsArray_U"
+                    if DicoComp[key].get(keyS) is not None:
+                        Sol = DicoComp[key][keyS][:]  # /self.DicoSMStacked[key]["SumWeights"]
 
+                        Sol = Sol.reshape(Sol.size//2,2)
+                        x, y = key                        
+                        interp = self.FreqMachine.EvalLin(Sol, FreqIn)
+                        ModelImage[:, pol, x, y] += interp
+                else:
+                    raise NotImplemented(f"Pol mode {pol} not implemented")
         return ModelImage
 
     def GiveSpectralIndexMap(self, GaussPars=[(1, 1, 0)], ResidCube=None,
@@ -286,7 +319,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         ConvModelImage = np.zeros((self.Nchan, self.Npix, self.Npix), dtype=np.float64)
         I = slice(self.Npad, -self.Npad)
         for i in range(self.Nchan):
-            tmp_array = np.pad(ModelImage[i, 0], self.Npad, mode='constant')
+            tmp_array = np.pad(ModelImage[i, self.model_stokes.index("I")], self.Npad, mode='constant')
             # ModelImagehat[i] = FT.fft2(iFs(tmp_array)) * GaussKernhat
             ModelImagehat[i] = FFT(iFs(tmp_array)) * GaussKernhat
             # ConvModelImage[i] = Fs(FT.ifft2(ModelImagehat[i]))[I, I].real
@@ -324,6 +357,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             _, ncomps = FitCube.shape
             FitCubeDask = da.from_array(FitCube.T.astype(np.float64),
                                         chunks=(np.maximum(100, ncomps//nthreads), self.Nchan))
+
             weightsDask = da.from_array(weights.astype(np.float64), chunks=(self.Nchan))
             freqsDask = da.from_array(np.array(self.GridFreqs).astype(np.float64), chunks=(self.Nchan))
 
@@ -441,7 +475,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             SourceCat.X[iSource]=(nx-1)-X[iSource]
             SourceCat.Y[iSource]=Y[iSource]
 
-            Flux=ModelMap[0,0,x_iSource,y_iSource]
+            Flux=ModelMap[0,self.model_stokes.index("I"),x_iSource,y_iSource]
             Alpha=AlphaMap[0,0,x_iSource,y_iSource]
             SourceCat.I[iSource]=Flux
             SourceCat.alpha[iSource]=Alpha

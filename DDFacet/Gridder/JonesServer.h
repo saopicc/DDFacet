@@ -29,6 +29,11 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 namespace DDF {
   namespace py=pybind11;
+  class NotImplemented : public std::logic_error
+	{
+	public:
+    	NotImplemented() : std::logic_error("Function not yet implemented") { };
+	};
 
   template<typename T> class Mat
     {
@@ -40,6 +45,18 @@ namespace DDF {
       Mat(T v0, T v1, T v2, T v3)
 	: v { v0, v1, v2, v3 } {}
       T &operator[](size_t i) { return v[i]; }
+	  Mat<T> operator*(T rhs) const
+	{
+		throw NotImplemented();
+	}
+	  Mat<T> operator*(float rhs) const
+	{
+		return Mat<T>(v[0] * rhs, v[1] * rhs, v[2] * rhs, v[3] * rhs);
+	}
+	  Mat<T> operator*(double rhs) const
+	{
+		return Mat<T>(v[0] * rhs, v[1] * rhs, v[2] * rhs, v[3] * rhs);
+	}
       const T &operator[](size_t i) const { return v[i]; }
       void setZero()
 	{ v[0]=v[1]=v[2]=v[3]=T(0); }

@@ -964,19 +964,26 @@ class ClassFacetMachine():
         nch, npol, n, n = psf.shape
         PSFChannel = np.zeros((nch, npol, n, n), self.stitchedType)
         for ch in range(nch):
-            psf[ch][SPhe[0] < 1e-2] = 0
-            psf[ch][0] = psf[ch][0].T[::-1, :]
-            SumJonesNorm = sumjonesnorm[ch]
-            # normalize to bring back transfer
-            # functions to approximate convolution
-            psf[ch] /= np.sqrt(SumJonesNorm)
             for pol in range(npol):
+                # FG: the below 2 lines doesn't work anymore for full polarizations
+                #psf[ch][SPhe[0] < 1e-2] = 0
+                #psf[ch][0] = psf[ch][0].T[::-1, :]
+                # try instead with
+                psf[ch][pol][SPhe[0][0] < 1e-2] = 0
+
+            
+                psf[ch][pol] = psf[ch][pol].T[::-1, :]
+                SumJonesNorm = sumjonesnorm[ch]
+                # normalize to bring back transfer
+                # functions to approximate convolution
+                psf[ch][pol] /= np.sqrt(SumJonesNorm)
+            
                 ThisSumWeights = sumweights[ch][pol]
                 # normalize the response per facet
                 # channel if jones corrections are enabled
                 if ThisSumWeights > 0:
                     psf[ch][pol] /= ThisSumWeights
-            PSFChannel[ch, :, :, :] = psf[ch][:, :, :]
+                PSFChannel[ch, :, :, :] = psf[ch][:, :, :]
 
         # weight each of the cube slices and average
         fd["MeanPSF"]  = np.sum(PSFChannel * W, axis=0).reshape((1, npol, n, n))
@@ -1052,7 +1059,7 @@ class ClassFacetMachine():
         for band, channels in enumerate(self.VS.FreqBandChannels):
             DicoImages["freqs"][band] = channels
             DicoImages["SumWeights"][band] = self.DicoImager[0]["SumWeights"][band]
-        DicoImages["WeightChansImages"] = DicoImages["SumWeights"] / np.sum(DicoImages["SumWeights"])
+        DicoImages["WeightChansImages"] = DicoImages["SumWeights"] / np.sum(DicoImages["SumWeights"], axis=0)
 
         # compute sum of Jones terms per facet and channel
         for iFacet in self.DicoImager.keys():

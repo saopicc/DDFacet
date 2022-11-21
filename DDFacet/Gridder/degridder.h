@@ -23,9 +23,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #include "common.h"
 #include "Semaphores.h"
-#include <iostream>
 #include <vector>
-#include <string>
 #include <algorithm>
 #include <cstdint>
 #include "JonesServer.h"
@@ -35,7 +33,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 namespace DDF{
   namespace degridder {
-
     inline void ApplyJones(const DDEs::JonesServer &JS, const dcMat &corr_vis, dcmplx corr, dcMat &visBuff)
     {
         visBuff = JS.J0.times(corr_vis);
