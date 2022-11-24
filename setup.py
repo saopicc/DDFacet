@@ -139,7 +139,7 @@ def requirements():
                     "prettytable >= 0.7.2; python_version >= '3'", 
                     "pybind11 >= 2.2.2; python_version >= '3'", 
                     "configparser >= 3.7.1; python_version >= '3'", 
-                    "pandas == 0.23.3; python_version >= '3'", 
+                    "pandas == 1.1.5; python_version >= '3'", 
                     "ruamel.yaml >= 0.15.92; python_version >= '3'", 
                     "pylru >= 1.1.0; python_version >= '3'", 
                     "six >= 1.12.0; python_version >= '3'", 
