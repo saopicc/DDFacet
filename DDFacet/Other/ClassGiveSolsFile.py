@@ -1,4 +1,4 @@
-from killMS.Other import reformat
+from DDFacet.Other import reformat
 import os
 
 class ClassGive_kMSFileName():

@@ -50,7 +50,7 @@ if six.PY3:
 else:
     from DDFacet.cbuild.Gridder import _pyGridderSmearPols27 as _pyGridderSmearPols
 import copy
-from killMS.Other import ClassGiveSolsFile
+from DDFacet.Other import ClassGiveSolsFile
 
 log = logger.getLogger("ClassVisServer")
 
