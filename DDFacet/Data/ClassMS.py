@@ -1407,13 +1407,18 @@ class ClassMS():
         return l,m
 
 
-    def PutVisColumn(self, colname, vis, row0, row1, likecol="DATA", sort_index=None, ColDesc=None):
+    def PutVisColumn(self, colname, vis, row0, row1, likecol="DATA", sort_index=None, ColDesc=None,
+                     flags=None):
         self.AddCol(colname,
                     LikeCol=likecol,
                     quiet=True,
                     ColDesc=ColDesc)
         
         nrow = row1 - row0
+        if flags is not None:
+            vis=vis.copy()
+            vis[flags]=0
+            
         if self._reverse_channel_order:
             vis = vis[:,::-1,...]
         print("writing column %s rows %d:%d"%(colname,row0,row1), file=log)

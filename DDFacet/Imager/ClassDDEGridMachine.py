@@ -827,30 +827,30 @@ class ClassDDEGridMachine():
         #T2.disable()
         T.timeit("stuff")
 
-        if self.IDFacet==10:
-            D=locals()
+        # if self.IDFacet==10:
+        #     D=locals()
 
-            Ds={}
-            for k in D.keys():
-                if k not in ["self","T"]:
-                    Ds[k]=D[k]
-            D=Ds
-            import DDFacet.Other.MyPickle
-            DDFacet.Other.MyPickle.DicoNPToFile(D,"DDEGM.DoPSF_%i.%3.3i.new.DicoPickle"%(DoPSF,self.IDFacet))
-            # LSubDico=["DicoJonesMatrices","DicoJones_Beam","Dirs","Jones"]
-            # for ThisDicoName in LSubDico:
-            #     Ds=D[ThisDicoName]
-            #     for k in Ds.keys():
-            #         D["%s.%s"%(ThisDicoName,k)]=Ds[k]
+        #     Ds={}
+        #     for k in D.keys():
+        #         if k not in ["self","T"]:
+        #             Ds[k]=D[k]
+        #     D=Ds
+        #     import DDFacet.Other.MyPickle
+        #     DDFacet.Other.MyPickle.DicoNPToFile(D,"DDEGM.DoPSF_%i.%3.3i.new.DicoPickle"%(DoPSF,self.IDFacet))
+        #     # LSubDico=["DicoJonesMatrices","DicoJones_Beam","Dirs","Jones"]
+        #     # for ThisDicoName in LSubDico:
+        #     #     Ds=D[ThisDicoName]
+        #     #     for k in Ds.keys():
+        #     #         D["%s.%s"%(ThisDicoName,k)]=Ds[k]
                     
-            # for k in LSubDico:
-            #     del(D[k])
+        #     # for k in LSubDico:
+        #     #     del(D[k])
                 
-            # for k in ["vis","uvw","flag","W"]:
-            #     D[k]=D[k].copy()
+        #     # for k in ["vis","uvw","flag","W"]:
+        #     #     D[k]=D[k].copy()
 
 
-            # np.savez("DDEGM.DoPSF_%i.%3.3i.new.npz"%(DoPSF,self.IDFacet),**D)
+        #     # np.savez("DDEGM.DoPSF_%i.%3.3i.new.npz"%(DoPSF,self.IDFacet),**D)
 
 
             
@@ -1193,6 +1193,7 @@ class ClassDDEGridMachine():
                 self.LSmear, np.int32(ChanMapping),
                 np.array(self.DataCorrelationFormat).astype(np.uint16),
                 np.array(self.ExpectedOutputStokes).astype(np.uint16))
+            vis[flag]=0
         elif self.GD["RIME"]["ForwardMode"]=="BDA-degrid-classic":
             OptimisationInfos = [
                 self.JonesType,

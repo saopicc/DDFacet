@@ -157,10 +157,10 @@ class ClassIslandDistanceMachine():
         PSF=np.mean(np.abs(self.PSFServer.DicoVariablePSF["MeanFacetPSF"][:,0]),axis=0)#self.PSFServer.DicoVariablePSF["MeanFacetPSF"][0,0]
         
         
-        nPSF,_=PSF.shape
-        xcPSF,ycPSF=nPSF//2,nPSF//2
+        nPSF_x,nPSF_y=PSF.shape
+        xcPSF,ycPSF=nPSF_x//2,nPSF_y//2
 
-        IN=lambda x: ((x>=0)&(x<nPSF))
+        #IN=lambda x: ((x>=0)&(x<nPSF))
 
 
         NIslands=len(ListIslands)
@@ -205,14 +205,14 @@ class ClassIslandDistanceMachine():
         self.DistCross=np.sqrt(dx**2+dy**2)
 
         dx+=xcPSF
-        dy+=xcPSF
+        dy+=ycPSF
         PSFCross=np.zeros((NIslands,NIslands),np.float32)
         indPSF=np.arange(NIslands**2)
-        Cx=((dx>=0)&(dx<nPSF))
-        Cy=((dy>=0)&(dy<nPSF))
+        Cx=((dx>=0)&(dx<nPSF_x))
+        Cy=((dy>=0)&(dy<nPSF_y))
         C=(Cx&Cy)
         indPSF_sel=indPSF[C.ravel()]
-        indPixPSF=dx.ravel()[C.ravel()]*nPSF+dy.ravel()[C.ravel()]
+        indPixPSF=dx.ravel()[C.ravel()]*nPSF_y+dy.ravel()[C.ravel()]
         PSFCross.flat[indPSF_sel]=np.abs(PSF.flat[indPixPSF.ravel()])
 
 

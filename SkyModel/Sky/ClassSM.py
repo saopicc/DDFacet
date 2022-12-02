@@ -30,6 +30,13 @@ from . import ModRegFile
 import time
 from DDFacet.ToolsDir import ModCoord
 
+dtypeSourceList=[('Name','|S200'),('Patch','|S200'),('ra',np.float),('dec',np.float),('Sref',np.float),('I',np.float),('Q',np.float),\
+                 ('U',np.float),('V',np.float),('RefFreq',np.float),('alpha',np.float),('ESref',np.float),\
+                 ('Ealpha',np.float),('kill',np.int),('Cluster',np.int),('Type',np.int),('Gmin',np.float),\
+                 ('Gmaj',np.float),('Gangle',np.float),("Select",np.int),('l',np.float),('m',np.float),("Exclude",bool)]
+
+dtypeClusterCat=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),("Cluster",int),('l',np.float),('m',np.float)]
+
 def AngDist(ra0,ra1,dec0,dec1):
     AC=np.arccos
     C=np.cos
@@ -42,6 +49,45 @@ def AngDist(ra0,ra1,dec0,dec1):
         if D>1.: D=1.
         if D<-1.: D=-1.
     return AC(D)
+
+
+class ClassSMConcat():
+    def __init__(self,LSM):
+        self.Type="Hybrid"
+        self.LSM=LSM
+
+
+    def ComputeMapping(self):
+        self.NDir=np.sum([SM.NDir for SM in self.LSM])
+        self.NDirMain=self.NDir
+        self.ClusterCat=np.concatenate([SM.ClusterCat for SM in self.LSM])
+        self.ClusterCat=self.ClusterCat.view(np.recarray)
+        self.iDir_to_SMiDir={}
+        iDir=0
+        for SM in self.LSM:
+            for iDirThisSM in range(SM.NDir):
+                self.iDir_to_SMiDir[iDir]=(SM,iDirThisSM)
+                iDir+=1
+        self.MapClusterCatOrigToCut=np.concatenate([SM.MapClusterCatOrigToCut for SM in self.LSM])
+        self.NDirsOrig=np.sum([SM.NDirsOrig for SM in self.LSM])
+        self.ClusterCatOrig=np.concatenate([SM.ClusterCatOrig for SM in self.LSM])
+        self.ClusterCatOrig=self.ClusterCatOrig.view(np.recarray)
+        log.print("Parameter space has %i directions (of %i before flux cut)"%(self.NDir,self.NDirsOrig))
+
+    # def setDicoJonesDirToPreApplyDirs(self,radec):
+    #     for SM in self.LSM:
+    #         SM.setDicoJonesDirToPreApplyDirs(radec)
+
+
+        
+    def Calc_LM(self,rac,decc):
+        for SM in self.LSM:
+            if SM.Type=="Catalog":
+                SM.Calc_LM(rac,decc)
+
+    def give_SM_iDir(self,iDir):
+        return self.iDir_to_SMiDir[iDir]
+
 
 
 class ClassSM():
@@ -60,7 +106,7 @@ class ClassSM():
         self.DDF_GD=None
         self.InputCatIsEmpty=False
         self.ClusterCat=None
-        
+        self.ModelIsClustered=False
         if (type(infile).__name__=="instance") or (type(infile).__name__=="ClassImageSM") or (type(infile).__name__=="ClassSM"):
             Cat=infile.SourceCat.copy()
             Cat=Cat.view(np.recarray)
@@ -69,10 +115,7 @@ class ClassSM():
             Cat=np.load(infile)
             Cat=Cat.view(np.recarray)
         elif infile=="Empty":
-            Cat=np.zeros((0,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('Sref',np.float),('I',np.float),('Q',np.float),\
-                                     ('U',np.float),('V',np.float),('RefFreq',np.float),('alpha',np.float),('ESref',np.float),\
-                                     ('Ealpha',np.float),('kill',np.int),('Cluster',np.int),('Type',np.int),('Gmin',np.float),\
-                                     ('Gmaj',np.float),('Gangle',np.float),("Select",np.int),('l',np.float),('m',np.float),("Exclude",bool)])
+            Cat=np.zeros((0,),dtype=dtypeSourceList)
             Cat=Cat.view(np.recarray)
             self.InputCatIsEmpty=True
         elif infile[-7:]==".pickle":
@@ -89,11 +132,12 @@ class ClassSM():
         elif ".fits"==infile[-5:]:
             Cat,self.D_FITS=ModSMFromFITS.ReadSMFromFITS(infile)
         else:
-            Cat=ReadBBSModel(infile,infile_cluster=infile_cluster)
+            Cat,self.ModelIsClustered=ReadBBSModel(infile,infile_cluster=infile_cluster)
             
             Cat.Gmaj[Cat.Type==2]*=2.*np.sqrt(2.*np.log(2))
             Cat.Gmin[Cat.Type==2]*=2.*np.sqrt(2.*np.log(2))
 
+        self.DicoJonesDirToPreApplyDirs=None
         self.SourceCat=Cat
         self.killdirs=killdirs
         self.invert=invert
@@ -148,12 +192,16 @@ class ClassSM():
 
         if self.ClusterCat is None:
             self.Dirs=sorted(list(set(self.SourceCat.Cluster.tolist())))
-            self.NDir=np.max(self.SourceCat.Cluster)+1
+            self.NDir=0
+            if self.SourceCat.size>0:
+                self.NDir=np.max(self.SourceCat.Cluster)+1
             self.NSources=Cat.shape[0]
             self.BuildClusterCat()
             self.Dirs=sorted(list(set(self.SourceCat.Cluster.tolist())))
-            self.NDir=np.max(self.SourceCat.Cluster)+1
+            if self.SourceCat.size>0:
+                self.NDir=np.max(self.SourceCat.Cluster)+1
             self.NSources=Cat.shape[0]
+
 
         self.SetSelection()
 
@@ -162,6 +210,18 @@ class ClassSM():
 
         #self.print_sm2()
 
+    # def setDicoJonesDirToPreApplyDirs(self,radecPreapply):
+    #     ra1,dec1=radecPreapply
+    #     ra1,dec1=ra1.reshape((1,-1)),dec1.reshape((1,-1))
+    #     ra0,dec0=self.ClusterCat.ra.reshape((-1,1)),self.ClusterCat.dec.reshape((-1,1))
+    #     d=AngDist(ra0,ra1,dec0,dec1)
+    #     iDirPreApply=np.argmin(d,axis=1)
+    #     self.DicoJonesDirToPreApplyDirs=iDirPreApply
+        
+    # def givePreApplyDirs(self,iClusterDir):
+        
+    #     return self.DicoJonesDirToPreApplyDirs[iClusterDir]
+        
     def SetSelection(self):
         Cat=self.SourceCat
         killdirs=self.killdirs
@@ -538,7 +598,7 @@ class ClassSM():
 
         
     def ComputeClusterCatWeightedPos(self):
-        ClusterCatMean=np.zeros((self.ClusterCat.ra.size,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),("Cluster",int)])
+        ClusterCatMean=np.zeros((self.ClusterCat.ra.size,),dtype=dtypeClusterCat)
         ClusterCatMean=ClusterCatMean.view(np.recarray)
         
         ClusterCat=self.ClusterCat
@@ -669,7 +729,7 @@ class ClassSM():
             self.ClusterCat=self.ClusterCatExt.copy()
             self.ClusterCatOrig=self.ClusterCatExt.copy()
             return
-        ClusterCat=np.zeros((len(self.Dirs),),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),("Cluster",int)])
+        ClusterCat=np.zeros((len(self.Dirs),),dtype=dtypeClusterCat)
         ClusterCat=ClusterCat.view(np.recarray)
         icat=0
         for d in self.Dirs:
@@ -684,7 +744,13 @@ class ClassSM():
             ClusterCat.dec[icat]=decmean
             ClusterCat.SumI[icat]=np.sum(cat.I)
             ClusterCat.Cluster[icat]=d
+            if "Patch" in cat.dtype.fields.keys() and len(cat["Patch"][0].decode("ascii"))>0:
+                ClusterCat.Name[icat]=cat["Patch"][0].decode("ascii")
+            else:
+                ClusterCat.Name[icat]=cat["Name"][0].decode("ascii").split(".")[-1]
+
             icat+=1
+
         #print ClusterCat.ra
         self.ClusterCat=ClusterCat
         self.ClusterCatOrig=self.ClusterCat.copy()

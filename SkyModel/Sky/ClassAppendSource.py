@@ -35,28 +35,31 @@ class ClassAppendSource():
                 A.I=1000.
                 A.Sref=A.I
                 if not self.SM.InputCatIsEmpty:
-                    A.RefFreq=self.SM.SourceCat.RefFreq[0]
+                    #A.RefFreq=self.SM.SourceCat.RefFreq[0]
                     C=np.max(self.SM.SourceCat.Cluster)+1
                 else:
-                    A.RefFreq=100e6
+                    #A.RefFreq=100e6
                     C=0
                     self.SM.InputCatIsEmpty=False
                 
                         
+                A.RefFreq=100e6
                 A.Cluster=C
                 A.Type=2
                 A.Gmaj=30./60*np.pi/180
                 A.Gmin=A.Gmaj
-                A.Name="c%is%i."%(C,0)
-
-
-
-                
-            elif Body["Name"]=="CygA" or Body["Name"]=="CasA" or Body["Name"]=="VirA" or Body["Name"]=="TauA":
-                path = os.path.dirname(os.path.abspath(__file__))
-                FName="%s/Models/LOFAR/%s.txt"%(path,Body["Name"])
-                A=ReadBBSModel(FName)
-                log.print("  [%s] Reading file %s"%(Body["Name"],FName))
+                A.Name="c%is%i.ATeam_%s"%(C,0,Body["Name"])
+            else:
+                if Body["FileName"]=="Default":
+                    path = os.path.dirname(os.path.abspath(__file__))
+                    FName="%s/Models/LOFAR/%s.txt"%(path,Body["Name"])
+                    log.print("  [%s] Reading file %s"%(Body["Name"],FName))
+                    A,IsClustered=ReadBBSModel(FName)
+                else:
+                    FName=Body["FileName"]
+                    log.print("  [%s] Reading file %s"%(Body["Name"],FName))
+                    A,IsClustered=ReadBBSModel(FName,PatchName=Body["Name"])
+                    
                 ra,dec=np.mean(A.ra),np.mean(A.dec)
                 d=angDist(self.SM.rarad,ra,self.SM.decrad,dec)*180/np.pi
                 ras  = rad2hmsdms(ra,Type="ra").replace(" ",":")
@@ -65,10 +68,10 @@ class ClassAppendSource():
 
 
                 if not self.SM.InputCatIsEmpty:
-                    A.RefFreq=self.SM.SourceCat.RefFreq[0]
+                    #A.RefFreq=self.SM.SourceCat.RefFreq[0]
                     C=np.max(self.SM.SourceCat.Cluster)+1
                 else:
-                    A.RefFreq=100e6
+                    #A.RefFreq=100e6
                     C=0
                     self.SM.InputCatIsEmpty=False
 
@@ -79,9 +82,9 @@ class ClassAppendSource():
                 A.Cluster[:]=C
                 Ns=A.shape[0]
                 for iSource in range(Ns):
-                    A.Name[iSource]="c%is%i."%(C,iSource)
+                    A.Name[iSource]="c%is%i.ATeam_%s"%(C,iSource,Body["Name"])
 
             self.SM.SourceCat=np.hstack([self.SM.SourceCat,A])
             self.SM.SourceCat=self.SM.SourceCat.view(np.recarray)
-                
+
                 
