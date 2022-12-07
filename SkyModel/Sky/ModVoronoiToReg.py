@@ -19,6 +19,27 @@ class VoronoiToReg():
         self.decc=decc
         self.CoordMachine=ModCoord.ClassCoordConv(rac,decc)
 
+
+    def PointsToReg(self,regFile,xc,yc,radius=0.1,Col="red"):
+        log.print("Writing voronoi in: %s"%ModColor.Str(regFile,col="blue"))
+        f=open(regFile,"w")
+        f.write("# Region file format: DS9 version 4.1\n")
+        ss0='global color=green dashlist=8 3 width=1 font="helvetica 10 normal roman" select=1 highlite=1 dash=0'
+        ss1=' fixed=0 edit=1 move=1 delete=1 include=1 source=1\n'
+        
+        f.write(ss0+ss1)
+        f.write("fk5\n")
+
+        for i in range(xc.size):
+            xm,ym=xc[i],yc[i]
+            xm*=180./np.pi+(np.random.rand(1)[0]-0.5)*1/3600
+            ym*=180./np.pi+(np.random.rand(1)[0]-0.5)*1/3600
+            ThisText="%3i"%i
+            f.write("point(%f,%f) # text={%s} point=circle 5 color=%s width=2\n"%(xm,ym,ThisText,Col))
+            
+        f.close()
+
+        
     def ToReg(self,regFile,xc,yc,radius=0.1,Col="red"):
         print>>log, "Writing voronoi in: %s"%ModColor.Str(regFile,col="blue")
         f=open(regFile,"w")

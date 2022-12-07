@@ -38,6 +38,7 @@ from DDFacet.Data import ClassGMRTBeam
 from DDFacet.Data import ClassATCABeam as ClassATCABeam
 # import ClassSmoothJones is not used anywhere, should be able to remove it
 from DDFacet.Other import ClassGiveSolsFile
+from SkyModel.Sky import ModVoronoiToReg
 
 import tables
 import glob
@@ -342,6 +343,11 @@ class ClassJones():
                     DicoClusterDirs["dec"] = self.ClusterCatBeam.dec
                     DicoClusterDirs["I"] = self.ClusterCatBeam.I
                     DicoClusterDirs["Cluster"] = self.ClusterCatBeam.Cluster
+                    # VM = ModVoronoiToReg.VoronoiToReg(self.MS.rac, self.MS.decc)
+                    # VM.PointsToReg("FacetDirCat.reg",DicoClusterDirs["ra"],DicoClusterDirs["dec"],Col="red")
+                    # VM.PointsToReg("JonesDirCat.reg",self.FacetMachine.JonesDirCat["ra"],self.FacetMachine.JonesDirCat["dec"],Col="blue")
+                    # VM.PointsToReg("DicoClusterDirs_kMS.reg",self.DicoClusterDirs_kMS["ra"],self.DicoClusterDirs_kMS["dec"],Col="green")
+                    # stop
                 else:
                     print("  Getting beam Jones directions from DDE solution tessels", file=log)
                     DicoClusterDirs = self.DicoClusterDirs_kMS
@@ -361,6 +367,8 @@ class ClassJones():
                     self.ClusterCatBeam.SumI = self.DicoClusterDirs_kMS["I"]
                     self.ClusterCatBeam.ra[:] = self.DicoClusterDirs_kMS["ra"]
                     self.ClusterCatBeam.dec[:] = self.DicoClusterDirs_kMS["dec"]
+                    
+                    PointsToReg
             else:
 
                 self.ClusterCatBeam = np.zeros(
