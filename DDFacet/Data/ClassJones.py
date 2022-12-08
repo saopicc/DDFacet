@@ -999,7 +999,7 @@ class ClassJones():
             DECs = self.ClusterCatBeam.dec
         else:
             RAs,DECs=RaDec
-            
+        stop
         # from killMS2.Other.rad2hmsdms import rad2hmsdms
         # for i in range(RAs.size):
         #     ra,dec=RAs[i],DECs[i]
