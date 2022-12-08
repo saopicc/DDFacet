@@ -98,7 +98,9 @@ class ClassMS():
 
         if MSname=="": exit()
         self.GD = GD
-        self.ToRADEC = self.GD["Image"]["PhaseCenterRADEC"]
+        self.ToRADEC = None
+        if self.GD is not None:
+            self.ToRADEC=self.GD["Image"]["PhaseCenterRADEC"]
         if not self.ToRADEC:
             self.ToRADEC = None
 
@@ -129,7 +131,9 @@ class ClassMS():
         # once.
         self._reset_cache = ResetCache
         self._chunk_caches = {}
-        self.maincache = CacheManager(MSName+".F%d.D%d.ddfcache"%(self.Field, self.DDID), reset=ResetCache, cachedir=self.GD["Cache"]["Dir"], nfswarn=True)
+        cachedir="."
+        if self.GD is not None: cachedir=self.GD["Cache"]["Dir"]
+        self.maincache = CacheManager(MSName+".F%d.D%d.ddfcache"%(self.Field, self.DDID), reset=ResetCache, cachedir=cachedir, nfswarn=True)
 
         self.ReadMSInfo(first_ms=first_ms,DoPrint=DoPrint)
         self.LFlaggedStations=[]

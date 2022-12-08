@@ -76,8 +76,9 @@ def SizeShm():
 def CreateShared(Name, shape, dtype):
     try:
         a = SharedArray.create(str(Name), shape, dtype=dtype)
-    except OSError:
-        print(ModColor.Str("File %s exists, deleting" % Name), file=log)
+    except Exception as e:#OSError:
+        print(ModColor.Str(str(e)))
+        #print(ModColor.Str("File %s exists, deleting" % Name), file=log)
         DelArray(str(Name))
         a = SharedArray.create(str(Name), shape, dtype=dtype)
     return a

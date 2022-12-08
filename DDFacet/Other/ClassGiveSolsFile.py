@@ -48,7 +48,7 @@ class ClassGive_kMSFileName():
 
 
             
-        if SolsDir is None:
+        if SolsDir is None or SolsDir=="":
             FileName="%skillMS.%s."%(reformat.reformat(MSName),SolsName)
         else:
             _MSName=reformat.reformat(MSName).split("/")[-2]
