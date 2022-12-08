@@ -93,36 +93,20 @@ class ClassLOFARBeamEB():
         self.InitLOFARBeam()
         self.CalcFreqDomains()
 
-    # def InitLOFARBeam(self):
-    #     GD=self.GD
-    #     LOFARBeamMode=GD["Beam"]["LOFARBeamMode"]
-    #     print("  LOFAR beam model in %s mode"%(LOFARBeamMode), file=log)
-    #     self.useArrayFactor=("A" in LOFARBeamMode)
-    #     self.useElementBeam=("E" in LOFARBeamMode)
-    #     if self.SR is not None: return
-    #     import everybeam
-    #     use_differential_beam=1#(self.useArrayFactor and not self.useElementBeam)
-    #     self.SR = everybeam.load_telescope(self.MS.MSName)#,
-    #     #use_differential_beam=use_differential_beam,
-    #     #                                   use_channel_frequency=1)#use_differential_beam)
-    #     self.SReval=self.SR.station_response
-        
     def InitLOFARBeam(self):
         GD=self.GD
         LOFARBeamMode=GD["Beam"]["LOFARBeamMode"]
         print("  LOFAR beam model in %s mode"%(LOFARBeamMode), file=log)
-        useArrayFactor=("A" in LOFARBeamMode)
-        useElementBeam=("E" in LOFARBeamMode)
+        self.useArrayFactor=("A" in LOFARBeamMode)
+        self.useElementBeam=("E" in LOFARBeamMode)
         if self.SR is not None: return
-
-        import lofar.stationresponse as lsr
-
-        self.SR = lsr.stationresponse(self.MS.MSName,
-                                      useElementResponse=useElementBeam,
-                                      #useElementBeam=useElementBeam,
-                                      useArrayFactor=useArrayFactor,
-                                      useChanFreq=True)
-        self.SR.setDirection(self.MS.rarad,self.MS.decrad)
+        import everybeam
+        use_differential_beam=1#(self.useArrayFactor and not self.useElementBeam)
+        self.SR = everybeam.load_telescope(self.MS.MSName)#,
+        #use_differential_beam=use_differential_beam,
+        #                                   use_channel_frequency=1)#use_differential_beam)
+        self.SReval=self.SR.station_response
+        
         
     def getBeamSampleTimes(self,times, **kwargs):
         DtBeamMin = self.GD["Beam"]["DtBeamMin"]
