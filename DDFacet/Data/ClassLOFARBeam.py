@@ -28,7 +28,7 @@ from DDFacet.Other import logger
 log= logger.getLogger("ClassLOFARBeam")
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
-import everybeam
+#import everybeam
 from astropy.coordinates import AltAz, EarthLocation, ITRS, SkyCoord
 from astropy.time import Time
 import astropy.units as u
