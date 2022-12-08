@@ -361,30 +361,50 @@ class ClassJones():
                     self.ClusterCatBeam.SumI = self.DicoClusterDirs_kMS["I"]
                     self.ClusterCatBeam.ra[:] = self.DicoClusterDirs_kMS["ra"]
                     self.ClusterCatBeam.dec[:] = self.DicoClusterDirs_kMS["dec"]
+                    
             else:
-
-                self.ClusterCatBeam = np.zeros(
-                    (1,),
-                    dtype=[('Name', '|S200'),
-                           ('ra', np.float),
-                           ('dec', np.float),
-                           ('SumI', np.float),
-                           ("Cluster", int),
-                           ("l", np.float),
-                           ("m", np.float),
-                           ("I", np.float)])
-                self.ClusterCatBeam = self.ClusterCatBeam.view(np.recarray)
-                self.ClusterCatBeam.I = 1
-                self.ClusterCatBeam.SumI = 1
-                self.ClusterCatBeam.ra[0] = self.MS.rac
-                self.ClusterCatBeam.dec[0] = self.MS.decc
-                DicoClusterDirs = {}
-                DicoClusterDirs["l"] = np.array([0.], np.float32)
-                DicoClusterDirs["m"] = np.array([0.], np.float32)
-                DicoClusterDirs["ra"] = self.MS.rac
-                DicoClusterDirs["dec"] = self.MS.decc
-                DicoClusterDirs["I"] = np.array([1.], np.float32)
-                DicoClusterDirs["Cluster"] = np.array([0], np.int32)
+                if self.HasKillMSSols and self.GD["Beam"]["At"] == "tessel":
+                    print("  Getting beam Jones directions from DDE solution tessels", file=log)
+                    DicoClusterDirs = self.DicoClusterDirs_kMS
+                    NDir = DicoClusterDirs["l"].size
+                    self.ClusterCatBeam = np.zeros(
+                        (NDir,),
+                        dtype=[('Name', '|S200'),
+                               ('ra', np.float),
+                               ('dec', np.float),
+                               ('SumI', np.float),
+                               ("Cluster", int),
+                               ("l", np.float),
+                               ("m", np.float),
+                               ("I", np.float)])
+                    self.ClusterCatBeam = self.ClusterCatBeam.view(np.recarray)
+                    self.ClusterCatBeam.I = self.DicoClusterDirs_kMS["I"]
+                    self.ClusterCatBeam.SumI = self.DicoClusterDirs_kMS["I"]
+                    self.ClusterCatBeam.ra[:] = self.DicoClusterDirs_kMS["ra"]
+                    self.ClusterCatBeam.dec[:] = self.DicoClusterDirs_kMS["dec"]
+                else:
+                    self.ClusterCatBeam = np.zeros(
+                        (1,),
+                        dtype=[('Name', '|S200'),
+                               ('ra', np.float),
+                               ('dec', np.float),
+                               ('SumI', np.float),
+                               ("Cluster", int),
+                               ("l", np.float),
+                               ("m", np.float),
+                               ("I", np.float)])
+                    self.ClusterCatBeam = self.ClusterCatBeam.view(np.recarray)
+                    self.ClusterCatBeam.I = 1
+                    self.ClusterCatBeam.SumI = 1
+                    self.ClusterCatBeam.ra[0] = self.MS.rac
+                    self.ClusterCatBeam.dec[0] = self.MS.decc
+                    DicoClusterDirs = {}
+                    DicoClusterDirs["l"] = np.array([0.], np.float32)
+                    DicoClusterDirs["m"] = np.array([0.], np.float32)
+                    DicoClusterDirs["ra"] = self.MS.rac
+                    DicoClusterDirs["dec"] = self.MS.decc
+                    DicoClusterDirs["I"] = np.array([1.], np.float32)
+                    DicoClusterDirs["Cluster"] = np.array([0], np.int32)
 
             DicoClusterDirs_Beam = DicoClusterDirs
             DicoSols = self.GiveBeam(DATA["uniq_times"], quiet=quiet)
@@ -999,7 +1019,7 @@ class ClassJones():
             DECs = self.ClusterCatBeam.dec
         else:
             RAs,DECs=RaDec
-        stop
+
         # from killMS2.Other.rad2hmsdms import rad2hmsdms
         # for i in range(RAs.size):
         #     ra,dec=RAs[i],DECs[i]
