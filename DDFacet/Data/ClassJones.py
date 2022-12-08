@@ -367,8 +367,6 @@ class ClassJones():
                     self.ClusterCatBeam.SumI = self.DicoClusterDirs_kMS["I"]
                     self.ClusterCatBeam.ra[:] = self.DicoClusterDirs_kMS["ra"]
                     self.ClusterCatBeam.dec[:] = self.DicoClusterDirs_kMS["dec"]
-                    
-                    PointsToReg
             else:
 
                 self.ClusterCatBeam = np.zeros(
