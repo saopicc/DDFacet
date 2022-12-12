@@ -1084,7 +1084,7 @@ class ClassJones():
             DicoBeam["t1"][itime]=T1s[itime]
             DicoBeam["tm"][itime]=Tm[itime]
             ThisTime=Tm[itime]
-            Beam=self.GiveInstrumentBeam(ThisTime,RA,DEC)
+            Beam=self.GiveInstrumentBeam(ThisTime,RA,DEC)#
             #
             if self.GD["Beam"]["CenterNorm"]==1:
                 Beam0=self.GiveInstrumentBeam(ThisTime,np.array([rac]),np.array([decc]))
