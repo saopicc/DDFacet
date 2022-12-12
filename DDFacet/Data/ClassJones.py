@@ -37,7 +37,6 @@ from DDFacet.Data import ClassLOFARBeam
 #from DDFacet.Data import ClassFITSBeam
 from DDFacet.Data import ClassGMRTBeam
 from DDFacet.Data import ClassATCABeam as ClassATCABeam
-from DDFacet.Data import ClassNenuBeam as ClassNenuBeam
 
 # import ClassSmoothJones is not used anywhere, should be able to remove it
 from DDFacet.Other import ClassGiveSolsFile
@@ -1005,6 +1004,7 @@ class ClassJones():
             self.BeamMachine = ClassATCABeam.ClassATCABeam(self.MS,GD["Beam"])
             self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam
         elif GD["Beam"]["Model"] == "NENUFAR":
+            from DDFacet.Data import ClassNenuBeam as ClassNenuBeam
             self.BeamMachine = ClassNenuBeam.ClassNenuBeam(self.MS,GD["Beam"])
             self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam
         else:
@@ -1036,7 +1036,16 @@ class ClassJones():
         #     print rad2hmsdms(ra,Type="ra").replace(" ",":"),rad2hmsdms(dec,Type="dec").replace(" ",".")
 
         DicoBeam = self.EstimateBeam(beam_times, RAs, DECs)
-
+        # print("BBBBBB",DicoBeam["Jones"].flat[0])
+        # print("BBBBBB",DicoBeam["Jones"].flat[0])
+        # print("BBBBBB",DicoBeam["Jones"].flat[0])
+        # beam_times1=np.array([5146.26037562, 5146.26067562])*1e6
+        # RAs1=np.array([3.12856748])
+        # DECs1=np.array([0.20224818])
+        # iDir=0
+        # DJ=self.EstimateBeam(beam_times1[0:2], RAs1[iDir:iDir+1], DECs1[iDir:iDir+1], progressBar=False, quiet=True)
+        # print("AAAAAA",beam_times1[0:2]/1e6, RAs1[iDir:iDir+1], DECs1[iDir:iDir+1],DJ["Jones"].flat[0])
+        # stop
         return DicoBeam
 
     def GiveVisToJonesChanMapping(self, FreqDomains):
