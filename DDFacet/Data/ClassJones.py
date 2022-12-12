@@ -33,9 +33,12 @@ import os
 from DDFacet.Array import ModLinAlg
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Data import ClassLOFARBeam
-from DDFacet.Data import ClassFITSBeam
+# comment out the below due to obnoxiousness of building Timba dependency. TODO fix
+#from DDFacet.Data import ClassFITSBeam
 from DDFacet.Data import ClassGMRTBeam
 from DDFacet.Data import ClassATCABeam as ClassATCABeam
+from DDFacet.Data import ClassNenuBeam as ClassNenuBeam
+
 # import ClassSmoothJones is not used anywhere, should be able to remove it
 from DDFacet.Other import ClassGiveSolsFile
 from SkyModel.Sky import ModVoronoiToReg
@@ -1001,10 +1004,11 @@ class ClassJones():
         elif GD["Beam"]["Model"] == "ATCA":
             self.BeamMachine = ClassATCABeam.ClassATCABeam(self.MS,GD["Beam"])
             self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam
-            # self.DtBeamDeg = GD["Beam"]["FITSParAngleIncrement"]
-            # print>>log, "  Estimating FITS beam model every %5.1f min."%DtBeamMin
+        elif GD["Beam"]["Model"] == "NENUFAR":
+            self.BeamMachine = ClassNenuBeam.ClassNenuBeam(self.MS,GD["Beam"])
+            self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam
         else:
-            raise ValueError("Unknown keyword for Beam-Model. Only accepts 'FITS', 'LOFAR', 'GMRT' or 'ATCA'")
+            raise ValueError("Unknown keyword for Beam-Model. Only accepts 'FITS', 'LOFAR', 'GMRT', 'ATCA' or 'NENUFAR'")
 
     def GiveBeam(self, times, quiet=False,RaDec=None):
         GD = self.GD

@@ -886,7 +886,7 @@ class ClassDDEGridMachine():
                         FacetInfos],
                     ParamJonesList,
                     self._bda_grid,
-                    sparsification if sparsification is not None else np.array([], dtype=np.bool),
+                    sparsification if sparsification is not None else np.array([], dtype=bool),
                     OptimisationInfos,
                     self.LSmear,
                     np.int32(ChanMapping),

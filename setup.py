@@ -148,7 +148,8 @@ def requirements():
                     "codex-africanus[dask] >= 0.2.10; python_version >= '3'", 
                     "regions",
                     "pywavelets",
-                    "tqdm"
+                    "tqdm",
+                    "nenupy"
                     ] 
     install_requirements = requirements
 
