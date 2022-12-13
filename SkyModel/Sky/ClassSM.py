@@ -30,12 +30,12 @@ from . import ModRegFile
 import time
 from DDFacet.ToolsDir import ModCoord
 
-dtypeSourceList=[('Name','|S200'),('Patch','|S200'),('ra',np.float),('dec',np.float),('Sref',np.float),('I',np.float),('Q',np.float),\
-                 ('U',np.float),('V',np.float),('RefFreq',np.float),('alpha',np.float),('ESref',np.float),\
-                 ('Ealpha',np.float),('kill',np.int),('Cluster',np.int),('Type',np.int),('Gmin',np.float),\
-                 ('Gmaj',np.float),('Gangle',np.float),("Select",np.int),('l',np.float),('m',np.float),("Exclude",bool)]
+dtypeSourceList=[('Name','|S200'),('Patch','|S200'),('ra',np.float32),('dec',np.float32),('Sref',np.float32),('I',np.float32),('Q',np.float32),\
+                 ('U',np.float32),('V',np.float32),('RefFreq',np.float32),('alpha',np.float32),('ESref',np.float32),\
+                 ('Ealpha',np.float32),('kill',np.int32),('Cluster',np.int32),('Type',np.int32),('Gmin',np.float32),\
+                 ('Gmaj',np.float32),('Gangle',np.float32),("Select",np.int32),('l',np.float32),('m',np.float32),("Exclude",bool)]
 
-dtypeClusterCat=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),("Cluster",int),('l',np.float),('m',np.float)]
+dtypeClusterCat=[('Name','|S200'),('ra',np.float32),('dec',np.float32),('SumI',np.float32),("Cluster",int),('l',np.float32),('m',np.float32)]
 
 def AngDist(ra0,ra1,dec0,dec1):
     AC=np.arccos

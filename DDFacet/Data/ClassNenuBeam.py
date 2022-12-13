@@ -25,20 +25,22 @@ from DDFacet.Other import ModColor
 from astropy.time  import Time, TimeDelta
 
 # NENUFAR DEPENDENCIES
-"""
-The DDFacet implementation of the NenuFAR beam response
-relies on the nenupy library, which is not installed by
-default. You can install it via pypy as follows:
-pip3 install nenupy
-For more information, see: https://nenupy.readthedocs.io/en/latest/install.html
-"""
+try:
+    from nenupy.instru         import MiniArray, NenuFAR, Polarization, NenuFAR_Configuration, miniarrays_rotated_like
+    from nenupy.astro.pointing import Pointing
+    from nenupy.astro.sky      import Sky
+    from nenupy.astro.target   import FixedTarget
+    from astropy.coordinates   import SkyCoord
+except ImportError:
+    print("The DDFacet implementation of the NenuFAR beam response")
+    print("relies on the nenupy library, which is not installed by")
+    print("default. You can install it via pypy as follows:")
+    print("")
+    print("pip3 install --user --upgrade https://github.com/AlanLoh/nenupy/tarball/master")
+    print("")
+    print("For more information, see: https://nenupy.readthedocs.io/en/latest/install.html")
 
 
-from nenupy.instru         import MiniArray, NenuFAR, Polarization, NenuFAR_Configuration, miniarrays_rotated_like
-from nenupy.astro.pointing import Pointing
-from nenupy.astro.sky      import Sky
-from nenupy.astro.target   import FixedTarget
-from astropy.coordinates   import SkyCoord
 import numpy as np
 import astropy.units as u
 
@@ -67,7 +69,7 @@ class ClassNenuBeam():
         self.MS=MS
         self.SR=None
         self.CalcFreqDomains()
-        
+
     def getBeamSampleTimes(self,times, **kwargs):
         DtBeamMin = self.GD["DtBeamMin"]
         DtBeamSec = DtBeamMin*60
@@ -145,11 +147,12 @@ class ClassNenuBeam():
             T.timeit("   ma")
             ### calculate beam response
             # calculate beam. daskarray.value.compute() returns a np.array from a np.darray
-            beamvals_XX=ma.beam(sky=beam_coords_XX,pointing=pointing,configuration=conf).value.compute()
-            beamvals_YY=ma.beam(sky=beam_coords_YY,pointing=pointing,configuration=conf).value.compute()
-            # # normalise - units are arbitrary and so are we
-            # beamvals_XX=beamvals_XX/np.max(beamvals_XX)
-            # beamvals_YY=beamvals_YY/np.max(beamvals_YY)
+            # configuration=conf is the old parameter call for beamsquint; TODO check if we still need it!
+            beamvals_XX=ma.array_factor(sky=beam_coords_XX,pointing=pointing,return_complex=True).compute()
+            beamvals_YY=ma.array_factor(sky=beam_coords_YY,pointing=pointing,return_complex=True).compute()
+            #beamvals_XX=ma.beam(sky=beam_coords_XX,pointing=pointing,configuration=conf).value.compute()
+            #beamvals_YY=ma.beam(sky=beam_coords_YY,pointing=pointing,configuration=conf).value.compute()
+
             beam_rot[rotation] = np.array([beamvals_XX,beamvals_YY])
             T.timeit("   beam_rot")
         T.timeit("for rot")
