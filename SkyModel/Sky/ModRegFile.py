@@ -90,14 +90,14 @@ class PolygonNpToReg():
         f.close()
 
 
-
+from regions import Regions
     
 class RegToNp():
     def __init__(self,RegName="/data/tasse/BOOTES/FirstPealed.reg"):
         self.REGFile=RegName
         
     def Read(self):
-        regs = regions.read_ds9(self.REGFile)
+        regs = Regions.read(self.REGFile)
 
         Cat=np.zeros((len(regs),),dtype=[("ra",np.float32),("dec",np.float32),
                                     ("I",np.float32),("Radius",np.float32),
@@ -115,7 +115,7 @@ class RegToNp():
             # Excluse region if color is any kind of red 
             # This is a bit hacky, because the color can be a word, or it can be
             # a '#RRGGBB' hex code 
-            color = reg.visual['color']
+            color = reg.visual['facecolor']
             if color.startswith("#") and len(color) >= 7:
                 exclude = color[1:3] != "00"   # exclude if RR part of tuple is !=0
             else:

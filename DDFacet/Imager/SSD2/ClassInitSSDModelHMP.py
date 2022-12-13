@@ -66,7 +66,8 @@ class ClassInitSSDModelParallel():
         #DicoOut["Alpha"] = AModel
         PolyModel=np.zeros((self.GD["SSD2"]["PolyFreqOrder"],SModel.size),SModel.dtype)
         PolyModel[0,:]=SModel
-        PolyModel[1,:]=AModel
+        if PolyModel.shape[0]>1:
+            PolyModel[1,:]=AModel
         DicoOut["PolyModel"] = PolyModel
         self.InitMachine.Reset()
 

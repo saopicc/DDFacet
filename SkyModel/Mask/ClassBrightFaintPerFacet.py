@@ -66,8 +66,7 @@ class ClassBrightFaintPerFacet():
         
         BaseImageName=self.FitsFile.split(".app.")[0]
         if self.options.BaseImageName: BaseImageName=self.options.BaseImageName
-        print("!!!!!!!!!!!!!!!!!!!!!")
-        PolyFacetFile="image_full_ampphase_di_m.NS_predictFaint.DicoFacet"#"%s.DicoFacet"%BaseImageName
+        PolyFacetFile="%s.DicoFacet"%BaseImageName
         log.print("Loading %s"%PolyFacetFile)
         D=DDFacet.Other.MyPickle.Load(PolyFacetFile)
 
@@ -225,15 +224,15 @@ class ClassBrightFaintPerFacet():
             # nxTaper,nyTaper=ThisTaper.shape
             # ThisTaper.flat[xx*nyTaper+yy]=ThisTaperFlat.flat[:]
 
-            import pylab
-            pylab.clf()
-            pylab.subplot(2,1,1)
-            pylab.imshow(ThisFacetMaskFacet_sel)
-            pylab.subplot(2,1,2)
-            pylab.imshow(ThisTaper[x0:x1,y0:y1])
-            pylab.draw()
-            pylab.show(block=False)
-            pylab.pause(0.1)
+            # import pylab
+            # pylab.clf()
+            # pylab.subplot(2,1,1)
+            # pylab.imshow(ThisFacetMaskFacet_sel)
+            # pylab.subplot(2,1,2)
+            # pylab.imshow(ThisTaper[x0:x1,y0:y1])
+            # pylab.draw()
+            # pylab.show(block=False)
+            # pylab.pause(0.1)
 
 
             

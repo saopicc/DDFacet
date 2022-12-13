@@ -47,7 +47,7 @@ from scipy.optimize import least_squares
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from scipy.signal import fftconvolve
 import scipy.stats
-MAD=scipy.stats.median_absolute_deviation
+MAD=scipy.stats.median_abs_deviation
 from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 
 class ClassImageDeconvMachine():
