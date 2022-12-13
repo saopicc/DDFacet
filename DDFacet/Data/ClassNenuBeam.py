@@ -39,6 +39,8 @@ except ImportError:
     print("pip3 install --user --upgrade https://github.com/AlanLoh/nenupy/tarball/master")
     print("")
     print("For more information, see: https://nenupy.readthedocs.io/en/latest/install.html")
+
+
 import numpy as np
 import astropy.units as u
 
@@ -98,6 +100,7 @@ class ClassNenuBeam():
     def GiveInstrumentBeam(self,time,ras,decs):
         # DDF internal: I assume this times the call to the beam for logging purposes
         T=ClassTimeIt.ClassTimeIt("GiveInstrumentBeam")
+        T.disable()
         # get number of directions for later iterations
         nd=len(ras)
         # initialise internal beam matrix shape
@@ -144,6 +147,7 @@ class ClassNenuBeam():
             beamvals_YY=ma.array_factor(sky=beam_coords_YY,pointing=pointing,return_complex=True).compute()
             #beamvals_XX=ma.beam(sky=beam_coords_XX,pointing=pointing,configuration=conf).value.compute()
             #beamvals_YY=ma.beam(sky=beam_coords_YY,pointing=pointing,configuration=conf).value.compute()
+
             beam_rot[rotation] = np.array([beamvals_XX,beamvals_YY])
         ### assign the appropriate rotations to the mini-arrays in the current observation
         for i, ma in enumerate(ma_list):
