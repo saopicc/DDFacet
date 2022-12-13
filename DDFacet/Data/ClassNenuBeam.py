@@ -116,17 +116,20 @@ class ClassNenuBeam():
         freqs=self.MS.ChanFreq.flatten()*u.Hz
         ### initialise nenufar configuration to account for beam squint
         conf = NenuFAR_Configuration(beamsquint_correction=True)
+        T.timeit("Init")
         ### get sky coordinates at which to estimate nenufar beam
         # XX polarisation
         beam_coords_XX=Sky(SkyCoord(ras*u.rad,decs*u.rad,frame="icrs").ravel(),time=time,frequency=freqs,polarization=Polarization.NW)
         # YY polarisation
         beam_coords_YY=Sky(SkyCoord(ras*u.rad,decs*u.rad,frame="icrs").ravel(),time=time,frequency=freqs,polarization=Polarization.NE)
+        T.timeit("beam_coords")
         ### there are only 6 mini-array rotations in the NenuFAR array. Initialise them
         ma_list=self.MS.StationNames
         rotations = np.arange(0, 60, 10)
         ma_rotated_like = list(map(miniarrays_rotated_like, rotations.reshape(6, 1)))
         available_rotations = dict(zip(rotations.astype(str), ma_rotated_like))
         # beams
+        T.timeit("available_rotations")
 
         ### below is the rotation optimisation initialisation
         beam_rot = {}
@@ -137,7 +140,9 @@ class ClassNenuBeam():
                                               time=time,
                                               duration=TimeDelta(1, format="sec"))
             # loop 6 iterations
+            T.timeit("   Pointing.target_tracking")
             ma = MiniArray(index=mas[0])
+            T.timeit("   ma")
             ### calculate beam response
             # calculate beam. daskarray.value.compute() returns a np.array from a np.darray
             beamvals_XX=ma.beam(sky=beam_coords_XX,pointing=pointing,configuration=conf).value.compute()
@@ -146,6 +151,8 @@ class ClassNenuBeam():
             # beamvals_XX=beamvals_XX/np.max(beamvals_XX)
             # beamvals_YY=beamvals_YY/np.max(beamvals_YY)
             beam_rot[rotation] = np.array([beamvals_XX,beamvals_YY])
+            T.timeit("   beam_rot")
+        T.timeit("for rot")
         ### assign the appropriate rotations to the mini-arrays in the current observation
         for i, ma in enumerate(ma_list):
             ma_index = int(ma.strip("MR").strip("NEN"))
@@ -157,12 +164,13 @@ class ClassNenuBeam():
                 Beam[idir,i,:,0,0]=beam_rot[rotation_key][0][0,:,0,idir] # polarisation 1
                 Beam[idir,i,:,1,1]=beam_rot[rotation_key][1][0,:,0,idir] # polarisation 2
 
-        T.timeit("0")
+        T.timeit("ma_list")
+
         MeanBeam=np.zeros((nd,self.MS.na,self.NChanJones,2,2),dtype=Beam.dtype)
         for ich in range(self.NChanJones):
             indCh=np.where(self.VisToJonesChanMapping==ich)[0]
             MeanBeam[:,:,ich,:,:]=np.mean(Beam[:,:,indCh,:,:],axis=2)
-        T.timeit("1")
+        T.timeit("NChan")
 
         return MeanBeam
 
