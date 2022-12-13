@@ -100,7 +100,7 @@ class ClassImageDeconvMachine():
         self.DeconvMode="GAClean"
         
         if self.GD["SSD2"]["PolyFreqOrder"]>NFreqBands:
-            stop
+            raise ValueError("NFreqBands should be greater that SSD2-PolyFreqOrder")
             
         if self.GD["SSD2"]["PolyFreqOrder"]==0:
             # that works but I prefer to forbid it since it's a bit dangerous

@@ -36,7 +36,7 @@ except ImportError:
     print("relies on the nenupy library, which is not installed by")
     print("default. You can install it via pypy as follows:")
     print("")
-    print("pip3 install nenupy")
+    print("pip3 install --user --upgrade https://github.com/AlanLoh/nenupy/tarball/master")
     print("")
     print("For more information, see: https://nenupy.readthedocs.io/en/latest/install.html")
 import numpy as np
@@ -67,7 +67,7 @@ class ClassNenuBeam():
         self.MS=MS
         self.SR=None
         self.CalcFreqDomains()
-        
+
     def getBeamSampleTimes(self,times, **kwargs):
         DtBeamMin = self.GD["DtBeamMin"]
         DtBeamSec = DtBeamMin*60
@@ -139,11 +139,11 @@ class ClassNenuBeam():
             ma = MiniArray(index=mas[0])
             ### calculate beam response
             # calculate beam. daskarray.value.compute() returns a np.array from a np.darray
-            beamvals_XX=ma.beam(sky=beam_coords_XX,pointing=pointing,configuration=conf).value.compute()
-            beamvals_YY=ma.beam(sky=beam_coords_YY,pointing=pointing,configuration=conf).value.compute()
-            # normalise - units are arbitrary and so are we
-            beamvals_XX=beamvals_XX/np.max(beamvals_XX)
-            beamvals_YY=beamvals_YY/np.max(beamvals_YY)
+            # configuration=conf is the old parameter call for beamsquint; TODO check if we still need it!
+            beamvals_XX=ma.array_factor(sky=beam_coords_XX,pointing=pointing,return_complex=True).compute()
+            beamvals_YY=ma.array_factor(sky=beam_coords_YY,pointing=pointing,return_complex=True).compute()
+            #beamvals_XX=ma.beam(sky=beam_coords_XX,pointing=pointing,configuration=conf).value.compute()
+            #beamvals_YY=ma.beam(sky=beam_coords_YY,pointing=pointing,configuration=conf).value.compute()
             beam_rot[rotation] = np.array([beamvals_XX,beamvals_YY])
         ### assign the appropriate rotations to the mini-arrays in the current observation
         for i, ma in enumerate(ma_list):
