@@ -277,9 +277,21 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 #        if "CatNodes" in self.GD.keys():
         regular_grid = False
         if self.GD["Facets"]["CatNodes"] is not None:
-            print("Taking facet directions from Nodes catalog: %s" % self.GD["Facets"]["CatNodes"], file=log)
-            ClusterNodes = np.load(self.GD["Facets"]["CatNodes"])
-            ClusterNodes = ClusterNodes.view(np.recarray)
+            if self.GD["Facets"]["CatNodes"]=="Single":
+                print("Taking facet directions from Nodes catalog: %s" % self.GD["Facets"]["CatNodes"], file=log)
+                ClusterNodes = np.zeros((1,),dtype=[('Name', '|S200'),
+                                                    ('ra', float), ('dec', float), ('SumI', float),
+                                                    ('Cluster', int), ('l', float), ('m', float)])
+                ClusterNodes = ClusterNodes.view(np.recarray)
+                rac, decc = self.MainRaDec
+                ClusterNodes.ra[0]=rac
+                ClusterNodes.dec[0]=decc
+                ClusterNodes.SumI[0]=1
+            else:
+                
+                print("Taking facet directions from Nodes catalog: %s" % self.GD["Facets"]["CatNodes"], file=log)
+                ClusterNodes = np.load(self.GD["Facets"]["CatNodes"])
+                ClusterNodes = ClusterNodes.view(np.recarray)
             raNode = ClusterNodes.ra
             decNode = ClusterNodes.dec
             lFacet, mFacet = self.CoordMachine.radec2lm(raNode, decNode)

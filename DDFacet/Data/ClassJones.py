@@ -874,10 +874,10 @@ class ClassJones():
                                         axis=0),
                                     axis=1),
                                 axis=1)
-            gmean_abs = gmean_abs.reshape((1, nd, 1, 1))
-            G[:, :, :, :, 0, 0] /= gmean_abs
-            G[:, :, :, :, 1, 1] /= gmean_abs
+            gmean_abs = gmean_abs.reshape((1, nd, 1, 1,1,1))
+            G[:, :, :, :, :, :] /= gmean_abs
 
+            
         if GlobalMode == "BLBased":
             # print>>log, "  Normalising by the mean of the amplitude (against time, freq, antenna)"
             # gmean_abs = np.mean(np.mean(
