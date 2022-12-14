@@ -97,6 +97,8 @@ class ClassNenuBeam():
         DFreq=np.abs(self.MS.ChanFreq.reshape((self.MS.NSPWChan,1))-MeanFreqJonesChan.reshape((1,NChanJones)))
         self.VisToJonesChanMapping=np.argmin(DFreq,axis=1)
 
+    def 
+
     def GiveInstrumentBeam(self,time,ras,decs):
         # DDF internal: I assume this times the call to the beam for logging purposes
         T=ClassTimeIt.ClassTimeIt("GiveInstrumentBeam")
