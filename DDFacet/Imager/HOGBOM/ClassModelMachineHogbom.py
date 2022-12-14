@@ -115,7 +115,20 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.RefFreq = self.DicoSMStacked["RefFreq"]
         self.ListScales = self.DicoSMStacked["ListScales"]
         self.ModelShape = self.DicoSMStacked["ModelShape"]
+        _,_,self.Npix_x, self.Npix_y = self.ModelShape
+        self.NpixPadded_x = int(np.ceil(self.GD["Facets"]["Padding"] * self.Npix_x))
+        # make sure it is odd numbered
+        if self.NpixPadded_x % 2 == 0:
+            self.NpixPadded_x += 1
+        self.Npad_x = (self.NpixPadded_x - self.Npix_x) // 2
 
+        self.NpixPadded_y = int(np.ceil(self.GD["Facets"]["Padding"] * self.Npix_y)) 
+        if self.NpixPadded_y % 2 == 0:
+            self.NpixPadded_y += 1
+        self.Npad_y = (self.NpixPadded_y - self.Npix_y) // 2
+        self.Npix=np.array([self.Npix_x, self.Npix_y])
+
+        
     def setModelShape(self, ModelShape):
         self.ModelShape = ModelShape
 
@@ -293,6 +306,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         # pad GausKern and take FT
         #GaussKern = np.pad(GaussKern, self.Npad, mode='constant')
+
+        print(self.NpixPadded_x)
         GaussKern = np.pad(GaussKern, ((self.Npad_x,self.Npad_x),(self.Npad_y,self.Npad_y)), mode='constant')
         FTshape_x, FTshape_y = GaussKern.shape
         from scipy import fftpack as FT
