@@ -278,7 +278,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         regular_grid = False
         if self.GD["Facets"]["CatNodes"] is not None:
             if self.GD["Facets"]["CatNodes"]=="Single":
-                print("Taking facet directions from Nodes catalog: %s" % self.GD["Facets"]["CatNodes"], file=log)
+                print("Setting Single central direction for the tessel", file=log)
                 ClusterNodes = np.zeros((1,),dtype=[('Name', '|S200'),
                                                     ('ra', float), ('dec', float), ('SumI', float),
                                                     ('Cluster', int), ('l', float), ('m', float)])
@@ -289,7 +289,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 ClusterNodes.SumI[0]=1
             else:
                 
-                print("Taking facet directions from Nodes catalog: %s" % self.GD["Facets"]["CatNodes"], file=log)
+                print("Taking tessels directions from Nodes catalog: %s" % self.GD["Facets"]["CatNodes"], file=log)
                 ClusterNodes = np.load(self.GD["Facets"]["CatNodes"])
                 ClusterNodes = ClusterNodes.view(np.recarray)
             raNode = ClusterNodes.ra
