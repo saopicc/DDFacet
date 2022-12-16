@@ -991,7 +991,7 @@ class ClassJones():
             self.ApplyBeam = True
             self.BeamMachine = ClassLOFARBeam.ClassLOFARBeam(self.MS, self.GD)
             self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam
-            #print>>log, "  Estimating LOFAR beam model in %s mode every %5.1f min."%(LOFARBeamMode,DtBeamMin)
+            #print>>log, "  Estimating LOFAR beam model in %s mode every %5.1f min."%(PhasedArrayMode,DtBeamMin)
             # self.GiveInstrumentBeam=self.MS.GiveBeam
             # estimate beam sample times using DtBeamMin
         elif GD["Beam"]["Model"] == "FITS":

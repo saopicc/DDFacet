@@ -238,7 +238,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 CheckField("Beam",'BeamModel',"Beam","Model")
                 CheckField("Beam",'NChanBeamPerMS',"Beam","NBand")
                 CheckField("Beam",'BeamAt', "Beam","At") # tessel/facet
-                CheckField("Beam",'LOFARBeamMode', "Beam","LOFARBeamMode")     # A/AE
+                CheckField("Beam",'PhasedArrayMode', "Beam","PhasedArrayMode")     # A/AE
                 CheckField("Beam",'DtBeamMin', "Beam","DtBeamMin")
                 CheckField("Beam",'CenterNorm', "Beam","CenterNorm")
                 CheckField("Beam",'FITSFile', "Beam","FITSFile")

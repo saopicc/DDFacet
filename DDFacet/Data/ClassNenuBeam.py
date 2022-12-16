@@ -143,8 +143,17 @@ class ClassNenuBeam():
             ### calculate beam response
             # calculate beam. daskarray.value.compute() returns a np.array from a np.darray
             # configuration=conf is the old parameter call for beamsquint; TODO check if we still need it!
-            beamvals_XX=ma.array_factor(sky=beam_coords_XX,pointing=pointing,return_complex=True).compute()
-            beamvals_YY=ma.array_factor(sky=beam_coords_YY,pointing=pointing,return_complex=True).compute()
+
+            if self.GD["Beam"]["PhasedArrayMode"]=="A":
+                beamvals_XX=ma.array_factor(sky=beam_coords_XX,pointing=pointing,return_complex=True).compute()
+                beamvals_YY=ma.array_factor(sky=beam_coords_YY,pointing=pointing,return_complex=True).compute()
+            elif self.GD["Beam"]["PhasedArrayMode"]=="AE":
+                beamvals_XX=ma.beam(sky=beam_coords_XX,pointing=pointing,return_complex=True).value.compute()
+                beamvals_YY=ma.beam(sky=beam_coords_YY,pointing=pointing,return_complex=True).value.compute()
+            else:
+                raise ValueError("NenuBeam only deal with A or AE modes")
+
+            
             #beamvals_XX=ma.beam(sky=beam_coords_XX,pointing=pointing,configuration=conf).value.compute()
             #beamvals_YY=ma.beam(sky=beam_coords_YY,pointing=pointing,configuration=conf).value.compute()
 

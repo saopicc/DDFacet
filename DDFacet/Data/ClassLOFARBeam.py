@@ -37,7 +37,7 @@ import numpy as np
 
 def test():
     from DDFacet.Data import ClassMS
-    GD={"Beam":{"LOFARBeamMode":"AE",
+    GD={"Beam":{"PhasedArrayMode":"AE",
                 "DtBeamMin":5,
                 "NBand":2},
         "Cache":{"Dir":"."}}
@@ -95,10 +95,10 @@ class ClassLOFARBeamEB():
 
     def InitLOFARBeam(self):
         GD=self.GD
-        LOFARBeamMode=GD["Beam"]["LOFARBeamMode"]
-        print("  LOFAR beam model in %s mode"%(LOFARBeamMode), file=log)
-        self.useArrayFactor=("A" in LOFARBeamMode)
-        self.useElementBeam=("E" in LOFARBeamMode)
+        PhasedArrayMode=GD["Beam"]["PhasedArrayMode"]
+        print("  LOFAR beam model in %s mode"%(PhasedArrayMode), file=log)
+        self.useArrayFactor=("A" in PhasedArrayMode)
+        self.useElementBeam=("E" in PhasedArrayMode)
         if self.SR is not None: return
         import everybeam
         use_differential_beam=1#(self.useArrayFactor and not self.useElementBeam)
@@ -175,10 +175,10 @@ class ClassLOFARBeam():
 
     def InitLOFARBeam(self):
         GD=self.GD
-        LOFARBeamMode=GD["Beam"]["LOFARBeamMode"]
-        print("  LOFAR beam model in %s mode"%(LOFARBeamMode), file=log)
-        useArrayFactor=("A" in LOFARBeamMode)
-        useElementBeam=("E" in LOFARBeamMode)
+        PhasedArrayMode=GD["Beam"]["PhasedArrayMode"]
+        print("  LOFAR beam model in %s mode"%(PhasedArrayMode), file=log)
+        useArrayFactor=("A" in PhasedArrayMode)
+        useElementBeam=("E" in PhasedArrayMode)
         if self.SR is not None: return
 
         import lofar.stationresponse as lsr

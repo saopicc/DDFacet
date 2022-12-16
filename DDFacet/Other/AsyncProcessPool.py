@@ -372,11 +372,13 @@ class AsyncProcessPool (object):
         Return number of results collected.
         """
         nres = 0
+        LJobsOutStanging=[]
         while True:
             try:
                 result = self._result_queue.get(False)
+                LJobsOutStanging.append(result["job_id"])
             except Queue.Empty:
-                return nres
+                return nres,LJobsOutStanging
             nres += 1
             # ok, dispatch the result
             job_id = result["job_id"]
@@ -402,9 +404,9 @@ class AsyncProcessPool (object):
             if self.verbose:
                 print("poison pills enqueued", file=log)
             self._taras_restart_event.set()
-            nres = self._checkResultQueue()
+            nres,LJobs = self._checkResultQueue()
             if nres:
-                print("collected %d outstanding results from the queue"%nres, file=log)
+                print("collected %d outstanding results from the queue: %s"%(nres,str(LJobs)), file=log)
 
     def awaitWorkerStart(self):
         if self.ncpu > 1:
@@ -413,9 +415,9 @@ class AsyncProcessPool (object):
                     if self.verbose > 1:
                         print("termination event spotted, exiting", file=log)
                     raise WorkerProcessError()
-                nres = self._checkResultQueue()
+                nres,LJobs = self._checkResultQueue()
                 if nres:
-                    print("collected %d outstanding results from the queue" % nres, file=log)
+                    print("collected %d outstanding results from the queue: %s" % (nres,str(LJobs)), file=log)
                 print("waiting for worker processes to start up", file=log)
                 self._workers_started_event.wait(10)
 
