@@ -144,10 +144,10 @@ class ClassNenuBeam():
             # calculate beam. daskarray.value.compute() returns a np.array from a np.darray
             # configuration=conf is the old parameter call for beamsquint; TODO check if we still need it!
 
-            if self.GD["Beam"]["PhasedArrayMode"]=="A":
+            if self.GD["PhasedArrayMode"]=="A":
                 beamvals_XX=ma.array_factor(sky=beam_coords_XX,pointing=pointing,return_complex=True).compute()
                 beamvals_YY=ma.array_factor(sky=beam_coords_YY,pointing=pointing,return_complex=True).compute()
-            elif self.GD["Beam"]["PhasedArrayMode"]=="AE":
+            elif self.GD["PhasedArrayMode"]=="AE":
                 beamvals_XX=ma.beam(sky=beam_coords_XX,pointing=pointing,return_complex=True).value.compute()
                 beamvals_YY=ma.beam(sky=beam_coords_YY,pointing=pointing,return_complex=True).value.compute()
             else:
