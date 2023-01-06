@@ -709,8 +709,8 @@ class ClassMultiScaleMachine():
         x0d,x1d,y0d,y1d=Aedge
         (x0,x1,y0,y1)=Bedge
 
-        self.SubSubCoord=(x0,x1,y0,y1)
-        self.SubCubePSF=self.CubePSFScales[:,:,x0:x1,y0:y1]
+        #self.SubSubCoord=(x0,x1,y0,y1)
+        self.SubCubePSF=self.CubePSFScales[:,:,x0d:x1d,y0d:y1d]
         self.SubWeightFunction=self.GlobalWeightFunction[:,:,x0:x1,y0:y1]
         _,nch,_,_ = self.SubCubePSF.shape
         
