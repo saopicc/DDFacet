@@ -84,6 +84,9 @@ class ClassAppendSource():
                 for iSource in range(Ns):
                     A.Name[iSource]="c%is%i.ATeam_%s"%(C,iSource,Body["Name"])
 
+            print("!!!!!!!!!!! testnenufar")
+            A.I/=100
+            A.Sref/=100
             self.SM.SourceCat=np.hstack([self.SM.SourceCat,A])
             self.SM.SourceCat=self.SM.SourceCat.view(np.recarray)
 

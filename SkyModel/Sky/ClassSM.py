@@ -111,18 +111,22 @@ class ClassSM():
             Cat=infile.SourceCat.copy()
             Cat=Cat.view(np.recarray)
             self.DoPrint=0
-        elif infile[-4:]==".npy":
+        elif infile.endswith(".npy"):
             Cat=np.load(infile)
             Cat=Cat.view(np.recarray)
         elif infile=="Empty":
             Cat=np.zeros((0,),dtype=dtypeSourceList)
             Cat=Cat.view(np.recarray)
             self.InputCatIsEmpty=True
-        elif infile[-7:]==".pickle":
+        elif infile.endswith(".pickle"):
             D=DDFacet.Other.MyPickle.Load(infile)
-            Cat=D["SourceCat"].view(np.recarray)
+            Cat0=D["SourceCat"].view(np.recarray)
+            self.NSources=Cat0.shape[0]
+            Cat=np.zeros((self.NSources,),dtype=dtypeSourceList)
+            for field in list(Cat0.dtype.fields.keys()):
+                Cat[field][:]=Cat0[field][:]
+            Cat=Cat.view(np.recarray)
             self.ClusterCat=D["ClusterCat"]
-            self.NSources=Cat.shape[0]
             self.D_FITS=D["D_FITS"]
             self.DDF_GD=D["DDF_GD"]
         elif Tigger:

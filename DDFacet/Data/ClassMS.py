@@ -1129,7 +1129,9 @@ class ClassMS():
             ddec_arcsec=ddecrad*180/np.pi*3600
             log.print(ModColor.Str("   ... moving phase center by 1/100th of a resolution element... (%.3f arcsec))"%ddec_arcsec))
             
-        if rarad<0.: rarad+=2.*np.pi
+        if rarad<0.:
+            log.print(ModColor.Str("The phase center has a ra<0, adding 2*pi to its value..."))
+            rarad+=2.*np.pi
         self.OriginalRadec = self.OldRadec = rarad,decrad
 
         if self.ToRADEC is not None:

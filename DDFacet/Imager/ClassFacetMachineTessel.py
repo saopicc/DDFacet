@@ -738,8 +738,10 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.JonesDirCat.m=NodesCat.m
         self.JonesDirCat.Cluster = range(NJonesDir)
 
-        print("Sizes (%i facets):" % (self.JonesDirCat.shape[0]), file=log)
+        print("Sizes:", file=log)
         print("   - Main field :   [%i x %i] pix" % (self.Npix_x, self.Npix_y), file=log)
+        print("   - Number of Facets: %i" % NFacets, file=log)
+        print("   - Number of Tessels: %i" % (self.JonesDirCat.shape[0]), file=log)
 
 
         l_m_Diam = np.zeros((NFacets, 5), np.float32)

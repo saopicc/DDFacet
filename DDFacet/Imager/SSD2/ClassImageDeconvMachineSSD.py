@@ -308,7 +308,9 @@ class ClassImageDeconvMachine():
         #ListIslands=[np.load("errIsland_000524.npy").tolist()]
         
         ListIslands=IslandDistanceMachine.CalcCrossIslandFlux(ListIslands)
-        ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
+        if self.GD["SSD2"]["ConvexifyIslands"]:
+            ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
+            
         ListIslands=IslandDistanceMachine.MergeIslands(ListIslands)
         ListIslands=IslandDistanceMachine.BreakLargeIslands(ListIslands)
         
