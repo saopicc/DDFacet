@@ -32,6 +32,7 @@ FAIL = '\033[91m'
 ENDC = '\033[0m'
 bold='\033[1m'
 nobold='\033[0m'
+italic="\033[3m"
 Separator="================================%s=================================="
 silent=0
 
@@ -39,7 +40,7 @@ def disableColors():
     global silent
     silent = 1
     
-def Str(strin0,col="red",Bold=True):
+def Str(strin0,col="red",Bold=True,Italic=False):
     if silent==1: return strin0
     strin=str(strin0)
     if col=="red":
@@ -57,6 +58,7 @@ def Str(strin0,col="red",Bold=True):
 
     ss="%s%s%s"%(ss,strin,ENDC)
     if Bold: ss="%s%s%s"%(bold,ss,nobold)
+    if Italic: ss="%s%s%s"%(italic,ss,nobold)
     return ss
 
 def Sep(strin=None,D=1):
