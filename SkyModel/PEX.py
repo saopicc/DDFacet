@@ -15,6 +15,7 @@ from SkyModel.PSourceExtract.ClassGaussFit import ClassGaussFit as ClassFit
 #import ClassPointFit as ClassPointFit
 from DDFacet.Other import logger
 log=logger.getLogger("PEX")
+from SkyModel.PSourceExtract import Gaussian
 
 from pyrap.images import image
 from DDFacet.Other.progressbar import ProgressBar
@@ -44,6 +45,7 @@ def read_options():
     group.add_option('--DoPlot',help=' Default is %default',default="1")
     group.add_option('--DoPrint',help=' Default is %default',default="0")
     group.add_option('--Boost',help=' Boost is %default',default="3")
+    group.add_option('--ConvolveInput',help=' Convolve, defaults is %default',default=0,type=int)
     #group.add_option('--NCluster',help=' Boost is %default',default="0")
     group.add_option('--snr',help=' SNR above which we draw an island. Default is %default',default="7")
     #group.add_option('--CMethod',help=' Cluster algorithm Method. Default is %default',default="1")
@@ -157,6 +159,20 @@ def main(options=None):
         
     
     b=im.getdata()[ChSlice,0,:,:]
+
+    # if options.ConvolveInput:
+    #     log.print("  Convolving input...")
+    #     dN=10
+    #     N=2*dN+1
+    #     x,y=np.mgrid[-dN:dN:N*1j,-dN:dN:N*1j]
+    #     print(ThisSm,ThisSM,ThisPA)
+    #     G = Gaussian.GaussianXY(x,y,1,sig=(ThisSm,ThisSM),pa=ThisPA)
+    #     pylab.clf()
+    #     pylab.imshow(G)
+    #     pylab.draw()
+    #     pylab.show(block=False)
+        
+    
     #b=b[3000:4000,3000:4000]#[120:170,300:370]
     c=im.coordinates()
     incr=np.abs(c.dict()["direction0"]["cdelt"][0])
@@ -191,6 +207,9 @@ def main(options=None):
                 NoiseImage[i::Boost,j::Boost][0:s0,0:s1]=Noise[:,:][0:s0,0:s1]
         ind=np.where(NoiseImage==0.)
         NoiseImage[ind]=1e-10
+
+
+
         
     PutDataInNewImage(imname,"%s.PEXNoise"%imname,NoiseImage.reshape((1,1,b.shape[0],b.shape[1])))
 
