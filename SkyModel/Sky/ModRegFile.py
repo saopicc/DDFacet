@@ -114,8 +114,12 @@ class RegToNp():
         for iCat, reg in enumerate(regs):
             # Excluse region if color is any kind of red 
             # This is a bit hacky, because the color can be a word, or it can be
-            # a '#RRGGBB' hex code 
-            color = reg.visual['facecolor']
+            # a '#RRGGBB' hex code
+            
+            color = reg.visual.get('facecolor',None)
+            if color is None:
+                color = reg.visual.get('color',None)
+            
             if color.startswith("#") and len(color) >= 7:
                 exclude = color[1:3] != "00"   # exclude if RR part of tuple is !=0
             else:
