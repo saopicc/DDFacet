@@ -1030,7 +1030,7 @@ class ClassImagerDeconv():
                 NpixInside, _ = EstimateNpix(float(NpixInside), Padding=1)
                 print("  Zeroing model %s square [%i pixels]"%(SquareMaskMode,NpixInside),file=log)
                 dn=NpixInside//2
-                nx,ny=self.FacetMachine.Npix
+                nx,ny=self.FacetMachine.Npix_x,self.FacetMachine.Npix_y
                 InSquare=np.zeros(ModelImage.shape,bool)
                 InSquare[:,:,nx//2-dn:nx//2+dn+1,ny//2-dn:ny//2+dn+1]=1
                 if SquareMaskMode=="Inside":
