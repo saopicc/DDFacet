@@ -581,7 +581,8 @@ class ClassJones():
 
         #print((G.shape,FreqDomains.shape,VisToJonesChanMapping ), file=log)
 
-        self.BeamTimes_kMS = DicoSolsFile["BeamTimes"]
+        
+        self.BeamTimes_kMS = (DicoSolsFile["BeamTimes"]["t0"]+DicoSolsFile["BeamTimes"]["t1"])/2
 
         return VisToJonesChanMapping,DicoClusterDirs,DicoSols,G
 
