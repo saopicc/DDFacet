@@ -41,6 +41,7 @@ def attach(name, load=True, readwrite=True):
     #     return None
     # else:
     #     print(name)
+    
     return SharedDict(name, reset=False, load=load, readwrite=readwrite)
 
 def create(name):
@@ -56,6 +57,7 @@ def dict_to_shm(name, D):
 def delDict(Name):
     D=attach(Name)
     if D is not None:
+        #print("DDDDDDDDDDDDDD")
         D.delete()
         os.system("rm -fr %s" % D.path)
 
@@ -126,8 +128,10 @@ class SharedDict (collections.OrderedDict):
             self.path = path
         else:
             self.path = os.path.join(SharedDict.basepath, path)
-#        self._path_fd = os.open(self.path, os.O_RDONLY)  # for sync purposes
-        if reset or not os.path.exists(self.path):
+            #        self._path_fd = os.open(self.path, os.O_RDONLY)  # for sync purposes
+        Exists=os.path.exists(self.path)
+        if reset or not Exists:
+            #print("INITTTT r=%i %i %s"%(reset,Exists,self.path))
             self.delete()
         elif load:
             self.reload()
@@ -135,6 +139,7 @@ class SharedDict (collections.OrderedDict):
     def __del__(self):
  #       os.close(self._path_fd)
         if self._delete_items:
+            #print("__DEL__")
             self.delete()
 
     def is_writeable(self):
@@ -162,8 +167,10 @@ class SharedDict (collections.OrderedDict):
             raise RuntimeError("SharedDict %s attached as read-only" % self.path)
         collections.OrderedDict.clear(self)
         if os.path.exists(self.path):
+            #print("del %s"%self.path)
             os.system("rm -fr %s" % self.path)
         try:
+            #print("mkdir %s"%self.path)
             os.mkdir(self.path)
         except FileNotFoundError:
             # suppress error message that can only occur if
@@ -174,6 +181,8 @@ class SharedDict (collections.OrderedDict):
         if self._delete_items:
             if not self._readwrite:
                 raise RuntimeError("SharedDict %s attached as read-only" % self.path)
+            #print("CLEAR")
+            
             self.delete()
         else:
             collections.OrderedDict.clear(self)
