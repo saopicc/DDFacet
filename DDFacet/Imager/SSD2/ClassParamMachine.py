@@ -137,8 +137,13 @@ class ClassParamMachine():
             for i_indiv,indiv in zip(range(len(pop)),pop):
                 
                 PolyModelArray=ListPolyModelArray[i_indiv]
-                
-                SModelArray=PolyModelArray[0,:]
+
+                try:
+                    SModelArray=PolyModelArray[0,:]
+                except:
+                    print(ListPolyModelArray)
+                    print(PolyModelArray)
+                    print(PolyModelArray.shape)
                 
                 DicoSigma=self.DicoIParm[Type]["Default"]["Sigma"]
                 MeanVal=self.DicoIParm[Type]["Default"]["Mean"]
