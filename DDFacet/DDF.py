@@ -57,7 +57,8 @@ import numexpr
 import numpy as np
 from DDFacet.Other import logo
 from DDFacet.Array import NpParallel
-from DDFacet.Imager import ClassDeconvMachine
+#from DDFacet.Imager import ClassDeconvMachine
+from DDFacet.Imager import ClassDeconvMachineMultiField as ClassDeconvMachine
 from DDFacet.Imager import ClassFacetMachine
 from DDFacet.Parset import ReadCFG
 from DDFacet.Other import MyPickle
