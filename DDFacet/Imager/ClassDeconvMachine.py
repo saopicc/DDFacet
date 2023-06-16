@@ -111,18 +111,25 @@ signal.signal(signal.SIGUSR1, handler=handle_user_stop_signal)
 class ClassImagerDeconv():
     def __init__(self, GD=None,
                  PointingID=0,BaseName="ImageTest2",ReplaceDico=None,
-                 predict_only=False, data=True, psf=True, readcol=True, deconvolve=True):
+                 predict_only=False, data=True, psf=True, readcol=True, deconvolve=True,
+                 FieldID=None):
         # if ParsetFile is not None:
         #     GD=ClassGlobalData(ParsetFile)
         #     self.GD=GD
 
+        self.FieldID=FieldID
         if GD is not None:
             self.GD=GD
 
         # INIT: gain machine singleton once and for always
-        self.GainMachine = ClassGainMachine.ClassGainMachine(GainMin=self.GD["Deconv"]["Gain"])
-
-        self.BaseName=BaseName
+        #self.GainMachine = ClassGainMachine.ClassGainMachine(GainMin=self.GD["Deconv"]["Gain"])
+        if self.FieldID is not None:
+            self.BaseName="%s_Field%i"%(BaseName,self.FieldID)
+            self.FM_ID="_Field%i"%self.FieldID
+        else:
+            self.BaseName=BaseName
+            self.FM_ID=""
+            
         self.DicoModelName="%s.DicoModel"%self.BaseName
         self.DicoMetroModelName="%s.Metro.DicoModel"%self.BaseName
         self.PointingID=PointingID
@@ -177,31 +184,13 @@ class ClassImagerDeconv():
         # self._save_intermediate_grids = self.GD["Debug"]["SaveIntermediateDirtyImages"]
 
         APP.registerJobHandlers(self)
+        
 
-    def Init(self):
+    def Init(self,VS):
         DC = self.GD
-        if self.GD["Output"]["Mode"]!="CleanMinor":
-            mslist = ClassMS.expandMSList(DC["Data"]["MS"],
-                                          defaultDDID=DC["Selection"]["DDID"],
-                                          defaultField=DC["Selection"]["Field"],
-                                          defaultColumn=None)
-            
-        AsyncProcessPool.init(ncpu=self.GD["Parallel"]["NCPU"],
-                              affinity=self.GD["Parallel"]["Affinity"],
-                              parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
-                              verbose=self.GD["Debug"]["APPVerbose"],
-                              pause_on_start=self.GD["Debug"]["PauseWorkers"])
+        self.VS=VS
 
-        if self.GD["Output"]["Mode"]=="CleanMinor":
-            print>>log,"Initialising from DeconvMachine from cache..."
-            class VisServer(object): pass
-            self.VS=VisServer()
-            self.VS.maincache = CacheManager("%s.ddfcache"%self.GD["Data"]["MS"], cachedir=self.GD["Cache"]["Dir"], reset=self.GD["Cache"]["Reset"])
-            self.VS.NFreqBands
-        else:
-            self.VS = ClassVisServer.ClassVisServer(mslist,ColName=DC["Data"]["ColName"] if self.do_readcol else None,
-                                                    TChunkSize=DC["Data"]["ChunkHours"],
-                                                    GD=self.GD)
+            
 
         self.NMajor=self.GD["Deconv"]["MaxMajorIter"]
         del(self.GD["Deconv"]["MaxMajorIter"])
@@ -324,11 +313,10 @@ class ClassImagerDeconv():
         if self.do_predict_only and self.GD["CF"]["wmax"]!=0: # if wmax==0 the wmax of the data is not computed, and the CFs are not properly set
             self.VS.IgnoreWeights()
 
-        # all internal state initialized -- start the worker threads
-        APP.startWorkers()
+    def InitCF(self):
         # and proceed with background tasks
-        self.VS.CalcWeightsBackground()
-        self.FacetMachine and self.FacetMachine.initCFInBackground()
+        if self.FacetMachine is not None:
+            self.FacetMachine.initCFInBackground()
         # FacetMachinePSF will skip CF init if they match those of FacetMachine
         if self.FacetMachinePSF is not None:
             self.FacetMachinePSF.initCFInBackground(other_fm=self.FacetMachine)
@@ -342,13 +330,15 @@ class ClassImagerDeconv():
                                                         self.GD,
                                                         Precision=self.Precision,
                                                         PolMode=self.GD["Output"]["StokesResidues"],
-                                                        custom_id="STOKESFM")
+                                                        custom_id="STOKESFM_%s"%self.FM_ID)
             self.StokesFacetMachine.appendMainField(ImageName="%s.image"%self.BaseName,**MainFacetOptions)
             self.StokesFacetMachine.Init()
 
         if self.do_data:
             self.FacetMachine = ClassFacetMachine(self.VS, self.GD,
-                                                Precision=self.Precision, PolMode=self.PolMode)
+                                                  Precision=self.Precision,
+                                                  PolMode=self.PolMode,
+                                                  custom_id="FM_%s"%self.FM_ID)
             self.FacetMachine.appendMainField(ImageName="%s.image"%self.BaseName,**MainFacetOptions)
             self.FacetMachine.Init()
         if self.do_psf:
@@ -364,8 +354,9 @@ class ClassImagerDeconv():
                     print("PSFFacets=1 implies PSFOversize=1", file=log)
             print("using PSFOversize=%.2f" % oversize, file=log)
             self.FacetMachinePSF = ClassFacetMachine(self.VS, self.GD,
-                                                Precision=self.Precision, PolMode=self.PolMode,
-                                                DoPSF=True, Oversize=oversize)
+                                                     Precision=self.Precision, PolMode=self.PolMode,
+                                                     DoPSF=True, Oversize=oversize,
+                                                     custom_id="FMPSF_%s"%self.FM_ID)
             self.FacetMachinePSF.appendMainField(ImageName="%s.psf" % self.BaseName, **MainFacetOptions)
             self.FacetMachinePSF.Init()
 

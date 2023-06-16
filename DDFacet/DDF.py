@@ -281,7 +281,7 @@ def main(OP=None, messages=[]):
                                                   readcol=(Mode != "Predict" and Mode != "PSF"),
                                                   deconvolve=("Clean" in Mode))
 
-    Imager.Init()
+    #Imager.Init()
         
 
     # Imager.testDegrid()

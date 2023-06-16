@@ -83,9 +83,11 @@ class ClassFacetMachine():
                  PointingID=0,
                  DoPSF=False,
                  Oversize=1,   # factor by which image is oversized
-                 custom_id=None
+                 custom_id=None,
                  ):
+            
 
+            
         self.HasFourierTransformed = False
 
         if Precision == "S":
