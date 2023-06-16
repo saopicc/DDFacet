@@ -340,7 +340,7 @@ class ClassImagerDeconv():
                                                         Precision=self.Precision,
                                                         PolMode=self.GD["Output"]["StokesResidues"],
                                                         custom_id="STOKESFM_%s"%self.FM_ID)
-            self.StokesFacetMachine.appendMainField(ImageName="%s.image"%self.BaseName,**MainFacetOptions)
+            self.StokesFacetMachine.appendMainField(ImageName="%s.stokes"%self.BaseName,**MainFacetOptions)
             self.StokesFacetMachine.Init()
 
         if self.do_data:
@@ -348,7 +348,8 @@ class ClassImagerDeconv():
                                                   Precision=self.Precision,
                                                   PolMode=self.PolMode,
                                                   custom_id="FM_%s"%self.FM_ID)
-            self.FacetMachine.appendMainField(ImageName="%s.image"%self.BaseName,**MainFacetOptions)
+            self.FacetMachine.appendMainField(ImageName="%s"%self.BaseName,**MainFacetOptions)
+
             self.FacetMachine.Init()
         if self.do_psf:
             if self.PSFFacets:
@@ -661,8 +662,10 @@ class ClassImagerDeconv():
         if not (dirty_valid and psf_valid):
             print(ModColor.Str("============================== Making Dirty Image and/or PSF ===================="), file=log)
             # tell the I/O thread to go load the first chunk
-            self.VS.ReInitChunkCount()
-            self.VS.startChunkLoadInBackground()
+            if self.FieldID is None or self.FieldID==0:
+                self.VS.ReInitChunkCount()
+                self.VS.startChunkLoadInBackground()
+                
             if not dirty_valid:
                 self.FacetMachine.ReinitDirty()
             if psf and not psf_valid and self.FacetMachinePSF is not None:
@@ -1081,8 +1084,6 @@ class ClassImagerDeconv():
             self.VS.startVisPutColumnInBackground(DATA, "data", self.GD["Predict"]["ColName"], likecol=self.GD["Data"]["ColName"])
             # and wait for it to finish (we don't want DATA destroyed, which collectLoadedChunk() above will)
             self.VS.collectPutColumnResults()
-
-
 
             # #Convert to radians
             # ra = ra_d*np.pi/180.0

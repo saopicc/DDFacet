@@ -712,7 +712,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         #     LPolygonNew+=SubReg
         #     print
 
-        regFile = "%s.tessel.%sreg" % (self.GD["Output"]["Name"], "psf." if self.DoPSF else "")
+        regFile = "%s.tessel.%sreg" % (self.ImageName, "psf." if self.DoPSF else "")
         # labels=["[F%i.C%i]"%(i,DicoPolygon[i]["iSol"]) for i in range(len(LPolygonNew))]
         # VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green",labels=labels)
 
@@ -958,6 +958,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
              self.DicoImager[i]["lmShift"][1],
              "[F%i_S%i]" % (i, self.DicoImager[i]["iSol"]))
             for i in range(len(LPolygonNew))]
+        
         VM.PolygonToReg(regFile,
                         LPolygonNew,
                         radius=0.1,

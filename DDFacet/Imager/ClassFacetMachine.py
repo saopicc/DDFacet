@@ -258,7 +258,7 @@ class ClassFacetMachine():
             Cell_x=Cell_y=self.GD["Image"]["Cell"]
 
         self.ImageName = ImageName
-
+        
         self.LraFacet = []
         self.LdecFacet = []
 
