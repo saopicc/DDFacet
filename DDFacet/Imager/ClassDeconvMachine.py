@@ -112,23 +112,27 @@ class ClassImagerDeconv():
     def __init__(self, GD=None,
                  PointingID=0,BaseName="ImageTest2",ReplaceDico=None,
                  predict_only=False, data=True, psf=True, readcol=True, deconvolve=True,
-                 FieldID=None):
+                 DicoField=None):
         # if ParsetFile is not None:
         #     GD=ClassGlobalData(ParsetFile)
         #     self.GD=GD
 
-        self.FieldID=FieldID
+        
         if GD is not None:
             self.GD=GD
 
         # INIT: gain machine singleton once and for always
         #self.GainMachine = ClassGainMachine.ClassGainMachine(GainMin=self.GD["Deconv"]["Gain"])
-        if self.FieldID is not None:
+        if DicoField is not None:
+            self.FieldID=DicoField["FieldID"]
+            self.DicoField=DicoField
             self.BaseName="%s_Field%i"%(BaseName,self.FieldID)
             self.FM_ID="_Field%i"%self.FieldID
         else:
+            self.FieldID=None
             self.BaseName=BaseName
             self.FM_ID=""
+            self.DicoField=None
             
         self.DicoModelName="%s.DicoModel"%self.BaseName
         self.DicoMetroModelName="%s.Metro.DicoModel"%self.BaseName
@@ -325,6 +329,11 @@ class ClassImagerDeconv():
         """Creates FacetMachines for data and/or PSF"""
         self.StokesFacetMachine = self.FacetMachine = self.FacetMachinePSF = None
         MainFacetOptions = self.GiveMainFacetOptions()
+
+        # MultiField mode
+        if self.DicoField is not None:
+            MainFacetOptions["ra0dec0"]=self.DicoField["ra0dec0"]
+            
         if self.do_stokes_residue:
             self.StokesFacetMachine = ClassFacetMachine(self.VS,
                                                         self.GD,

@@ -51,7 +51,9 @@ class ClassImagerDeconv():
         self.kwargs=copy.deepcopy(kwargs)
         self.DicoDeconvMachine={}
         if self.GD["Image"]["MultiFieldFile"] is None:
+            Fields=None
             self.DicoDeconvMachine[0]=ClassDeconvMachine.ClassImagerDeconv(*args, **kwargs)
+            self.NFields=1
         else:
             Fields=readMultiFieldFile(self.GD["Image"]["MultiFieldFile"])
             self.GD["Image"]["PhaseCenterRADEC"]=None
@@ -63,14 +65,16 @@ class ClassImagerDeconv():
                 decs=rad2hmsdms(coords.dec.rad,Type="dec").replace(" ",":")
                 NPix=int(ThisField["NPix"])
                 ThisGD=copy.deepcopy(self.GD)
-                ThisGD["Image"]["PhaseCenterRADEC"]=[ras,decs]
+                #ThisGD["Image"]["PhaseCenterRADEC"]=[ras,decs]
                 ThisGD["Image"]["NPix"]=NPix
                 This_kwargs=copy.deepcopy(kwargs)
                 This_kwargs["GD"]=ThisGD
                 #This_kwargs["BaseName"]="%s_Field%i"%(kwargs["BaseName"],iField)
-                This_kwargs["FieldID"]=iField
-                
+                This_kwargs["DicoField"]={"FieldID":iField,
+                                          "ra0dec0":(coords.ra.rad,coords.dec.rad)}
+                self.Fields=Fields
                 self.DicoDeconvMachine[iField]=ClassDeconvMachine.ClassImagerDeconv(*args, **This_kwargs)
+            self.NFields=len(This_kwargs["DicoField"])
             
         # all internal state initialized -- start the worker threads
         AsyncProcessPool.init(ncpu=self.GD["Parallel"]["NCPU"],
@@ -89,7 +93,8 @@ class ClassImagerDeconv():
                                                 ColName=self.GD["Data"]["ColName"] if self.DM0.do_readcol else None,
                                                 TChunkSize=self.GD["Data"]["ChunkHours"],
                                                 GD=self.GD)
-        for iField,ThisField in enumerate(Fields):
+        
+        for iField in range(self.NFields):
             self.DicoDeconvMachine[iField].Init(self.VS)
         
         AsyncProcessPool.APP.startWorkers()
@@ -97,3 +102,7 @@ class ClassImagerDeconv():
         for iField in self.DicoDeconvMachine.keys():
             self.DicoDeconvMachine[iField].InitCF()
     
+    def GiveDirty(self, *args, **kwargs):
+        for iField in range(self.NFields):
+            self.DicoDeconvMachine[iField].GiveDirty(*args,**kwargs)
+        

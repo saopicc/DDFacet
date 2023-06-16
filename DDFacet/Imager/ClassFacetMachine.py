@@ -234,7 +234,7 @@ class ClassFacetMachine():
 
     def appendMainField(self, Npix=512, Cell=10., NFacets=5,
                         Support=11, OverS=5, Padding=1.2,
-                        wmax=10000, Nw=11, RaDecRad=(0., 0.),
+                        wmax=10000, Nw=11, ra0dec0=None,
                         ImageName="Facet.image", **kw):
         """
         Add the primary field to the facet machine. This field is tesselated
@@ -281,7 +281,7 @@ class ClassFacetMachine():
         self.SumWeights = np.zeros((self.nch, self.npol), float)
 
         self.CoordMachine = ModCoord.ClassCoordConv(rac, decc)
-
+        
         # from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
         # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
@@ -316,7 +316,12 @@ class ClassFacetMachine():
                                          [RadiusTot_x, -RadiusTot_y],
                                          [RadiusTot_x, RadiusTot_y],
                                          [-RadiusTot_x, RadiusTot_y]])
-        self.setFacetsLocs()
+        l0,m0=0.,0.
+        if ra0dec0 is not None:
+            ra0,dec0=ra0dec0
+            l0,m0=self.CoordMachine.radec2lm(ra0,dec0)
+            
+        self.setFacetsLocs(lmCenter=(l0,m0))
 
     def giveEffectivePadding(self,iFacet):
         ThisFacetPadding=self.Padding
@@ -437,7 +442,7 @@ class ClassFacetMachine():
         # self.JonesDirCat.Cluster[iFacet] = iFacet
 
         
-    def setFacetsLocs(self):
+    def setFacetsLocs_old(self):
         """
         Routine to split the image into a grid of squares.
         This can be overridden to perform more complex tesselations
@@ -901,7 +906,7 @@ class ClassFacetMachine():
             print("max w=%.6g from MS (--CF-wmax=0)"%wmax, file=log)
 
         # subprocesses will place W-terms etc. here. Reset this first.
-        self._CF = shared_dict.create("CFPSF" if self.DoPSF else "CF")
+        self._CF = shared_dict.create("%s_CFPSF"%self._app_id if self.DoPSF else "%s_CF"%self._app_id)
         # check if w-kernels, spacial weights, etc. are cached
 
         if self.GD["Cache"]["CF"]:
@@ -910,10 +915,10 @@ class ClassFacetMachine():
                             Facets=self.GD["Facets"], 
                             RIME=self.GD["RIME"],
                             DDESolutions={"DDSols":self.GD["DDESolutions"]["DDSols"]})
-            cachename = self._cf_cachename = "CF"
+            cachename = self._cf_cachename = "%s_CF"%self._app_id
             # in oversize-PSF mode, make separate cache for PSFs
             if self.DoPSF and self.Oversize != 1:
-                cachename = self._cf_cachename = "CFPSF"
+                cachename = self._cf_cachename = "%s_CFPSF"%self._app_id
                 cachekey["Oversize"] = self.Oversize
             # check cache
             cachepath, cachevalid = self.VS.maincache.checkCache(cachename, cachekey, directory=True)
@@ -1097,7 +1102,7 @@ class ClassFacetMachine():
         """Sets current model image. Copies it to a shared dict and returns shared array version of image."""
         if self.DoPSF:
             raise RuntimeError("Can't call getChunk on a PSF mode FacetMachine. This is a bug!")
-        self._model_dict = shared_dict.create("Model")
+        self._model_dict = shared_dict.create("%s_Model"%self._app_id)
         self._model_dict["Image"] = ModelImage
         for iFacet in range(self.NFacets):
             self._model_dict.addSubdict(iFacet)
@@ -1431,7 +1436,7 @@ class ClassFacetMachine():
         # it is initialized only once, either here, or in BuildFacetNormImage.
         # So we do nothing if it is already initialized.
         if self._norm_dict is None:
-            self._norm_dict = shared_dict.attach("normDict")
+            self._norm_dict = shared_dict.attach("%s_normDict"%self._app_id)
         if "FacetNorm" not in self._norm_dict:
             JonesNorm = DicoImages["JonesNorm"]
             nch, npol, nx, ny = DicoImages["ImageCube"].shape
@@ -1475,7 +1480,7 @@ class ClassFacetMachine():
         # it is initialized only once, either here, or in BuildFacetNormImage.
         # So we do nothing if it is already initialized.
         if self._norm_dict is None:
-            self._norm_dict = shared_dict.attach("normDict")
+            self._norm_dict = shared_dict.attach("%s_normDict"%self._app_id)
         if "FacetNorm" not in self._norm_dict:
             print("  Building Facet-normalisation image", file=log)
             nch, npol = self.nch, self.npol
@@ -1654,7 +1659,7 @@ class ClassFacetMachine():
         self.HasFourierTransformed = False
         # are we creating a new grids dict?
         if self._facet_grids is None:
-            self._facet_grids = shared_dict.create("PSFGrid" if self.DoPSF else "Grid")
+            self._facet_grids = shared_dict.create("%s_PSFGrid"%self._app_id if self.DoPSF else "%s_Grid"%self._app_id)
 
         for iFacet in self.DicoGridMachine.keys():
             NX,NY = self.DicoImager[iFacet]["NpixFacetPadded"]
@@ -1930,7 +1935,7 @@ class ClassFacetMachine():
                                DeleteZeroValuedGrids=False):
         # We get the psf dict directly from the shared dict name (not from the .path of a SharedDict)
         # because this facet machine is not necessarilly the one where we have computed the PSF
-        norm_dict = shared_dict.attach("normDict")
+        norm_dict = shared_dict.attach("%s_normDict"%self._app_id)
         # extract facet model from model image
         ModelGrid, SumFlux = self._Im2Grid.GiveModelTessel(model_dict["Image"],
                                                            self.DicoImager, iFacet, norm_dict["FacetNorm"],
@@ -2030,7 +2035,7 @@ class ClassFacetMachine():
             d_mat=np.arccos(s(d0)*s(d1.T)+c(d0)*c(d1.T)*c(a0-a1.T))
             #d_mat[d_mat==0]=1e10
 
-        RestoredFacetDict = shared_dict.create("RestoredFacetDict")
+        RestoredFacetDict = shared_dict.create("%s_RestoredFacetDict"%self._app_id)
 
 
         for iFacet in self.DicoImager.keys():

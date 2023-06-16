@@ -86,7 +86,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
     def __init__(self, *args, **kwargs):
         ClassFacetMachine.ClassFacetMachine.__init__(self, *args, **kwargs)
 
-    def setFacetsLocs(self):
+    def setFacetsLocs(self,lmCenter=(0.,0.)):
         NFacets = self.NFacets
         if isinstance(self.GD["Image"]["NPix"],int):
             Npix_x=Npix_y=self.GD["Image"]["NPix"]
@@ -106,7 +106,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         RadiusTot_y = self.CellSizeRad_y * self.Npix_y / 2
         self.RadiusTot_y = RadiusTot_y
 
-        lMainCenter, mMainCenter = 0., 0.
+        lMainCenter, mMainCenter = lmCenter
         self.lmMainCenter = lMainCenter, mMainCenter
         self.CornersImageTot = np.array([[lMainCenter - RadiusTot_x, mMainCenter - RadiusTot_y],
                                          [lMainCenter + RadiusTot_x, mMainCenter - RadiusTot_y],
