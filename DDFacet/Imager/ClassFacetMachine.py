@@ -275,6 +275,7 @@ class ClassFacetMachine():
         self.CellSizeRad = np.array([self.CellSizeRad_x,self.CellSizeRad_y],np.float64)
 
         self.MainRaDec = (rac, decc)
+        self.RaDecPhaseCenter=(rac, decc)
         self.nch = self.VS.NFreqBands
         # LB - this is unnecessary and only used in FacetMachine, replacing occurrences
         # self.NChanGrid = self.nch
@@ -312,14 +313,15 @@ class ClassFacetMachine():
         RadiusTot_y = self.CellSizeRad_y * self.Npix_x / 2
         self.RadiusTot_x = RadiusTot_x
         self.RadiusTot_y = RadiusTot_y
-        self.CornersImageTot = np.array([[-RadiusTot_x, -RadiusTot_y],
-                                         [RadiusTot_x, -RadiusTot_y],
-                                         [RadiusTot_x, RadiusTot_y],
-                                         [-RadiusTot_x, RadiusTot_y]])
         l0,m0=0.,0.
         if ra0dec0 is not None:
             ra0,dec0=ra0dec0
             l0,m0=self.CoordMachine.radec2lm(ra0,dec0)
+            self.MainRaDec = (ra0,dec0)
+        self.CornersImageTot = np.array([[l0-RadiusTot_x, m0-RadiusTot_y],
+                                         [l0+RadiusTot_x, m0-RadiusTot_y],
+                                         [l0+RadiusTot_x, m0+RadiusTot_y],
+                                         [l0-RadiusTot_x, m0+RadiusTot_y]])
             
         self.setFacetsLocs(lmCenter=(l0,m0))
 
@@ -423,12 +425,16 @@ class ClassFacetMachine():
         self.DicoImager[iFacet]["RaDec"] = raFacet[0], decFacet[0]
         self.LraFacet.append(raFacet[0])
         self.LdecFacet.append(decFacet[0])
-        xc, yc = int(round(l0 / self.CellSizeRad_x + NpixOutIm_x // 2)), int(round(m0 / self.CellSizeRad_y + NpixOutIm_y // 2))
+
+        
+        lMainCenter,mMainCenter=self.lmMainCenter
+        xc, yc = int(round((l0-lMainCenter) / self.CellSizeRad_x + NpixOutIm_x // 2)), int(round((m0-mMainCenter) / self.CellSizeRad_y + NpixOutIm_y // 2))
 
         self.DicoImager[iFacet]["pixCentral"] = xc, yc
         self.DicoImager[iFacet]["pixExtent"] = xc - NpixFacet_x // 2, xc + NpixFacet_x // 2 + 1, \
                                                yc - NpixFacet_y // 2, yc + NpixFacet_y // 2 + 1
-
+        print(iFacet,l0,m0,xc,yc,self.DicoImager[iFacet]["pixExtent"] )
+        
         self.DicoImager[iFacet]["NpixFacet"] = NpixFacet_x,NpixFacet_y
         self.DicoImager[iFacet]["NpixFacetPadded"] = NpixPaddedGrid_x,NpixPaddedGrid_y
         self.DicoImager[iFacet]["DicoConfigGM"] = DicoConfigGM
@@ -1481,6 +1487,7 @@ class ClassFacetMachine():
         # So we do nothing if it is already initialized.
         if self._norm_dict is None:
             self._norm_dict = shared_dict.attach("%s_normDict"%self._app_id)
+            
         if "FacetNorm" not in self._norm_dict:
             print("  Building Facet-normalisation image", file=log)
             nch, npol = self.nch, self.npol
@@ -1499,6 +1506,7 @@ class ClassFacetMachine():
                 
                 SpacialWeigth = self._CF[iFacet]["SW"].T[::-1, :]
                 SW = SpacialWeigth[::-1, :].T[x0p:x1p, y0p:y1p]
+                
                 FacetNorm[x0d:x1d, y0d:y1d] += np.real(SW)
 
             self._norm_dict["FacetNorm"]=FacetNorm

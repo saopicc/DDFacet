@@ -362,8 +362,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             #NFacets_x=Npix_x//NpixFacet
             #NFacets_y=Npix_y//NpixFacet
 
-            
-            lFacet, mFacet, = np.mgrid[-lcenter_max: lcenter_max: (NFacets_x) * 1j, -mcenter_max: mcenter_max: (NFacets_y) * 1j]
+            lFacet, mFacet, = np.mgrid[lMainCenter-lcenter_max: lMainCenter+lcenter_max: (NFacets_x) * 1j, mMainCenter-mcenter_max: mMainCenter+mcenter_max: (NFacets_y) * 1j]
             lFacet = lFacet.flatten()
             mFacet = mFacet.flatten()
 
