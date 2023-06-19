@@ -294,7 +294,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                                                     ('ra', float), ('dec', float), ('SumI', float),
                                                     ('Cluster', int), ('l', float), ('m', float)])
                 ClusterNodes = ClusterNodes.view(np.recarray)
-                rac, decc = self.MainRaDec
+                rac, decc = self.RaDecImageCenter
                 ClusterNodes.ra[0]=rac
                 ClusterNodes.dec[0]=decc
                 ClusterNodes.SumI[0]=1
@@ -402,7 +402,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         regFile = "%s.tessel0.reg" % self.ImageName
         NFacets = self.NFacets = lFacet.size
-        rac, decc = self.MainRaDec
+        rac, decc = self.RaDecImageCenter
         VM = ModVoronoiToReg.VoronoiToReg(rac, decc)
 
         if NFacets > 2:

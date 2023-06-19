@@ -57,8 +57,11 @@ import numexpr
 import numpy as np
 from DDFacet.Other import logo
 from DDFacet.Array import NpParallel
-#from DDFacet.Imager import ClassDeconvMachine
-from DDFacet.Imager import ClassDeconvMachineMultiField as ClassDeconvMachine
+
+from DDFacet.Imager import ClassDeconvMachine
+
+from DDFacet.Imager import ClassDeconvMachineMultiField
+
 from DDFacet.Imager import ClassFacetMachine
 from DDFacet.Parset import ReadCFG
 from DDFacet.Other import MyPickle
@@ -275,15 +278,24 @@ def main(OP=None, messages=[]):
     # psf machine initialized for all cases except Predict-only mode
 
 
-    Imager = ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig,
-                                                  BaseName=ImageName,
-                                                  predict_only=(Mode == "Predict" or Mode == "Subtract"),
-                                                  data=(Mode != "PSF"),
-                                                  psf=(Mode != "Predict" and Mode != "Dirty" and Mode != "Subtract"),
-                                                  readcol=(Mode != "Predict" and Mode != "PSF"),
-                                                  deconvolve=("Clean" in Mode))
+    if DicoConfig["Image"]["MultiFieldFile"] is None:
+        Imager = ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig,
+                                                      BaseName=ImageName,
+                                                      predict_only=(Mode == "Predict" or Mode == "Subtract"),
+                                                      data=(Mode != "PSF"),
+                                                      psf=(Mode != "Predict" and Mode != "Dirty" and Mode != "Subtract"),
+                                                      readcol=(Mode != "Predict" and Mode != "PSF"),
+                                                      deconvolve=("Clean" in Mode))
 
-    #Imager.Init()
+        Imager.Init()
+    else:
+        Imager = ClassDeconvMachineMultiField.ClassImagerDeconv(GD=DicoConfig,
+                                                                BaseName=ImageName,
+                                                                predict_only=(Mode == "Predict" or Mode == "Subtract"),
+                                                                data=(Mode != "PSF"),
+                                                                psf=(Mode != "Predict" and Mode != "Dirty" and Mode != "Subtract"),
+                                                                readcol=(Mode != "Predict" and Mode != "PSF"),
+                                                                deconvolve=("Clean" in Mode))
         
 
     # Imager.testDegrid()

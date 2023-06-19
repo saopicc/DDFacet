@@ -73,67 +73,67 @@ class ClassImToGrid():
         return ModelUVCorr
 
 
-    def GiveGridSharp(self,Image,DicoImager,iFacet):
-        nch,npol,_,_=Image.shape
-        _,_,NpixFacet,_=self.GridShape
+    # def GiveGridSharp(self,Image,DicoImager,iFacet):
+    #     nch,npol,_,_=Image.shape
+    #     _,_,NpixFacet,_=self.GridShape
         
-        x0,x1,y0,y1=DicoImager[iFacet]["pixExtent"]
-        #ModelIm=np.zeros((nch,npol,NpixFacet,NpixFacet),dtype=np.float32)
-        x0p,x1p=self.PaddingInnerCoord
-        ModelIm=np.zeros(self.GridShape,dtype=self.dtype)
+    #     x0,x1,y0,y1=DicoImager[iFacet]["pixExtent"]
+    #     #ModelIm=np.zeros((nch,npol,NpixFacet,NpixFacet),dtype=np.float32)
+    #     x0p,x1p=self.PaddingInnerCoord
+    #     ModelIm=np.zeros(self.GridShape,dtype=self.dtype)
 
-        #print "xxA:",x0,x1
-        #print "xxB:",x0p,x1p
+    #     #print "xxA:",x0,x1
+    #     #print "xxB:",x0p,x1p
 
-        for ch in range(nch):
-            for pol in range(npol):
-                #ModelIm[ch,pol]=Image[ch,pol,x0:x1,y0:y1].T[::-1,:].real
-                ModelIm[ch,pol,x0p:x1p,x0p:x1p]=Image[ch,pol,x0:x1,y0:y1].T[::-1,:].real
-                ModelIm[ch,pol]/=self.ifzfCF
-                SumFlux=np.sum(ModelIm)
+    #     for ch in range(nch):
+    #         for pol in range(npol):
+    #             #ModelIm[ch,pol]=Image[ch,pol,x0:x1,y0:y1].T[::-1,:].real
+    #             ModelIm[ch,pol,x0p:x1p,x0p:x1p]=Image[ch,pol,x0:x1,y0:y1].T[::-1,:].real
+    #             ModelIm[ch,pol]/=self.ifzfCF
+    #             SumFlux=np.sum(ModelIm)
                 
-        #print iFacet,np.max(ModelIm)
-        #return ModelIm, None
-        ModelIm*=(self.OverS*NpixFacet)**2
+    #     #print iFacet,np.max(ModelIm)
+    #     #return ModelIm, None
+    #     ModelIm*=(self.OverS*NpixFacet)**2
 
-        Grid=self.FFTWMachine.fft(ModelIm)
+    #     Grid=self.FFTWMachine.fft(ModelIm)
 
-        return Grid,SumFlux
+    #     return Grid,SumFlux
 
-    def GiveGridFader(self,Image,DicoImager,iFacet,NormIm):
-        nch,npol,NPixOut,_=Image.shape
-        _,_,N1,_=self.GridShape
+    # def GiveGridFader(self,Image,DicoImager,iFacet,NormIm):
+    #     nch,npol,NPixOut,_=Image.shape
+    #     _,_,N1,_=self.GridShape
 
-        xc,yc=DicoImager[iFacet]["pixCentral"]
-        #x0,x1,y0,y1=DicoImager[iFacet]["pixExtent"]
-        #xc,yc=(x0+x1)//2,(y0+y1)//2
+    #     xc,yc=DicoImager[iFacet]["pixCentral"]
+    #     #x0,x1,y0,y1=DicoImager[iFacet]["pixExtent"]
+    #     #xc,yc=(x0+x1)//2,(y0+y1)//2
 
-        Aedge,Bedge=GiveEdges(xc,yc,NPixOut,N1//2,N1//2,N1)
-        #Bedge,Aedge=GiveEdges(N1//2,N1//2,N1,yc,xc,NPixOut)
-        x0d,x1d,y0d,y1d=Aedge
-        x0p,x1p,y0p,y1p=Bedge
-        #print "xxA:",x0d,x1d
-        #print "xxB:",x0p,x1p
+    #     Aedge,Bedge=GiveEdges(xc,yc,NPixOut,N1//2,N1//2,N1)
+    #     #Bedge,Aedge=GiveEdges(N1//2,N1//2,N1,yc,xc,NPixOut)
+    #     x0d,x1d,y0d,y1d=Aedge
+    #     x0p,x1p,y0p,y1p=Bedge
+    #     #print "xxA:",x0d,x1d
+    #     #print "xxB:",x0p,x1p
         
-        ModelIm=np.zeros((nch,npol,N1,N1),dtype=np.float32)
-        for ch in range(nch):
-            for pol in range(npol):
-                #ModelIm[ch,pol][x0p:x1p,y0p:y1p]=Image[ch,pol].T[::-1,:].real[x0d:x1d,y0d:y1d]
-                #ModelIm[ch,pol][x0p:x1p,y0p:y1p]=Image[ch,pol].real[x0d:x1d,y0d:y1d]
-                ModelIm[ch,pol][x0p:x1p,y0p:y1p]=Image[ch,pol][x0d:x1d,y0d:y1d].real
-                ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=NormIm[x0d:x1d,y0d:y1d].real
-                #ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=NormIm[x0d:x1d,y0d:y1d].real
-                ModelIm[ch,pol]=ModelIm[ch,pol].T[::-1,:]
-                SumFlux=np.sum(ModelIm)
+    #     ModelIm=np.zeros((nch,npol,N1,N1),dtype=np.float32)
+    #     for ch in range(nch):
+    #         for pol in range(npol):
+    #             #ModelIm[ch,pol][x0p:x1p,y0p:y1p]=Image[ch,pol].T[::-1,:].real[x0d:x1d,y0d:y1d]
+    #             #ModelIm[ch,pol][x0p:x1p,y0p:y1p]=Image[ch,pol].real[x0d:x1d,y0d:y1d]
+    #             ModelIm[ch,pol][x0p:x1p,y0p:y1p]=Image[ch,pol][x0d:x1d,y0d:y1d].real
+    #             ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=NormIm[x0d:x1d,y0d:y1d].real
+    #             #ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=NormIm[x0d:x1d,y0d:y1d].real
+    #             ModelIm[ch,pol]=ModelIm[ch,pol].T[::-1,:]
+    #             SumFlux=np.sum(ModelIm)
 
-        #print iFacet,np.max(ModelIm)
+    #     #print iFacet,np.max(ModelIm)
 
-        #return ModelIm, None
+    #     #return ModelIm, None
 
-        ModelIm*=(self.OverS*N1)**2
-        Grid=np.complex64(self.FFTWMachine.fft(np.complex64(ModelIm)))
+    #     ModelIm*=(self.OverS*N1)**2
+    #     Grid=np.complex64(self.FFTWMachine.fft(np.complex64(ModelIm)))
 
-        return Grid,SumFlux
+    #     return Grid,SumFlux
 
     def GiveModelTessel(self,Image,DicoImager,iFacet,NormIm,Sphe,SpacialWeight,ToGrid=False,ChanSel=None,ApplyNorm=True):
         

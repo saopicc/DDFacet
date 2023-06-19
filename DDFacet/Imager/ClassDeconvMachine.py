@@ -189,10 +189,24 @@ class ClassImagerDeconv():
 
         APP.registerJobHandlers(self)
         
+        AsyncProcessPool.init(ncpu=self.GD["Parallel"]["NCPU"],
+                              affinity=self.GD["Parallel"]["Affinity"],
+                              parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
+                              verbose=self.GD["Debug"]["APPVerbose"],
+                              pause_on_start=self.GD["Debug"]["PauseWorkers"])
 
-    def Init(self,VS):
+        mslist = ClassMS.expandMSList(self.GD["Data"]["MS"],
+                                      defaultDDID=self.GD["Selection"]["DDID"],
+                                      defaultField=self.GD["Selection"]["Field"],
+                                      defaultColumn=None)
+        
+        self.VS = ClassVisServer.ClassVisServer(mslist,
+                                                ColName=self.GD["Data"]["ColName"] if self.do_readcol else None,
+                                                TChunkSize=self.GD["Data"]["ChunkHours"],
+                                                GD=self.GD)
+
+    def Init(self):
         DC = self.GD
-        self.VS=VS
 
             
 
@@ -313,6 +327,10 @@ class ClassImagerDeconv():
             if self.StokesFacetMachine:
                 self.StokesFacetMachine.setAverageBeamMachine(AverageBeamMachine)
                 
+        APP.startWorkers()
+        self.VS.CalcWeightsBackground()
+        self.InitCF()
+            
         # tell VisServer to not load weights
         if self.do_predict_only and self.GD["CF"]["wmax"]!=0: # if wmax==0 the wmax of the data is not computed, and the CFs are not properly set
             self.VS.IgnoreWeights()
@@ -333,6 +351,7 @@ class ClassImagerDeconv():
         # MultiField mode
         if self.DicoField is not None:
             MainFacetOptions["ra0dec0"]=self.DicoField["ra0dec0"]
+            MainFacetOptions["CounterName"]=" F#%i"%self.FieldID
             
         if self.do_stokes_residue:
             self.StokesFacetMachine = ClassFacetMachine(self.VS,
@@ -1141,16 +1160,16 @@ class ClassImagerDeconv():
         # This just keeps track of padded grid size for use in Hogbom-MultiScale (Can just use DicoImager instead? Is it passed in anywhere?)
         if self.GD["Deconv"]["Mode"] == "WSCMS" or self.GD["Deconv"]["Mode"] == "Hogbom":
             self.DicoImagesPSF["PaddedPSFInfo"] = {}
-            self.DicoImagesPSF["FacetExtentImage"] = {}
+            #self.DicoImagesPSF["FacetExtentImage"] = {}
             self.DicoImagesPSF["FacetCenter"] = {}
-            self.DicoImagesPSF["FacetExtentPSF"] = {}
+            #self.DicoImagesPSF["FacetExtentPSF"] = {}
             # self.DicoImagesPSF["CFs"]["SW"] = {}
             # self.DicoImagesPSF["CFs"]["InvSphe"] = {}
             for iFacet in self.FacetMachinePSF.DicoImager.keys():
                 self.DicoImagesPSF["PaddedPSFInfo"][iFacet] = self.FacetMachinePSF.DicoImager[iFacet]["NpixFacetPadded"]
-                self.DicoImagesPSF["FacetExtentImage"][iFacet] = self.FacetMachine.DicoImager[iFacet]["pixExtent"]
+                #self.DicoImagesPSF["FacetExtentImage"][iFacet] = self.FacetMachine.DicoImager[iFacet]["pixExtent"]
                 self.DicoImagesPSF["FacetCenter"][iFacet] = self.FacetMachine.DicoImager[iFacet]["pixCentral"]
-                self.DicoImagesPSF["FacetExtentPSF"][iFacet] = self.FacetMachinePSF.DicoImager[iFacet]["pixExtent"]
+                #self.DicoImagesPSF["FacetExtentPSF"][iFacet] = self.FacetMachinePSF.DicoImager[iFacet]["pixExtent"]
                 # self.DicoImagesPSF["CFs"]["SW"][iFacet] = self.FacetMachinePSF._CF[iFacet]["SW"].copy()
                 # self.DicoImagesPSF["CFs"]["InvSphe"][iFacet] = self.FacetMachinePSF._CF[iFacet]["InvSphe"].copy()
 

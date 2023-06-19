@@ -93,7 +93,7 @@ class ClassImageDeconvMachine():
         self.PeakFactor = PeakFactor
         self.PrevPeakFactor = PrevPeakFactor
         self.CacheFileName=CacheFileName
-        self.GainMachine=ClassGainMachine.get_instance()
+        self.GainMachine=None#ClassGainMachine.get_instance()
         self.ModelMachine = None
         self.PSFServer = None
         if ModelMachine is not None:
@@ -655,7 +655,7 @@ class ClassImageDeconvMachine():
 
         if UpdateRMS: self.updateRMS()
         RMS=self.RMS
-        self.GainMachine.SetRMS(RMS)
+        #self.GainMachine.SetRMS(RMS)
 
         Fluxlimit_RMS = self.RMSFactor*RMS
         #print "startmax",self._MeanDirty.shape,self._MaskArray.shape
@@ -781,7 +781,7 @@ class ClassImageDeconvMachine():
         # pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Cleaning   ", HeaderSize=20,TitleSize=30)
         # pBAR.disable()
 
-        self.GainMachine.SetFluxMax(ThisFlux)
+        #self.GainMachine.SetFluxMax(ThisFlux)
         # pBAR.render(0,"g=%3.3f"%self.GainMachine.GiveGain())
         PreviousFlux=ThisFlux
 
@@ -839,7 +839,7 @@ class ClassImageDeconvMachine():
 
                 
                 #x,y=self.PSFServer.SolveOffsetLM(self._MeanDirty[0,0],x,y); ThisFlux=self._MeanDirty[0,0,x,y]
-                self.GainMachine.SetFluxMax(ThisFlux)
+                #self.GainMachine.SetFluxMax(ThisFlux)
 
                 # #x,y=1224, 1994
                 # print x,y,ThisFlux

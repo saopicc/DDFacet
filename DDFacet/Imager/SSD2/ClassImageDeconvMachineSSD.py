@@ -80,7 +80,7 @@ class ClassImageDeconvMachine():
         self.CycleFactor = CycleFactor
         self.RMSFactor = RMSFactor
         self.PeakFactor = PeakFactor
-        self.GainMachine=ClassGainMachine.get_instance()
+        #self.GainMachine=ClassGainMachine.get_instance()
         # if ModelMachine is None:
         #     from DDFacet.Imager.SSD import ClassModelMachineSSD
         #     self.ModelMachine=ClassModelMachineSSD.ClassModelMachine(self.GD,GainMachine=self.GainMachine)
@@ -424,7 +424,7 @@ class ClassImageDeconvMachine():
         #print "::::::::::::::::::::::"
         self.RMS=RMS
 
-        self.GainMachine.SetRMS(RMS)
+        #self.GainMachine.SetRMS(RMS)
         
         Fluxlimit_RMS = self.RMSFactor*RMS
 

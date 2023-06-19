@@ -74,7 +74,7 @@ class ClassImagerDeconv():
                                           "ra0dec0":(coords.ra.rad,coords.dec.rad)}
                 self.Fields=Fields
                 self.DicoDeconvMachine[iField]=ClassDeconvMachine.ClassImagerDeconv(*args, **This_kwargs)
-            self.NFields=len(This_kwargs["DicoField"])
+            self.NFields=len(Fields)
             
         # all internal state initialized -- start the worker threads
         AsyncProcessPool.init(ncpu=self.GD["Parallel"]["NCPU"],
