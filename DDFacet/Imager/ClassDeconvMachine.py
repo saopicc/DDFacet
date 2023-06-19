@@ -111,8 +111,7 @@ signal.signal(signal.SIGUSR1, handler=handle_user_stop_signal)
 class ClassImagerDeconv():
     def __init__(self, GD=None,
                  PointingID=0,BaseName="ImageTest2",ReplaceDico=None,
-                 predict_only=False, data=True, psf=True, readcol=True, deconvolve=True,
-                 DicoField=None):
+                 predict_only=False, data=True, psf=True, readcol=True, deconvolve=True):
         # if ParsetFile is not None:
         #     GD=ClassGlobalData(ParsetFile)
         #     self.GD=GD
@@ -123,16 +122,8 @@ class ClassImagerDeconv():
 
         # INIT: gain machine singleton once and for always
         #self.GainMachine = ClassGainMachine.ClassGainMachine(GainMin=self.GD["Deconv"]["Gain"])
-        if DicoField is not None:
-            self.FieldID=DicoField["FieldID"]
-            self.DicoField=DicoField
-            self.BaseName="%s_Field%i"%(BaseName,self.FieldID)
-            self.FM_ID="_Field%i"%self.FieldID
-        else:
-            self.FieldID=None
-            self.BaseName=BaseName
-            self.FM_ID=""
-            self.DicoField=None
+        
+        self.BaseName=BaseName
             
         self.DicoModelName="%s.DicoModel"%self.BaseName
         self.DicoMetroModelName="%s.Metro.DicoModel"%self.BaseName
@@ -348,17 +339,13 @@ class ClassImagerDeconv():
         self.StokesFacetMachine = self.FacetMachine = self.FacetMachinePSF = None
         MainFacetOptions = self.GiveMainFacetOptions()
 
-        # MultiField mode
-        if self.DicoField is not None:
-            MainFacetOptions["ra0dec0"]=self.DicoField["ra0dec0"]
-            MainFacetOptions["CounterName"]=" F#%i"%self.FieldID
             
         if self.do_stokes_residue:
             self.StokesFacetMachine = ClassFacetMachine(self.VS,
                                                         self.GD,
                                                         Precision=self.Precision,
                                                         PolMode=self.GD["Output"]["StokesResidues"],
-                                                        custom_id="STOKESFM_%s"%self.FM_ID)
+                                                        custom_id="STOKESFM")
             self.StokesFacetMachine.appendMainField(ImageName="%s.stokes"%self.BaseName,**MainFacetOptions)
             self.StokesFacetMachine.Init()
 
@@ -366,7 +353,7 @@ class ClassImagerDeconv():
             self.FacetMachine = ClassFacetMachine(self.VS, self.GD,
                                                   Precision=self.Precision,
                                                   PolMode=self.PolMode,
-                                                  custom_id="FM_%s"%self.FM_ID)
+                                                  custom_id="FM")
             self.FacetMachine.appendMainField(ImageName="%s"%self.BaseName,**MainFacetOptions)
 
             self.FacetMachine.Init()
@@ -385,7 +372,7 @@ class ClassImagerDeconv():
             self.FacetMachinePSF = ClassFacetMachine(self.VS, self.GD,
                                                      Precision=self.Precision, PolMode=self.PolMode,
                                                      DoPSF=True, Oversize=oversize,
-                                                     custom_id="FMPSF_%s"%self.FM_ID)
+                                                     custom_id="FMPSF_%s")
             self.FacetMachinePSF.appendMainField(ImageName="%s.psf" % self.BaseName, **MainFacetOptions)
             self.FacetMachinePSF.Init()
 
@@ -681,9 +668,8 @@ class ClassImagerDeconv():
         if not (dirty_valid and psf_valid):
             print(ModColor.Str("============================== Making Dirty Image and/or PSF ===================="), file=log)
             # tell the I/O thread to go load the first chunk
-            if self.FieldID is None or self.FieldID==0:
-                self.VS.ReInitChunkCount()
-                self.VS.startChunkLoadInBackground()
+            self.VS.ReInitChunkCount()
+            self.VS.startChunkLoadInBackground()
                 
             if not dirty_valid:
                 self.FacetMachine.ReinitDirty()

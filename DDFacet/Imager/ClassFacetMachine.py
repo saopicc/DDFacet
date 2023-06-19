@@ -84,9 +84,10 @@ class ClassFacetMachine():
                  DoPSF=False,
                  Oversize=1,   # factor by which image is oversized
                  custom_id=None,
+                 CounterName=""
                  ):
             
-
+        self.CounterName=CounterName
         self.HasFourierTransformed = False
 
         if Precision == "S":
@@ -235,7 +236,6 @@ class ClassFacetMachine():
                         Support=11, OverS=5, Padding=1.2,
                         wmax=10000, Nw=11, ra0dec0=None,
                         ImageName="Facet.image",
-                        CounterName="",
                         **kw):
         """
         Add the primary field to the facet machine. This field is tesselated
@@ -258,7 +258,6 @@ class ClassFacetMachine():
         except:
             Cell_x=Cell_y=self.GD["Image"]["Cell"]
 
-        self.CounterName=CounterName
         self.ImageName = ImageName
         
         self.LraFacet = []
