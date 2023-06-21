@@ -60,7 +60,7 @@ from DDFacet.Array import NpParallel
 
 from DDFacet.Imager import ClassDeconvMachine
 
-from DDFacet.Imager import ClassDeconvMachineMultiField
+from DDFacet.Imager.MultiFields import ClassDeconvMachineMultiField
 
 from DDFacet.Imager import ClassFacetMachine
 from DDFacet.Parset import ReadCFG

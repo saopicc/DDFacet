@@ -343,7 +343,6 @@ class ClassWTermModified():
         self.RefWave = waveMin
 
         # recompute?
-        print("BBBB",cf_dict.keys())
         if compute_cf:
             cf_dict["wmax"] = self.wmax = wmax
             self.InitSphe()

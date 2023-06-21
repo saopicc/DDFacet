@@ -303,7 +303,10 @@ class ClassImageDeconvMachine():
             #     self.ListIslands.append(ListIslands[iIsland])
             # ###############################
         # #############################
+        
         print("  selected %i islands [out of %i] with peak flux > %.3g Jy"%(len(ListIslandsFiltered),len(ListIslands),Threshold), file=log)
+        if len(ListIslandsFiltered)==0:
+            return "NoIslands"
         ListIslands=ListIslandsFiltered
         #ListIslands=[np.load("errIsland_000524.npy").tolist()]
         
@@ -482,7 +485,9 @@ class ClassImageDeconvMachine():
             print(ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done here" % (ThisFlux),col="green" ), file=log)
             return "FluxThreshold", False, False
 
-        self.SearchIslands(StopFlux)
+        rep=self.SearchIslands(StopFlux)
+        if rep=="NoIslands":
+            return "FluxThreshold", False, False
         #return None,None,None
         self.InitIslands()
 

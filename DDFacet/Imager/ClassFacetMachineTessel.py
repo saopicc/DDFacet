@@ -106,6 +106,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         RadiusTot_y = self.CellSizeRad_y * self.Npix_y / 2
         self.RadiusTot_y = RadiusTot_y
 
+        
         lMainCenter, mMainCenter = lmCenter
         self.lmMainCenter = lMainCenter, mMainCenter
         self.CornersImageTot = np.array([[lMainCenter - RadiusTot_x, mMainCenter - RadiusTot_y],

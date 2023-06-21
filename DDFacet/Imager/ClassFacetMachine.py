@@ -258,6 +258,7 @@ class ClassFacetMachine():
         except:
             Cell_x=Cell_y=self.GD["Image"]["Cell"]
 
+
         self.ImageName = ImageName
         
         self.LraFacet = []
@@ -940,7 +941,7 @@ class ClassFacetMachine():
             facet_dict = self._CF.addSubdict(iFacet)
             APP.runJob("%s.InitCF.f%s"%(self._app_id, iFacet), self._initcf_worker,
                             args=(iFacet, facet_dict.readwrite(), cachepath, cachevalid, wmax))#,serial=True)
-            print("%s.InitCF.f%s"%(self._app_id, iFacet))
+            #print("%s.InitCF.f%s"%(self._app_id, iFacet))
         #workers_res=APP.awaitJobResults("%s.InitCF.*"%self._app_id, progress="Init CFs")
 
 
@@ -962,7 +963,7 @@ class ClassFacetMachine():
                 print('Exception on Cache loading and checking was',str(e), file=log)
                 print("Error loading %s, will re-generate"%path, file=log)
                 facet_dict.delete()
-        print(facet_dict.path,path)
+        #print(facet_dict.path,path)
         # ok, regenerate the terms at this point
         FacetInfo = self.DicoImager[iFacet]
         # Create smoothned facet tessel mask:

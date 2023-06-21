@@ -476,7 +476,6 @@ class ClassDDEGridMachine():
         T.timeit("4")
         # if neither is set, then machine is being constructed for ffts only
         if cf_dict or compute_cf:
-            print("!!!!!",cf_dict.path)
             self.InitCF(cf_dict, compute_cf, wmax)
         T.timeit("5")
 
@@ -535,8 +534,6 @@ class ClassDDEGridMachine():
                                               cf_dict=cf_dict,
                                               compute_cf=compute_cf,
                                               IDFacet=self.IDFacet)
-        print("AAAAA",cf_dict.path,compute_cf,self.WTerm.ifzfCF.shape)
-        
         T.timeit("2")
         self.ifzfCF = self.WTerm.ifzfCF
 
