@@ -6,7 +6,9 @@ from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 from astropy.coordinates import SkyCoord
 import astropy.units as u
 from DDFacet.Other.AsciiReader import readMultiFieldFile
-
+import os
+from DDFacet.Array import shared_dict
+import glob
 
 class DictImages(dict):
     def __init__(self,Dict=None):
@@ -34,8 +36,12 @@ class DictImages(dict):
         self.data[key] = value
 
     def save(self,path):
+        os.system("mkdir -p %s"%path)
         for k in sorted(self.data.keys()):
-            ThisPath="%s_Field%i"%(path,k)
+            ThisPath=self.data[k].path.split("/")[-1]
+            #ThisPath=path"%s/Field%i"%(path,k)
+            #print("HHHHHH",path,ThisPath)
+            ThisPath="%s/%s"%(path,ThisPath)
             self.data[k].save(ThisPath)
 
 
@@ -46,7 +52,39 @@ class DictImages(dict):
     def delete(self):
         for k in sorted(self.data.keys()):
             self.data[k].delete()
-        
+
+    def restore(self,DirName):
+        ll=sorted(glob.glob("%s*"%DirName))
+        for iField,l in enumerate(ll):
+            ThisSHMName=l.split("/")[-1]
+
+            print(l,ThisSHMName)
+            D = shared_dict.create(ThisSHMName)
+            D.restore(l)
+            self.data[iField]=D
+            
+
+# class DictImages(shared_dict.SharedDict):
+#     def __init__(self, *args, **kwargs):
+#         shared_dict.SharedDict.__init__(self, *args, **kwargs)
+    
+#     def __getitem__(self, X):
+#         if isinstance(X,tuple) and len(X)==2:
+#             (key, subkey)=X
+#             if key == slice(None):
+#                 return [shared_dict.SharedDict.__getitem__(self, k)[subkey] for k in sorted(self.keys())]
+#             else:
+#                 return shared_dict.SharedDict.__getitem__(self, key)[subkey]
+#         else:
+#             key=X
+#             if key == slice(None):
+#                 return [shared_dict.SharedDict.__getitem__(self, k) for k in sorted(self.keys())]
+#             else:
+#                 return shared_dict.SharedDict.__getitem__(self, key)
+            
+            
+
+            
         
             
 class ClassFacetMachineMultiFields():
@@ -62,6 +100,7 @@ class ClassFacetMachineMultiFields():
                  custom_id=None,
                  FieldID=None):
         custom_id0=custom_id
+        self.custom_id=custom_id
         self.GD=GD
         self.VS=VS
         # Oleg's "new" interface: set up which output images will be generated
@@ -274,6 +313,19 @@ class ClassFacetMachineMultiFields():
         for FM in self.LFM:
             FM.collectGriddingResults(*args,**kwargs)
 
+    def setNormImages(self,DicoDirty):
+        self.JonesNorm=DictImages()
+        self.MeanJonesNorm=DictImages()
+        self.FacetNorm=DictImages()
+        self.FacetNormReShape=DictImages()
+        
+        for iFM,FM in enumerate(self.LFM):
+            FM.setNormImages(DicoDirty[iFM])
+            self.JonesNorm[iFM]=FM.JonesNorm
+            self.MeanJonesNorm[iFM]=FM.MeanJonesNorm
+            self.FacetNorm[iFM]=FM.FacetNorm
+            self.FacetNormReShape[iFM]=FM.FacetNormReShape
+            
     def SaveDirtyProducts(self):
         if "d" in self._saveims:
             self.ToCasaImage(self.DicoImages[:,"MeanImage"],ImageName="%s.dirty"%self.BaseName,Fits=True,

@@ -460,7 +460,7 @@ class ClassImagerDeconv():
         return cachepath, valid, writecache
 
     def _loadCachedPSF (self, cachepath):
-        self.DicoImagesPSF = shared_dict.create("FMPSF_AllImages")
+        self.DicoImagesPSF = shared_dict.create("AllImages_FMPSF")
         self.DicoImagesPSF.restore(cachepath)
 
         #DicoImagesPSF = MyPickle.FileToDicoNP(cachepath)
@@ -633,7 +633,7 @@ class ClassImagerDeconv():
                 print(ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,"), file=log)
                 print(ModColor.Str("or if your MS has changed, please remove the cache, or run with --Cache-Dirty reset."), file=log)
 
-            self.DicoDirty = shared_dict.create("FM_AllImages")
+            self.DicoDirty = shared_dict.create("AllImages_FM")
             self.DicoDirty.restore(dirty_cachepath)
 
 
@@ -1844,7 +1844,7 @@ class ClassImagerDeconv():
             raise RuntimeError("--Cache-Dirty forceresidual in effect, but no cached residual image found")
         print(ModColor.Str("Forcing reading the cached last residual image", col="red"), file=log)
 
-        self.DicoDirty = shared_dict.create("FM_AllImages")
+        self.DicoDirty = shared_dict.create("AllImages_FMPSF")
         self.DicoDirty.restore(dirty_cachepath)
 
 
@@ -1854,7 +1854,7 @@ class ClassImagerDeconv():
             print(ModColor.Str("Can't force-read cached PSF %s: does not exist" % cachepath, col="red"), file=log)
             raise RuntimeError("--Cache-PSF force in effect, but no cached PSF image found")
         print(ModColor.Str("Forcing to read the cached PSF", col="red"), file=log)
-        self.DicoImagesPSF = shared_dict.create("FMPSF_AllImages")
+        self.DicoImagesPSF = shared_dict.create("AllImages_FMPSF")
         self.DicoImagesPSF.restore(cachepath)
         self.FWHMBeam=self.DicoImagesPSF["FWHMBeam"]
         self.PSFGaussPars=self.DicoImagesPSF["PSFGaussPars"]
@@ -2242,7 +2242,7 @@ class ClassImagerDeconv():
             a, b = alphamap()
             APP.runJob("save:alpha", self._saveImage_worker, io=0, args=(_images.readwrite(), 'alphamap',), kwargs=dict(
                 ImageName="%s.alpha" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
-                Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+                Stokes=self.VS.StokesConverter.RequiredStokesProducts()),serial=True)
             if self.GD["Deconv"]["Mode"] == "WSCMS" or self.GD["Deconv"]["Mode"] == "Hogbom":
                 APP.runJob("save:alphastd", self._saveImage_worker, io=0, args=(_images.readwrite(), 'alphastdmap',), kwargs=dict(
                     ImageName="%s.alphastd" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,

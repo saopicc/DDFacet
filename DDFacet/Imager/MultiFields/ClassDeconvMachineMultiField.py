@@ -64,6 +64,7 @@ from DDFacet.Imager import ClassGainMachine
 from DDFacet.Data.PointingProvider import PointingProvider
 from DDFacet.Other.CacheManager import CacheManager
 from DDFacet.Imager.MultiFields.ClassFacetMachineMultiFields import ClassFacetMachineMultiFields as ClassFacetMachine
+from DDFacet.Imager.MultiFields.ClassFacetMachineMultiFields import DictImages 
 from DDFacet.Other.AsciiReader import readMultiFieldFile
 
 # from astropy import wcs
@@ -364,24 +365,30 @@ class ClassImagerDeconv():
         return cachepath, valid, writecache
 
     def _loadCachedPSF (self, cachepath):
-        self.DicoImagesPSF = shared_dict.create("FMPSF_AllImages")
-        self.DicoImagesPSF.restore(cachepath)
+        self.DicoImagesPSF = DictImages()
+        self.DicoImagesPSF.restore("%s/AllImages_FMPSF"%cachepath)
 
         #DicoImagesPSF = MyPickle.FileToDicoNP(cachepath)
         #self.DicoImagesPSF = SharedDict.dict_to_shm("FMPSF_AllImages",DicoImagesPSF)
         #del(DicoImagesPSF)
 
-        for iField in range(NFields):
+        for iField in range(self.NFields):
             self.DicoImagesPSF[iField]["DicoImager"]=copy.deepcopy((self.FacetMachinePSF.LFM[iField].DicoImager or self.FacetMachine.LFM[iField].DicoImager))
         self.DicoImagesPSF.reload()
         
         # if we load a cached PSF, mark these as None so that we don't re-save a PSF image in _fitAndSavePSF()
         self._psfmean = self._psfcube = None
-        self.FWHMBeam=self.DicoImagesPSF["FWHMBeam"]
-        self.PSFGaussPars=self.DicoImagesPSF["PSFGaussPars"]
-        self.PSFSidelobes=self.DicoImagesPSF["PSFSidelobes"]
-        (self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg)=self.DicoImagesPSF["EstimatesAvgPSF"]
+        #self.FWHMBeam=self.DicoImagesPSF[:,"FWHMBeam"]
+        self.PSFGaussPars=self.DicoImagesPSF[:,"PSFGaussPars"]
+        self.PSFSidelobes=self.DicoImagesPSF[:,"PSFSidelobes"]
+        
+        #(self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg)=self.DicoImagesPSF[:,"EstimatesAvgPSF"]
+        self.FWHMBeamAvg=self.DicoImagesPSF[:,"FWHMBeamAvg"]
 
+        self.PSFGaussParsAvg=self.DicoImagesPSF[:,"PSFGaussParsAvg"]
+        self.PSFSidelobesAvg=self.DicoImagesPSF[:,"PSFSidelobesAvg"]
+        self.L_psfmean, self.L_psfcube = self.DicoImagesPSF[:,"MeanImage"], self.DicoImagesPSF[:,"ImageCube"]  # this is only for the casa image saving
+        
         # #########################"
         # Needed if cached PSF is there but --Output-RestoringBeam set differently
         forced_beam=self.GD["Output"]["RestoringBeam"]
@@ -395,7 +402,13 @@ class ClassImagerDeconv():
             f_gau=(np.deg2rad(f_beam[0])/FWHMFact,np.deg2rad(f_beam[1])/FWHMFact,np.deg2rad(f_beam[2]))
             print('Will use user-specified beam: bmaj=%f, bmin=%f, bpa=%f degrees' % f_beam, file=log)
             beam, gausspars = f_beam, f_gau
-            self.FWHMBeamAvg, self.PSFGaussParsAvg = beam, gausspars
+            for iField in range(self.NFields):
+                self.DicoImagesPSF[iField]["FWHMBeamAvg"]=beam
+                self.DicoImagesPSF[iField]["PSFGaussParsAvg"]=gausspars
+                
+            self.FWHMBeamAvg=self.DicoImagesPSF[:,"FWHMBeamAvg"]
+            self.PSFGaussParsAvg=self.DicoImagesPSF[:,"PSFGaussParsAvg"]
+            
         # #########################"
 
         self.HasFittedPSFBeam=True
@@ -420,7 +433,7 @@ class ClassImagerDeconv():
                 # self.DicoImagesPSF[iFM]["EstimatesAvgPSF"]=(self.FWHMBeamAvg[iFM], self.PSFGaussParsAvg[iFM], self.PSFSidelobesAvg[iFM])
                 #     #cPickle.dump(self.DicoImagesPSF, open(self._psf_cachepath, 'w'), 2)
                 self.DicoImagesPSF.save(cachepath)
-                MyPickle.DicoNPToFile(self.DicoImagesPSF,"%s.DicoPickle"%cachepath)
+                #MyPickle.DicoNPToFile(self.DicoImagesPSF,"%s.DicoPickle"%cachepath)
                 self.VS.maincache.saveCache("PSF")
                 if self.fit_stat is not None:
                     raise self.fit_stat #delay fitting errors
@@ -543,8 +556,10 @@ class ClassImagerDeconv():
                 print(ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,"), file=log)
                 print(ModColor.Str("or if your MS has changed, please remove the cache, or run with --Cache-Dirty reset."), file=log)
 
-            self.DicoDirty = shared_dict.create("FM_AllImages")
-            self.DicoDirty.restore(dirty_cachepath)
+            # self.DicoDirty = shared_dict.create("AllImages_FM")
+            # self.DicoDirty.restore(dirty_cachepath)
+            self.DicoDirty = DictImages()
+            self.DicoDirty.restore("%s/AllImages_FM"%dirty_cachepath)
 
 
             if self.DicoDirty[0]["JonesNorm"] is not None:
@@ -1164,10 +1179,10 @@ class ClassImagerDeconv():
                 print("the PSF will be recomputed", file=log)
                 self.FacetMachinePSF.ReinitDirty()
                 
-            self.LFWHMBeamAvg=self.DicoImagesPSF[:,"FWHMBeamAvg"]
-            self.LPSFGaussParsAvg=self.DicoImagesPSF[:,"PSFGaussParsAvg"]
-            self.LPSFGaussPars=self.DicoImagesPSF[:,"PSFGaussPars"]
-            self.LPSFSidelobesAvg=self.DicoImagesPSF[:,"PSFSidelobesAvg"]
+            self.FWHMBeamAvg=self.DicoImagesPSF[:,"FWHMBeamAvg"]
+            self.PSFGaussParsAvg=self.DicoImagesPSF[:,"PSFGaussParsAvg"]
+            self.PSFGaussPars=self.DicoImagesPSF[:,"PSFGaussPars"]
+            self.PSFSidelobesAvg=self.DicoImagesPSF[:,"PSFSidelobesAvg"]
         
             if do_psf or not continue_deconv:
                 if self.DicoImagesPSF is not None:
@@ -1483,7 +1498,7 @@ class ClassImagerDeconv():
                                               Freqs=self.VS.FreqBandCenters,
                                               Stokes=self.StokesFacetMachine.StokesConverter.RequiredStokesProducts())
 
-    def fitSinglePSF(self, PSF, off, label="mean"):
+    def fitSinglePSF(self, PSF, off, label="mean",iField=None):
         """
             Fits a PSF given by argument
         Args:
@@ -1506,8 +1521,8 @@ class ClassImagerDeconv():
 
         FWHMFact = 2. * np.sqrt(2. * np.log(2.))
 
-        PixToRad_maj=np.sqrt((self.CellSizeRad_x*np.cos(theta))**2+(self.CellSizeRad_y*np.sin(theta))**2)
-        PixToRad_min=np.sqrt((self.CellSizeRad_x*np.sin(theta))**2+(self.CellSizeRad_y*np.cos(theta))**2)
+        PixToRad_maj=np.sqrt((self.FacetMachine.LFM[iField].CellSizeRad_x*np.cos(theta))**2+(self.FacetMachine.LFM[iField].CellSizeRad_y*np.sin(theta))**2)
+        PixToRad_min=np.sqrt((self.FacetMachine.LFM[iField].CellSizeRad_x*np.sin(theta))**2+(self.FacetMachine.LFM[iField].CellSizeRad_y*np.cos(theta))**2)
         
         #fwhm = (bmaj * self.CellArcSec * FWHMFact / 3600.,
         #        bmin * self.CellArcSec * FWHMFact / 3600.,
@@ -1527,7 +1542,7 @@ class ClassImagerDeconv():
                             bmin * PixToRad_min*180/np.pi*3600,
                             theta*180/np.pi)
 
-        
+
         bmaj,bmin,th=gausspars_arcsec
         print("\tsigma is %f, %f (FWHM is %f, %f), PA is %f deg" % (bmaj,
                                                                     bmin,
@@ -1575,7 +1590,7 @@ class ClassImagerDeconv():
         off=self.GD["Image"]["SidelobeSearchWindow"] // 2
         try:
             fit_err = None
-            beam, gausspars, sidelobes = self.fitSinglePSF(meanPSF[0,...], "mean")
+            beam, gausspars, sidelobes = self.fitSinglePSF(meanPSF[0,...], "mean",iField=iField)
         except Exception as e:
             beam = (0,0,0)
             gausspars = (0,0,0)
@@ -1631,7 +1646,17 @@ class ClassImagerDeconv():
                            Stokes=None):
         """Worker function to save an image to disk, and optionally to delete it"""
         image = sd[field]
-        self.FacetMachine.LFM[iField].ToCasaImage(image, ImageName="%s_Field%i"%(ImageName,iField), Fits=Fits, beam=beam, beamcube=beamcube,
+
+        ThisBeam=beam
+        if beam is not None:
+            ThisBeam=beam[iField]
+        ThisBeamCube=beamcube
+        if beamcube is not None:
+            ThisBeamCube=beamcube[iField]
+        
+        self.FacetMachine.LFM[iField].ToCasaImage(image, ImageName="%s_Field%i"%(ImageName,iField), Fits=Fits,
+                                                  beam=ThisBeam,
+                                                  beamcube=ThisBeamCube,
                                                   Freqs=Freqs, Stokes=Stokes)
         if delete:
 #            print>> log, "releasing %s image" % field
@@ -1657,7 +1682,7 @@ class ClassImagerDeconv():
             raise RuntimeError("--Cache-Dirty forceresidual in effect, but no cached residual image found")
         print(ModColor.Str("Forcing reading the cached last residual image", col="red"), file=log)
 
-        self.DicoDirty = shared_dict.create("FM_AllImages")
+        self.DicoDirty = shared_dict.create("AllImages_FM")
         self.DicoDirty.restore(dirty_cachepath)
 
 
@@ -1667,7 +1692,7 @@ class ClassImagerDeconv():
             print(ModColor.Str("Can't force-read cached PSF %s: does not exist" % cachepath, col="red"), file=log)
             raise RuntimeError("--Cache-PSF force in effect, but no cached PSF image found")
         print(ModColor.Str("Forcing to read the cached PSF", col="red"), file=log)
-        self.DicoImagesPSF = shared_dict.create("FMPSF_AllImages")
+        self.DicoImagesPSF = shared_dict.create("AllImages_FMPSF")
         self.DicoImagesPSF.restore(cachepath)
         self.FWHMBeam=self.DicoImagesPSF["FWHMBeam"]
         self.PSFGaussPars=self.DicoImagesPSF["PSFGaussPars"]
@@ -1689,8 +1714,9 @@ class ClassImagerDeconv():
             self.JonesNorm = None
 
         Norm=None
-        havenorm = self.MeanJonesNorm is not None and (self.MeanJonesNorm != 1).any()
+        havenorm = self.MeanJonesNorm is not None and (self.MeanJonesNorm[0] != 1).any()
         ModelImage=self.ModelMachine.GiveModelImage()
+        print("MMMMMM",ModelImage.shape)
         if havenorm:
             Norm = self.MeanJonesNorm
             sqrtNorm=np.sqrt(Norm)
@@ -1747,8 +1773,8 @@ class ClassImagerDeconv():
         DicoDirty=self.DicoDirty[iField]
         FM=self.FacetMachine.LFM[iField]
         
-        PSFGaussParsAvg=self.LPSFGaussParsAvg[iField]
-        PSFGaussPars=self.LPSFGaussPars[iField]
+        PSFGaussParsAvg=self.PSFGaussParsAvg[iField]
+        PSFGaussPars=self.PSFGaussPars[iField]
         
         # Putting back substracted componants
         if self.GD["DDESolutions"]["RestoreSub"]:
@@ -1759,7 +1785,7 @@ class ClassImagerDeconv():
 
         # do we have a non-trivial norm (i.e. DDE solutions or beam)?
         # @cyriltasse: maybe there's a quicker way to check?
-        self.MeanJonesNorm=self.FacetMachine.LMeanJonesNorm
+        self.MeanJonesNorm=self.FacetMachine.MeanJonesNorm
         havenorm = self.MeanJonesNorm[0] is not None and (self.MeanJonesNorm[0] != 1).any()
 
         T = ClassTimeIt.ClassTimeIt()
@@ -1971,166 +1997,165 @@ class ClassImagerDeconv():
         # norm
         if havenorm and ("S" in self._saveims or "s" in self._saveims):
             sqrtnorm()
-            for iField in range(self.NFields):
-                APP.runJob("save:sqrtnorm_%i"%iField, self._saveImage_worker, io=0, args=( _images.readonly(),iField, "sqrtnorm",),
-                           kwargs=dict( ImageName="%s.fluxscale"%(self.BaseName),
-                                        Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
-        # # apparent-flux residuals
-        # if "r" in self._saveims:
-        #     appres()
-        #     APP.runJob("save:appres", self._saveImage_worker, io=0, args=( DicoDirty.readonly(), "MeanImage",),
-        #                     kwargs=dict( ImageName="%s.app.residual"%(self.BaseName),
-        #                                   Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
-        # # intrinsic-flux residuals
-        # if havenorm and "R" in self._saveims:
-        #     intres()
-        #     APP.runJob("save:intres", self._saveImage_worker, io=0, args=( _images.readonly(), "intres",),
-        #                     kwargs=dict(ImageName="%s.int.residual"%(self.BaseName),Fits=True,
-        #                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
-        # # apparent-flux model
-        # if "m" in self._saveims:
-        #     appmodel()
-        #     APP.runJob("save:appmodel", self._saveImage_worker, io=0, args=(_images.readonly(), "appmodel",),
-        #                kwargs=dict(ImageName="%s.app.model" % self.BaseName, Fits=True,
-        #                            Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
-        # # intrinsic-flux model
-        # if havenorm and "M" in self._saveims:
-        #     intmodel()
-        #     APP.runJob("save:intmodel", self._saveImage_worker, io=0, args=(_images.readonly(), "intmodel",),
-        #                kwargs=dict(ImageName="%s.int.model" % self.BaseName, Fits=True,
-        #                            Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
-        # # convolved-model image in apparent flux
-        # if "c" in self._saveims:
-        #     appconvmodel()
-        #     APP.runJob("save:appconvmodel", self._saveImage_worker, io=0, args=(_images.readonly(), "appconvmodel",),
-        #                kwargs=dict(ImageName="%s.app.convmodel" % self.BaseName, Fits=True,
-        #                            beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
-        # # convolved-model image in intrinsic flux
-        # if havenorm and "C" in self._saveims:
-        #     intconvmodel()
-        #     APP.runJob("save:intconvmodel", self._saveImage_worker, io=0, args=(_images.readonly(), "intconvmodel",),
-        #                kwargs=dict(ImageName="%s.int.convmodel" % self.BaseName, Fits=True,
-        #                            beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+            APP.runJob("save:sqrtnorm_%i"%iField, self._saveImage_worker, io=0, args=( _images.readonly(),iField, "sqrtnorm",),
+                       kwargs=dict( ImageName="%s.fluxscale"%(self.BaseName),
+                                    Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        # apparent-flux residuals
+        if "r" in self._saveims:
+            appres()
+            APP.runJob("save:appres_i"%iField, self._saveImage_worker, io=0, args=( DicoDirty.readonly(),iField, "MeanImage",),
+                       kwargs=dict( ImageName="%s.app.residual"%(self.BaseName),
+                                    Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        # intrinsic-flux residuals
+        if havenorm and "R" in self._saveims:
+            intres()
+            APP.runJob("save:intres_%i"%iField, self._saveImage_worker, io=0, args=( _images.readonly(),iField, "intres",),
+                       kwargs=dict(ImageName="%s.int.residual"%(self.BaseName),Fits=True,
+                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        # apparent-flux model
+        if "m" in self._saveims:
+            appmodel()
+            APP.runJob("save:appmodel_%i"%iField, self._saveImage_worker, io=0, args=(_images.readonly(),iField, "appmodel",),
+                       kwargs=dict(ImageName="%s.app.model" % self.BaseName, Fits=True,
+                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        # intrinsic-flux model
+        if havenorm and "M" in self._saveims:
+            intmodel()
+            APP.runJob("save:intmodel_%i"%iField, self._saveImage_worker, io=0, args=(_images.readonly(),iField, "intmodel",),
+                       kwargs=dict(ImageName="%s.int.model" % self.BaseName, Fits=True,
+                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        # convolved-model image in apparent flux
+        if "c" in self._saveims:
+            appconvmodel()
+            APP.runJob("save:appconvmodel_%i"%iField, self._saveImage_worker, io=0, args=(_images.readonly(),iField, "appconvmodel",),
+                       kwargs=dict(ImageName="%s.app.convmodel" % self.BaseName, Fits=True,
+                                   beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        # convolved-model image in intrinsic flux
+        if havenorm and "C" in self._saveims:
+            intconvmodel()
+            APP.runJob("save:intconvmodel_%i"%iField, self._saveImage_worker, io=0, args=(_images.readonly(),iField, "intconvmodel",),
+                       kwargs=dict(ImageName="%s.int.convmodel" % self.BaseName, Fits=True,
+                                   beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
-        # # norm cube
-        # if havenorm and ("S" in self._savecubes or "s" in self._savecubes):
-        #     sqrtnormcube()
-        #     APP.runJob("save:sqrtnormcube", self._saveImage_worker, io=0, args=(_images.readonly(), "sqrtnormcube",),
-        #                kwargs=dict(ImageName="%s.cube.fluxscale" % (self.BaseName), Fits=True,
-        #                            Freqs=self.VS.FreqBandCenters,
-        #                            Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        # norm cube
+        if havenorm and ("S" in self._savecubes or "s" in self._savecubes):
+            sqrtnormcube()
+            APP.runJob("save:sqrtnormcube_%i"%iField, self._saveImage_worker, io=0, args=(_images.readonly(),iField, "sqrtnormcube",),
+                       kwargs=dict(ImageName="%s.cube.fluxscale" % (self.BaseName), Fits=True,
+                                   Freqs=self.VS.FreqBandCenters,
+                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         
         # apparent-flux restored image
         if "i" in self._saveims:
             _images["apprestored"] = appres()
             _images["apprestored"] += appconvmodel()
-            for iField in range(self.NFields):
-                APP.runJob("save:apprestored_%i"%iField, self._saveImage_worker, io=0, args=(_images.readonly(),iField, "apprestored",),
-                           kwargs=dict(ImageName="%s.app.restored" % self.BaseName, Fits=True,
-                                       beam=self.LFWHMBeamAvg[iField], Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+            APP.runJob("save:apprestored_%i"%iField, self._saveImage_worker, io=0, args=(_images.readonly(),iField, "apprestored",),
+                       kwargs=dict(ImageName="%s.app.restored" % self.BaseName, Fits=True,
+                                   beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
             
-        # # intrinsic-flux restored image
-        # if havenorm and "I" in self._saveims:
-        #     _images["intrestored"] = intres()
-        #     _images["intrestored"] += intconvmodel()
-        #     APP.runJob("save:intrestored", self._saveImage_worker, io=0, args=(_images.readonly(), "intrestored",),
-        #                kwargs=dict(ImageName="%s.int.restored" % self.BaseName, Fits=True,
-        #                            beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        # intrinsic-flux restored image
+        if havenorm and "I" in self._saveims:
+            _images["intrestored"] = intres()
+            _images["intrestored"] += intconvmodel()
+            APP.runJob("save:intrestored_%i"%iField, self._saveImage_worker, io=0, args=(_images.readonly(),iField, "intrestored",),
+                       kwargs=dict(ImageName="%s.int.restored" % self.BaseName, Fits=True,
+                                   beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         
 
-        # # mixed-flux restored image
-        # # (apparent noise + intrinsic model) if intrinsic model is available
-        # # (apparent noise + apparent model) otherwise, (JonesNorm ~= 1)
-        # if "x" in self._saveims:
-        #     a, b = (appres(), intconvmodel()) if havenorm else \
-        #            (appres(), appconvmodel())
-        #     out = _images.addSharedArray('mixrestored', a.shape, a.dtype)
-        #     numexpr.evaluate('a+b', out=out)
-        #     APP.runJob("save:mixrestored", self._saveImage_worker, io=0, args=(_images.readwrite(), "mixrestored",),
-        #                kwargs=dict(
-        #                    ImageName="%s.restored" % self.BaseName, Fits=True, delete=True,
-        #                    beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        # mixed-flux restored image
+        # (apparent noise + intrinsic model) if intrinsic model is available
+        # (apparent noise + apparent model) otherwise, (JonesNorm ~= 1)
+        if "x" in self._saveims:
+            a, b = (appres(), intconvmodel()) if havenorm else \
+                   (appres(), appconvmodel())
+            out = _images.addSharedArray('mixrestored', a.shape, a.dtype)
+            numexpr.evaluate('a+b', out=out)
+            APP.runJob("save:mixrestored_%i"%iField, self._saveImage_worker, io=0, args=(_images.readwrite(),iField, "mixrestored",),
+                       kwargs=dict(
+                           ImageName="%s.restored" % self.BaseName, Fits=True, delete=True,
+                           beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
-        # # Alpha image
-        # if "A" in self._saveims and self.VS.MultiFreqMode:
-        #     a, b = alphamap()
-        #     APP.runJob("save:alpha", self._saveImage_worker, io=0, args=(_images.readwrite(), 'alphamap',), kwargs=dict(
-        #         ImageName="%s.alpha" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
-        #         Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
-        #     if self.GD["Deconv"]["Mode"] == "WSCMS" or self.GD["Deconv"]["Mode"] == "Hogbom":
-        #         APP.runJob("save:alphastd", self._saveImage_worker, io=0, args=(_images.readwrite(), 'alphastdmap',), kwargs=dict(
-        #             ImageName="%s.alphastd" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
-        #             Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        # Alpha image
+        if "A" in self._saveims and self.VS.MultiFreqMode:
+            a, b = alphamap()
+            APP.runJob("save:alpha_%i"%iField, self._saveImage_worker, io=0, args=(_images.readwrite(),iField, 'alphamap',), kwargs=dict(
+                ImageName="%s.alpha" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
+                Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+            if self.GD["Deconv"]["Mode"] == "WSCMS" or self.GD["Deconv"]["Mode"] == "Hogbom":
+                APP.runJob("save:alphastd_%i"%iField, self._saveImage_worker, io=0, args=(_images.readwrite(),iField, 'alphastdmap',), kwargs=dict(
+                    ImageName="%s.alphastd" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
+                    Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
-        # #  done saving images -- schedule a job to delete them all from the dict to save RAM
-        # APP.runJob("del:images", self._delSharedImage_worker, io=0, args=[_images.readwrite()] + list(_images.keys()))
+        #  done saving images -- schedule a job to delete them all from the dict to save RAM
+        APP.runJob("del:images", self._delSharedImage_worker, io=0, args=[_images.readwrite()] + list(_images.keys()))
 
-        # # now form up cubes
-        # # apparent-flux model cube
-        # if "m" in self._savecubes:
-        #     appmodelcube()
-        #     APP.runJob("save:appmodelcube", self._saveImage_worker, io=0, args=(_images.readonly(), "appmodelcube", ),
-        #                kwargs=dict(ImageName="%s.cube.app.model" % self.BaseName, Fits=True,
-        #                            Freqs=self.VS.FreqBandCenters,
-        #                            Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
-        # # intrinsic-flux model cube
-        # if havenorm and "M" in self._savecubes:
-        #     intmodelcube()
-        #     APP.runJob("save:intmodelcube", self._saveImage_worker, io=0, args=(_images.readonly(), "intmodelcube",),
-        #                kwargs=dict(ImageName="%s.cube.int.model" % self.BaseName, Fits=True,
-        #                            Freqs=self.VS.FreqBandCenters,
-        #                            Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
-        # # convolved-model cube in apparent flux
-        # if "c" in self._savecubes:
-        #     appconvmodelcube()
-        #     APP.runJob("save:appconvmodelcube", self._saveImage_worker, io=0,
-        #                args=(_images.readonly(), "appconvmodelcube",),
-        #                kwargs=dict(ImageName="%s.cube.app.convmodel" % self.BaseName, Fits=True,
-        #                            beam=self.FWHMBeamAvg, beamcube=self.FWHMBeam, Freqs=self.VS.FreqBandCenters,
-        #                            Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
-        # #  can delete this one now
-        # if set(["i", "I"]).intersection(self._savecubes) == set():
-        #     APP.runJob("del:appmodelcube", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "appmodelcube"])
-        # else: pass # needed again later on
-        # # convolved-model cube in intrinsic flux
-        # if havenorm and "C" in self._savecubes:
-        #     intconvmodelcube()
-        #     APP.runJob("save:intconvmodelcube", self._saveImage_worker, io=0, args=( _images.readwrite(), "intconvmodelcube",), kwargs=dict(ImageName="%s.cube.int.convmodel"%self.BaseName,Fits=True,
-        #         beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters,
-        #         Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        # now form up cubes
+        # apparent-flux model cube
+        if "m" in self._savecubes:
+            appmodelcube()
+            APP.runJob("save:appmodelcube_%i"%iField, self._saveImage_worker, io=0, args=(_images.readonly(),iField, "appmodelcube", ),
+                       kwargs=dict(ImageName="%s.cube.app.model" % self.BaseName, Fits=True,
+                                   Freqs=self.VS.FreqBandCenters,
+                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        # intrinsic-flux model cube
+        if havenorm and "M" in self._savecubes:
+            intmodelcube()
+            APP.runJob("save:intmodelcube_%i"%iField, self._saveImage_worker, io=0, args=(_images.readonly(),iField, "intmodelcube",),
+                       kwargs=dict(ImageName="%s.cube.int.model" % self.BaseName, Fits=True,
+                                   Freqs=self.VS.FreqBandCenters,
+                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        # convolved-model cube in apparent flux
+        if "c" in self._savecubes:
+            appconvmodelcube()
+            APP.runJob("save:appconvmodelcube_%i"%iField, self._saveImage_worker, io=0,
+                       args=(_images.readonly(), "appconvmodelcube",),
+                       kwargs=dict(ImageName="%s.cube.app.convmodel" % self.BaseName, Fits=True,
+                                   beam=self.FWHMBeamAvg, beamcube=self.FWHMBeam, Freqs=self.VS.FreqBandCenters,
+                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        #  can delete this one now
+        if set(["i", "I"]).intersection(self._savecubes) == set():
+            APP.runJob("del:appmodelcube", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "appmodelcube"])
+        else: pass # needed again later on
+        # convolved-model cube in intrinsic flux
+        if havenorm and "C" in self._savecubes:
+            intconvmodelcube()
+            APP.runJob("save:intconvmodelcube_%i"%iField, self._saveImage_worker, io=0, args=( _images.readwrite(),iField, "intconvmodelcube",),
+                       kwargs=dict(ImageName="%s.cube.int.convmodel"%self.BaseName,Fits=True,
+                                   beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters,
+                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
 
-        # # intrinsic-flux restored image cube
-        # if havenorm and "I" in self._savecubes:
-        #     a, b = intrescube(), intconvmodelcube()
-        #     out = _images.addSharedArray('intrestoredcube', a.shape, a.dtype)
-        #     numexpr.evaluate('a+b', out=out)
-        #     APP.runJob("save:intrestoredcube", self._saveImage_worker, io=0,
-        #                args=(_images.readwrite(), "intrestoredcube",), kwargs=dict(
-        #             ImageName="%s.cube.int.restored" % self.BaseName, Fits=True, delete=True,
-        #             beam=self.FWHMBeamAvg, beamcube=self.FWHMBeam, Freqs=self.VS.FreqBandCenters,
-        #             Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        # intrinsic-flux restored image cube
+        if havenorm and "I" in self._savecubes:
+            a, b = intrescube(), intconvmodelcube()
+            out = _images.addSharedArray('intrestoredcube', a.shape, a.dtype)
+            numexpr.evaluate('a+b', out=out)
+            APP.runJob("save:intrestoredcube_%i"%iField, self._saveImage_worker, io=0,
+                       args=(_images.readwrite(),iField, "intrestoredcube",), kwargs=dict(
+                           ImageName="%s.cube.int.restored" % self.BaseName, Fits=True, delete=True,
+                           beam=self.FWHMBeamAvg, beamcube=self.FWHMBeam, Freqs=self.VS.FreqBandCenters,
+                           Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
-        # if havenorm and "F" in self._saveims:
-        #     # we need to take the weighted sum over imaging bands here
-        #     W = DicoDirty["WeightChansImages"]
-        #     W /= W.sum()
-        #     if W.ndim == 1:
-        #         W = W[:, None, None, None]
-        #     elif W.ndim == 2:
-        #         W = W[:, :, None, None]
-        #     elif W.ndim == 3:
-        #         W = W[:, :, :, None]
-        #     assert W.ndim == 4
-        #     a = intrescube()
-        #     b = intconvmodelcube()
-        #     tmp = numexpr.evaluate('sum((a+b)*W, axis=0)', casting='same_kind')
-        #     if 'intrestoredmfs' not in _images:
-        #         _images.addSharedArray('intrestoredmfs', tmp[None].shape, np.float32)
-        #     _images['intrestoredmfs'] = tmp[None]
-        #     APP.runJob("save:intrestoredmfs", self._saveImage_worker, io=0, args=(_images.readonly(), "intrestoredmfs",),
-        #                kwargs=dict(ImageName="%s.int.restored_mfs" % self.BaseName, Fits=True,
-        #                            beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        if havenorm and "F" in self._saveims:
+            # we need to take the weighted sum over imaging bands here
+            W = DicoDirty["WeightChansImages"]
+            W /= W.sum()
+            if W.ndim == 1:
+                W = W[:, None, None, None]
+            elif W.ndim == 2:
+                W = W[:, :, None, None]
+            elif W.ndim == 3:
+                W = W[:, :, :, None]
+            assert W.ndim == 4
+            a = intrescube()
+            b = intconvmodelcube()
+            tmp = numexpr.evaluate('sum((a+b)*W, axis=0)', casting='same_kind')
+            if 'intrestoredmfs' not in _images:
+                _images.addSharedArray('intrestoredmfs', tmp[None].shape, np.float32)
+            _images['intrestoredmfs'] = tmp[None]
+            APP.runJob("save:intrestoredmfs_%i"%iField, self._saveImage_worker, io=0, args=(_images.readonly(),iField, "intrestoredmfs",),
+                       kwargs=dict(ImageName="%s.int.restored_mfs" % self.BaseName, Fits=True,
+                                   beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
         # # APP.runJob("del:intcubes", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "intconvmodelcube", "intrestoredcube"])
 
@@ -2141,49 +2166,49 @@ class ClassImagerDeconv():
         # # else: pass  # needed again later on
         # # convolved-model cube in intrinsic flux
 
-        # # apparent-flux residual cube
-        # if "r" in self._savecubes:
-        #     APP.runJob("save:apprescube", self._saveImage_worker, io=0, args=( DicoDirty.readonly(), "ImageCube",),
-        #                kwargs=dict(ImageName="%s.cube.app.residual"%(self.BaseName),Fits=True,
-        #                         Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
-        # # apparent-flux restored image cube
-        # if "i" in self._savecubes:
-        #     a, b = apprescube(), appconvmodelcube()
-        #     out = _images.addSharedArray('apprestoredcube', a.shape, a.dtype)
-        #     numexpr.evaluate('a+b', out=out)
-        #     APP.runJob("save:apprestoredcube", self._saveImage_worker, io=0,
-        #                args=(_images.readwrite(), "apprestoredcube",), kwargs=dict(
-        #             ImageName="%s.cube.app.restored" % self.BaseName, Fits=True, delete=True,
-        #             beam=self.FWHMBeamAvg, beamcube=self.FWHMBeam, Freqs=self.VS.FreqBandCenters,
-        #             Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        # apparent-flux residual cube
+        if "r" in self._savecubes:
+            APP.runJob("save:apprescube_%i"%iField, self._saveImage_worker, io=0, args=( DicoDirty.readonly(),iField, "ImageCube",),
+                       kwargs=dict(ImageName="%s.cube.app.residual"%(self.BaseName),Fits=True,
+                                   Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        # apparent-flux restored image cube
+        if "i" in self._savecubes:
+            a, b = apprescube(), appconvmodelcube()
+            out = _images.addSharedArray('apprestoredcube', a.shape, a.dtype)
+            numexpr.evaluate('a+b', out=out)
+            APP.runJob("save:apprestoredcube_%i"%iField, self._saveImage_worker, io=0,
+                       args=(_images.readwrite(),iField, "apprestoredcube",), kwargs=dict(
+                           ImageName="%s.cube.app.restored" % self.BaseName, Fits=True, delete=True,
+                           beam=self.FWHMBeamAvg, beamcube=self.FWHMBeam, Freqs=self.VS.FreqBandCenters,
+                           Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
-        # if 'f' in self._saveims:
-        #     W = DicoDirty["WeightChansImages"]
-        #     W /= W.sum()
-        #     if W.ndim == 1:
-        #         W = W[:, None, None, None]
-        #     elif W.ndim == 2:
-        #         W = W[:, :, None, None]
-        #     elif W.ndim == 3:
-        #         W = W[:, :, :, None]
-        #     assert W.ndim == 4
-        #     a = apprescube()
-        #     b = appconvmodelcube()
-        #     tmp = numexpr.evaluate('sum((a+b)*W, axis=0)', casting='same_kind')
-        #     if 'apprestoredmfs' not in _images:
-        #         _images.addSharedArray('apprestoredmfs', tmp[None].shape, np.float32)
-        #     _images['apprestoredmfs'] = tmp[None]
-        #     APP.runJob("save:apprestoredmfs", self._saveImage_worker, io=0, args=(_images.readonly(), "apprestoredmfs",),
-        #                kwargs=dict(ImageName="%s.app.restored_mfs" % self.BaseName, Fits=True,
-        #                            beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
-        # #  can delete this one now (LB - no we can't, we need apprescube to form up the intrescube)
-        # # APP.runJob("del:appcubes", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "appconvmodelcube", "apprescube"])
-        # # intrinsic-flux residual cube
-        # if havenorm and "R" in self._savecubes:
-        #     intrescube()
-        #     APP.runJob("save:intrescube", self._saveImage_worker, io=0, args=( _images.readonly(), "intrescube",),
-        #                kwargs=dict(ImageName="%s.cube.int.residual"%(self.BaseName),Fits=True,
-        #                            Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        if 'f' in self._saveims:
+            W = DicoDirty["WeightChansImages"]
+            W /= W.sum()
+            if W.ndim == 1:
+                W = W[:, None, None, None]
+            elif W.ndim == 2:
+                W = W[:, :, None, None]
+            elif W.ndim == 3:
+                W = W[:, :, :, None]
+            assert W.ndim == 4
+            a = apprescube()
+            b = appconvmodelcube()
+            tmp = numexpr.evaluate('sum((a+b)*W, axis=0)', casting='same_kind')
+            if 'apprestoredmfs' not in _images:
+                _images.addSharedArray('apprestoredmfs', tmp[None].shape, np.float32)
+            _images['apprestoredmfs'] = tmp[None]
+            APP.runJob("save:apprestoredmfs_%i"%iField, self._saveImage_worker, io=0, args=(_images.readonly(),iField, "apprestoredmfs",),
+                       kwargs=dict(ImageName="%s.app.restored_mfs" % self.BaseName, Fits=True,
+                                   beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        #  can delete this one now (LB - no we can't, we need apprescube to form up the intrescube)
+        # APP.runJob("del:appcubes_%i"%iField, self._delSharedImage_worker, io=0, args=[_images.readwrite(),iField, "appconvmodelcube", "apprescube"])
+        # intrinsic-flux residual cube
+        if havenorm and "R" in self._savecubes:
+            intrescube()
+            APP.runJob("save:intrescube_%i"%iField, self._saveImage_worker, io=0, args=( _images.readonly(),iField, "intrescube",),
+                       kwargs=dict(ImageName="%s.cube.int.residual"%(self.BaseName),Fits=True,
+                                   Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         #  can delete this one now
         APP.runJob("del:sqrtnormcube", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "sqrtnormcube"])
         APP.runJob("del:appcubes", self._delSharedImage_worker, io=0,

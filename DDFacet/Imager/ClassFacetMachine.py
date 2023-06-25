@@ -1226,7 +1226,8 @@ class ClassFacetMachine():
             self.collectFourierTransformResults()
             self.HasFourierTransformed = True
         _, npol, Npix_x, Npix_y = self.OutImShape
-        DicoImages = shared_dict.create("%s_AllImages"%self._app_id)
+        DicoImages = shared_dict.create("AllImages_%s"%self._app_id)
+        print("AAAAAA","AllImages_%s"%self._app_id)
         DicoImages["freqs"] = {}
         DicoImages.addSubdict("freqs")
         DicoImages.addSubdict("ImageInfo")
