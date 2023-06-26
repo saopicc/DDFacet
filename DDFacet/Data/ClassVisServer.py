@@ -70,8 +70,12 @@ class ClassVisServer():
                  ColName=None,       # None if no data is read (only written)
                  TChunkSize=1,             # chunk size, in hours
                  LofarBeam=None,
-                 AddNoiseJy=None):
+                 AddNoiseJy=None,
+                 DicoFields=None):
         self.GD = GD
+        self.DicoFields=DicoFields
+        if self.DicoFields is not None:
+            self.NFields=len(self.DicoFields)
         if APP is not None:
             APP.registerJobHandlers(self)
             self._weightjob_counter = APP.createJobCounter("VisWeights")
@@ -609,10 +613,17 @@ class ClassVisServer():
 
         self.computeBDAInBackground(dictname, ms, DATA,
             ChanMappingGridding=DATA["ChanMapping"],
-            ChanMappingDeGridding=DATA["ChanMappingDegrid"])
+                                    ChanMappingDeGridding=DATA["ChanMappingDegrid"],iField=0)
 
-        JonesMachine = ClassJones.ClassJones(self.GD, ms, self.FacetMachine)
-        JonesMachine.InitDDESols(DATA)
+        if self.DicoFields is not None:
+            for iField in range(self.NFields):
+                JonesMachine = ClassJones.ClassJones(self.GD, ms, self.FacetMachine,
+                                                     iField=iField)
+                JonesMachine.InitDDESols(DATA)
+        else:
+            JonesMachine = ClassJones.ClassJones(self.GD, ms, self.FacetMachine)
+            JonesMachine.InitDDESols(DATA)
+                
 
         if data is not None and self.AddNoiseJy is not None:
             data += (self.AddNoiseJy/np.sqrt(2.))*(np.random.randn(*data.shape)+1j*np.random.randn(*data.shape))
@@ -622,10 +633,10 @@ class ClassVisServer():
 
     def setFacetMachine(self, FacetMachine):
         self.FacetMachine = FacetMachine
-        self.FullImShape = self.FacetMachine.OutImShape
-        self.PaddedFacetShape = self.FacetMachine.PaddedGridShape
-        self.FacetShape = self.FacetMachine.FacetShape
-        self.CellSizeRad_x,self.CellSizeRad_y=self.CellSizeRad = self.FacetMachine.CellSizeRad
+        # self.FullImShape = self.FacetMachine.OutImShape
+        # self.PaddedFacetShape = self.FacetMachine.PaddedGridShape
+        # self.FacetShape = self.FacetMachine.FacetShape
+        # self.CellSizeRad_x,self.CellSizeRad_y=self.CellSizeRad = self.FacetMachine.CellSizeRad
 
     def setFOV(self, sh0, sh1, sh2, cell):
         self.FullImShape = sh0
@@ -647,7 +658,7 @@ class ClassVisServer():
             np.save(open(self._bda_degrid_cachename, 'wb'), FinalMapping)
             self.cache.saveCache("BDA.Degrid")
 
-    def computeBDAInBackground(self, base_job_id, ms, DATA, ChanMappingGridding=None, ChanMappingDeGridding=None):
+    def computeBDAInBackground(self, base_job_id, ms, DATA, ChanMappingGridding=None, ChanMappingDeGridding=None, iField=None):
 
         GD=copy.deepcopy(self.GD)
         CriticalCacheParms=dict(Data=GD["Data"],
@@ -656,8 +667,16 @@ class ClassVisServer():
                                 DataSelection=GD["Selection"],
                                 Sorting=GD["Data"]["Sort"])
         del CriticalCacheParms["Data"]["ColName"],CriticalCacheParms["DataSelection"]["FlagAnts"]
+        if iField is not None and self.DicoFields is not None:
+            FacetMachine=self.FacetMachine.LFM[iField]
+        else:
+            FacetMachine=self.FacetMachine
+        FullImShape = FacetMachine.OutImShape
+        # self.PaddedFacetShape = self.FacetMachine.PaddedGridShape
+        FacetShape = FacetMachine.FacetShape
+        CellSizeRad_x,CellSizeRad_y=FacetMachine.CellSizeRad
+            
         
-
         if True: # always True for now, non-BDA gridder is not maintained # if self.GD["Comp"]["CompGridMode"]:
             self._bda_grid_cachename, valid = self.cache.checkCache("BDA.Grid",CriticalCacheParms)
             if valid:
@@ -665,11 +684,11 @@ class ClassVisServer():
                 DATA["BDA.Grid"] = np.load(self._bda_grid_cachename)
             else:
                 if self.GD["Comp"]["GridFoV"] == "Facet":
-                    _, _, nx, ny = self.FacetShape
+                    _, _, nx, ny = FacetShape
                 elif self.GD["Comp"]["GridFoV"] == "Full":
-                    _, _, nx, ny = self.FullImShape
+                    _, _, nx, ny = FullImShape
                 mode = self.GD["Comp"]["BDAMode"]
-                FOV =  np.sqrt((self.CellSizeRad_x*nx/2)**2+(self.CellSizeRad_y*ny/2)**2) * 180. / np.pi
+                FOV =  np.sqrt((CellSizeRad_x*nx/2)**2+(CellSizeRad_y*ny/2)**2) * 180. / np.pi
                 self._smm_grid.computeSmearMappingInBackground(base_job_id, ms, DATA, FOV,
                                                           (1. - self.GD["Comp"]["GridDecorr"]),
                                                           ChanMappingGridding, mode)
@@ -682,11 +701,11 @@ class ClassVisServer():
                 DATA["BDA.Degrid"] = np.load(self._bda_degrid_cachename)
             else:
                 if self.GD["Comp"]["DegridFoV"] == "Facet":
-                    _, _, nx, ny = self.FacetShape
+                    _, _, nx, ny = FacetShape
                 elif self.GD["Comp"]["DegridFoV"] == "Full":
-                    _, _, nx, ny = self.FullImShape
+                    _, _, nx, ny = FullImShape
                 mode = self.GD["Comp"]["BDAMode"]
-                FOV =  np.sqrt((self.CellSizeRad_x*nx/2)**2+(self.CellSizeRad_y*ny/2)**2) * 180. / np.pi
+                FOV =  np.sqrt((CellSizeRad_x*nx/2)**2+(CellSizeRad_y*ny/2)**2) * 180. / np.pi
                 
                 self._smm_degrid.computeSmearMappingInBackground(base_job_id, ms, DATA, FOV,
                                                           (1. - self.GD["Comp"]["DegridDecorr"]),
@@ -746,14 +765,14 @@ class ClassVisServer():
         print("visibility weights will not be computed", file=log)
         self._ignore_vis_weights = True
 
-    def CalcWeightsBackground(self):
+    def CalcWeightsBackground(self,iField=None):
         """Starts parallel jobs to load weights in the background"""
         self.VisWeights = None
         if self.GD["Misc"]["ConserveMemory"]:
             #APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event)
-            APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event)#,serial=True)
+            APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event, args=(iField,) )#,serial=True)
         else:
-            APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event)#,serial=True)
+            APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event, args=(iField,) )#,serial=True)
         # APP.awaitEvents(self._calcweights_event)
 
     def _sigtaper(self, msw, chanfreq, inner_cut, outer_cut, outer_taper_strength, inner_taper_strength): 
@@ -810,7 +829,10 @@ class ClassVisServer():
                         counter=self._weightjob_counter, collect_result=False)#,serial=True)
             APP.awaitJobCounter(self._weightjob_counter, progress="Sigmoid Tapering")
 
-    def _CalcWeights_handler(self):
+    def _CalcWeights_handler(self,iField=None):
+        StrField=""
+        if iField is not None:
+            StrField="_Field%i"%iField
         self._weight_dict = shared_dict.create("VisWeights")
         # check for wmax in cache
         cache_keys = dict([(section, self.GD[section]) for section
@@ -827,7 +849,7 @@ class ClassVisServer():
             msweights = self._weight_dict.addSubdict(iMS)
             for ichunk, (row0, row1) in enumerate(MS.getChunkRow0Row1()):
                 msw = msweights.addSubdict(ichunk)
-                path, valid = MS.getChunkCache(row0, row1).checkCache("ImagingWeights.npy", cache_keys, reset=(self.GD["Cache"]["Weight"]=="reset"))
+                path, valid = MS.getChunkCache(row0, row1).checkCache("ImagingWeights%s.npy"%StrField, cache_keys, reset=(self.GD["Cache"]["Weight"]=="reset"))
                 have_all_weights = have_all_weights and valid
                 msw["cachepath"] = path
                 if valid:
@@ -842,7 +864,7 @@ class ClassVisServer():
             msweights = self._weight_dict[ims]
             for ichunk in range(len(ms.getChunkRow0Row1())):
                 msw = msweights[ichunk]
-                APP.runJob("LoadWeights:%d:%d"%(ims,ichunk), self._loadWeights_handler,
+                APP.runJob("LoadWeights:%d:%d%s"%(ims,ichunk,StrField), self._loadWeights_handler,
                            args=(msw.writeonly(), ims, ichunk, self._ignore_vis_weights),
                            counter=self._weightjob_counter, collect_result=False)#,serial=True)
         # wait for results
@@ -876,12 +898,18 @@ class ClassVisServer():
 
         # in natural mode, leave the weights as is. In other modes, setup grid for calculations
         self._weight_grid = shared_dict.create("VisWeights.Grid")
-        cell = npix = npixx = nbands = xymax = None    
-        self.CellSizeRad_x,self.CellSizeRad_y=self.CellSizeRad
+        cell = npix = npixx = nbands = xymax = None
+        
+        if iField is not None:
+            CellSizeRad_x,CellSizeRad_y=self.FacetMachine.LFM[iField].CellSizeRad
+            nch, npol, npixIm_x, npixIm_y = self.FacetMachine.LFM[iField].OutImShape
+        else:
+            CellSizeRad_x,CellSizeRad_y=self.FacetMachine.CellSizeRad
+            nch, npol, npixIm_x, npixIm_y = self.FacetMachine.OutImShape
+            
         if self.Weighting != "natural":
-            nch, npol, npixIm_x, npixIm_y = self.FullImShape
-            FOV_x = self.CellSizeRad_x * npixIm_x
-            FOV_y = self.CellSizeRad_y * npixIm_y
+            FOV_x = CellSizeRad_x * npixIm_x
+            FOV_y = CellSizeRad_y * npixIm_y
             nbands = self.NFreqBands
             
             cell_u = 1. / (self.Super * FOV_x)
@@ -905,7 +933,7 @@ class ClassVisServer():
             for ims, ms in enumerate(self.ListMS):
                 for ichunk in range(len(ms.getChunkRow0Row1())):
                     if "weight" in self._weight_dict[ims][ichunk]:
-                        APP.runJob("AccumWeights:%d:%d" % (ims, ichunk), self._accumulateWeights_handler,
+                        APP.runJob("AccumWeights:%d:%d%s" % (ims, ichunk,StrField), self._accumulateWeights_handler,
                                    args=(self._weight_grid.readonly(),
                                          self._weight_dict[ims][ichunk].readwrite(),
                                          ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax, parallel),
@@ -925,7 +953,7 @@ class ClassVisServer():
         for ims, ms in enumerate(self.ListMS):
             for ichunk in range(len(ms.getChunkRow0Row1())):
                 self._CalcSigmoidTaper(ims, ms, ichunk)
-                APP.runJob("FinalizeWeights:%d:%d" % (ims, ichunk), self._finalizeWeights_handler,
+                APP.runJob("FinalizeWeights:%d:%d%s" % (ims, ichunk,StrField), self._finalizeWeights_handler,
                            args=(self._weight_grid.readonly(),
                                  self._weight_dict[ims][ichunk].readwrite(),
                                  ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax),
@@ -943,7 +971,7 @@ class ClassVisServer():
         # mark cache as valid
         for ims, ms in enumerate(self.ListMS):
             for ichunk, (row0, row1) in enumerate(ms.getChunkRow0Row1()):
-                ms.getChunkCache(row0, row1).saveCache("ImagingWeights.npy")
+                ms.getChunkCache(row0, row1).saveCache("ImagingWeights%s.npy"%StrField)
 
     def _loadWeights_handler(self, msw, ims, ichunk, wmax_only=False):
         """If wmax_only is True, then don't actually read or compute weighs -- only read UVWs
@@ -1234,8 +1262,8 @@ class ClassVisServer():
         if self.Weighting != "natural":
             self._weight_grid = shared_dict.create("VisWeights.Grid")
             nch, npol, npixIm_x, npixIm_y = self.FullImShape
-            FOV_x = self.CellSizeRad_x * npixIm_x
-            FOV_y = self.CellSizeRad_y * npixIm_y
+            FOV_x = CellSizeRad_x * npixIm_x
+            FOV_y = CellSizeRad_y * npixIm_y
             nbands = self.NFreqBands
             cell_u = 1. / (self.Super * FOV_x)
             cell_v = 1. / (self.Super * FOV_y)
@@ -1255,8 +1283,8 @@ class ClassVisServer():
         else:
             nbands = self.NFreqBands
             nch, npol, npixIm_x, npixIm_y = self.FullImShape
-            FOV_x = self.CellSizeRad_x * npixIm_x
-            FOV_y = self.CellSizeRad_y * npixIm_y
+            FOV_x = CellSizeRad_x * npixIm_x
+            FOV_y = CellSizeRad_y * npixIm_y
             cell_u = 1. / (self.Super * FOV_x)
             cell_v = 1. / (self.Super * FOV_y)
             xymax = int(math.floor(self._uvmax / np.min([cell_u,cell_v]))) + 1

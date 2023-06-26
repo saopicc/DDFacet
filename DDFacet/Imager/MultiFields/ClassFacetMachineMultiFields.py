@@ -94,7 +94,7 @@ class ClassFacetMachineMultiFields():
                  Precision="S",
                  PolMode=["I"],
                  Sols=None,
-                 PointingID=0,
+                 #PointingID=0,
                  DoPSF=False,
                  Oversize=1,   # factor by which image is oversized
                  custom_id=None,
@@ -118,28 +118,30 @@ class ClassFacetMachineMultiFields():
         self._savecubes = allchars if savecubes.lower() == "all" else set(savecubes)
 
         self.BaseName =  self.GD["Output"]["Name"]       
-
+        self.LMeanSmoothJonesNorm=None
         
         self.ListDicoFields=[]
         if self.GD["Image"]["MultiFieldFile"] is None:
             ThisDicoField={"GD":GD,
-                           "FieldID":None,
-                           "ra0dec0":None}
+                           "FieldID":None}
             self.ListDicoFields.append(ThisDicoField)
         else:
             Fields=readMultiFieldFile(self.GD["Image"]["MultiFieldFile"])
             for iField,ThisField in enumerate(Fields):
-                coords = SkyCoord(ra=ThisField["ra"],
-                                  dec=ThisField["dec"],
-                                  unit=(u.hourangle, u.deg))
-                ras=rad2hmsdms(coords.ra.rad,Type="ra").replace(" ",":")
-                decs=rad2hmsdms(coords.dec.rad,Type="dec").replace(" ",":")
+                # coords = SkyCoord(ra=ThisField["ra"],
+                #                   dec=ThisField["dec"],
+                #                   unit=(u.hourangle, u.deg))
+                # ras=rad2hmsdms(coords.ra.rad,Type="ra").replace(" ",":")
+                # decs=rad2hmsdms(coords.dec.rad,Type="dec").replace(" ",":")
                 NPix=int(ThisField["NPix"])
                 ThisGD=copy.deepcopy(self.GD)
                 ThisGD["Image"]["NPix"]=NPix
+                ThisGD["Image"]["ImageCenterRADEC"]=ThisField["ra"],ThisField["dec"]
+                # ThisDicoField={"GD":ThisGD,
+                #                "FieldID":iField,
+                #                "ra0dec0":(coords.ra.rad,coords.dec.rad)}
                 ThisDicoField={"GD":ThisGD,
-                               "FieldID":iField,
-                               "ra0dec0":(coords.ra.rad,coords.dec.rad)}
+                               "FieldID":iField}
                 self.ListDicoFields.append(ThisDicoField)
             self.NFields=len(self.ListDicoFields)
 
@@ -147,26 +149,25 @@ class ClassFacetMachineMultiFields():
 
         # MultiField mode
         for iField,DicoField in enumerate(self.ListDicoFields):
-            ra0dec0=DicoField["ra0dec0"]
+            # ra0dec0=DicoField["ra0dec0"]
             FieldID=DicoField["FieldID"]
             ThisGD=DicoField["GD"]
             BaseName=ThisGD["Output"]["Name"]
             if FieldID is not None:
-                custom_id="%s_Field%i"%(custom_id0,FieldID)
+                custom_id=custom_id0#"%s_Field%i"%(custom_id0,FieldID)
                 BaseName="%s_Field%i"%(BaseName,FieldID)
                 ThisGD["Output"]["Name"]=BaseName
-                CounterName=" F#%i"%FieldID
                 
             FM=ClassFacetMachine(VS,
                                  ThisGD,
                                  Precision=Precision,
                                  PolMode=PolMode,
                                  Sols=Sols,
-                                 PointingID=PointingID,
+                                 iField=iField,
+                                 #PointingID=PointingID,
                                  DoPSF=DoPSF,
                                  Oversize=Oversize,   # factor by which image is oversized
-                                 custom_id=custom_id,
-                                 CounterName=CounterName)
+                                 custom_id=custom_id,)
             self.LFM.append(FM)
         self.DoSmoothBeam=(self.GD["Beam"]["Smooth"] and self.GD["Beam"]["Model"])
             
@@ -188,13 +189,14 @@ class ClassFacetMachineMultiFields():
     def Init(self,*args,**kwargs):
         for FM in self.LFM:
             FM.Init(*args,**kwargs)
-        self.FullImShape = self.LFM[0].OutImShape
-        self.OutImShape = self.LFM[0].OutImShape
-        self.PaddedGridShape = self.PaddedFacetShape = self.LFM[0].PaddedGridShape
-        self.FacetShape = self.LFM[0].FacetShape
-        self.CellSizeRad_x,self.CellSizeRad_y=self.CellSizeRad = self.LFM[0].CellSizeRad
-        self.FacetDirCat=np.concatenate([FM.FacetDirCat for FM in self.LFM])
-        self.FacetDirCat=self.FacetDirCat.view(np.recarray)
+
+        # self.FullImShape = self.LFM[0].OutImShape
+        # self.OutImShape = self.LFM[0].OutImShape
+        # self.PaddedGridShape = self.PaddedFacetShape = self.LFM[0].PaddedGridShape
+        # self.FacetShape = self.LFM[0].FacetShape
+        # self.CellSizeRad_x,self.CellSizeRad_y=self.CellSizeRad = self.LFM[0].CellSizeRad
+        # self.FacetDirCat=np.concatenate([FM.FacetDirCat for FM in self.LFM])
+        # self.FacetDirCat=self.FacetDirCat.view(np.recarray)
         
         self.DicoImager={}
         for iFM,FM in enumerate(self.LFM):
@@ -205,7 +207,7 @@ class ClassFacetMachineMultiFields():
         for iFM,FM in enumerate(self.LFM):
             MainFacetOptions=self.GiveMainFacetOptions(FM.GD)
             MainFacetOptions["ImageName"]=FM.GD["Output"]["Name"]
-            MainFacetOptions["ra0dec0"]=self.ListDicoFields[iFM]["ra0dec0"]
+            #MainFacetOptions["ra0dec0"]=self.ListDicoFields[iFM]["ra0dec0"]
             FM.appendMainField(**MainFacetOptions)
 
     def ToCasaImage(self,ListArray,Fits=True, ImageName=None,
@@ -259,6 +261,25 @@ class ClassFacetMachineMultiFields():
         for iFM,FM in enumerate(self.LFM):
             DicoImages[iFM]=FM.FacetsToIm(*args,**kwargs)
         self.DicoImages=DicoImages
+        
+        self.LJonesNorm = self.DicoImages[:,"JonesNorm"]
+        self.LMeanJonesNorm=[]
+        for iFM in range(self.NFields):
+            JonesNorm=self.LJonesNorm[iFM]
+            nch,npol,nx,ny = JonesNorm.shape
+            MeanJonesNorm=np.mean(JonesNorm, axis=0).reshape((1, npol, nx, ny))
+            self.LMeanJonesNorm.append(MeanJonesNorm)
+                
+        # self.JonesNorm=DictImages()
+        # self.MeanJonesNorm=DictImages()
+        # self.FacetNorm=DictImages()
+        # self.FacetNormReShape=DictImages()
+        # for iFM,FM in enumerate(self.LFM):
+        #     self.JonesNorm[iFM]=FM.JonesNorm
+        #     self.MeanJonesNorm[iFM]=FM.MeanJonesNorm
+        #     self.FacetNorm[iFM]=FM.FacetNorm
+        #     self.FacetNormReShape[iFM]=FM.FacetNormReShape
+            
         return DicoImages
     
     def applySparsification(self,*args,**kwargs):

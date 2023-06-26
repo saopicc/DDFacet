@@ -112,7 +112,8 @@ signal.signal(signal.SIGUSR1, handler=handle_user_stop_signal)
 
 class ClassImagerDeconv():
     def __init__(self, GD=None,
-                 PointingID=0,BaseName="ImageTest2",ReplaceDico=None,
+                 #PointingID=0,
+                 BaseName="ImageTest2",ReplaceDico=None,
                  predict_only=False, data=True, psf=True, readcol=True, deconvolve=True):
         # if ParsetFile is not None:
         #     GD=ClassGlobalData(ParsetFile)
@@ -128,7 +129,7 @@ class ClassImagerDeconv():
         self.BaseName=BaseName
         self.DicoModelName="%s.DicoModel"%self.BaseName
         self.DicoMetroModelName="%s.Metro.DicoModel"%self.BaseName
-        self.PointingID=PointingID
+        #self.PointingID=PointingID
         self.do_predict_only = predict_only
         self.do_data, self.do_psf, self.do_readcol, self.do_deconvolve = data, psf, readcol, deconvolve
 
@@ -151,7 +152,7 @@ class ClassImagerDeconv():
         self.PSFFacets = self.GD["Facets"]["PSFFacets"]
         self.HasDeconvolved=False
         self.Parallel = self.GD["Parallel"]["NCPU"] != 1
-        self.ModConstructor = ClassModModelMachine(self.GD)
+        #self.ModConstructor = ClassModModelMachine(self.GD)
 
         self.PredictMode = self.GD["RIME"]["ForwardMode"]
 
@@ -185,7 +186,8 @@ class ClassImagerDeconv():
         self.VS = ClassVisServer.ClassVisServer(mslist,
                                                 ColName=self.GD["Data"]["ColName"] if self.do_readcol else None,
                                                 TChunkSize=self.GD["Data"]["ChunkHours"],
-                                                GD=self.GD)
+                                                GD=self.GD,
+                                                DicoFields=self.DicoFields)
 
     def Init(self):
         DC = self.GD
@@ -199,7 +201,39 @@ class ClassImagerDeconv():
         from DDFacet.Imager.MultiFields import ClassImageNoiseMachineMultiField
         from DDFacet.Imager.MultiFields import ClassMaskMachineMultiFields
         from DDFacet.Imager.MultiFields import ClassImageDeconvMachineMultiFields
-        self.ModelMachine=ClassModelMachineMultiField.ClassModelMachineMultiField(self.GD,self.VS,self.DicoFields)
+        
+        self.ModelMachine=ClassModelMachineMultiField.ClassModelMachineMultiField(self.GD)
+
+        self.SubstractModel=self.GD["Predict"]["InitDicoModel"]
+        self.DoSub=(self.SubstractModel!="")&(self.SubstractModel is not None)
+        if self.DoSub:
+            print(ModColor.Str("Initialise sky model using %s"%self.SubstractModel,col="blue"), file=log)
+            self.ModelMachine.InitialiseMMFromFile(self.SubstractModel)
+            def safe_encode(s):
+                return s.decode() if isinstance(s, bytes) and six.PY3 else s
+            modeltype = safe_encode(self.ModelMachine.LModelMachine[0].DicoSMStacked.get("Type", self.ModelMachine.LModelMachine[0].DicoSMStacked.get(b"Type", None)))
+            if modeltype == "GA":
+                modeltype = "SSD"
+            elif modeltype == "MSMF":
+                modeltype = "HMP"
+            if self.GD["Deconv"]["Mode"] != modeltype:
+                raise NotImplementedError("You want to use different minor cycle and IniDicoModel types [%s vs %s]"\
+                                          %(self.GD["Deconv"]["Mode"], modeltype))
+
+            if self.ModelMachine.RefFreq!=self.VS.RefFreq:
+                print(ModColor.Str("Taking reference frequency from the model machine %f MHz (instead of %f MHz from the data)"%
+                        (self.ModelMachine.RefFreq/1e6,self.VS.RefFreq/1e6)), file=log)
+            self.RefFreq=self.VS.RefFreq=self.ModelMachine.RefFreq
+
+            self.DoDirtySub=1
+            # enable that to be able to restore even if we don't deconvolve
+            self.HasDeconvolved=True
+        else:
+            self.ModelMachine.InitMM(Mode=self.GD["Deconv"]["Mode"],DicoFields=self.DicoFields)
+            self.ModelMachine.setRefFreq(self.VS.RefFreq)
+            self.DoDirtySub=0
+
+        
         
         self.ImageNoiseMachine=ClassImageNoiseMachineMultiField.ClassImageNoiseMachineMultiField(self.GD,
                                                                                                  VS=self.VS,
@@ -218,7 +252,6 @@ class ClassImagerDeconv():
                                                                                                      LModelMachine=self.ModelMachine.LModelMachine,
                                                                                                      LMaskMachine=self.MaskMachine.LMaskMachine,
                                                                                                      NMajor=self.NMajor)
-        self.DoDirtySub=self.ModelMachine.DoDirtySub
         self.CreateFacetMachines()
         self.VS.setFacetMachine(self.FacetMachine or self.FacetMachinePSF)
 
@@ -230,7 +263,7 @@ class ClassImagerDeconv():
                 self.StokesFacetMachine.setAverageBeamMachine(AverageBeamMachine)
                 
         APP.startWorkers()
-        self.VS.CalcWeightsBackground()
+        self.VS.CalcWeightsBackground(iField=0)
         self.InitCF()
             
         # tell VisServer to not load weights
@@ -315,10 +348,10 @@ class ClassImagerDeconv():
         elif mode == 'reset':
             print(ModColor.Str("Forcing to reset the cached PSF image", col="red"), file=log)
             cachepath, valid = self.VS.maincache.checkCache("PSF", key or self._createDirtyPSFCacheKey(sparsify),
-                                                                      reset=True)
+                                                                      reset=True,directory=True)
             writecache = True
         elif mode in (1, True, 'auto'):
-            cachepath, valid = self.VS.maincache.checkCache("PSF", key or self._createDirtyPSFCacheKey(sparsify))
+            cachepath, valid = self.VS.maincache.checkCache("PSF", key or self._createDirtyPSFCacheKey(sparsify),directory=True)
             writecache = not valid
         elif mode == 'force':
             cachepath = self.VS.maincache.getElementPath("PSF")
@@ -337,10 +370,10 @@ class ClassImagerDeconv():
         elif mode == 'reset':
             print(ModColor.Str("Forcing to reset the cached dirty image", col="red"), file=log)
             cachepath, valid = self.VS.maincache.checkCache("Dirty", key or self._createDirtyDirtyCacheKey(sparsify),
-                                                                      reset=True)
+                                                                      reset=True,directory=True)
             writecache = True
         elif mode in (1, True, 'auto'):
-            cachepath, valid = self.VS.maincache.checkCache("Dirty", key or self._createDirtyDirtyCacheKey(sparsify))
+            cachepath, valid = self.VS.maincache.checkCache("Dirty", key or self._createDirtyDirtyCacheKey(sparsify),directory=True)
             writecache = not valid
         elif mode == 'forcedirty':
             cachepath = self.VS.maincache.getElementPath("Dirty")
@@ -644,8 +677,9 @@ class ClassImagerDeconv():
                         self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model"%(self.BaseName),
                                                       Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
                         current_model_freqs = model_freqs
-                        print("model image @%s MHz (min,max) = (%f, %f)" % (
-                            str(model_freqs / 1e6), ModelImage.min(), ModelImage.max()), file=log)
+                        for iField in range(self.NFields):
+                            print("model image @%s MHz (min,max) = (%f, %f)" % (
+                                str(model_freqs / 1e6), ModelImage[iField].min(), ModelImage[iField].max()), file=log)
                     else:
                         print("reusing model image from previous chunk", file=log)
                     if not dirty_valid:
@@ -730,6 +764,7 @@ class ClassImagerDeconv():
         return self.DicoDirty[:,"MeanImage"]
 
     def SaveDirtyProducts(self):
+
         self.FacetMachine.SaveDirtyProducts()
 
     def _init_pointing_sols(self):
@@ -1336,7 +1371,7 @@ class ClassImagerDeconv():
                                                                       "RIME","Weight","Facets",
                                                                       "DDESolutions"]]
                                                                 ),
-                                                                reset=False)
+                                                                reset=False,directory=True)
                 try:
                     print("Saving last residual image to %s"%cachepath, file=log)
                     self.DicoDirty.save(cachepath)
@@ -1359,7 +1394,7 @@ class ClassImagerDeconv():
                                                                   "RIME","Weight","Facets",
                                                                   "DDESolutions"]]
                                                             ),
-                                                            reset=False)
+                                                            reset=False,directory=True)
             try:
                 print("Saving last residual image to %s"%cachepath, file=log)
                 self.DicoDirty.save(cachepath)
@@ -1785,8 +1820,9 @@ class ClassImagerDeconv():
 
         # do we have a non-trivial norm (i.e. DDE solutions or beam)?
         # @cyriltasse: maybe there's a quicker way to check?
-        self.MeanJonesNorm=self.FacetMachine.MeanJonesNorm
-        havenorm = self.MeanJonesNorm[0] is not None and (self.MeanJonesNorm[0] != 1).any()
+        
+        #self.MeanJonesNorm=self.FacetMachine.MeanJonesNorm
+        havenorm = self.FacetMachine.LMeanJonesNorm is not None and (self.FacetMachine.LMeanJonesNorm[0] != 1).any()
 
         T = ClassTimeIt.ClassTimeIt()
         T.disable()
@@ -1802,7 +1838,7 @@ class ClassImagerDeconv():
             label = 'sqrtnorm'
             if label not in _images:
                 if havenorm:
-                    a = self.MeanJonesNorm
+                    a = self.FacetMachine.LMeanJonesNorm[iField]
                 else:
                     a=np.array([1])
                 out = _images.addSharedArray(label, a.shape, a.dtype)
@@ -1812,7 +1848,7 @@ class ClassImagerDeconv():
             label = 'sqrtnormcube'
             if label not in _images:
                 if havenorm:
-                    a = self.JonesNorm
+                    a = self.FacetMachine.LJonesNorm[iField]
                 else:
                     a=np.array([1])
 #                a = self.JonesNorm if havenorm else np.array([1])
@@ -1823,11 +1859,11 @@ class ClassImagerDeconv():
             label = 'smooth_sqrtnorm'
             if label not in _images:
                 if havenorm:
-                    if self.FacetMachine.MeanSmoothJonesNorm is None:
-                        a = self.MeanJonesNorm
+                    if self.FacetMachine.LMeanSmoothJonesNorm is None:
+                        a = self.FacetMachine.LMeanJonesNorm[iField]
                     else:
                         print(ModColor.Str("Using the freq-averaged smooth beam to normalise the apparent images",col="blue"), file=log)
-                        a=self.FacetMachine.MeanSmoothJonesNorm
+                        a=self.FacetMachine.MeanSmoothJonesNorm[iField]
                 else:
                     a=np.array([1])
                 out = _images.addSharedArray(label, a.shape, a.dtype)
@@ -1837,11 +1873,11 @@ class ClassImagerDeconv():
             label = 'smooth_sqrtnormcube'
             if label not in _images:
                 if havenorm:
-                    if self.FacetMachine.MeanSmoothJonesNorm is None:
-                        a = self.JonesNorm
+                    if self.FacetMachine.LMeanSmoothJonesNorm is None:
+                        a = self.FacetMachine.LJonesNorm[iField]
                     else:
                         print(ModColor.Str("Using the smooth beam to normalise the apparent images",col="blue"), file=log)
-                        a=self.FacetMachine.SmoothJonesNorm
+                        a=self.FacetMachine.LSmoothJonesNorm[iField]
                 else:
                     a=np.array([1])
 #                a = self.JonesNorm if havenorm else np.array([1])

@@ -146,9 +146,19 @@ def _parse_solsfile(SolsFile):
 
 class ClassJones():
 
-    def __init__(self, GD, MS, FacetMachine=None, CacheMode=True):
+    def __init__(self, GD, MS, FacetMachine=None, CacheMode=True,
+                 iField=None):
         self.GD = GD
         self.FacetMachine = FacetMachine
+        self.iField=iField
+        self.StrField=""
+        self.StrCounter=""
+        if iField is not None:
+            self.StrField="_Field%i"%iField
+            self.StrCounter=" F#%i"%iField
+            self.FacetMachine = self.FacetMachine.LFM[iField]
+            
+        
         self.MS = MS
         self.HasKillMSSols = False
         self.BeamTimes_kMS = np.array([], np.float32)
@@ -165,7 +175,7 @@ class ClassJones():
             self.ApplyCal = True
             valid=False
             if self.CacheMode:
-                self.JonesNormSolsFile_killMS, valid = self.MS.cache.checkCache("JonesNorm_killMS",
+                self.JonesNormSolsFile_killMS, valid = self.MS.cache.checkCache("JonesNorm_killMS%s"%self.StrField,
                                                                                 dict(VisData=GD["Data"], 
                                                                                      DDESolutions=GD["DDESolutions"], 
                                                                                      DataSelection=self.GD["Selection"],
@@ -178,7 +188,7 @@ class ClassJones():
                 DicoSols, TimeMapping, DicoClusterDirs = self.DiskToSols(self.JonesNormSolsFile_killMS)
             else:
                 DicoSols, TimeMapping, DicoClusterDirs = self.MakeSols("killMS", DATA, quiet=quiet)
-                if self.CacheMode: self.MS.cache.saveCache("JonesNorm_killMS")
+                if self.CacheMode: self.MS.cache.saveCache("JonesNorm_killMS%s"%self.StrField)
 
             # DEBUG plot
             #if True:
@@ -205,7 +215,7 @@ class ClassJones():
             #            plt.close('all')
             #    exit()
 
-            DATA["killMS"] =  dict(Jones=DicoSols, TimeMapping=TimeMapping, Dirs=DicoClusterDirs)
+            DATA["killMS%s"%self.StrField] =  dict(Jones=DicoSols, TimeMapping=TimeMapping, Dirs=DicoClusterDirs)
             self.DicoClusterDirs_kMS=DicoClusterDirs
 
             self.HasKillMSSols = True
@@ -229,7 +239,7 @@ class ClassJones():
                                     lbeamsethashes["bs"] = hashlib.md5(fbs.read().encode()).hexdigest()
                     return lbeamsethashes
 
-                self.JonesNormSolsFile_Beam, valid = self.MS.cache.checkCache("JonesNorm_Beam.npz", 
+                self.JonesNormSolsFile_Beam, valid = self.MS.cache.checkCache("JonesNorm_Beam%s"%self.StrField, 
                                                                               dict(VisData=GD["Data"], 
                                                                                    Beam=GD["Beam"], 
                                                                                    Facets=self.GD["Facets"],
@@ -241,8 +251,8 @@ class ClassJones():
                 DicoSols, TimeMapping, DicoClusterDirs = self.DiskToSols(self.JonesNormSolsFile_Beam)
             else:
                 DicoSols, TimeMapping, DicoClusterDirs = self.MakeSols("Beam", DATA, quiet=quiet)
-                if self.CacheMode: self.MS.cache.saveCache("JonesNorm_Beam.npz")
-            DATA["Beam"] =  dict(Jones=DicoSols, TimeMapping=TimeMapping, Dirs=DicoClusterDirs)
+                if self.CacheMode: self.MS.cache.saveCache("JonesNorm_Beam%s"%self.StrField)
+            DATA["Beam%s"%self.StrField] =  dict(Jones=DicoSols, TimeMapping=TimeMapping, Dirs=DicoClusterDirs)
 
     # def ToShared(self, StrType, DicoSols, TimeMapping, DicoClusterDirs):
     #     print>>log, "  Putting %s Jones in shm" % StrType
@@ -345,6 +355,7 @@ class ClassJones():
                     DicoClusterDirs["dec"] = self.ClusterCatBeam.dec
                     DicoClusterDirs["I"] = self.ClusterCatBeam.I
                     DicoClusterDirs["Cluster"] = self.ClusterCatBeam.Cluster
+
                     # VM = ModVoronoiToReg.VoronoiToReg(self.MS.rac, self.MS.decc)
                     # VM.PointsToReg("FacetDirCat.reg",DicoClusterDirs["ra"],DicoClusterDirs["dec"],Col="red")
                     # VM.PointsToReg("JonesDirCat.reg",self.FacetMachine.JonesDirCat["ra"],self.FacetMachine.JonesDirCat["dec"],Col="blue")
@@ -1085,7 +1096,7 @@ class ClassJones():
 
         
         rac,decc=self.MS.OriginalRadec
-        pBAR= ProgressBar(Title="  Init E-Jones ")#, HeaderSize=10,TitleSize=13)
+        pBAR= ProgressBar(Title="  Init E-Jones%s"%self.StrCounter)#, HeaderSize=10,TitleSize=13)
         if not progressBar: pBAR.disable()
         # pBAR.disable()
         pBAR.render(0, Tm.size)

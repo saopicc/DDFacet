@@ -147,8 +147,12 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
 
     def FromDico(self,DicoSMStacked):
-        print("Reading dico model from dico with %i components"%len(DicoSMStacked["Comp"]), file=log)
+        if "Comp" not in DicoSMStacked.keys():
+            NComp = 0
+        else:
+            NComp=len(DicoSMStacked["Comp"])
         #self.PM=self.DicoSMStacked["PM"]
+        print("Reading dico model from dico with %i components"%NComp, file=log)
         self.DicoSMStacked=DicoSMStacked
         self.RefFreq=self.DicoSMStacked["RefFreq"]
         self.ModelShape=self.DicoSMStacked["ModelShape"]

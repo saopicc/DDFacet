@@ -64,6 +64,8 @@ from scipy.spatial import Voronoi
 from SkyModel.Sky import ModVoronoi
 import Polygon
 from DDFacet.ToolsDir import rad2hmsdms
+from astropy.coordinates import SkyCoord
+import astropy.units as u
 
 class ClassFacetMachine():
     """
@@ -80,16 +82,24 @@ class ClassFacetMachine():
                  Precision="S",
                  PolMode=["I"],
                  Sols=None,
-                 PointingID=0,
+                 #PointingID=0,
                  DoPSF=False,
                  Oversize=1,   # factor by which image is oversized
                  custom_id=None,
-                 CounterName=""
+                 iField=None,
                  ):
             
-        self.CounterName=CounterName
         self.HasFourierTransformed = False
 
+        self.CounterName=""
+        self.iField=iField
+        self.StrField=""
+        if iField is not None:
+            self.CounterName=" F#%i"%self.iField
+            self.StrField="_Field%i"%self.iField
+            if custom_id is not None:
+                custom_id="%s_Field%i"%(custom_id,self.iField)
+                
         if Precision == "S":
             self.dtype = np.complex64
             self.CType = np.complex64
@@ -104,11 +114,20 @@ class ClassFacetMachine():
         if int(GD["CF"]["Nw"]) <= 1:
             print("Disabling W-projection. Enabling AIPS-style faceting", file=log)
 
+            
+        self.ra0dec0=None
+        if GD["Image"]["ImageCenterRADEC"] is not None:
+            srac,sdecc=GD["Image"]["ImageCenterRADEC"]
+            coords = SkyCoord(ra=srac,
+                              dec=sdecc,
+                              unit=(u.hourangle, u.deg))
+            self.ra0dec0=coords.ra.rad,coords.dec.rad
+                
         self.DoDDE = False
         if Sols is not None:
             self.setSols(Sols)
 
-        self.PointingID = PointingID
+        #self.PointingID = PointingID
         self.VS, self.GD = VS, GD
         self.StokesConverter = ClassStokes(self.VS.StokesConverter.AvailableCorrelationProductsIds(),
                                            PolMode)
@@ -234,7 +253,7 @@ class ClassFacetMachine():
 
     def appendMainField(self, Npix=512, Cell=10., NFacets=5,
                         Support=11, OverS=5, Padding=1.2,
-                        wmax=10000, Nw=11, ra0dec0=None,
+                        wmax=10000, Nw=11, #ra0dec0=None,
                         ImageName="Facet.image",
                         **kw):
         """
@@ -317,10 +336,10 @@ class ClassFacetMachine():
         self.RadiusTot_y = RadiusTot_y
         l0,m0=0.,0.
         self.RaDecImageCenter=self.RaDecPhaseCenter
-        if ra0dec0 is not None:
-            ra0,dec0=ra0dec0
+        if self.ra0dec0 is not None:
+            ra0,dec0=self.ra0dec0
             l0,m0=self.CoordMachine.radec2lm(ra0,dec0)
-            self.RaDecImageCenter=(rac, decc)
+            self.RaDecImageCenter=(ra0, dec0)
             
         self.CornersImageTot = np.array([[l0-RadiusTot_x, m0-RadiusTot_y],
                                          [l0+RadiusTot_x, m0-RadiusTot_y],
@@ -1760,9 +1779,9 @@ class ClassFacetMachine():
         if Apply_killMS or Apply_Beam:
             DicoJonesMatrices = {}
         if Apply_killMS:
-            DicoJonesMatrices["DicoJones_killMS"] = DATA["killMS"]
+            DicoJonesMatrices["DicoJones_killMS"] = DATA["killMS%s"%self.StrField]
         if Apply_Beam:
-            DicoJonesMatrices["DicoJones_Beam"] = DATA["Beam"]
+            DicoJonesMatrices["DicoJones_Beam"] = DATA["Beam%s"%self.StrField]
 
         GridMachine.put(times, uvwThis, visThis, flagsThis, A0A1, W,
                         DoNormWeights=False,
@@ -2082,7 +2101,7 @@ class ClassFacetMachine():
     # DeGrid worker that is called by Multiprocessing.Process
     def _degrid_worker(self, iFacet, DATA, cf_dict, ChanSel, modeldict):
         ModelGrid = self._set_model_grid_worker(iFacet, modeldict, cf_dict, ChanSel)
-
+        
         # Create a new GridMachine
         GridMachine = self._createGridMachine(iFacet, cf_dict=cf_dict,
             ListSemaphores=ClassFacetMachine._degridding_semaphores,
@@ -2107,9 +2126,9 @@ class ClassFacetMachine():
         if Apply_killMS or Apply_Beam:
             DicoJonesMatrices = {}
         if Apply_killMS:
-            DicoJonesMatrices["DicoJones_killMS"] = DATA["killMS"]
+            DicoJonesMatrices["DicoJones_killMS"] = DATA["killMS%s"%self.StrField]
         if Apply_Beam:
-            DicoJonesMatrices["DicoJones_Beam"] = DATA["Beam"]
+            DicoJonesMatrices["DicoJones_Beam"] = DATA["Beam%s"%self.StrField]
 
         DecorrMode = self.GD["RIME"]["DecorrMode"]
         if 'F' in DecorrMode or "T" in DecorrMode:
