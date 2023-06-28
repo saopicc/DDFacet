@@ -126,17 +126,23 @@ class ClassFacetMachineMultiFields():
                            "FieldID":None}
             self.ListDicoFields.append(ThisDicoField)
         else:
-            Fields=readMultiFieldFile(self.GD["Image"]["MultiFieldFile"])
+            Fields,TypeTable=readMultiFieldFile(self.GD["Image"]["MultiFieldFile"])
             for iField,ThisField in enumerate(Fields):
                 # coords = SkyCoord(ra=ThisField["ra"],
                 #                   dec=ThisField["dec"],
                 #                   unit=(u.hourangle, u.deg))
                 # ras=rad2hmsdms(coords.ra.rad,Type="ra").replace(" ",":")
                 # decs=rad2hmsdms(coords.dec.rad,Type="dec").replace(" ",":")
-                NPix=int(ThisField["NPix"])
                 ThisGD=copy.deepcopy(self.GD)
-                ThisGD["Image"]["NPix"]=NPix
-                ThisGD["Image"]["ImageCenterRADEC"]=ThisField["ra"],ThisField["dec"]
+                if TypeTable=="txt":
+                    NPix=int(ThisField["NPix"])
+                    ThisGD["Image"]["NPix"]=NPix
+                    ThisGD["Image"]["ImageCenterRADEC"]=ThisField["ra"],ThisField["dec"]
+                else:
+                    ras=rad2hmsdms(ThisField["RA"]*np.pi/180,Type="ra").replace(" ",":")
+                    decs=rad2hmsdms(ThisField["DEC"]*np.pi/180,Type="dec").replace(" ",":")
+                    ThisGD["Image"]["ImageCenterRADEC"]=ras,decs
+
                 # ThisDicoField={"GD":ThisGD,
                 #                "FieldID":iField,
                 #                "ra0dec0":(coords.ra.rad,coords.dec.rad)}

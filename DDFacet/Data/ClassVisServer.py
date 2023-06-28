@@ -831,8 +831,8 @@ class ClassVisServer():
 
     def _CalcWeights_handler(self,iField=None):
         StrField=""
-        if iField is not None:
-            StrField="_Field%i"%iField
+        # if iField is not None:
+        #     StrField="_Field%i"%iField
         self._weight_dict = shared_dict.create("VisWeights")
         # check for wmax in cache
         cache_keys = dict([(section, self.GD[section]) for section
@@ -1210,7 +1210,16 @@ class ClassVisServer():
             msw["success"] = False
             os.unlink(msw["cachepath"])
 
-    def _CalcWeights_serial(self):
+    def _CalcWeights_serial(self,iField=None):
+        if iField is not None and self.DicoFields is not None:
+            FacetMachine=self.FacetMachine.LFM[iField]
+        else:
+            FacetMachine=self.FacetMachine
+        FullImShape = FacetMachine.OutImShape
+        # self.PaddedFacetShape = self.FacetMachine.PaddedGridShape
+        FacetShape = FacetMachine.FacetShape
+        CellSizeRad_x,CellSizeRad_y=FacetMachine.CellSizeRad
+        
         self._weight_dict = shared_dict.create("VisWeights")
         # check for wmax in cache
         cache_keys = dict([(section, self.GD[section]) for section
@@ -1261,7 +1270,7 @@ class ClassVisServer():
         # setup uv-grid for non-natural weights
         if self.Weighting != "natural":
             self._weight_grid = shared_dict.create("VisWeights.Grid")
-            nch, npol, npixIm_x, npixIm_y = self.FullImShape
+            nch, npol, npixIm_x, npixIm_y = FullImShape
             FOV_x = CellSizeRad_x * npixIm_x
             FOV_y = CellSizeRad_y * npixIm_y
             nbands = self.NFreqBands
@@ -1282,7 +1291,7 @@ class ClassVisServer():
             self._weight_grid.addSharedArray("grid", (nbands, npix), np.float64)
         else:
             nbands = self.NFreqBands
-            nch, npol, npixIm_x, npixIm_y = self.FullImShape
+            nch, npol, npixIm_x, npixIm_y = FullImShape
             FOV_x = CellSizeRad_x * npixIm_x
             FOV_y = CellSizeRad_y * npixIm_y
             cell_u = 1. / (self.Super * FOV_x)
