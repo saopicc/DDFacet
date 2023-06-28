@@ -27,12 +27,12 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 namespace DDF {
   void pyAccumulateWeightsOntoGrid(py::array_t<double, py::array::c_style>& grid,
 				  const py::array_t<float, py::array::c_style>& weights,
-				  const py::array_t<long int, py::array::c_style>& index)
+				  const py::array_t<unsigned int, py::array::c_style>& index)
   {
     size_t n = weights.shape(0);
     double* pgrid = grid.mutable_data<double>(0);
     const float* pweights = weights.data<float>(0);
-    const long int* pindex = index.data<long int>(0);
+    const unsigned int* pindex = index.data<unsigned int>(0);
 
     for(size_t i=0; i<n; ++i)
       {
@@ -51,12 +51,12 @@ namespace DDF {
   // semaphore-free version for use in non-parallel contexts
   void pyAccumulateWeightsOntoGridNoSem(py::array_t<double, py::array::c_style>& grid,
 				  const py::array_t<float, py::array::c_style>& weights,
-				  const py::array_t<long int, py::array::c_style>& index)
+				  const py::array_t<unsigned int, py::array::c_style>& index)
   {
     size_t n = weights.shape(0);
     double* pgrid = grid.mutable_data<double>(0);
     const float* pweights = weights.data<float>(0);
-    const long int* pindex = index.data<long int>(0);
+    const unsigned int* pindex = index.data<unsigned int>(0);
 
     for(size_t i=0; i<n; ++i)
       {

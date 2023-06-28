@@ -288,20 +288,46 @@ class ClassWeightMachine():
             npixx = xymax * 2 + 1
             npixy = xymax + 1
             npix = npixx * npixy
-            print("Calculating imaging weights on an [%i,%i]x%i grid with cellsize %g,%g" % (npixx, npixy, nbands, cell[0],cell[1]), file=log)
-            grid0 = self._weight_grid.addSharedArray("grid", (nbands, npix), np.float64)
-            # now run parallel jobs to accumulate weights
-            parallel = num_valid_chunks > 1
+
+            if (nbands, npix)>4294967290:
+                stop
+            
+            GridSizeGB=(nbands* npix)*8/1024**3
+            import psutil
+            AvailableGB= psutil.virtual_memory().available/1024**3
+            NJobs=0
             for ims, ms in enumerate(self.ListMS):
                 for ichunk in range(len(ms.getChunkRow0Row1())):
                     if "weight" in self._weight_dict[ims][ichunk]:
+                        NJobs+=1
+            NGrids=np.min([int(AvailableGB/GridSizeGB),NJobs])
+            NGrids=np.max([1,NGrids])
+            
+            print("Calculating imaging weights on %i [%i,%i]x%i grids with cellsize %g,%g" % (NGrids,npixx, npixy, nbands, cell[0],cell[1]), file=log)
+            gridJobs = self._weight_grid.addSharedArray("gridJobs", (NGrids,nbands, npix), np.float64)
+            doneJobs = self._weight_grid.addSharedArray("doneJobs", (NGrids,), bool)
+            # If the grid size is higher that the uint32 index the cell cannot be adressed
+            grid0 = self._weight_grid.addSharedArray("grid", (nbands, npix), np.float64)
+            
+            # now run parallel jobs to accumulate weights
+            useSemaphores = 0 # num_valid_chunks > 1
+            iGridJob=0
+            
+            
+            for ims, ms in enumerate(self.ListMS):
+                for ichunk in range(len(ms.getChunkRow0Row1())):
+                    if "weight" in self._weight_dict[ims][ichunk]:
+                        
                         APP.runJob("AccumWeights:%d:%d%s" % (ims, ichunk,StrField), self._accumulateWeights_handler,
                                    args=(self._weight_grid.readonly(),
                                          self._weight_dict[ims][ichunk].readwrite(),
-                                         ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax, parallel),
+                                         ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax, useSemaphores, iGridJob, WaitFor_iJob),
                                    counter=self._weightjob_counter, collect_result=False)#,serial=True)
+                        
             # wait for results
+            
             APP.awaitJobCounter(self._weightjob_counter, progress="Accumulate weights")
+            grid0[:,:]=np.sum(gridJobs,axis=0)
             if self.Weighting == "briggs" or self.Weighting == "robust":
                 numeratorSqrt = 5.0 * 10 ** (-self.Robust)
                 grid0 = self._weight_grid["grid"]
@@ -471,6 +497,54 @@ class ClassWeightMachine():
             msw.delete_item("uv")
             msw.delete_item("flags")
 
+    def _uv_to_index_Cheap(self, ims, uv, weights, freqsAll, cell, npix, npixx, nbands, xymax):
+        """Helper method: converts UV coordinates to indices into a UV-grid"""
+        # flip sign of negative v values -- we'll only grid the top half of the plane
+        cell=np.array(cell,np.float64) 
+        cell_u,cell_v=cell
+        index = np.zeros((uv.shape[0], len(freqsAll)), np.uint32)
+
+        uv[uv[:, 1] < 0] *= -1
+        uvs=uv
+        for iChan in range(freqsAll.size):
+            freqs=freqsAll[iChan:iChan+1]
+            # convert u/v to lambda, and then to pixel offset
+            uv = uvs[..., np.newaxis] * freqs[np.newaxis, np.newaxis, :] / _cc
+        
+            #print("JHYGJHY uv",uv.nbytes/1024**3)
+            #uv2 = np.floor(uv / cell.reshape((1,2,1))).astype(int)
+            u = uv[:, 0, :]
+            v = uv[:, 1, :]
+            x = np.floor(u / cell[0]).astype(int)
+            y = np.floor(v / cell[1]).astype(int)
+            # # u is offset, v isn't since it's the top half
+            # x = uv2[:, 0, :]
+            # y = uv2[:, 1, :]
+            #np.savez("indexIn.new.npz",x=x,y=y,xymax=xymax,DicoMSChanMapping=self.DicoMSChanMapping[ims])
+            x += xymax  # offset, since X grid starts at -xymax
+            # convert to index array -- this gives the number of the uv-bin on the grid
+            #index = msw.addSharedArray("index", (uv.shape[0], len(freqs)), np.int64)
+            
+            
+            
+            #print("JHYGJHY index",index.nbytes/1024**3)
+            index[:,iChan].flat[:] = y.flat[:] * npixx + x.flat[:]
+            
+            
+        # np.savez("indexIn.new.npz",uv=uv,uv2=uv2,index=index,x=x,y=y,
+        #          xymax=xymax,cell=cell,
+        #          DicoMSChanMapping=self.DicoMSChanMapping[ims])
+        # stop
+        # if we're in per-band weighting mode, then adjust the index to refer to each band's grid
+        if nbands > 1:
+            index += self.DicoMSChanMapping[ims][np.newaxis, :] * npix
+        # zero weight refers to zero cell (otherwise it may end up outside the grid, since grid is
+        # only big enough to accommodate the *unflagged* uv-points)
+        index[weights == 0] = 0
+        #np.savez("indexIn2.new.npz",index=index,x=x,y=y,xymax=xymax,DicoMSChanMapping=self.DicoMSChanMapping[ims])
+        return index
+
+
     def _uv_to_index(self, ims, uv, weights, freqs, cell, npix, npixx, nbands, xymax):
         """Helper method: converts UV coordinates to indices into a UV-grid"""
         # flip sign of negative v values -- we'll only grid the top half of the plane
@@ -480,6 +554,7 @@ class ClassWeightMachine():
         uv[uv[:, 1] < 0] *= -1
         # convert u/v to lambda, and then to pixel offset
         uv = uv[..., np.newaxis] * freqs[np.newaxis, np.newaxis, :] / _cc
+        
         #uv2 = np.floor(uv / cell.reshape((1,2,1))).astype(int)
         u = uv[:, 0, :]
         v = uv[:, 1, :]
@@ -492,7 +567,7 @@ class ClassWeightMachine():
         x += xymax  # offset, since X grid starts at -xymax
         # convert to index array -- this gives the number of the uv-bin on the grid
         #index = msw.addSharedArray("index", (uv.shape[0], len(freqs)), np.int64)
-        index = np.zeros((uv.shape[0], len(freqs)), np.int32)
+        index = np.zeros((uv.shape[0], len(freqs)), np.uint32)
         index[...] = y * npixx + x
         # np.savez("indexIn.new.npz",uv=uv,uv2=uv2,index=index,x=x,y=y,
         #          xymax=xymax,cell=cell,
@@ -507,24 +582,54 @@ class ClassWeightMachine():
         #np.savez("indexIn2.new.npz",index=index,x=x,y=y,xymax=xymax,DicoMSChanMapping=self.DicoMSChanMapping[ims])
         return index
 
-    def _accumulateWeights_handler (self, wg, msw, ims, ichunk, freqs, cell, npix, npixx, nbands, xymax, parallel=False):
+    
+    def _accumulateWeights_handler (self, wg, msw, ims, ichunk, freqs, cell, npix, npixx, nbands, xymax, useSemaphores=False,
+                                    iGridJob=None, WaitFor_iJob=None):
         msname = "MS %d chunk %d"%(ims, ichunk)
         
         try:
             ms = self.ListMS[ims]
             msname = "%s chunk %d"%(ms.MSName, ichunk)
             weights = msw["weight"]
-            index = self._uv_to_index(ims, msw["uv"], weights, freqs, cell, npix, npixx, nbands, xymax)
+
+            if gridJobs is None:
+                grid=wg["gridJobs"][0]
+            else:
+                grid=wg["gridJobs"][iGridJob]
+                
+            while not wg["doneJobs"][WaitFor_iJob]:
+                time.sleep(0.1)
+                
+            print("JHYG",msw["uv"].nbytes/1024**3, weights.nbytes/1024**3)
+            print("JHYG",msw["uv"].nbytes/1024**3, weights.nbytes/1024**3)
+            print("JHYG",msw["uv"].nbytes/1024**3, weights.nbytes/1024**3)
+            index = self._uv_to_index_Cheap(ims, msw["uv"], weights, freqs, cell, npix, npixx, nbands, xymax)
             #np.savez("index.new.npz",ims=ims,msw=msw["uv"], weights=weights, freqs=freqs, cell=cell, npix=npix, npixx=npixx, nbands=nbands, xymax=xymax)
             msw.delete_item("flags")
             #np.savez("accumulateWeights_handler.new.npz",grid=wg["grid"], weights=weights.ravel(), index=index.ravel())
-            print(wg["grid"].nbytes/1024**3, weights.nbytes/1024**3, index.nbytes/1024**3)
-            print(wg["grid"].nbytes/1024**3, weights.nbytes/1024**3, index.nbytes/1024**3)
-            print(wg["grid"].nbytes/1024**3, weights.nbytes/1024**3, index.nbytes/1024**3)
-            if parallel:
+            print("JHKKYG",wg["grid"].nbytes/1024**3, weights.nbytes/1024**3, index.nbytes/1024**3)
+            print("JHKKYG",wg["grid"].nbytes/1024**3, weights.nbytes/1024**3, index.nbytes/1024**3)
+            print("JHKKYG",wg["grid"].nbytes/1024**3, weights.nbytes/1024**3, index.nbytes/1024**3)
+
+            print("JHYGH dtype",wg["grid"].dtype,weights.dtype,index.dtype)
+            print("JHYGH dtype",wg["grid"].dtype,weights.dtype,index.dtype)
+            print("JHYGH dtype",wg["grid"].dtype,weights.dtype,index.dtype)
+            print("JHYGH shape",wg["grid"].shape,weights.shape,index.shape)
+            print("JHYGH shape",wg["grid"].shape,weights.shape,index.shape)
+            print("JHYGH shape",wg["grid"].shape,weights.shape,index.shape)
+            
+            if useSemaphores:
+                print("pyAccumulateWeightsOntoGrid")
                 _pyGridderSmearPols.pyAccumulateWeightsOntoGrid(wg["grid"], weights.ravel(), index.ravel())
+                print("pyAccumulateWeightsOntoGrid:done")
             else:
+                print("pyAccumulateWeightsOntoGridNoSem")
                 _pyGridderSmearPols.pyAccumulateWeightsOntoGridNoSem(wg["grid"], weights.ravel(), index.ravel())
+                print("pyAccumulateWeightsOntoGridNoSem:done")
+            print("JHKKYG111",wg["grid"].nbytes/1024**3, weights.nbytes/1024**3, index.nbytes/1024**3)
+            print("JHKKYG111",wg["grid"].nbytes/1024**3, weights.nbytes/1024**3, index.nbytes/1024**3)
+            print("JHKKYG111",wg["grid"].nbytes/1024**3, weights.nbytes/1024**3, index.nbytes/1024**3)
+            wg["doneJobs"][iGridJob]=1
         except Exception as exc:
             print(ModColor.Str("Error accumulating weights from %s:"%msname), file=log)
             for line in traceback.format_exc().split("\n"):
@@ -545,7 +650,7 @@ class ClassWeightMachine():
                 weight = msw["weight"]
                 # renormalize to density, for uniform/briggs
                 if self.Weighting != "natural":
-                    index = self._uv_to_index(ims, msw["uv"], weight, freqs, cell, npix, npixx, nbands, xymax)
+                    index = self._uv_to_index_Cheap(ims, msw["uv"], weight, freqs, cell, npix, npixx, nbands, xymax)
                     grid = wg["grid"].reshape((wg["grid"].size,))
                     #weight /= grid[msw["index"]]
                     index[index>=len(grid)]=0

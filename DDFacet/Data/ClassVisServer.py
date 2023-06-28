@@ -703,4 +703,6 @@ class ClassVisServer():
     def getMaxUV(self):
         self.WM.getMaxUV()
         
-    
+    def getMaxW(self):
+        self.WM.getMaxW()
+        
