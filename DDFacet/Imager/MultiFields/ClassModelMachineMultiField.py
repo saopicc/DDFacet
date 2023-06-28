@@ -58,7 +58,7 @@ class ClassModelMachineMultiField():
         for iField,MM in enumerate(self.LModelMachine):
             MM.ToFile("%sMF/Field%i.DicoModel"%(FileName,iField))
             
-        MyPickle.DicoNPToFile(self.DicoFields,"%sMF/DicoFields.DicoPickle"%FileName)
+        MyPickle.Save(self.DicoFields,"%sMF/DicoFields.DicoPickle"%FileName)
 
 
     def GiveModelImage(self,*args,**kwargs):
