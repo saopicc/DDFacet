@@ -518,6 +518,9 @@ class ClassWeightMachine():
             #np.savez("index.new.npz",ims=ims,msw=msw["uv"], weights=weights, freqs=freqs, cell=cell, npix=npix, npixx=npixx, nbands=nbands, xymax=xymax)
             msw.delete_item("flags")
             #np.savez("accumulateWeights_handler.new.npz",grid=wg["grid"], weights=weights.ravel(), index=index.ravel())
+            print(wg["grid"].nbytes/1024**3, weights.nbytes/1024**3, index.nbytes/1024**3)
+            print(wg["grid"].nbytes/1024**3, weights.nbytes/1024**3, index.nbytes/1024**3)
+            print(wg["grid"].nbytes/1024**3, weights.nbytes/1024**3, index.nbytes/1024**3)
             if parallel:
                 _pyGridderSmearPols.pyAccumulateWeightsOntoGrid(wg["grid"], weights.ravel(), index.ravel())
             else:
