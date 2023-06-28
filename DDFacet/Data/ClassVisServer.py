@@ -701,8 +701,8 @@ class ClassVisServer():
         self.WM.CalcWeightsBackground(iField=iField)
 
     def getMaxUV(self):
-        self.WM.getMaxUV()
+        return self.WM.getMaxUV()
         
     def getMaxW(self):
-        self.WM.getMaxW()
+        return self.WM.getMaxW()
         

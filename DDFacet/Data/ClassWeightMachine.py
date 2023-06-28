@@ -289,9 +289,6 @@ class ClassWeightMachine():
             npixy = xymax + 1
             npix = npixx * npixy
 
-            if (nbands, npix)>4294967290:
-                stop
-            
             GridSizeGB=(nbands* npix)*8/1024**3
             import psutil
             AvailableGB= psutil.virtual_memory().available/1024**3
@@ -302,32 +299,44 @@ class ClassWeightMachine():
                         NJobs+=1
             NGrids=np.min([int(AvailableGB/GridSizeGB),NJobs])
             NGrids=np.max([1,NGrids])
+
             
-            print("Calculating imaging weights on %i [%i,%i]x%i grids with cellsize %g,%g" % (NGrids,npixx, npixy, nbands, cell[0],cell[1]), file=log)
-            gridJobs = self._weight_grid.addSharedArray("gridJobs", (NGrids,nbands, npix), np.float64)
-            doneJobs = self._weight_grid.addSharedArray("doneJobs", (NGrids,), bool)
             # If the grid size is higher that the uint32 index the cell cannot be adressed
-            grid0 = self._weight_grid.addSharedArray("grid", (nbands, npix), np.float64)
+            if nbands*npix>4294967290:
+                stop
             
+            if NGrids!=NJobs:
+                NGrids=1
+                useSems = num_valid_chunks > 1
+                OneGridPerJob=False
+                print("Not enough space in the RAM: using one single grid and semaphores on it", file=log)
+            else:
+                OneGridPerJob=True
+                useSems = 0
+                print("Enough space in the RAM: using one grid per accumulateWeights job and no semaphores", file=log)
+            gridJobs = self._weight_grid.addSharedArray("gridJobs", (NGrids,nbands, npix), np.float64)
+            print("Calculating imaging weights on %i [%i,%i]x%i grids with cellsize %g,%g" % (NGrids,npixx, npixy, nbands, cell[0],cell[1]), file=log)
+                
+                
             # now run parallel jobs to accumulate weights
-            useSemaphores = 0 # num_valid_chunks > 1
-            iGridJob=0
-            
-            
+            iGrid=0
             for ims, ms in enumerate(self.ListMS):
                 for ichunk in range(len(ms.getChunkRow0Row1())):
                     if "weight" in self._weight_dict[ims][ichunk]:
-                        
                         APP.runJob("AccumWeights:%d:%d%s" % (ims, ichunk,StrField), self._accumulateWeights_handler,
                                    args=(self._weight_grid.readonly(),
                                          self._weight_dict[ims][ichunk].readwrite(),
-                                         ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax, useSemaphores, iGridJob, WaitFor_iJob),
+                                         ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax, useSems,iGrid),
                                    counter=self._weightjob_counter, collect_result=False)#,serial=True)
-                        
+                        if OneGridPerJob:
+                            iGrid+=1
+                            
             # wait for results
-            
             APP.awaitJobCounter(self._weightjob_counter, progress="Accumulate weights")
-            grid0[:,:]=np.sum(gridJobs,axis=0)
+            self._weight_grid["grid"]=np.sum(gridJobs,axis=0)
+            #self._weight_grid["gridJobs"].delete()
+            grid0=self._weight_grid["grid"]
+            
             if self.Weighting == "briggs" or self.Weighting == "robust":
                 numeratorSqrt = 5.0 * 10 ** (-self.Robust)
                 grid0 = self._weight_grid["grid"]
@@ -418,7 +427,8 @@ class ClassWeightMachine():
             weight.fill(1.)
 
             for weight_col in List_weight_col:
-                print("reading weighting column %s"%weight_col, file=log)
+                if weight_col is not None:
+                    print("reading weighting column %s"%weight_col, file=log)
                 if weight_col == "WEIGHT_SPECTRUM":
                     w = tab.getcol(weight_col, row0, nrows)[:, chanslice]
         #            print>> log, "  reading column %s for the weights, shape is %s" % (weight_col, w.shape)
@@ -427,7 +437,6 @@ class ClassWeightMachine():
                     # take mean weight across correlations and apply this to all
                     weight[...] *= w.mean(axis=2)
                 elif weight_col == "None" or weight_col == None:
-                    #            print>> log, "  Selected weights columns is None, filling weights with ones"
                     pass#weight.fill(1)
                 elif weight_col == "Lucky_kMS" and self.GD["DDESolutions"]["DDSols"]:
                     ID=row0
@@ -583,53 +592,38 @@ class ClassWeightMachine():
         return index
 
     
-    def _accumulateWeights_handler (self, wg, msw, ims, ichunk, freqs, cell, npix, npixx, nbands, xymax, useSemaphores=False,
-                                    iGridJob=None, WaitFor_iJob=None):
+    def _accumulateWeights_handler (self, wg, msw, ims, ichunk, freqs, cell, npix, npixx, nbands, xymax, useSems=False,iJob=None):
         msname = "MS %d chunk %d"%(ims, ichunk)
         
         try:
             ms = self.ListMS[ims]
+            if iJob is not None:
+                grid=wg["gridJobs"][iJob]
+            else:
+                grid=wg["grid"]
             msname = "%s chunk %d"%(ms.MSName, ichunk)
             weights = msw["weight"]
-
-            if gridJobs is None:
-                grid=wg["gridJobs"][0]
-            else:
-                grid=wg["gridJobs"][iGridJob]
-                
-            while not wg["doneJobs"][WaitFor_iJob]:
-                time.sleep(0.1)
-                
-            print("JHYG",msw["uv"].nbytes/1024**3, weights.nbytes/1024**3)
-            print("JHYG",msw["uv"].nbytes/1024**3, weights.nbytes/1024**3)
-            print("JHYG",msw["uv"].nbytes/1024**3, weights.nbytes/1024**3)
+            #wg["grid"].fill(1)
+            #print("JHYG",msw["uv"].nbytes/1024**3, weights.nbytes/1024**3)
             index = self._uv_to_index_Cheap(ims, msw["uv"], weights, freqs, cell, npix, npixx, nbands, xymax)
             #np.savez("index.new.npz",ims=ims,msw=msw["uv"], weights=weights, freqs=freqs, cell=cell, npix=npix, npixx=npixx, nbands=nbands, xymax=xymax)
             msw.delete_item("flags")
             #np.savez("accumulateWeights_handler.new.npz",grid=wg["grid"], weights=weights.ravel(), index=index.ravel())
-            print("JHKKYG",wg["grid"].nbytes/1024**3, weights.nbytes/1024**3, index.nbytes/1024**3)
-            print("JHKKYG",wg["grid"].nbytes/1024**3, weights.nbytes/1024**3, index.nbytes/1024**3)
-            print("JHKKYG",wg["grid"].nbytes/1024**3, weights.nbytes/1024**3, index.nbytes/1024**3)
-
-            print("JHYGH dtype",wg["grid"].dtype,weights.dtype,index.dtype)
-            print("JHYGH dtype",wg["grid"].dtype,weights.dtype,index.dtype)
-            print("JHYGH dtype",wg["grid"].dtype,weights.dtype,index.dtype)
-            print("JHYGH shape",wg["grid"].shape,weights.shape,index.shape)
-            print("JHYGH shape",wg["grid"].shape,weights.shape,index.shape)
-            print("JHYGH shape",wg["grid"].shape,weights.shape,index.shape)
+            #print("JHKKYG",grid.nbytes/1024**3, weights.nbytes/1024**3, index.nbytes/1024**3)
+            #wg["grid"].fill(0)
+            #print("JHYGH dtype",grid.dtype,weights.dtype,index.dtype)
+            #print("JHYGH shape",grid.shape,weights.shape,index.shape)
             
-            if useSemaphores:
-                print("pyAccumulateWeightsOntoGrid")
-                _pyGridderSmearPols.pyAccumulateWeightsOntoGrid(wg["grid"], weights.ravel(), index.ravel())
-                print("pyAccumulateWeightsOntoGrid:done")
+            if useSems:
+                #print("pyAccumulateWeightsOntoGrid")
+                _pyGridderSmearPols.pyAccumulateWeightsOntoGrid(grid, weights.ravel(), index.ravel())
+                #print("pyAccumulateWeightsOntoGrid:done")
             else:
-                print("pyAccumulateWeightsOntoGridNoSem")
-                _pyGridderSmearPols.pyAccumulateWeightsOntoGridNoSem(wg["grid"], weights.ravel(), index.ravel())
-                print("pyAccumulateWeightsOntoGridNoSem:done")
-            print("JHKKYG111",wg["grid"].nbytes/1024**3, weights.nbytes/1024**3, index.nbytes/1024**3)
-            print("JHKKYG111",wg["grid"].nbytes/1024**3, weights.nbytes/1024**3, index.nbytes/1024**3)
-            print("JHKKYG111",wg["grid"].nbytes/1024**3, weights.nbytes/1024**3, index.nbytes/1024**3)
-            wg["doneJobs"][iGridJob]=1
+                #print("pyAccumulateWeightsOntoGridNoSem")
+                _pyGridderSmearPols.pyAccumulateWeightsOntoGridNoSem(grid, weights.ravel(), index.ravel())
+                #print("pyAccumulateWeightsOntoGridNoSem:done")
+            #print("JHKKYG111",grid.nbytes/1024**3, weights.nbytes/1024**3, index.nbytes/1024**3)
+            
         except Exception as exc:
             print(ModColor.Str("Error accumulating weights from %s:"%msname), file=log)
             for line in traceback.format_exc().split("\n"):
