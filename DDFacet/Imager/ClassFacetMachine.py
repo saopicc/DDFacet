@@ -87,9 +87,13 @@ class ClassFacetMachine():
                  Oversize=1,   # factor by which image is oversized
                  custom_id=None,
                  iField=None,
+                 cpudict=None
                  ):
-            
+
         self.HasFourierTransformed = False
+        self.cpudict=cpudict
+        if self.cpudict is None:
+            self.cpudict=cpuinfo.get_cpu_info()
 
         self.CounterName=""
         self.iField=iField
@@ -850,13 +854,17 @@ class ClassFacetMachine():
         """
         Set fft wisdom
         """
+        T=ClassTimeIt.ClassTimeIt("setWisdom")
+        T.disable()
         import socket, os
         from os.path import expanduser
         if self.GD["RIME"]["FFTMachine"]!="FFTW": return
         self.wisdom_cache_path = self.GD["Cache"]["DirWisdomFFTW"]
+        T.timeit("start")
         #hostname=socket.gethostname()
         #work round incompatible change in cpuinfo
-        cpudict=cpuinfo.get_cpu_info()
+        cpudict=self.cpudict
+        T.timeit("cpuinfo")
         if 'brand' in cpudict:
             cpuname=cpudict["brand"].replace(" ","")
         else:
@@ -864,13 +872,18 @@ class ClassFacetMachine():
         if "~" in self.wisdom_cache_path:
             home = expanduser("~")        
             self.wisdom_cache_path=self.wisdom_cache_path.replace("~",home)
+        T.timeit("cpuinfo2")
         self.wisdom_cache_path_host = "/".join([self.wisdom_cache_path,cpuname])
         self.wisdom_cache_file =  "/".join([self.wisdom_cache_path_host,"Wisdom.pickle"])
         #self.wisdom_cache_path_host="'%s'"%self.wisdom_cache_path_host
         #self.wisdom_cache_file="'%s'"%self.wisdom_cache_file
         
+        T.timeit("cpuinfo3")
 
-
+        if self.iField is not None and self.iField>0:
+            return
+        T.timeit("cpuinfo4")
+        
         if not os.path.isdir(self.wisdom_cache_path_host):
             print("Wisdom file %s does not exist, create it" % (self.wisdom_cache_path_host), file=log)
             os.makedirs(self.wisdom_cache_path_host)
@@ -889,8 +902,6 @@ class ClassFacetMachine():
             WisdomTypes=[]
 
         HasTouchedWisdomFile = False
-        T=ClassTimeIt.ClassTimeIt("setWisdom")
-        T.disable()
         for iFacet in sorted(self.DicoImager.keys()):
             NPixPadded_x,NPixPadded_y=self.DicoImager[iFacet]["NpixFacetPadded"]
             if self.GD["RIME"]["Precision"]=="S":

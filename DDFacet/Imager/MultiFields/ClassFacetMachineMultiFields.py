@@ -9,6 +9,7 @@ from DDFacet.Other.AsciiReader import readMultiFieldFile
 import os
 from DDFacet.Array import shared_dict
 import glob
+import cpuinfo
 
 class DictImages(dict):
     def __init__(self,Dict=None):
@@ -152,7 +153,7 @@ class ClassFacetMachineMultiFields():
             self.NFields=len(self.ListDicoFields)
 
         self.LFM=[]
-
+        cpudict=cpuinfo.get_cpu_info()
         # MultiField mode
         for iField,DicoField in enumerate(self.ListDicoFields):
             # ra0dec0=DicoField["ra0dec0"]
@@ -173,7 +174,8 @@ class ClassFacetMachineMultiFields():
                                  #PointingID=PointingID,
                                  DoPSF=DoPSF,
                                  Oversize=Oversize,   # factor by which image is oversized
-                                 custom_id=custom_id,)
+                                 custom_id=custom_id,
+                                 cpudict=cpudict)
             self.LFM.append(FM)
         self.DoSmoothBeam=(self.GD["Beam"]["Smooth"] and self.GD["Beam"]["Model"])
             

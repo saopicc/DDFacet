@@ -4,6 +4,8 @@ import pickle as cPickle
 log=logger.getLogger("ImageDeconvMachineMultiField")
 import six
 import copy
+from DDFacet.Other import ModColor
+
 class ClassImageDeconvMachineMultiFields():
 
     def __init__(self,GD,VS=None,DicoFields=None,
@@ -105,6 +107,7 @@ class ClassImageDeconvMachineMultiFields():
         Lupdate_model=[]
         
         for iField in range(self.NFields):
+            log.print(ModColor.Str("=============== Deconv Field #%i / %i ============="%(iField,self.NFields),col="blue"))
             repMinor, continue_deconv, update_model = self.LImageDeconvMachine[iField].Deconvolve()
             LrepMinor.append(repMinor)
             Lcontinue_deconv.append(continue_deconv)

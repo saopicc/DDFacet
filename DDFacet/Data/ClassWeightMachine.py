@@ -313,7 +313,7 @@ class ClassWeightMachine():
             else:
                 OneGridPerJob=True
                 useSems = 0
-                print("Enough space in the RAM: using one grid per accumulateWeights job and no semaphores", file=log)
+                print("Enough space in the RAM: using one grids per accumulateWeights job and no semaphores", file=log)
             gridJobs = self._weight_grid.addSharedArray("gridJobs", (NGrids,nbands, npix), np.float64)
             print("Calculating imaging weights on %i [%i,%i]x%i grids with cellsize %g,%g" % (NGrids,npixx, npixy, nbands, cell[0],cell[1]), file=log)
                 

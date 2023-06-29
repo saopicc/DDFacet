@@ -160,7 +160,7 @@ class ClassImagerDeconv():
         #os.system("mkdir -p %s"%self.PNGDir)
         #os.system("rm %s/*.png 2> /dev/null"%self.PNGDir)
         
-        self.DicoFields=readMultiFieldFile(self.GD["Image"]["MultiFieldFile"])
+        self.DicoFields,_=readMultiFieldFile(self.GD["Image"]["MultiFieldFile"])
         self.NFields=len(self.DicoFields)
 
 
