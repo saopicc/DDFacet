@@ -85,7 +85,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         
 
     def setRefFreq(self,RefFreq,Force=False):#,AllFreqs):
-        if self.RefFreq is not None and not Force:
+        if self.RefFreq is not None and not Force and RefFreq!=self.RefFreq:
             print(ModColor.Str("Reference frequency already set to %f MHz"%(self.RefFreq/1e6)), file=log)
             return
         self.RefFreq=RefFreq
