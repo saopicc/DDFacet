@@ -2,7 +2,6 @@ from DDFacet.Imager.ClassFacetMachineTessel import ClassFacetMachineTessel as Cl
 import csv
 import numpy as np
 import copy
-from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 from astropy.coordinates import SkyCoord
 import astropy.units as u
 from DDFacet.Other.AsciiReader import readMultiFieldFile
@@ -99,11 +98,14 @@ class ClassFacetMachineMultiFields():
                  DoPSF=False,
                  Oversize=1,   # factor by which image is oversized
                  custom_id=None,
-                 FieldID=None):
+                 FieldID=None,
+                 DicoFields=None):
         custom_id0=custom_id
         self.custom_id=custom_id
+        self.DicoFields=DicoFields
         self.GD=GD
         self.VS=VS
+        self.Type="MultiField"
         # Oleg's "new" interface: set up which output images will be generated
         # --SaveImages abc means save defaults plus abc
         # --SaveOnly abc means only save abc
@@ -121,44 +123,37 @@ class ClassFacetMachineMultiFields():
         self.BaseName =  self.GD["Output"]["Name"]       
         self.LMeanSmoothJonesNorm=None
         
-        self.ListDicoFields=[]
+        self.ListFMConf=[]
         if self.GD["Image"]["MultiFieldFile"] is None:
-            ThisDicoField={"GD":GD,
-                           "FieldID":None}
-            self.ListDicoFields.append(ThisDicoField)
+            FMConf={"GD":GD,
+                    "FieldID":None}
+            self.ListFMConf.append(FMConf)
         else:
-            Fields,TypeTable=readMultiFieldFile(self.GD["Image"]["MultiFieldFile"])
-            for iField,ThisField in enumerate(Fields):
+            
+            for iField,ThisField in enumerate(self.DicoFields):
                 # coords = SkyCoord(ra=ThisField["ra"],
                 #                   dec=ThisField["dec"],
                 #                   unit=(u.hourangle, u.deg))
                 # ras=rad2hmsdms(coords.ra.rad,Type="ra").replace(" ",":")
                 # decs=rad2hmsdms(coords.dec.rad,Type="dec").replace(" ",":")
                 ThisGD=copy.deepcopy(self.GD)
-                if TypeTable=="txt":
+                if "NPix" in ThisField.keys():
                     NPix=int(ThisField["NPix"])
                     ThisGD["Image"]["NPix"]=NPix
-                    ThisGD["Image"]["ImageCenterRADEC"]=ThisField["ra"],ThisField["dec"]
-                else:
-                    ras=rad2hmsdms(ThisField["RA"]*np.pi/180,Type="ra").replace(" ",":")
-                    decs=rad2hmsdms(ThisField["DEC"]*np.pi/180,Type="dec").replace(" ",":")
-                    ThisGD["Image"]["ImageCenterRADEC"]=ras,decs
+                ThisGD["Image"]["ImageCenterRADEC"]=ThisField["ra"],ThisField["dec"]
 
-                # ThisDicoField={"GD":ThisGD,
-                #                "FieldID":iField,
-                #                "ra0dec0":(coords.ra.rad,coords.dec.rad)}
-                ThisDicoField={"GD":ThisGD,
-                               "FieldID":iField}
-                self.ListDicoFields.append(ThisDicoField)
-            self.NFields=len(self.ListDicoFields)
+                ThisFMConf={"GD":ThisGD,
+                            "FieldID":iField}
+                self.ListFMConf.append(ThisFMConf)
+            self.NFields=len(self.ListFMConf)
 
         self.LFM=[]
         cpudict=cpuinfo.get_cpu_info()
         # MultiField mode
-        for iField,DicoField in enumerate(self.ListDicoFields):
+        for iField,FMConf in enumerate(self.ListFMConf):
             # ra0dec0=DicoField["ra0dec0"]
-            FieldID=DicoField["FieldID"]
-            ThisGD=DicoField["GD"]
+            FieldID=FMConf["FieldID"]
+            ThisGD=FMConf["GD"]
             BaseName=ThisGD["Output"]["Name"]
             if FieldID is not None:
                 custom_id=custom_id0#"%s_Field%i"%(custom_id0,FieldID)
@@ -206,16 +201,16 @@ class ClassFacetMachineMultiFields():
         # self.FacetDirCat=np.concatenate([FM.FacetDirCat for FM in self.LFM])
         # self.FacetDirCat=self.FacetDirCat.view(np.recarray)
         
-        self.DicoImager={}
+        self.D_DicoImager={}
+        self.NFacetsTotalFields=0
         for iFM,FM in enumerate(self.LFM):
-            self.DicoImager["Field_%i"%iFM]=FM.DicoImager
-            
+            self.D_DicoImager[iFM]=FM.DicoImager
+            self.NFacetsTotalFields+=len(FM.DicoImager)
             
     def appendMainField(self,*args,**kwargs):
         for iFM,FM in enumerate(self.LFM):
             MainFacetOptions=self.GiveMainFacetOptions(FM.GD)
             MainFacetOptions["ImageName"]=FM.GD["Output"]["Name"]
-            #MainFacetOptions["ra0dec0"]=self.ListDicoFields[iFM]["ra0dec0"]
             FM.appendMainField(**MainFacetOptions)
 
     def ToCasaImage(self,ListArray,Fits=True, ImageName=None,
@@ -328,7 +323,17 @@ class ClassFacetMachineMultiFields():
             if other_fm is not None:
                 ThisOtherFM=other_fm.LFM[iFM]
             FM.initCFInBackground(other_fm=ThisOtherFM)
+
+    def BuildFacetNormImage(self):
+        for iFM,FM in enumerate(self.LFM):
+            FM.BuildFacetNormImage()
             
+    def set_model_grid (self,*args,**kwargs):
+        self.D_model_dict=DictImages()
+        for iFM,FM in enumerate(self.LFM):
+            FM.set_model_grid(*args,**kwargs)
+            self.D_model_dict[iFM]=FM._model_dict
+                                     
     def releaseCFs(self,*args,**kwargs):
         for FM in self.LFM:
             FM.releaseCFs(*args,**kwargs)

@@ -94,6 +94,7 @@ class ClassFacetMachine():
         self.cpudict=cpudict
         if self.cpudict is None:
             self.cpudict=cpuinfo.get_cpu_info()
+        self.Type="SingleField"
 
         self.CounterName=""
         self.iField=iField
