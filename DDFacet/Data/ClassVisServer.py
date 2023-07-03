@@ -984,7 +984,14 @@ class ClassVisServer():
                 return
             # max of |u|, |v| in wavelengths
             uv = uvw[:, :2]
+            u,v=uv.T
+            duv=np.sqrt(u**2+v**2)/1e3
+            d0,d1=self.GD["Selection"]["UVRangeKm"]
+            C=(duv<d0)|(duv>d1)
+            rowflags[C]=1
             uvmax_wavelengths = abs(uv[~rowflags,:]).max() * msfreqs.max() / _cc
+            log.print("UV max %f"%abs(uv[~rowflags,:]).max())
+            log.print("UVl max %f"%uvmax_wavelengths)
             # adjust max uv (in wavelengths) and max w
             msw["wmax"] = abs(uvw[~rowflags,2]).max()
             msw["uvmax_wavelengths"] = uvmax_wavelengths
@@ -1226,6 +1233,12 @@ class ClassVisServer():
                 rowflags = tab.getcol("FLAG_ROW", row0, nrows)
                 # max of |u|, |v| in wavelengths
                 if not rowflags.all():
+                    u,v,w=uvw.T
+                    duv=np.sqrt(u**2+v**2)/1e3
+                    d0,d1=self.GD["Selection"]["UVRangeKm"]
+                    C=(duv<d0)|(duv>d1)
+                    rowflags[C]=1
+                    
                     uvmax_wavelengths = abs(uvw[~rowflags, :2]).max() * max_freq / _cc
                     self._uvmax = max(self._uvmax, uvmax_wavelengths)
                     wmax = max(wmax, abs(uvw[~rowflags, 2]).max())
