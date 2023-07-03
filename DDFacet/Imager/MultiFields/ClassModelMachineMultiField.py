@@ -30,6 +30,9 @@ class ClassModelMachineMultiField():
         
         self.DicoFields=MyPickle.FileToDicoNP("%s/DicoFields.DicoPickle"%MMFileDir)
         self.NFields=len(self.DicoFields)
+        if self.GD is None:
+            self.GD=MyPickle.FileToDicoNP("%s/GD.DicoPickle"%MMFileDir)
+            
         # for iField in range(self.NFields):
         #     ModelMachine=self.giveMMSingleField(iField)
         #     LModelMachine.append(ModelMachine)
@@ -54,11 +57,13 @@ class ClassModelMachineMultiField():
             MM.setRefFreq(RefFreq)
 
     def ToFile(self,FileName,DicoIn=None):
-        os.system("mkdir -p %sMF"%FileName)
+        FileName="%s_MF"%FileName
+        os.system("mkdir -p %s"%FileName)
         for iField,MM in enumerate(self.LModelMachine):
-            MM.ToFile("%sMF/Field%i.DicoModel"%(FileName,iField))
+            MM.ToFile("%s/Field%i.DicoModel"%(FileName,iField))
             
-        MyPickle.Save(self.DicoFields,"%sMF/DicoFields.DicoPickle"%FileName)
+        MyPickle.Save(self.DicoFields,"%s/DicoFields.DicoPickle"%FileName)
+        MyPickle.Save(self.GD,"%s/GD.DicoPickle"%FileName)
 
 
     def GiveModelImage(self,*args,**kwargs):

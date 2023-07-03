@@ -65,7 +65,6 @@ from DDFacet.Data.PointingProvider import PointingProvider
 from DDFacet.Other.CacheManager import CacheManager
 from DDFacet.Imager.MultiFields.ClassFacetMachineMultiFields import ClassFacetMachineMultiFields as ClassFacetMachine
 from DDFacet.Imager.MultiFields.ClassFacetMachineMultiFields import DictImages 
-from DDFacet.Other.AsciiReader import readMultiFieldFile
 
 # from astropy import wcs
 # from astropy.io import fits
@@ -114,12 +113,12 @@ class ClassImagerDeconv():
     def __init__(self, GD=None,
                  #PointingID=0,
                  BaseName="ImageTest2",ReplaceDico=None,
-                 predict_only=False, data=True, psf=True, readcol=True, deconvolve=True):
+                 predict_only=False, data=True, psf=True, readcol=True, deconvolve=True,
+                 DicoFields=None):
         # if ParsetFile is not None:
         #     GD=ClassGlobalData(ParsetFile)
         #     self.GD=GD
 
-        
         if GD is not None:
             self.GD=GD
 
@@ -130,6 +129,7 @@ class ClassImagerDeconv():
         self.DicoModelName="%s.DicoModel"%self.BaseName
         self.DicoMetroModelName="%s.Metro.DicoModel"%self.BaseName
         #self.PointingID=PointingID
+        
         self.do_predict_only = predict_only
         self.do_data, self.do_psf, self.do_readcol, self.do_deconvolve = data, psf, readcol, deconvolve
 
@@ -160,7 +160,7 @@ class ClassImagerDeconv():
         #os.system("mkdir -p %s"%self.PNGDir)
         #os.system("rm %s/*.png 2> /dev/null"%self.PNGDir)
         
-        self.DicoFields,_=readMultiFieldFile(self.GD["Image"]["MultiFieldFile"])
+        self.DicoFields=DicoFields
         self.NFields=len(self.DicoFields)
 
 
@@ -291,7 +291,7 @@ class ClassImagerDeconv():
                                                         self.GD,
                                                         Precision=self.Precision,
                                                         PolMode=self.GD["Output"]["StokesResidues"],
-                                                        custom_id="STOKESFM")
+                                                        custom_id="STOKESFM",DicoFields=self.DicoFields)
             self.StokesFacetMachine.appendMainField(ImageName="%s.stokes"%self.BaseName)#,**MainFacetOptions)
             self.StokesFacetMachine.Init()
 
@@ -299,7 +299,7 @@ class ClassImagerDeconv():
             self.FacetMachine = ClassFacetMachine(self.VS, self.GD,
                                                   Precision=self.Precision,
                                                   PolMode=self.PolMode,
-                                                  custom_id="FM")
+                                                  custom_id="FM",DicoFields=self.DicoFields)
             self.FacetMachine.appendMainField(ImageName="%s"%self.BaseName)#,**MainFacetOptions)
             self.FacetMachine.Init()
             self.NFields=self.FacetMachine.NFields
@@ -318,7 +318,7 @@ class ClassImagerDeconv():
             self.FacetMachinePSF = ClassFacetMachine(self.VS, self.GD,
                                                      Precision=self.Precision, PolMode=self.PolMode,
                                                      DoPSF=True, Oversize=oversize,
-                                                     custom_id="FMPSF")
+                                                     custom_id="FMPSF",DicoFields=self.DicoFields)
             self.FacetMachinePSF.appendMainField(ImageName="%s.psf" % self.BaseName)#, **MainFacetOptions)
             self.FacetMachinePSF.Init()
             self.NFields=self.FacetMachinePSF.NFields

@@ -296,10 +296,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         for x,y in DicoComp.keys():
             ListSols=DicoComp[(x,y)]["Vals"]#/self.DicoSMStacked[key]["SumWeights"]
 #            print "pixel %i,%i len(listsol):"%(x,y),len(ListSols)
-            for iSol in range(len(ListSols)):
-                ThisSol=ListSols[iSol]
+            for iDirJones in range(len(ListSols)):
+                ThisSol=ListSols[iDirJones]
 
-                #print>>log,((x,y),iSol,ThisSol)
+                #print>>log,((x,y),iDirJones,ThisSol)
 
                 iS=np.where(SolveParam=="Poly0")[0]
                 S=ThisSol[iS]

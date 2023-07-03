@@ -85,6 +85,7 @@ log = None
 
 import numpy as np
 import warnings
+from DDFacet.Other.AsciiReader import readMultiFieldFile
 
 # # ##############################
 # # Catch numpy warning
@@ -279,6 +280,7 @@ def main(OP=None, messages=[]):
 
 
     if DicoConfig["Image"]["MultiFieldFile"] is None:
+        
         Imager = ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig,
                                                       BaseName=ImageName,
                                                       predict_only=(Mode == "Predict" or Mode == "Subtract"),
@@ -287,17 +289,17 @@ def main(OP=None, messages=[]):
                                                       readcol=(Mode != "Predict" and Mode != "PSF"),
                                                       deconvolve=("Clean" in Mode))
 
-        Imager.Init()
     else:
+        DicoFields=readMultiFieldFile(DicoConfig["Image"]["MultiFieldFile"])
         Imager = ClassDeconvMachineMultiField.ClassImagerDeconv(GD=DicoConfig,
                                                                 BaseName=ImageName,
                                                                 predict_only=(Mode == "Predict" or Mode == "Subtract"),
                                                                 data=(Mode != "PSF"),
                                                                 psf=(Mode != "Predict" and Mode != "Dirty" and Mode != "Subtract"),
                                                                 readcol=(Mode != "Predict" and Mode != "PSF"),
-                                                                deconvolve=("Clean" in Mode))
+                                                                deconvolve=("Clean" in Mode),DicoFields=DicoFields)
         
-        Imager.Init()
+    Imager.Init()
         
     # Imager.testDegrid()
     # stop

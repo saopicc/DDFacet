@@ -94,6 +94,7 @@ class ClassFacetMachine():
         self.cpudict=cpudict
         if self.cpudict is None:
             self.cpudict=cpuinfo.get_cpu_info()
+        self.Type="SingleField"
 
         self.CounterName=""
         self.iField=iField
@@ -120,7 +121,7 @@ class ClassFacetMachine():
 
             
         self.ra0dec0=None
-        if GD["Image"]["ImageCenterRADEC"] is not None:
+        if GD["Image"].get("ImageCenterRADEC",None) is not None:
             srac,sdecc=GD["Image"]["ImageCenterRADEC"]
             coords = SkyCoord(ra=srac,
                               dec=sdecc,
@@ -283,7 +284,7 @@ class ClassFacetMachine():
 
 
         self.ImageName = ImageName
-        
+
         self.LraFacet = []
         self.LdecFacet = []
 
@@ -428,10 +429,10 @@ class ClassFacetMachine():
         lSol, mSol = self.lmSols
         raSol, decSol = self.radecSols
         dSol = np.sqrt((l0 - lSol) ** 2 + (m0 - mSol) ** 2)
-        iSol = np.where(dSol == np.min(dSol))[0]
-        self.DicoImager[iFacet]["lmSol"] = lSol[iSol], mSol[iSol]
-        self.DicoImager[iFacet]["radecSol"] = raSol[iSol], decSol[iSol]
-        self.DicoImager[iFacet]["iSol"] = iSol
+        iDirJones = np.where(dSol == np.min(dSol))[0]
+        self.DicoImager[iFacet]["lmSol"] = lSol[iDirJones], mSol[iDirJones]
+        self.DicoImager[iFacet]["radecSol"] = raSol[iDirJones], decSol[iDirJones]
+        self.DicoImager[iFacet]["iDirJones"] = iDirJones
         DicoConfigGM = {"NPix": np.array([NpixFacet_x,NpixFacet_y]),
                         "Cell": self.Cell,
                         "ChanFreq": self.ChanFreq,
@@ -1173,7 +1174,7 @@ class ClassFacetMachine():
         fd["l0m0"] = self.DicoImager[iFacet]["l0m0"]
         fd["pixCentral"] = self.DicoImager[iFacet]["pixCentral"]
         fd["lmSol"] = self.DicoImager[iFacet]["lmSol"]
-        fd["iSol"] = self.DicoImager[iFacet]["iSol"]
+        fd["iDirJones"] = self.DicoImager[iFacet]["iDirJones"]
 
         nch, npol, nx, ny = psf.shape
         PSFChannel = np.zeros((nch, npol, nx, ny), self.stitchedType)
@@ -1257,7 +1258,7 @@ class ClassFacetMachine():
             self.HasFourierTransformed = True
         _, npol, Npix_x, Npix_y = self.OutImShape
         DicoImages = shared_dict.create("AllImages_%s"%self._app_id)
-        print("AAAAAA","AllImages_%s"%self._app_id)
+        #print("AAAAAA","AllImages_%s"%self._app_id)
         DicoImages["freqs"] = {}
         DicoImages.addSubdict("freqs")
         DicoImages.addSubdict("ImageInfo")
