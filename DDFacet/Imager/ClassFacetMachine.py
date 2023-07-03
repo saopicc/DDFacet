@@ -429,10 +429,10 @@ class ClassFacetMachine():
         lSol, mSol = self.lmSols
         raSol, decSol = self.radecSols
         dSol = np.sqrt((l0 - lSol) ** 2 + (m0 - mSol) ** 2)
-        iSol = np.where(dSol == np.min(dSol))[0]
-        self.DicoImager[iFacet]["lmSol"] = lSol[iSol], mSol[iSol]
-        self.DicoImager[iFacet]["radecSol"] = raSol[iSol], decSol[iSol]
-        self.DicoImager[iFacet]["iSol"] = iSol
+        iDirJones = np.where(dSol == np.min(dSol))[0]
+        self.DicoImager[iFacet]["lmSol"] = lSol[iDirJones], mSol[iDirJones]
+        self.DicoImager[iFacet]["radecSol"] = raSol[iDirJones], decSol[iDirJones]
+        self.DicoImager[iFacet]["iDirJones"] = iDirJones
         DicoConfigGM = {"NPix": np.array([NpixFacet_x,NpixFacet_y]),
                         "Cell": self.Cell,
                         "ChanFreq": self.ChanFreq,
@@ -1174,7 +1174,7 @@ class ClassFacetMachine():
         fd["l0m0"] = self.DicoImager[iFacet]["l0m0"]
         fd["pixCentral"] = self.DicoImager[iFacet]["pixCentral"]
         fd["lmSol"] = self.DicoImager[iFacet]["lmSol"]
-        fd["iSol"] = self.DicoImager[iFacet]["iSol"]
+        fd["iDirJones"] = self.DicoImager[iFacet]["iDirJones"]
 
         nch, npol, nx, ny = psf.shape
         PSFChannel = np.zeros((nch, npol, nx, ny), self.stitchedType)

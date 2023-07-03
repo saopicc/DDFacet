@@ -164,17 +164,17 @@ class ClassPSFServer():
 
 
         # print("===============")
-        # iSol0=self.DicoVariablePSF["Facets"][ClosestFacet0]["iSol"]
-        # iSol=self.DicoVariablePSF["Facets"][ClosestFacet]["iSol"]
-        # print("Poly [%i, %i] ->  iFacet=%i [iSol=%i]"%(xp,yp,ClosestFacet,iSol))
-        # print("Dist [%i, %i] ->  iFacet=%i [iSol=%i]"%(xp,yp,ClosestFacet0,iSol0))
+        # iDirJones0=self.DicoVariablePSF["Facets"][ClosestFacet0]["iDirJones"]
+        # iDirJones=self.DicoVariablePSF["Facets"][ClosestFacet]["iDirJones"]
+        # print("Poly [%i, %i] ->  iFacet=%i [iDirJones=%i]"%(xp,yp,ClosestFacet,iDirJones))
+        # print("Dist [%i, %i] ->  iFacet=%i [iDirJones=%i]"%(xp,yp,ClosestFacet0,iDirJones0))
 
         
         if ClosestFacet==-1:
             ClosestFacet=ClosestFacet0
         #ClosestFacet=ClosestFacet0
         
-        #print(ClosestFacet,iSol)
+        #print(ClosestFacet,iDirJones)
         return ClosestFacet
 
 
