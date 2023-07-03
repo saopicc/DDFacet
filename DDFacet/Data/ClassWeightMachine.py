@@ -31,6 +31,7 @@ else:
     from DDFacet.cbuild.Gridder import _pyGridderSmearPols27 as _pyGridderSmearPols
 import copy
 from DDFacet.Other import ClassGiveSolsFile
+import psutil
 
 log = logger.getLogger("ClassWeightMachine")
 
@@ -290,7 +291,6 @@ class ClassWeightMachine():
             npix = npixx * npixy
 
             GridSizeGB=(nbands* npix)*8/1024**3
-            import psutil
             AvailableGB= psutil.virtual_memory().available/1024**3
             NJobs=0
             for ims, ms in enumerate(self.ListMS):

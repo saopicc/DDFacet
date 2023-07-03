@@ -32,12 +32,8 @@ namespace DDF {
     size_t n = weights.shape(0);
     double* pgrid = grid.mutable_data<double>(0);
     const float* pweights = weights.data<float>(0);
-<<<<<<< HEAD
     const unsigned int* pindex = index.data<unsigned int>(0);
-=======
-    const long int* pindex = index.data<long int>(0);
     size_t nGrid = grid.shape(0)*grid.shape(1);
->>>>>>> UseAPP_kMS
 
     for(size_t i=0; i<n; ++i)
       {
