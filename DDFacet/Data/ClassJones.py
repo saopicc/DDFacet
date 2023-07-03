@@ -530,7 +530,7 @@ class ClassJones():
         print("  Loading solution file %s" % (SolsFile), file=log)
 
         self.ApplyCal = True
-        DicoSolsFile = np.load(SolsFile)
+        DicoSolsFile = np.load(SolsFile,allow_pickle=1)
 
         ClusterCat = DicoSolsFile["SkyModel"]
         ClusterCat = ClusterCat.view(np.recarray)
@@ -581,8 +581,9 @@ class ClassJones():
 
         #print((G.shape,FreqDomains.shape,VisToJonesChanMapping ), file=log)
 
-        
-        self.BeamTimes_kMS = (DicoSolsFile["BeamTimes"]["t0"]+DicoSolsFile["BeamTimes"]["t1"])/2
+        if "BeamTimes" in list(DicoSolsFile.keys()) and DicoSolsFile["BeamTimes"][()] is not None:
+            # print(DicoSolsFile["BeamTimes"] is None)
+            self.BeamTimes_kMS = (DicoSolsFile["BeamTimes"]["t0"]+DicoSolsFile["BeamTimes"]["t1"])/2
 
         return VisToJonesChanMapping,DicoClusterDirs,DicoSols,G
 
