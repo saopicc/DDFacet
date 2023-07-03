@@ -705,4 +705,3 @@ class ClassVisServer():
         
     def getMaxW(self):
         return self.WM.getMaxW()
-        
