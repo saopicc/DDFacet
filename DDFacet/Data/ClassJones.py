@@ -1024,6 +1024,7 @@ class ClassJones():
             print("  Taking beam-times from DDE-solutions", file=log)
             beam_times = self.BeamTimes_kMS
         else:
+            print("  Taking beam-times from user-specified --Beam-DtBeamMin", file=log)
             beam_times = self.BeamMachine.getBeamSampleTimes(times, quiet=quiet)
 
         if RaDec is None:
