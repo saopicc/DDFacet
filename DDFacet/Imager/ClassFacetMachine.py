@@ -121,7 +121,7 @@ class ClassFacetMachine():
 
             
         self.ra0dec0=None
-        if GD["Image"]["ImageCenterRADEC"] is not None:
+        if GD["Image"].get("ImageCenterRADEC",None) is not None:
             srac,sdecc=GD["Image"]["ImageCenterRADEC"]
             coords = SkyCoord(ra=srac,
                               dec=sdecc,
@@ -284,7 +284,7 @@ class ClassFacetMachine():
 
 
         self.ImageName = ImageName
-        
+
         self.LraFacet = []
         self.LdecFacet = []
 
@@ -1258,7 +1258,7 @@ class ClassFacetMachine():
             self.HasFourierTransformed = True
         _, npol, Npix_x, Npix_y = self.OutImShape
         DicoImages = shared_dict.create("AllImages_%s"%self._app_id)
-        print("AAAAAA","AllImages_%s"%self._app_id)
+        #print("AAAAAA","AllImages_%s"%self._app_id)
         DicoImages["freqs"] = {}
         DicoImages.addSubdict("freqs")
         DicoImages.addSubdict("ImageInfo")

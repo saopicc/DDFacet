@@ -159,7 +159,6 @@ class ClassFacetMachineMultiFields():
                 custom_id=custom_id0#"%s_Field%i"%(custom_id0,FieldID)
                 BaseName="%s_Field%i"%(BaseName,FieldID)
                 ThisGD["Output"]["Name"]=BaseName
-                
             FM=ClassFacetMachine(VS,
                                  ThisGD,
                                  Precision=Precision,

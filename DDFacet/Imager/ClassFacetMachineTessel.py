@@ -968,7 +968,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                         radius=0.1,
                         Col="green",
                         labels=labels)
-
+        
         self.WriteCoordFacetFile()
 
         self.FacetDirections=set([self.DicoImager[iFacet]["RaDec"] for iFacet in range(len(self.DicoImager))])

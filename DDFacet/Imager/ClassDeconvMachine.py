@@ -110,7 +110,9 @@ signal.signal(signal.SIGUSR1, handler=handle_user_stop_signal)
 
 class ClassImagerDeconv():
     def __init__(self, GD=None,
-                 PointingID=0,BaseName="ImageTest2",ReplaceDico=None,
+                 PointingID=0,
+                 #BaseName="ImageTest2",
+                 ReplaceDico=None,
                  predict_only=False, data=True, psf=True, readcol=True, deconvolve=True):
         # if ParsetFile is not None:
         #     GD=ClassGlobalData(ParsetFile)
@@ -123,7 +125,7 @@ class ClassImagerDeconv():
         # INIT: gain machine singleton once and for always
         #self.GainMachine = ClassGainMachine.ClassGainMachine(GainMin=self.GD["Deconv"]["Gain"])
         
-        self.BaseName=BaseName
+        self.BaseName=GD["Output"]["Name"]
             
         self.DicoModelName="%s.DicoModel"%self.BaseName
         self.DicoMetroModelName="%s.Metro.DicoModel"%self.BaseName
