@@ -455,7 +455,7 @@ class ClassIslandDistanceMachine():
         print("  %i islands remaining after merge" % len(result), file=log)
         return result
 
-    def calcDistanceMatrixMinParallel(self,ListIslands,Parallel=True):
+    def calcDistanceMatrixMinParallel(self,ListIslands,Parallel=False):
         NIslands=len(ListIslands)
         self.D=np.zeros((NIslands,NIslands),np.float32)
         self.dx=np.zeros((NIslands,NIslands),np.int32)

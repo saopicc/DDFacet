@@ -58,7 +58,7 @@ class DictImages(dict):
         for iField,l in enumerate(ll):
             ThisSHMName=l.split("/")[-1]
 
-            print(l,ThisSHMName)
+            #print(l,ThisSHMName)
             D = shared_dict.create(ThisSHMName)
             D.restore(l)
             self.data[iField]=D
@@ -137,8 +137,8 @@ class ClassFacetMachineMultiFields():
                 # ras=rad2hmsdms(coords.ra.rad,Type="ra").replace(" ",":")
                 # decs=rad2hmsdms(coords.dec.rad,Type="dec").replace(" ",":")
                 ThisGD=copy.deepcopy(self.GD)
-                if "NPix" in ThisField.keys():
-                    NPix=int(ThisField["NPix"])
+                if "FOVarcsec" in ThisField.keys():
+                    NPix=int(float(ThisField["FOVarcsec"])/float(ThisGD["Image"]["Cell"]))
                     ThisGD["Image"]["NPix"]=NPix
                 ThisGD["Image"]["ImageCenterRADEC"]=ThisField["ra"],ThisField["dec"]
 

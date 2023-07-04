@@ -7,6 +7,7 @@ from pyrap.images import image
 from DDFacet.ToolsDir import ModFFTW
 import SkyModel.Sky.ModRegFile
 import SkyModel.Sky.ClassClusterDEAP
+import DDFacet.Other.AsciiReader
 
 def PutDataInNewImage(oldfits,newfits,data):
     outim=newfits+'.fits'
@@ -24,6 +25,7 @@ class ClassBrightFaintOverAll():
         self.FitsFile=FitsFile
         self.incr_rad=incr_rad
         self.CasaIm=image(self.FitsFile)
+        self.CellRad=(Cell_x,Cell_y)= self.CasaIm.coordinates().dict()["direction0"]["cdelt"]
         
     def giveBrightFaintMask(self):
         print("Build bright/faint mask...", file=log)
@@ -35,6 +37,12 @@ class ClassBrightFaintOverAll():
         IdSharedMem=None
         DicoDirty=None
         
+        BaseName=self.options.BaseImageName
+        if BaseName is None or BaseName=="": stop
+        ModelName="%s.app.model.fits"%BaseName
+        log.print("Reading model image %s"%ModelName)
+        ModelImage=image(ModelName).getdata()
+        
         IslandDistanceMachine=DDFacet.Imager.SSD.ClassIslandDistanceMachine.ClassIslandDistanceMachine(GD,
                                                                                                        CurrentNegMask,
                                                                                                        PSFServer,
@@ -42,19 +50,18 @@ class ClassBrightFaintOverAll():
                                                                                                        IdSharedMem=IdSharedMem)
         ListIslands=IslandDistanceMachine.SearchIslands(None,Image=self.Restored)
         
-        IslandDistanceMachine.calcDistanceMatrixMinParallel(ListIslands)
-        dx,dy=IslandDistanceMachine.dx,IslandDistanceMachine.dy
-        IslandDistanceMachine.DistCross=np.sqrt(dx**2+dy**2)
-        ListIslands=IslandDistanceMachine.CalcCrossIslandFlux_noPSFInfo(ListIslands,self.Restored)
-
-        
-        ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)#,PolygonFile="%s.pickle"%OutMaskExtended)
-        ListIslands=IslandDistanceMachine.MergeIslands(ListIslands)
+        # IslandDistanceMachine.calcDistanceMatrixMinParallel(ListIslands)
+        # dx,dy=IslandDistanceMachine.dx,IslandDistanceMachine.dy
+        # IslandDistanceMachine.DistCross=np.sqrt(dx**2+dy**2)
+        # ListIslands=IslandDistanceMachine.CalcCrossIslandFlux_noPSFInfo(ListIslands,self.Restored)
+        # ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)#,PolygonFile="%s.pickle"%OutMaskExtended)
+        # ListIslands=IslandDistanceMachine.MergeIslands(ListIslands)
         Mask=np.zeros((nx,nx),np.float32)
 
         S=np.zeros((len(ListIslands),),np.float32)
+        
+        Cell_x,Cell_y= self.CasaIm.coordinates().dict()["direction0"]["cdelt"]
 
-        ModelImage=image("image_full_ampphase_di_m.NS.app.model.fits").getdata()
         
         for iIsland,Island in enumerate(ListIslands):
             x,y=np.array(Island).T
@@ -131,7 +138,9 @@ class ClassBrightFaintOverAll():
         MaskBright=np.zeros((nx,nx),np.float32)
         MaskFaint=np.zeros((nx,nx),np.float32)
         
-        ClusterCat=np.zeros((NDir,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),("Cluster",int)])
+        ClusterCat=np.zeros((NDir,),dtype=[('Name','|S200'),
+                                           ('ra',np.float),('dec',np.float),('SumI',np.float),
+                                           ("Cluster",int),("SizeRad",np.float),("SizePix",int)])
         ClusterCat=ClusterCat.view(np.recarray)
 
         # # xc=np.zeros((len(ListIslands),),np.float64)
@@ -163,23 +172,30 @@ class ClassBrightFaintOverAll():
         
         # stop
         
-        
+        Cell_x,Cell_y=self.CellRad
         for iCluster,iIsland in enumerate(indBrightest):
             Island=ListIslands[iIsland]
             x,y=np.array(Island).T
             if iCluster<NDir:
                 s=self.Restored[0,0,x,y]
-                xcc=np.sum(s*x)/np.sum(s)
-                ycc=np.sum(s*y)/np.sum(s)
+                x0,x1=x.min(),x.max()
+                y0,y1=y.min(),y.max()
+                xcc=int((x0+x1)/2)
+                ycc=int((y0+y1)/2)
+                dx=np.max([x1-xcc,xcc-x0])+50
+                dy=np.max([y1-ycc,ycc-y0])+50
                 ff,pol,dec,ra=self.CasaIm.toworld((0,0,xcc,ycc))
                 ClusterCat.ra[iCluster]=ra
                 ClusterCat.dec[iCluster]=dec
                 ClusterCat.SumI[iCluster]=np.sum(s)
-                ClusterCat.Cluster=iCluster
+                ClusterCat.Cluster[iCluster]=iCluster
+                ClusterCat.SizeRad[iCluster]=np.max([dx*2*Cell_x,dy*2*Cell_y])
+                ClusterCat.SizePix[iCluster]=np.max([dx*2,dy*2])
                 MaskBright[x,y]=1
             else:
                 MaskFaint[x,y]=1
-        
+
+                
         OutTest="%s.bright_mask"%self.FitsFile
         ImWrite=MaskBright.reshape((1,1,nx,nx))
         FitsBright=PutDataInNewImage(self.FitsFile,"%s"%OutTest,np.float32(ImWrite))
@@ -191,9 +207,9 @@ class ClassBrightFaintOverAll():
         OutCat="%s.BrightFaint_ClusterCat.npy"%self.FitsFile
         log.print("writting catalog %s"%OutCat)
         np.save(OutCat,ClusterCat)
+        DDFacet.Other.AsciiReader.writeAscii(OutCat)
 
+        SkyModel.Sky.ModRegFile.radecRad2Reg("%s.bright_cal.reg"%self.FitsFile,ClusterCat.ra,ClusterCat.dec,size=ClusterCat.SizeRad)
         
-        SkyModel.Sky.ModRegFile.radecRad2Reg("%s.bright_cal.reg"%self.FitsFile,ClusterCat.ra,ClusterCat.dec)
-
         
         return FitsBright
