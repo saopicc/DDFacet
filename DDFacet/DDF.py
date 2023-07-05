@@ -291,6 +291,7 @@ def main(OP=None, messages=[]):
 
     else:
         DicoFields=readMultiFieldFile(DicoConfig["Image"]["MultiFieldFile"])
+
         Imager = ClassDeconvMachineMultiField.ClassImagerDeconv(GD=DicoConfig,
                                                                 BaseName=ImageName,
                                                                 predict_only=(Mode == "Predict" or Mode == "Subtract"),

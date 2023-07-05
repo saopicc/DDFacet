@@ -21,7 +21,7 @@ class ClassImageDeconvMachineMultiFields():
         MinorCycleConfig["GD"] = self.GD
         MinorCycleConfig["ImagePolDescriptor"] = self.VS.StokesConverter.RequiredStokesProducts()
         self.DicoFields=DicoFields
-        self.NFields=len(self.DicoFields)
+        self.NFields=len(self.DicoFields["ra"])
         self.LImageDeconvMachine=[]
         for iField in range(self.NFields):
             M=copy.deepcopy(MinorCycleConfig)

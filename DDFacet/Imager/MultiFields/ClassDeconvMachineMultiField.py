@@ -161,7 +161,7 @@ class ClassImagerDeconv():
         #os.system("rm %s/*.png 2> /dev/null"%self.PNGDir)
         
         self.DicoFields=DicoFields
-        self.NFields=len(self.DicoFields)
+        self.NFields=len(self.DicoFields["ra"])
 
 
         self.do_stokes_residue = (self.GD["Output"]["StokesResidues"] != self.GD["RIME"]["PolMode"] and

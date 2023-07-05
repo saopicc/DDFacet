@@ -131,6 +131,7 @@ class ClassFacetMachineMultiFields():
         else:
             
             for iField,ThisField in enumerate(self.DicoFields):
+                
                 # coords = SkyCoord(ra=ThisField["ra"],
                 #                   dec=ThisField["dec"],
                 #                   unit=(u.hourangle, u.deg))

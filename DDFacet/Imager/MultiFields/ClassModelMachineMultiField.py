@@ -12,7 +12,7 @@ from DDFacet.Other import MyPickle
 import glob
 
 class ClassModelMachineMultiField():
-    def __init__(self,GD=None,Gain=None,GainMachine=None):
+    def __init__(self,GD=None,Gain=None,GainMachine=None,DicoFields=None):
         self.GD=GD
         # self.VS=VS
         # self.DicoFields=DicoFields
@@ -22,16 +22,20 @@ class ClassModelMachineMultiField():
         self.LModelMachine=[]
 
     def InitialiseMMFromFile(self,MMFileDir):
-        ll=sorted(glob.glob("%s/Field*"%MMFileDir))
-        for iField,l in enumerate(ll):
+        
+        self.DicoFields=MyPickle.FileToDicoNP("%s/DicoFields.DicoPickle"%MMFileDir)
+        self.NFields=len(self.DicoFields["ra"])
+
+        if self.GD is None:
+            self.GD=MyPickle.FileToDicoNP("%s/GD.DicoPickle"%MMFileDir)
+            
+        #ll=sorted(glob.glob("%s/Field*"%MMFileDir))
+        for iField in range(self.NFields):
+            l="%s/Field%i.DicoModel"%(MMFileDir,iField)
             MM=self.ModConstructor.GiveInitialisedMMFromFile(l)
             self.LModelMachine.append(MM)
         self.RefFreq=self.LModelMachine[0].RefFreq
         
-        self.DicoFields=MyPickle.FileToDicoNP("%s/DicoFields.DicoPickle"%MMFileDir)
-        self.NFields=len(self.DicoFields)
-        if self.GD is None:
-            self.GD=MyPickle.FileToDicoNP("%s/GD.DicoPickle"%MMFileDir)
             
         # for iField in range(self.NFields):
         #     ModelMachine=self.giveMMSingleField(iField)
@@ -41,7 +45,7 @@ class ClassModelMachineMultiField():
 
     def InitMM(self,Mode=None,DicoFields=None):
         self.DicoFields=DicoFields
-        self.NFields=len(self.DicoFields)
+        self.NFields=len(self.DicoFields["ra"])
         for iField in range(self.NFields):
             ModelMachine=self.ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
             self.LModelMachine.append(ModelMachine)

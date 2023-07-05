@@ -11,7 +11,7 @@ class ClassMaskMachineMultiFields():
         self.LImageNoiseMachine=LImageNoiseMachine
         self.LMaskMachine=[]
         self.DicoFields=DicoFields
-        self.NFields=len(self.DicoFields)
+        self.NFields=len(self.DicoFields["ra"])
         self.LCurrentMask=None
         for iField in range(self.NFields):
             MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)

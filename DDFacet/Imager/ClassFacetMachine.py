@@ -1983,7 +1983,7 @@ class ClassFacetMachine():
         # because this facet machine is not necessarilly the one where we have computed the PSF
         norm_dict = shared_dict.attach("%s_normDict"%self._app_id)
         # extract facet model from model image
-        log.print("[%i,%i] %s %s %s"%(self.iField,iFacet,str(self.OutImShape),str(model_dict["Image"].shape),str(norm_dict["FacetNorm"].shape)))
+        # log.print("[%i,%i] %s %s %s"%(self.iField,iFacet,str(self.OutImShape),str(model_dict["Image"].shape),str(norm_dict["FacetNorm"].shape)))
         ModelGrid, SumFlux = self._Im2Grid.GiveModelTessel(model_dict["Image"],
                                                            self.DicoImager, iFacet, norm_dict["FacetNorm"],
                                                            cf_dict["Sphe"], cf_dict["SW"], ChanSel=ChanSel,ToGrid=ToGrid,ApplyNorm=ApplyNorm)
