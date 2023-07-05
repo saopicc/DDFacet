@@ -309,7 +309,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             decNode = ClusterNodes.dec
             lFacet, mFacet = self.CoordMachine.radec2lm(raNode, decNode)
         elif SolsFile is not None and ".npz" in SolsFile:
-            print("Taking facet directions from solutions file: %s" % SolsFile, file=log)
+            print("Taking tessels directions from solutions file: %s" % SolsFile, file=log)
             ClusterNodes = np.load(SolsFile)["ClusterCat"]
             ClusterNodes = ClusterNodes.view(np.recarray)
             raNode = ClusterNodes.ra
@@ -321,7 +321,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             print("Parsing h5file pattern {}".format(h5files), file=log)
             import glob
             h5file = glob.glob(h5files)[0]
-            print( "Taking facet directions from H5parm: {}, solsets: {}".format(h5file, apply_solsets), file=log)
+            print( "Taking tessels directions from H5parm: {}, solsets: {}".format(h5file, apply_solsets), file=log)
             with tables.open_file(h5file) as H:
                 lm, radec = [], []
                 for solset in apply_solsets:
@@ -339,7 +339,6 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             print("Taking facet directions from regular grid", file=log)
             regular_grid = True
             #CellSizeRad = (self.GD["Image"]["Cell"] / 3600.) * np.pi / 180
-            
             
             NpixFacet_x = Npix_x // NFacets
             NpixFacet_y = Npix_y // NFacets

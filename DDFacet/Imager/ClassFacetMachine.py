@@ -1983,6 +1983,7 @@ class ClassFacetMachine():
         # because this facet machine is not necessarilly the one where we have computed the PSF
         norm_dict = shared_dict.attach("%s_normDict"%self._app_id)
         # extract facet model from model image
+        log.print("[%i,%i] %s %s"%(self.iField,iFacet,str(model_dict["Image"].shape),str(norm_dict["FacetNorm"].shape)))
         ModelGrid, SumFlux = self._Im2Grid.GiveModelTessel(model_dict["Image"],
                                                            self.DicoImager, iFacet, norm_dict["FacetNorm"],
                                                            cf_dict["Sphe"], cf_dict["SW"], ChanSel=ChanSel,ToGrid=ToGrid,ApplyNorm=ApplyNorm)
@@ -2024,7 +2025,7 @@ class ClassFacetMachine():
             APP.runJob("%sF%d" % (self._set_model_grid_job_id, iFacet), 
                        self._set_model_grid_worker,
                        args=(iFacet, self._model_dict.readwrite(), self._CF[iFacet].readwrite(),#.readonly(),
-                             ChanSel,ToSHMDict,ToGrid,ApplyNorm,False,DeleteZeroValuedGrids))#,serial=True)
+                             ChanSel,ToSHMDict,ToGrid,ApplyNorm,False,DeleteZeroValuedGrids),serial=True)
         APP.awaitJobResults(self._set_model_grid_job_id + "*", progress="Make model grids%s"%self.CounterName)
         del(self._model_dict["Image"])
 
