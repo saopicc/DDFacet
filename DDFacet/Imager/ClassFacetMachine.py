@@ -2025,7 +2025,7 @@ class ClassFacetMachine():
             APP.runJob("%sF%d" % (self._set_model_grid_job_id, iFacet), 
                        self._set_model_grid_worker,
                        args=(iFacet, self._model_dict.readwrite(), self._CF[iFacet].readwrite(),#.readonly(),
-                             ChanSel,ToSHMDict,ToGrid,ApplyNorm,False,DeleteZeroValuedGrids),serial=True)
+                             ChanSel,ToSHMDict,ToGrid,ApplyNorm,False,DeleteZeroValuedGrids))#,serial=True)
         APP.awaitJobResults(self._set_model_grid_job_id + "*", progress="Make model grids%s"%self.CounterName)
         del(self._model_dict["Image"])
 
