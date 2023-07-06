@@ -120,8 +120,6 @@ class DictImages(dict):
         ll=sorted(glob.glob("%s*"%DirName))
         for iField,l in enumerate(ll):
             ThisSHMName=l.split("/")[-1]
-
-            #print(l,ThisSHMName)
             D = shared_dict.create(ThisSHMName)
             D.restore(l)
             self.data[iField]=D
