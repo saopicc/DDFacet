@@ -35,6 +35,8 @@ class ClassPSFServer():
     def __init__(self,GD=None):
         self.GD=GD
         self.blc=None
+        from DDFacet.Imager.MultiFields.AppendSubFieldInfo import AppendSubFieldInfo
+        AppendSubFieldInfo(self)
 
     def setDicoVariablePSF(self,DicoVariablePSF,RefFreq=None,NormalisePSF=False,quiet=False):
         # NFacets=len(DicoVariablePSF.keys())
@@ -58,6 +60,7 @@ class ClassPSFServer():
         self.CubeVariablePSF=DicoVariablePSF["CubeVariablePSF"]
         self.CubeMeanVariablePSF=DicoVariablePSF["CubeMeanVariablePSF"]
         self.NFacets,nch,npol,NPixMin_x,NPixMin_y=self.CubeVariablePSF.shape
+        print("JFDUFH",self.iField,self.CubeVariablePSF.shape)
         self.ShapePSF=nch,npol,NPixMin_x,NPixMin_y
         self.NPSF=NPixMin_x,NPixMin_y
 

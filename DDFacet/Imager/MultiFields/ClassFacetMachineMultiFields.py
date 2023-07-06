@@ -118,7 +118,11 @@ class DictImages(dict):
 
     def restore(self,DirName):
         ll=sorted(glob.glob("%s*"%DirName))
-        for iField,l in enumerate(ll):
+        NFields=len(ll)
+        Name=ll[0][:-1]
+        for iField in range(NFields):
+            l="%s%i"%(Name,iField)
+            
             ThisSHMName=l.split("/")[-1]
             D = shared_dict.create(ThisSHMName)
             D.restore(l)

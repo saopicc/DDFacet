@@ -24,7 +24,8 @@ class ClassImageNoiseMachineMultiField():
                                                               self.LModelMachine[iField],
                                                               DegridFreqs=DegridFreqs,
                                                               GridFreqs=GridFreqs,
-                                                              MainCache=MainCache)
+                                                              MainCache=MainCache,
+                                                              ParallelMode=False)
             self.LImageNoiseMachine.append(INM)
             
     def setPSF(self,DicoImagesPSF):

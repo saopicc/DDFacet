@@ -36,9 +36,9 @@ from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 from DDFacet.ToolsDir import ModFFTW
 
 class ClassImageNoiseMachine():
-    def __init__(self, GD, ExternalModelMachine=None, DegridFreqs=None, GridFreqs=None, MainCache=None):
+    def __init__(self, GD, ExternalModelMachine=None, DegridFreqs=None, GridFreqs=None, MainCache=None,ParallelMode=True):
         self.GD = copy.deepcopy(GD)
-        
+        self.ParallelMode=ParallelMode
         from DDFacet.Imager.MultiFields.AppendSubFieldInfo import AppendSubFieldInfo
         AppendSubFieldInfo(self)
 
@@ -105,7 +105,7 @@ class ClassImageNoiseMachine():
 
 
             self.DeconvMachine = ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.MainCache,
-                                                                                     ParallelMode=True,
+                                                                                     ParallelMode=self.ParallelMode,
                                                                                      CacheFileName="HMP_Masking",
                                                                                      **self.MinorCycleConfig)
         elif self.GD["Deconv"]["Mode"] == "Hogbom":

@@ -97,6 +97,7 @@ class ClassFacetMachine():
         self.Type="SingleField"
 
         self.CounterName=""
+        
         self.iField=iField
         self.StrField=""
         if iField is not None:
