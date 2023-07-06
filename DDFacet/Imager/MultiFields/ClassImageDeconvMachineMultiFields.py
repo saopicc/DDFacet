@@ -24,7 +24,9 @@ class ClassImageDeconvMachineMultiFields():
         MinorCycleConfig["ImagePolDescriptor"] = self.VS.StokesConverter.RequiredStokesProducts()
         self.DicoFields=DicoFields
         self.NFields=len(self.DicoFields["ra"])
+        
         self.LImageDeconvMachine=[]
+        self.GD["GAClean"]["ParallelInit"]=0
         for iField in range(self.NFields):
             M=copy.deepcopy(MinorCycleConfig)
             MM=LModelMachine[iField]
@@ -39,6 +41,7 @@ class ClassImageDeconvMachineMultiFields():
     def giveImageDeconvMachineSingleField(self,iField,MinorCycleConfig):
         GD=copy.deepcopy(self.GD)
         GD["Image"]["iField"]=iField
+        
         MinorCycleConfig["GD"] = GD
         # Specify which deconvolution algorithm to use
         if GD["Deconv"]["Mode"] == "HMP":
