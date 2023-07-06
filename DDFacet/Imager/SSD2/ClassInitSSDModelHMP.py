@@ -27,6 +27,9 @@ class ClassInitSSDModelParallel():
         self.GD=GD
         self.InitMachine = ClassInitSSDModel(GD, NFreqBands, RefFreq, MainCache, IdSharedMem)
         self.NCPU=(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
+        from DDFacet.Imager.MultiFields.AppendSubFieldInfo import AppendSubFieldInfo
+        AppendSubFieldInfo(self)
+        
         APP.registerJobHandlers(self)
 
     def Init(self, DicoVariablePSF, GridFreqs, DegridFreqs):
@@ -143,7 +146,11 @@ class ClassInitSSDModelParallel():
           for iIsland,Island in enumerate(ListIslands):
             if not ListDoIsland or ListDoIsland[iIsland]:
                 subdict = DicoInitIndiv.addSubdict(iIsland)
-                APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
+                print("JHHGGTGY",self.StrField)
+                print("JHHGGTGY",self.StrField)
+                print("JHHGGTGY",self.StrField)
+                print("JHHGGTGY",self.StrField)
+                APP.runJob("InitIsland%s:%d" % (self.StrField,iIsland), self._initIsland_worker,
                            args=(subdict.writeonly(), 
                                  iIsland, 
                                  Island,
@@ -153,7 +160,7 @@ class ClassInitSSDModelParallel():
                                  self.InitMachine.DeconvMachine.facetcache.readonly() 
                                     if self.InitMachine.DeconvMachine.facetcache is not None else None,
                                  1))
-          APP.awaitJobResults("InitIsland:*", progress="Init islands HMP")
+          APP.awaitJobResults("InitIsland%s:*"%self.StrField, progress="Init islands HMP")
           DicoInitIndiv.reload()
         
         ParmDict.delete()
