@@ -455,7 +455,7 @@ class ClassIslandDistanceMachine():
         print("  %i islands remaining after merge" % len(result), file=log)
         return result
 
-    def calcDistanceMatrixMinParallel(self,ListIslands,Parallel=False):
+    def calcDistanceMatrixMinParallel(self,ListIslands,Parallel=True):
         NIslands=len(ListIslands)
         self.D=np.zeros((NIslands,NIslands),np.float32)
         self.dx=np.zeros((NIslands,NIslands),np.int32)
@@ -491,11 +491,12 @@ class ClassIslandDistanceMachine():
         while iResult < NJobs:
             DicoResult = None
             if result_queue.qsize() != 0:
-                try:
-                    DicoResult = result_queue.get()
-                except:
-                    pass
-
+                DicoResult = result_queue.get()
+                # try:
+                #     DicoResult = result_queue.get()
+                # except:
+                #     pass
+            
             if DicoResult == None:
                 time.sleep(0.5)
                 continue
@@ -507,7 +508,7 @@ class ClassIslandDistanceMachine():
 
                 iIsland=DicoResult["iIsland"]
                 Result=NpShared.GiveArray("%sDistances_%6.6i"%(self.IdSharedMem,iIsland))
-
+                
                 self.dx[iIsland]=Result[0]
                 self.dy[iIsland]=Result[1]
                 self.D[iIsland]=Result[2]

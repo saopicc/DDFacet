@@ -10,6 +10,69 @@ from DDFacet.Array import shared_dict
 import glob
 import cpuinfo
 
+
+# class DictImages(shared_dict.SharedDict):
+#     def __init__(self,*args,**kwargs):
+#         self.data=shared_dict.SharedDict(*args, **kwargs)
+    
+#     def __getitem__(self, X):
+#         if isinstance(X,tuple) and len(X)==2:
+#             (key, subkey)=X
+#             if key == slice(None):
+#                 return [self.data[k][subkey] for k in sorted(self.data.keys())]
+#             else:
+#                 return self.data[key, subkey]
+#         else:
+#             key=X
+#             if key == slice(None):
+#                 return [self.data[k] for k in sorted(self.data.keys())]
+#             else:
+#                 return self.data[key]
+            
+            
+        
+#     def __setitem__(self, key, value):
+#         if key in self.data.keys():
+#             del(self.data[key])
+#         if isinstance(value,shared_dict.SharedDict):
+#             self.data.addSubdict(key)
+#             self.data.__setitem__ = value
+#             print("0",self.data.path,key,self.data[key])
+        
+#         else:
+#             self.data[key] = value
+#             print("1",self.data.path,key,self.data[key])
+#         print(self.data.path,key,self.data[key])
+
+#     def save(self,path):
+#         os.system("mkdir -p %s"%path)
+#         for k in sorted(self.data.keys()):
+#             ThisPath=self.data[k].path.split("/")[-1]
+#             #ThisPath=path"%s/Field%i"%(path,k)
+#             #print("HHHHHH",path,ThisPath)
+#             ThisPath="%s/%s"%(path,ThisPath)
+#             self.data[k].save(ThisPath)
+
+
+#     def reload(self):
+#         for k in sorted(self.data.keys()):
+#             self.data[k].reload()
+
+#     def delete(self):
+#         for k in sorted(self.data.keys()):
+#             self.data[k].delete()
+
+#     def restore(self,DirName):
+#         ll=sorted(glob.glob("%s*"%DirName))
+#         for iField,l in enumerate(ll):
+#             ThisSHMName=l.split("/")[-1]
+
+#             #print(l,ThisSHMName)
+#             D = shared_dict.create(ThisSHMName)
+#             D.restore(l)
+#             self.data[iField]=D
+
+
 class DictImages(dict):
     def __init__(self,Dict=None):
         if Dict is None:
@@ -263,11 +326,10 @@ class ClassFacetMachineMultiFields():
             self.MeanSmoothJonesNorm[iFM] = FM.MeanSmoothJonesNorm
 
     def FacetsToIm(self,*args,**kwargs):
-        DicoImages=DictImages()
+        self.DicoImages=DictImages()
         for iFM,FM in enumerate(self.LFM):
-            DicoImages[iFM]=FM.FacetsToIm(*args,**kwargs)
-        self.DicoImages=DicoImages
-        
+            self.DicoImages[iFM]=FM.FacetsToIm(*args,**kwargs)
+            
         self.LJonesNorm = self.DicoImages[:,"JonesNorm"]
         self.LMeanJonesNorm=[]
         for iFM in range(self.NFields):
@@ -285,8 +347,8 @@ class ClassFacetMachineMultiFields():
         #     self.MeanJonesNorm[iFM]=FM.MeanJonesNorm
         #     self.FacetNorm[iFM]=FM.FacetNorm
         #     self.FacetNormReShape[iFM]=FM.FacetNormReShape
-            
-        return DicoImages
+
+        return self.DicoImages
     
     def applySparsification(self,*args,**kwargs):
         for FM in self.LFM:

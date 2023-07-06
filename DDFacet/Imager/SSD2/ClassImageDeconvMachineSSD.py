@@ -389,7 +389,7 @@ class ClassImageDeconvMachine():
         if self.DicoDicoInitIndiv is not None:
             self.DicoDicoInitIndiv.delete()
             
-        self.DicoDicoInitIndiv  = shared_dict.create("DicoDicoInitIndiv")
+        self.DicoDicoInitIndiv  = shared_dict.create("DicoDicoInitIndiv%s"%self.StrField)
         if np.count_nonzero(ListDoIslandsInit)>0:
             self.ListDicoInitIndiv=[]
             for iMachine,InitMachine in enumerate(self.ListInitMachine):
@@ -588,7 +588,7 @@ class ClassImageDeconvMachine():
 
 
         # shared dict to hold inputs and outputs to workers (each island number is a key)
-        deconv_dict  = shared_dict.create("DeconvListIslands")
+        deconv_dict  = shared_dict.create("DeconvListIslands%s"%self.StrField)
 
 
         NJobs=NIslands

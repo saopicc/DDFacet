@@ -253,6 +253,7 @@ class ClassImagerDeconv():
                                                                                                      LMaskMachine=self.MaskMachine.LMaskMachine,
                                                                                                      NMajor=self.NMajor)
         self.CreateFacetMachines()
+        self.DeconvMachine.setFM(self.FacetMachine)
         self.VS.setFacetMachine(self.FacetMachine or self.FacetMachinePSF)
 
         self.DoSmoothBeam=(self.GD["Beam"]["Smooth"] and self.GD["Beam"]["Model"]) and self.FacetMachine is not None
@@ -1102,7 +1103,7 @@ class ClassImagerDeconv():
             # we have to give the PSF to the image-noise machine since it may have to run an HMP deconvolution
             self.ImageNoiseMachine.setPSF(self.DicoImagesPSF)
             # now update the mask - it will eventually call for ImageNoiseMachine to compute a noise image
-            self.MaskMachine.updateMask(self.DicoDirty)
+            # self.MaskMachine.updateMask(self.DicoDirty)
             
             if self.MaskMachine.LCurrentMask is not None:
                 if "k" in self._saveims:
@@ -1330,9 +1331,10 @@ class ClassImagerDeconv():
             self.FacetMachine.releaseModelImage()
             # create new residual image
             self.DicoDirty = self.FacetMachine.FacetsToIm(NormJones=True)
-
+            
+            DicoCurrentMask=shared_dict.attach("CurrentMask")
             for iField in range(self.NFields):
-                self.DicoDirty[iField]["LastMask"] = self.MaskMachine.LCurrentMask[iField]
+                self.DicoDirty[iField]["LastMask"] = DicoCurrentMask[iField]
 
             # was PSF re-generated?
             if do_psf:
