@@ -282,7 +282,7 @@ def main(OP=None, messages=[]):
     if DicoConfig["Image"]["MultiFieldFile"] is None:
         
         Imager = ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig,
-                                                      BaseName=ImageName,
+                                                      #BaseName=ImageName,
                                                       predict_only=(Mode == "Predict" or Mode == "Subtract"),
                                                       data=(Mode != "PSF"),
                                                       psf=(Mode != "Predict" and Mode != "Dirty" and Mode != "Subtract"),
@@ -293,7 +293,7 @@ def main(OP=None, messages=[]):
         DicoFields=readMultiFieldFile(DicoConfig["Image"]["MultiFieldFile"])
 
         Imager = ClassDeconvMachineMultiField.ClassImagerDeconv(GD=DicoConfig,
-                                                                BaseName=ImageName,
+                                                                #BaseName=ImageName,
                                                                 predict_only=(Mode == "Predict" or Mode == "Subtract"),
                                                                 data=(Mode != "PSF"),
                                                                 psf=(Mode != "Predict" and Mode != "Dirty" and Mode != "Subtract"),

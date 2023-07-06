@@ -406,7 +406,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         regFile = "%s.tessel0.reg" % self.ImageName
         NFacets = self.NFacets = lFacet.size
-        rac, decc = self.RaDecImageCenter
+        rac, decc = self.RaDecPhaseCenter
         VM = ModVoronoiToReg.VoronoiToReg(rac, decc)
 
         if NFacets > 2:
