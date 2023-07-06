@@ -146,6 +146,7 @@ def requirements():
                     "dask[array] >= 1.1.0,<=2021.3.0; python_version >= '3'", 
                     "codex-africanus[dask] <= 0.2.10; python_version >= '3'", 
                     "regions <=0.5",
+                    "numba==0.52.0",
                     "pywavelets <=1.1.1",
                     "tqdm<=4.64.0"
                     ]
