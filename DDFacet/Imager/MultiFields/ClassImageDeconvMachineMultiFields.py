@@ -90,6 +90,9 @@ class ClassImageDeconvMachineMultiFields():
              GridFreqs=None, DegridFreqs=None,
              RefFreq=None, MaxBaseline=None,
              FacetMachine=None, BaseName=None):
+        self.PSFVar=PSFVar
+        self.PSFAve=PSFAve
+        
         for iField in range(self.NFields):
             self.LImageDeconvMachine[iField].Init(PSFVar=PSFVar[iField],
                                                   PSFAve=PSFVar[iField]["PSFSidelobesAvg"],
@@ -102,6 +105,7 @@ class ClassImageDeconvMachineMultiFields():
 
 
     def Update(self,DicoDirty):
+        self.DicoDirty=DicoDirty
         for iField in range(self.NFields):
             self.LImageDeconvMachine[iField].Update(DicoDirty[iField])
 
@@ -109,23 +113,19 @@ class ClassImageDeconvMachineMultiFields():
     #     LrepMinor=[]
     #     Lcontinue_deconv=[]
     #     Lupdate_model=[]
-        
     #     for iField in range(self.NFields):
-    #         facet_dict = self._CF.addSubdict(iFacet)
     #         APP.runJob("Deconvolve:%s"%(iField), self._worker_Deconvolve,
-    #                         args=(iFacet,))#,serial=True)
-    #         repMinor, continue_deconv, update_model = self.LImageDeconvMachine[iField].Deconvolve()
-
-    #     workers_res=APP.awaitJobResults("Deconvolve:*"%self._app_id, progress="Minor Cycle")
+    #                         args=(self.DicoDirty[iField].readonly(),iField,),serial=True)
+    #     workers_res=APP.awaitJobResults("Deconvolve:*", progress="Minor Cycle")
     #     for (repMinor, continue_deconv, update_model) in workers_res:
     #         LrepMinor.append(repMinor)
     #         Lcontinue_deconv.append(continue_deconv)
     #         Lupdate_model.append(update_model)
     #     return LrepMinor, Lcontinue_deconv, Lupdate_model
 
-    # def _worker_Deconvolve(self,iField):
-        
+    # def _worker_Deconvolve(self,DicoDirty,iField):
     #     log.print(ModColor.Str("=============== Deconv Field #%i / %i ============="%(iField+1,self.NFields),col="blue"))
+    #     self.LImageDeconvMachine[iField].Update(DicoDirty)
     #     repMinor, continue_deconv, update_model = self.LImageDeconvMachine[iField].Deconvolve()
     #     return repMinor, continue_deconv, update_model
     
@@ -133,7 +133,6 @@ class ClassImageDeconvMachineMultiFields():
         LrepMinor=[]
         Lcontinue_deconv=[]
         Lupdate_model=[]
-        
         for iField in range(self.NFields):
             log.print(ModColor.Str("=============== Deconv Field #%i / %i ============="%(iField+1,self.NFields),col="blue"))
             repMinor, continue_deconv, update_model = self.LImageDeconvMachine[iField].Deconvolve()
