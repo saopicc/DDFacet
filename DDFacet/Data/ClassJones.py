@@ -153,10 +153,10 @@ class ClassJones():
         self.iField=iField
         self.StrField=""
         self.StrCounter=""
-        if iField is not None:
-            self.StrField="_Field%i"%iField
-            self.StrCounter=" F#%i"%iField
-            self.FacetMachine = self.FacetMachine.LFM[iField]
+        # if iField is not None:
+        #     self.StrField="_Field%i"%iField
+        #     self.StrCounter=" F#%i"%iField
+        #     self.FacetMachine = self.FacetMachine.LFM[iField]
             
         
         self.MS = MS
@@ -344,9 +344,9 @@ class ClassJones():
 
             if self.FacetMachine is not None:
                 if not(self.HasKillMSSols) or self.GD["Beam"]["At"] == "facet":
-                    print("  Getting beam Jones directions from facets", file=log)
-                    DicoImager = self.FacetMachine.DicoImager
-                    NFacets = len(DicoImager)
+                    print("  Getting beam Jones directions from facets [%i directions]"%(self.FacetMachine.FacetDirCat.l.size), file=log)
+                    # DicoImager = self.FacetMachine.DicoImager
+                    # NFacets = len(DicoImager)
                     self.ClusterCatBeam = self.FacetMachine.FacetDirCat
                     DicoClusterDirs = {}
                     DicoClusterDirs["l"] = self.ClusterCatBeam.l
@@ -362,7 +362,7 @@ class ClassJones():
                     # VM.PointsToReg("DicoClusterDirs_kMS.reg",self.DicoClusterDirs_kMS["ra"],self.DicoClusterDirs_kMS["dec"],Col="green")
                     # stop
                 else:
-                    print("  Getting beam Jones directions from DDE solution tessels", file=log)
+                    print("  Getting beam Jones directions from DDE solution tessels [%i directions]"%(self.DicoClusterDirs_kMS["ra"].size), file=log)
                     DicoClusterDirs = self.DicoClusterDirs_kMS
                     NDir = DicoClusterDirs["l"].size
                     self.ClusterCatBeam = np.zeros(
@@ -383,7 +383,7 @@ class ClassJones():
                     
             else:
                 if self.HasKillMSSols and self.GD["Beam"]["At"] == "tessel":
-                    print("  Getting beam Jones directions from DDE solution tessels", file=log)
+                    print("  Getting beam Jones directions from DDE solution tessels [%i directions]"%(self.DicoClusterDirs_kMS["ra"].size), file=log)
                     DicoClusterDirs = self.DicoClusterDirs_kMS
                     NDir = DicoClusterDirs["l"].size
                     self.ClusterCatBeam = np.zeros(
@@ -402,6 +402,7 @@ class ClassJones():
                     self.ClusterCatBeam.ra[:] = self.DicoClusterDirs_kMS["ra"]
                     self.ClusterCatBeam.dec[:] = self.DicoClusterDirs_kMS["dec"]
                 else:
+                    print("  Getting beam Jones directions at the phase center [single direction]", file=log)
                     self.ClusterCatBeam = np.zeros(
                         (1,),
                         dtype=[('Name', '|S200'),

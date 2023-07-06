@@ -4,6 +4,7 @@ import pickle as cPickle
 log=logger.getLogger("ImageNoiseMachineMultiField")
 import six
 from DDFacet.Imager import ClassImageNoiseMachine
+import copy
 
 class ClassImageNoiseMachineMultiField():
     def __init__(self, GD, VS=None,LModelMachine=None, DegridFreqs=None,
@@ -17,7 +18,9 @@ class ClassImageNoiseMachineMultiField():
         self.LModelMachine=LModelMachine
         self.LImageNoiseMachine=[]
         for iField in range(self.NFields):
-            INM=ClassImageNoiseMachine.ClassImageNoiseMachine(self.GD,
+            GD=copy.deepcopy(self.GD)
+            GD["Image"]["iField"]=iField
+            INM=ClassImageNoiseMachine.ClassImageNoiseMachine(GD,
                                                               self.LModelMachine[iField],
                                                               DegridFreqs=DegridFreqs,
                                                               GridFreqs=GridFreqs,

@@ -472,7 +472,7 @@ class ClassVisServer():
                 # tell the IO thread to start loading the chunk
                 APP.runJob(self._next_chunk_name, self._handler_LoadVisChunk,
                            args=(self._next_chunk_name, self.iCurrentMS, self.iCurrentChunk), 
-                           io=0)#,serial=True)
+                           io=0,serial=True)
             return self._next_chunk_label
 
     def collectLoadedChunk(self, start_next=True, last_cycle=False):
@@ -600,10 +600,13 @@ class ClassVisServer():
                                     ChanMappingDeGridding=DATA["ChanMappingDegrid"],iField=0)
 
         if self.DicoFields is not None:
-            for iField in range(self.NFields):
-                JonesMachine = ClassJones.ClassJones(self.GD, ms, self.FacetMachine,
-                                                     iField=iField)
-                JonesMachine.InitDDESols(DATA)
+            # for iField in range(self.NFields):
+            #     JonesMachine = ClassJones.ClassJones(self.GD, ms, self.FacetMachine,
+            #                                          iField=iField)
+            #     JonesMachine.InitDDESols(DATA)
+            JonesMachine = ClassJones.ClassJones(self.GD, ms, self.FacetMachine,
+                                                 iField=None)
+            JonesMachine.InitDDESols(DATA)
         else:
             JonesMachine = ClassJones.ClassJones(self.GD, ms, self.FacetMachine)
             JonesMachine.InitDDESols(DATA)

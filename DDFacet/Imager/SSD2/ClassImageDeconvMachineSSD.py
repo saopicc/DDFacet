@@ -66,6 +66,10 @@ class ClassImageDeconvMachine():
         self.MaxMinorIter=MaxMinorIter
         self.NCPU=NCPU
         self.GD=copy.deepcopy(GD)
+        from DDFacet.Imager.MultiFields.AppendSubFieldInfo import AppendSubFieldInfo
+        AppendSubFieldInfo(self)
+        
+        
         self.DicoDicoInitIndiv=None
         if NCPU==0:
             self.NCPU=int(GD["Parallel"]["NCPU"] or psutil.cpu_count())
@@ -74,6 +78,7 @@ class ClassImageDeconvMachine():
             self.IdSharedMem=str(os.getpid())
         else:
             self.IdSharedMem=IdSharedMem
+        self.IdSharedMem="%s%s"%(self.IdSharedMem,self.StrField)
         self.SubPSF=None
         self.MultiFreqMode=(self.GD["Freq"]["NBand"]>1)
         self.FluxThreshold = FluxThreshold 

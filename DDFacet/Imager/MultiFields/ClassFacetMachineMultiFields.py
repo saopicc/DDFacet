@@ -203,10 +203,13 @@ class ClassFacetMachineMultiFields():
         
         self.D_DicoImager={}
         self.NFacetsTotalFields=0
+        self.FacetDirCat=[]
         for iFM,FM in enumerate(self.LFM):
             self.D_DicoImager[iFM]=FM.DicoImager
             self.NFacetsTotalFields+=len(FM.DicoImager)
-            
+            self.FacetDirCat.append(FM.FacetDirCat)
+        self.FacetDirCat=np.concatenate(self.FacetDirCat).view(np.recarray)
+        
     def appendMainField(self,*args,**kwargs):
         for iFM,FM in enumerate(self.LFM):
             MainFacetOptions=self.GiveMainFacetOptions(FM.GD)

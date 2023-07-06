@@ -1790,10 +1790,14 @@ class ClassFacetMachine():
 
         if Apply_killMS or Apply_Beam:
             DicoJonesMatrices = {}
+        # if Apply_killMS:
+        #     DicoJonesMatrices["DicoJones_killMS"] = DATA["killMS%s"%self.StrField]
+        # if Apply_Beam:
+        #     DicoJonesMatrices["DicoJones_Beam"] = DATA["Beam%s"%self.StrField]
         if Apply_killMS:
-            DicoJonesMatrices["DicoJones_killMS"] = DATA["killMS%s"%self.StrField]
+            DicoJonesMatrices["DicoJones_killMS"] = DATA["killMS"]
         if Apply_Beam:
-            DicoJonesMatrices["DicoJones_Beam"] = DATA["Beam%s"%self.StrField]
+            DicoJonesMatrices["DicoJones_Beam"] = DATA["Beam"]
 
         GridMachine.put(times, uvwThis, visThis, flagsThis, A0A1, W,
                         DoNormWeights=False,
@@ -2138,10 +2142,14 @@ class ClassFacetMachine():
 
         if Apply_killMS or Apply_Beam:
             DicoJonesMatrices = {}
+        # if Apply_killMS:
+        #     DicoJonesMatrices["DicoJones_killMS"] = DATA["killMS%s"%self.StrField]
+        # if Apply_Beam:
+        #     DicoJonesMatrices["DicoJones_Beam"] = DATA["Beam%s"%self.StrField]
         if Apply_killMS:
-            DicoJonesMatrices["DicoJones_killMS"] = DATA["killMS%s"%self.StrField]
+            DicoJonesMatrices["DicoJones_killMS"] = DATA["killMS"]
         if Apply_Beam:
-            DicoJonesMatrices["DicoJones_Beam"] = DATA["Beam%s"%self.StrField]
+            DicoJonesMatrices["DicoJones_Beam"] = DATA["Beam"]
 
         DecorrMode = self.GD["RIME"]["DecorrMode"]
         if 'F' in DecorrMode or "T" in DecorrMode:

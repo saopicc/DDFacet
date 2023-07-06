@@ -83,6 +83,9 @@ class ClassImageDeconvMachine():
         self.Chi2Thr = 10000
         self._MaskArray = None
         self.GD = GD
+        from DDFacet.Imager.MultiFields.AppendSubFieldInfo import AppendSubFieldInfo
+        AppendSubFieldInfo(self)
+        CacheFileName="%s%s"%(CacheFileName,self.StrField)
         self.SubPSF = None
         self.MultiFreqMode = NFreqBands > 1
         self.NFreqBands = NFreqBands

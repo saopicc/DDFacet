@@ -39,6 +39,9 @@ class ClassImageNoiseMachine():
     def __init__(self, GD, ExternalModelMachine=None, DegridFreqs=None, GridFreqs=None, MainCache=None):
         self.GD = copy.deepcopy(GD)
         
+        from DDFacet.Imager.MultiFields.AppendSubFieldInfo import AppendSubFieldInfo
+        AppendSubFieldInfo(self)
+
         self.MainCache=MainCache
         self.NoiseMap=None
         self.NoiseMapRestored=None
