@@ -177,6 +177,7 @@ class ClassImageDeconvMachineMultiFields():
         Lupdate_model=[]
         for iField in range(self.NFields):
             log.print(ModColor.Str("=============== Deconv Field #%i / %i ============="%(iField+1,self.NFields),col="blue"))
+
             repMinor, continue_deconv, update_model = self.LImageDeconvMachine[iField].Deconvolve()
             LrepMinor.append(repMinor)
             Lcontinue_deconv.append(continue_deconv)
