@@ -33,13 +33,14 @@ namespace DDF {
     double* pgrid = grid.mutable_data<double>(0);
     const float* pweights = weights.data<float>(0);
     const long int* pindex = index.data<long int>(0);
+    size_t nGrid = grid.shape(0)*grid.shape(1);
 
     for(size_t i=0; i<n; ++i)
       {
       float w = pweights[i];
-      if (w!=0)
+      size_t igrid = size_t(pindex[i]);
+      if ((w!=0)&&(igrid<nGrid))
 	{
-	size_t igrid = size_t(pindex[i]);
 	sem_t *psem = GiveSemaphoreFromCell(igrid);
 	sem_wait(psem);
 	pgrid[igrid] += w;
@@ -57,13 +58,14 @@ namespace DDF {
     double* pgrid = grid.mutable_data<double>(0);
     const float* pweights = weights.data<float>(0);
     const long int* pindex = index.data<long int>(0);
+    size_t nGrid = grid.shape(0)*grid.shape(1);
 
     for(size_t i=0; i<n; ++i)
       {
       float w = pweights[i];
-      if (w!=0)
+      size_t igrid = size_t(pindex[i]);
+      if ((w!=0)&&(igrid<nGrid))
 	{
-	size_t igrid = size_t(pindex[i]);
 	pgrid[igrid] += w;
 	}
       }
