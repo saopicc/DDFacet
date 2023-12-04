@@ -51,6 +51,8 @@ else:
     from DDFacet.cbuild.Gridder import _pyGridderSmearPols27 as _pyGridderSmearPols
 import copy
 from DDFacet.Other import ClassGiveSolsFile
+from astropy.io import fits
+from astropy.time import Time as astropyTime
 
 log = logger.getLogger("ClassVisServer")
 
@@ -950,6 +952,7 @@ class ClassVisServer():
         and FLAGs to get wmax"""
         msname = "MS %d chunk %d"%(ims, ichunk)
         try:
+        #if True:
             ms = self.ListMS[ims]
             msname = "%s chunk %d"%(ms.MSName, ichunk)
             row0, row1 = ms.getChunkRow0Row1()[ichunk]
@@ -1013,6 +1016,48 @@ class ClassVisServer():
                 elif weight_col == "None" or weight_col == None:
                     #            print>> log, "  Selected weights columns is None, filling weights with ones"
                     pass#weight.fill(1)
+                elif ".fits" in weight_col:
+                    aW_ft=np.abs(fits.getdata(weight_col))
+                    W_ft=aW_ft#(fits.getdata(weight_col))
+                    #log.print("%f"%np.max(W_ft))
+                    Th=2
+                    W_ft[aW_ft<Th]=0
+                    # # W_ft[aW_ft>Th]=-1
+                    # #W_ft[W_ft>-0.4]=0
+                    # #W_ft[np.abs(W_ft)<0.4]=0
+                    # W_ft[W_ft>-0.4]=0
+                    # #W_ft[W_ft>-2.45]=0
+                    # W_ft=np.abs(W_ft)
+                    # #W_ft[aW_ft>Th]=-1
+
+                    
+                    nf,nt=W_ft.shape
+                    newrow = np.zeros((nf,1),np.float32)
+                    W_ft0=W_ft.copy()
+                    W_ft = np.hstack([W_ft, newrow])
+                    h=fits.getheader(weight_col)
+                    t0=h['OBS-STAR']
+                    dt=h['CDELT1']
+                    df=h['CDELT2']*1e6
+                    fMin=float(h['FRQ-MIN'])
+                    fMax=float(h['FRQ-MAX'])
+                    t0 = astropyTime(t0, format='isot').mjd * 3600. * 24.# + (dt/2.)
+                    times = tab.getcol("TIME", row0, nrows)
+                    msfreqs = ms.ChanFreq
+
+                    iChan=np.int64(np.round((ms.ChanFreq.ravel()-fMin)/df))
+                    iTime=np.int64(np.round((times-t0)/dt))
+                    
+                    iTime_g,iChan_g=np.meshgrid(iTime,iChan)
+                    iTime_g=iTime_g.T
+                    iChan_g=iChan_g.T
+                    
+                    wsel=W_ft[iChan_g.ravel(),iTime_g.ravel()].reshape((nrows, ms.Nchan))
+                    #log.print("nz %i"%np.count_nonzero(wsel))
+                    #print("JJHDSFSDJJFG",wsel.min(),wsel.max())
+                    #np.savez("Weights_test.npz",wsel=wsel,W_ft=W_ft,W_ft0=W_ft0)
+                    weight[...] *= wsel[...]
+
                 elif weight_col == "Lucky_kMS" and self.GD["DDESolutions"]["DDSols"]:
                     ID=row0
                     LSolsName=self.GD["DDESolutions"]["DDSols"]
@@ -1031,9 +1076,14 @@ class ClassVisServer():
                         #     if not os.path.isdir(DirName):
                         #         os.makedirs(DirName)
                         #     FileName="%s/killMS.%s.Weights.%i.npy"%(DirName,SolsName,ID)
-
-                        CGiveSaveFileName=ClassGiveSolsFile.ClassGive_kMSFileName(GD=GD)
-                        FileName=CGiveSaveFileName.GiveFileName(Type="Weights",ROW0=ID)
+                        
+                        ID=row0
+                        CGiveSaveFileName=ClassGiveSolsFile.ClassGive_kMSFileName(MSName=ms.MSName,
+                                                                                  SolsDir=self.GD["DDESolutions"]["SolsDir"],
+                                                                                  GD=self.GD)
+                        FileName=CGiveSaveFileName.GiveFileName(SolsName=SolsName,
+                                                                Type="Weights",
+                                                                ROW0=ID)
                         
                         log.print( "  loading weights from file: %s"%FileName)
                         if w is None: 
@@ -1072,6 +1122,7 @@ class ClassVisServer():
                 msw.delete_item("flags")
             else:
                 msw["bandmap"] = self.DicoMSChanMapping[ims]
+                
         except Exception as exc:
             print(ModColor.Str("Error loading weights from %s:"%msname), file=log)
             for line in traceback.format_exc().split("\n"):

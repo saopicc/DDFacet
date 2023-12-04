@@ -55,11 +55,15 @@ def FileToArray(FileName,CorrT=True):
     NormImageOut=NormImage
     if CorrT:
         nx,ny=NormImage.shape[-2:]
-        Sh=(nch,1,ny,nx)
+        Sh=(nch,npol,ny,nx)
         NormImageOut=np.zeros(Sh,dtype=NormImage.dtype)
         for ch in range(nch):
             for pol in range(npol):
                 NormImageOut[ch,pol]=NormImage[ch,pol].T[::-1]
+        if npol==4:
+            print("HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH")
+            NormImageOut=NormImageOut[:,0:1,:,:]
+            
     return NormImageOut
 
 class ClassCasaimage():

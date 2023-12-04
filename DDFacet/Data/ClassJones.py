@@ -157,8 +157,9 @@ class ClassJones():
         # self.JonesNormSolsFile_killMS="%s/JonesNorm_killMS.npz"%ThisMSName
         # self.JonesNormSolsFile_Beam="%s/JonesNorm_Beam.npz"%ThisMSName
 
-    def InitDDESols(self, DATA, quiet=False):
+    def InitDDESols(self, DATA, quiet=False, RADEC_ForcedBeamDirs=None):
         GD = self.GD
+        self.RADEC_ForcedBeamDirs=RADEC_ForcedBeamDirs
         SolsFile = GD["DDESolutions"]["DDSols"]
         self.ApplyCal = False
         if SolsFile != "" and SolsFile is not None:
@@ -242,6 +243,7 @@ class ClassJones():
             else:
                 DicoSols, TimeMapping, DicoClusterDirs = self.MakeSols("Beam", DATA, quiet=quiet)
                 if self.CacheMode: self.MS.cache.saveCache("JonesNorm_Beam.npz")
+            
             DATA["Beam"] =  dict(Jones=DicoSols, TimeMapping=TimeMapping, Dirs=DicoClusterDirs)
 
     # def ToShared(self, StrType, DicoSols, TimeMapping, DicoClusterDirs):
@@ -390,7 +392,37 @@ class ClassJones():
                     self.ClusterCatBeam.SumI = self.DicoClusterDirs_kMS["I"]
                     self.ClusterCatBeam.ra[:] = self.DicoClusterDirs_kMS["ra"]
                     self.ClusterCatBeam.dec[:] = self.DicoClusterDirs_kMS["dec"]
+                elif self.RADEC_ForcedBeamDirs is not None:
+                    RABeam,DECBeam=self.RADEC_ForcedBeamDirs
+                    lBeam,mBeam=self.MS.radec2lm_scalar(RABeam,DECBeam)
+                    print("  Getting beam Jones directions ForcedBeamDirs [%i directions]"%RABeam.size, file=log)
+                    NDir = RABeam.size
+                    self.ClusterCatBeam = np.zeros(
+                        (NDir,),
+                        dtype=[('Name', '|S200'),
+                               ('ra', np.float),
+                               ('dec', np.float),
+                               ('SumI', np.float),
+                               ("Cluster", int),
+                               ("l", np.float),
+                               ("m", np.float),
+                               ("I", np.float)])
+                    self.ClusterCatBeam = self.ClusterCatBeam.view(np.recarray)
+                    self.ClusterCatBeam.I[:] = 1
+                    self.ClusterCatBeam.SumI[:] = 1
+                    self.ClusterCatBeam.ra[:] = RABeam
+                    self.ClusterCatBeam.dec[:] = DECBeam
+                    self.ClusterCatBeam.l[:] = lBeam
+                    self.ClusterCatBeam.m[:] = mBeam
+                    DicoClusterDirs = {}
+                    DicoClusterDirs["ra"] = RABeam
+                    DicoClusterDirs["dec"] = DECBeam
+                    DicoClusterDirs["l"] = lBeam
+                    DicoClusterDirs["m"] = mBeam
+                    DicoClusterDirs["I"] = self.ClusterCatBeam.I
+                    DicoClusterDirs["Cluster"] = np.arange(RABeam.size)
                 else:
+                    print("  Has no DDE information taking single Jones directions current phase center", file=log)
                     self.ClusterCatBeam = np.zeros(
                         (1,),
                         dtype=[('Name', '|S200'),
@@ -402,24 +434,23 @@ class ClassJones():
                                ("m", np.float),
                                ("I", np.float)])
                     self.ClusterCatBeam = self.ClusterCatBeam.view(np.recarray)
-                    self.ClusterCatBeam.I = 1
-                    self.ClusterCatBeam.SumI = 1
+                    self.ClusterCatBeam.I[:] = 1
+                    self.ClusterCatBeam.SumI[:] = 1
                     self.ClusterCatBeam.ra[0] = self.MS.rac
                     self.ClusterCatBeam.dec[0] = self.MS.decc
                     DicoClusterDirs = {}
                     DicoClusterDirs["l"] = np.array([0.], np.float32)
                     DicoClusterDirs["m"] = np.array([0.], np.float32)
-                    DicoClusterDirs["ra"] = self.MS.rac
-                    DicoClusterDirs["dec"] = self.MS.decc
+                    DicoClusterDirs["ra"] = np.array([self.MS.rac], np.float32)
+                    DicoClusterDirs["dec"] = np.array([self.MS.decc], np.float32)
                     DicoClusterDirs["I"] = np.array([1.], np.float32)
                     DicoClusterDirs["Cluster"] = np.array([0], np.int32)
-
             DicoClusterDirs_Beam = DicoClusterDirs
             DicoSols = self.GiveBeam(DATA["uniq_times"], quiet=quiet)
             print("  Build VisTime-to-Beam mapping", file=log)
             TimeMapping = self.GiveTimeMapping(DicoSols, DATA["times"])
             DicoClusterDirs["l"],DicoClusterDirs["m"]=self.MS.radec2lm_scalar(DicoClusterDirs["ra"],DicoClusterDirs["dec"])
-
+                    
             if self.CacheMode:
                 self.SolsToDisk(self.JonesNormSolsFile_Beam,
                                 DicoSols,
@@ -527,7 +558,6 @@ class ClassJones():
         return DicoClusterDirs, DicoJones
 
     def ReadNPZ(self,SolsFile):
-        print("  Loading solution file %s" % (SolsFile), file=log)
 
         self.ApplyCal = True
         DicoSolsFile = np.load(SolsFile)
@@ -547,6 +577,7 @@ class ClassJones():
 
         Sols = DicoSolsFile["Sols"]
         Sols = Sols.view(np.recarray)
+        print("  Loaded solution file %s %s" % (str(Sols.G.shape),SolsFile), file=log)
         DicoSols = {}
         DicoSols["t0"] = Sols.t0
         DicoSols["t1"] = Sols.t1

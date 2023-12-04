@@ -196,7 +196,6 @@ class ClassMakeMask():
         n=SBox[0]*SBox[1]
         F=1.-(1.-f)**n
         ratio=np.abs(np.interp(0.5,F,x))
-
         Noise=-scipy.ndimage.minimum_filter(Acopy,SBox)/ratio
 
 
@@ -367,7 +366,6 @@ class ClassMakeMask():
             freq,pol,_,_=self.CasaIm.toworld((0,0,0,0))
 
             _,_,yc,xc=self.CasaIm.topixel((freq,pol,decc,rac))
-
             xGrid,yGrid=np.mgrid[int(xc-RadiusPix):int(xc+RadiusPix)+1,int(yc-RadiusPix):int(yc+RadiusPix)+1]
             xGrid=xGrid.ravel()
             yGrid=yGrid.ravel()

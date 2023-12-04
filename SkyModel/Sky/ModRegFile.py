@@ -104,13 +104,15 @@ class RegToNp():
                                     ("Type","<S200"),("Exclude",np.bool8),
                                     ("dx",np.float32),("dy",np.float32),
                                     ("ra1",np.float32),("dec1",np.float32),
-                                    ("Cluster",np.int16),("ID",np.int16)])
+                                         ("Cluster",np.int16),("ID",np.int16),
+                                         ("color","|S20"),
+                                         ("marker","|S20")])
         Cat=Cat.view(np.recarray)
         Cat.Cluster=-1
         Cat.Cluster=np.arange(Cat.shape[0])
         Cat.ID=np.arange(Cat.shape[0])
         Cat.I=1
-        
+
         for iCat, reg in enumerate(regs):
             # Excluse region if color is any kind of red 
             # This is a bit hacky, because the color can be a word, or it can be
@@ -124,7 +126,7 @@ class RegToNp():
                 exclude = color[1:3] != "00"   # exclude if RR part of tuple is !=0
             else:
                 exclude = "red" in color
-                
+
             if type(reg) is regions.CircleSkyRegion:
                 
                 Cat.ra[iCat]  = reg.center.ra.rad
@@ -150,8 +152,19 @@ class RegToNp():
                 Cat.dec1[iCat]  = reg.end.dec.rad
                 Cat.Type[iCat]  = "Line"
 
+            elif type(reg) is regions.shapes.point.PointSkyRegion:
+                Cat.ra[iCat]    = reg.center.ra.rad
+                Cat.dec[iCat]   = reg.center.dec.rad
+                Cat.Type[iCat]  = "Point"
+                color  = reg.visual.get('color',"")
+                marker = reg.visual.get('symbol',"")
+                Cat.color[iCat]=color
+                Cat.marker[iCat]=marker
+            else:
+                stop
+                log.print("%s not interpreted!!!!"%type(reg))
             Cat.Exclude[iCat] = exclude
-                
+            
         Cat=(Cat[Cat.ra!=0]).copy()
         self.CatSel=Cat[Cat.Exclude==0]
         self.CatExclude=Cat[Cat.Exclude==1]

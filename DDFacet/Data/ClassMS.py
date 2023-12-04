@@ -957,8 +957,12 @@ class ClassMS():
             ddid_fields = ClassMS._ddid_field_cache.get(self.MSName)
         else:
             maintab = table(self.MSName, ack=False)
+            if self.TaQL:
+                maintab = maintab.query(self.TaQL)
             ddid_fields = set(zip(maintab.getcol("FIELD_ID"), maintab.getcol("DATA_DESC_ID")))
             ClassMS._ddid_field_cache[self.MSName] = ddid_fields
+            
+        T.timeit()
 
         self.empty = (self.Field,self.DDID) not in ddid_fields
         if self.empty:
@@ -967,6 +971,7 @@ class ClassMS():
 
         # open main table
         table_all = self.GiveMainTable()
+        T.timeit()
         self.empty = not table_all.nrows()
         if self.empty:
             print(ModColor.Str("MS %s (field %d, ddid %d): no rows, skipping"%(self.MSName, self.Field, self.DDID)), file=log)
@@ -975,6 +980,7 @@ class ClassMS():
 
         #print MSname+'/ANTENNA'
         ta=table(table_all.getkeyword('ANTENNA'),ack=False)
+        T.timeit()
 
         StationNames=ta.getcol('NAME')
 
@@ -1030,10 +1036,15 @@ class ClassMS():
             chunk_row0 = sorted(set(chunk_row0))
             # chunk_row0 gives the starting row of each chunk
             if len(chunk_row0) == 1:
-                print("MS %s DDID %d FIELD %d (%d rows) column %s will be processed as a single chunk"%(self.MSName, self.DDID, self.Field, self.F_nrows, self.ColName), file=log)
+                print("MS %s DDID %d FIELD %d (%d rows) column %s will be processed as a single chunk"%(self.MSName, self.DDID, self.Field,
+                                                                                                        self.F_nrows, self.ColName),
+                      file=log)
             else:
-                print("MS %s DDID %d FIELD %d (%d rows) column %s will be split into %d chunks, at rows %s"%(self.MSName, self.DDID, self.Field,  self.F_nrows,
-                                                                                       self.ColName, len(chunk_row0), " ".join(map(str,chunk_row0))), file=log)
+                print("MS %s DDID %d FIELD %d (%d rows) column %s will be split into %d chunks, at rows %s"%(self.MSName, self.DDID, self.Field,
+                                                                                                             self.F_nrows,self.ColName,
+                                                                                                             len(chunk_row0),
+                                                                                                             " ".join(map(str,chunk_row0))),
+                      file=log)
         self.Nchunk = len(chunk_row0)
         chunk_row0.append(self.F_nrows)
         self._chunk_r0r1 = [ chunk_row0[i:i+2] for i in range(self.Nchunk) ]

@@ -75,9 +75,11 @@ class ClassMemMonitor():
 
         smem=psutil.swap_memory()
         Smem=smem.used/float(2**20)/1024
+        #print("!!!",smem)
         if self.Swap0 is None:
             self.Swap0=Smem
-        self.LSMem.append(Smem-self.Swap0)
+        #self.LSMem.append(Smem-self.Swap0)
+        self.LSMem.append(Smem)
 
         SmemAvail=smem.total/float(2**20)/1024
         self.LSMemAvail.append(SmemAvail)
@@ -150,10 +152,14 @@ class ClassMemMonitor():
         ax.fill(x,y,'green', alpha=0.3, edgecolor='green',lw=2,hatch="//")
 
         # swap
+        LSMem=np.array(LSMem)/np.array(LSMemAvail)*np.max(LMemTotal)
+
         x,y=GivePolygon(LT,LSMem)
+        #print(y)
         #ax.fill(x,y,'', alpha=1, edgecolor='red',lw=2,hatch="/")
-        ax.fill(x,y,'gray', alpha=0.3, edgecolor='red',lw=1,hatch="*")
-        # ax.plot(LT,np.array(LSMem),lw=2,ls=":",color="blue")
+        #ax.fill(x,y,'gray', alpha=0.3, edgecolor='red',lw=1,hatch="*")
+        
+        ax.plot(LT,np.array(LSMem),lw=2,ls=":",color="red")
         # ax.plot(LT,np.array(LSMemAvail),lw=2,ls=":",color="red")
             
         # CPU
