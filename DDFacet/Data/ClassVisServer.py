@@ -751,6 +751,7 @@ class ClassVisServer():
     def CalcWeightsBackground(self):
         """Starts parallel jobs to load weights in the background"""
         self.VisWeights = None
+        # self._CalcWeights_handler()
         if self.GD["Misc"]["ConserveMemory"]:
             #APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event)
             APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event)#,serial=True)
@@ -987,7 +988,14 @@ class ClassVisServer():
                 return
             # max of |u|, |v| in wavelengths
             uv = uvw[:, :2]
+            u,v=uv.T
+            duv=np.sqrt(u**2+v**2)/1e3
+            d0,d1=self.GD["Selection"]["UVRangeKm"]
+            C=(duv<d0)|(duv>d1)
+            rowflags[C]=1
             uvmax_wavelengths = abs(uv[~rowflags,:]).max() * msfreqs.max() / _cc
+            # log.print("UV max %f"%abs(uv[~rowflags,:]).max())
+            # log.print("UVl max %f"%uvmax_wavelengths)
             # adjust max uv (in wavelengths) and max w
             msw["wmax"] = abs(uvw[~rowflags,2]).max()
             msw["uvmax_wavelengths"] = uvmax_wavelengths
@@ -1204,11 +1212,17 @@ class ClassVisServer():
                 # renormalize to density, for uniform/briggs
                 if self.Weighting != "natural":
                     index = self._uv_to_index(ims, msw["uv"], weight, freqs, cell, npix, npixx, nbands, xymax)
+                    
                     grid = wg["grid"].reshape((wg["grid"].size,))
-                    #weight /= grid[msw["index"]]
-                    index[index>=len(grid)]=0
-                    weight /= grid[index]
-    #                import pdb; pdb.set_trace()
+                    
+                    # #weight /= grid[msw["index"]]
+                    # index[index>=len(grid)]=0
+                    # weight /= grid[index]
+
+                    ind_ongrid=np.where(index<len(grid))
+                    weight[ind_ongrid] /= grid[index[ind_ongrid]]
+                    ind_offgrid=np.where(index>=len(grid))
+                    weight[ind_offgrid] = 0
 
                 np.save(msw["cachepath"], weight)
                 msw.delete_item("weight")
@@ -1250,7 +1264,7 @@ class ClassVisServer():
             msweights = self._weight_dict.addSubdict(iMS)
             for ichunk, (row0, row1) in enumerate(MS.getChunkRow0Row1()):
                 msw = msweights.addSubdict(ichunk)
-                path, valid = MS.getChunkCache(row0, row1).checkCache("ImagingWeights.npy", cache_keys)
+                path, valid = MS.getChunkCache(row0, row1).checkCache("ImagingWeights.npy", cache_keys, reset=(self.GD["Cache"]["Weight"]=="reset"))
                 have_all_weights = have_all_weights and valid
                 msw["cachepath"] = path
                 if valid:
@@ -1277,6 +1291,12 @@ class ClassVisServer():
                 rowflags = tab.getcol("FLAG_ROW", row0, nrows)
                 # max of |u|, |v| in wavelengths
                 if not rowflags.all():
+                    u,v,w=uvw.T
+                    duv=np.sqrt(u**2+v**2)/1e3
+                    d0,d1=self.GD["Selection"]["UVRangeKm"]
+                    C=(duv<d0)|(duv>d1)
+                    rowflags[C]=1
+                    
                     uvmax_wavelengths = abs(uvw[~rowflags, :2]).max() * max_freq / _cc
                     self._uvmax = max(self._uvmax, uvmax_wavelengths)
                     wmax = max(wmax, abs(uvw[~rowflags, 2]).max())

@@ -560,7 +560,7 @@ class ClassJones():
     def ReadNPZ(self,SolsFile):
 
         self.ApplyCal = True
-        DicoSolsFile = np.load(SolsFile)
+        DicoSolsFile = np.load(SolsFile,allow_pickle=1)
 
         ClusterCat = DicoSolsFile["SkyModel"]
         ClusterCat = ClusterCat.view(np.recarray)
@@ -612,7 +612,9 @@ class ClassJones():
 
         #print((G.shape,FreqDomains.shape,VisToJonesChanMapping ), file=log)
 
-        self.BeamTimes_kMS = DicoSolsFile["BeamTimes"]
+        if "BeamTimes" in list(DicoSolsFile.keys()) and DicoSolsFile["BeamTimes"][()] is not None:
+            # print(DicoSolsFile["BeamTimes"] is None)
+            self.BeamTimes_kMS = (DicoSolsFile["BeamTimes"]["t0"]+DicoSolsFile["BeamTimes"]["t1"])/2
 
         return VisToJonesChanMapping,DicoClusterDirs,DicoSols,G
 
@@ -1053,6 +1055,7 @@ class ClassJones():
             print("  Taking beam-times from DDE-solutions", file=log)
             beam_times = self.BeamTimes_kMS
         else:
+            print("  Taking beam-times from user-specified --Beam-DtBeamMin", file=log)
             beam_times = self.BeamMachine.getBeamSampleTimes(times, quiet=quiet)
 
         if RaDec is None:

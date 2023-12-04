@@ -65,7 +65,7 @@ def read_options():
     group.add_option('--BaseImageName',type="str",help="look at the code",default="")
     group.add_option('--SplitBrightFaint',type=int,help="look at the code",default=0)
     group.add_option('--SplitBrightFaintMethod',type=str,help="look at the code",default="Overall")
-    
+    group.add_option('--ExtendedMedThres',type="float",help="Median threshold for picking up extended emission",default=0.1)
         
     
     #group.add_option("--MedFilter",type="str",default="50,10")
@@ -226,7 +226,7 @@ class ClassMakeMask():
 
         if self.options.OutMaskExtended:
             GD=None
-            MaskExtended=(self.Noise<0.1*np.median(self.Noise))
+            MaskExtended=(self.Noise<self.options.ExtendedMedThres*np.median(self.Noise))
             OutMaskExtended=self.options.OutMaskExtended
             nx=MaskExtended.shape[-1]
             CurrentNegMask=np.logical_not(MaskExtended).reshape((1,1,nx,nx))

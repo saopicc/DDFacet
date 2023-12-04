@@ -52,10 +52,17 @@ from DDFacet.Other import logger
 log = logger.getLogger("ClassFacetMachineTessel")
 from pyrap.images import image
 
-def AngDist(ra0,dec0,ra1,dec1):
+def AngDist(ra0,dec0,ra1,dec1,Stop=False):
     AC=np.arccos
     C=np.cos
     S=np.sin
+    
+    ra0=np.float64(ra0)
+    dec0=np.float64(dec0)
+    ra1=np.float64(ra1)
+    dec1=np.float64(dec1)
+
+    
     D=S(dec0)*S(dec1)+C(dec0)*C(dec1)*C(ra0-ra1)
     if type(D).__name__=="ndarray":
         D[D>1.]=1.
@@ -63,6 +70,8 @@ def AngDist(ra0,dec0,ra1,dec1):
     else:
         if D>1.: D=1.
         if D<-1.: D=-1.
+    # print(ra0,dec0,ra1,dec1,D,AC(D))
+    # if Stop: stop
     return AC(D)
 
 
@@ -154,7 +163,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                         d=AngDist(ra0,dec0,ra1,dec1)
                         dCut=1
                         if d*180/np.pi*3600>dCut:
+                            #d=AngDist(ra0,dec0,ra1,dec1,Stop=1)
                             import pylab
+                            pylab.scatter(S["ClusterCat"]["ra"][iNode],S["ClusterCat"]["dec"][iNode],color="black",marker="x",s=100)
                             pylab.scatter(SRef["ClusterCat"]["ra"][:],SRef["ClusterCat"]["dec"][:],color="red")
                             pylab.scatter(S["ClusterCat"]["ra"][:],S["ClusterCat"]["dec"][:],color="blue",marker="+")
                             pylab.draw()

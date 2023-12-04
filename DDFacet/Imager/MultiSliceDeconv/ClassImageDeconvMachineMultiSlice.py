@@ -391,15 +391,24 @@ class ClassImageDeconvMachine():
             R=np.zeros_like(F)
             Fit=np.zeros_like(F)
             for iBand in range(R.size):
+                # print(self.GD["MultiSliceDeconv"]["PolyFitOrder"],NOrder,X)
+                # print(self.GD["MultiSliceDeconv"]["PolyFitOrder"],NOrder,X)
+                # print(self.GD["MultiSliceDeconv"]["PolyFitOrder"],NOrder,X)
+                # print(self.GD["MultiSliceDeconv"]["PolyFitOrder"],NOrder,X)
+                # print(self.GD["MultiSliceDeconv"]["PolyFitOrder"],NOrder,X)
+                # if isinstance(X,float): X=np.array([X])
                 Fit[iBand]=self.SpectralFunctionsMachine.IntExpFuncPoly(X.reshape((1,NOrder)),
                                                                         iChannel=iBand,
                                                                         iFacet=iFacet,
                                                                         FluxScale=self.FitFluxScale)
+                
             #Fit[Fit<0]*=100.
             
             R=F-Fit
-            Lambda=np.max([np.abs(X[1]-(-0.7))/1,1.])
-            R*= Lambda#np.abs(X[1])
+
+            if X.size>1:
+                Lambda=np.max([np.abs(X[1]-(-0.7))/1,1.])
+                R*= Lambda#np.abs(X[1])
 
             # print("aa",R)
             return R
@@ -415,7 +424,7 @@ class ClassImageDeconvMachine():
             self.PSFServer.setLocation(iPix,jPix)
             iFacet=self.PSFServer.iFacet
             
-            F=np.float64(Model[:,0,iPix,jPix])
+            F=(Model[:,0,iPix,jPix]).astype(np.float64).copy()
             # print(iPix,jPix,iFacet,F)
             
             #JonesNorm=(self.DicoDirty["JonesNorm"][:,:,iPix,jPix]).reshape((-1,1,1,1))
@@ -430,7 +439,7 @@ class ClassImageDeconvMachine():
             x0[0]=F0
             if NOrder>1:
                 x0[1]=0.
-            x0=np.float64(np.random.randn(NOrder))
+            x0=(np.random.randn(NOrder)).astype(np.float64).copy()
             R0=GiveResid(x0,F,iFacet)
             X=least_squares(GiveResid, x0, args=(F,iFacet))#,ftol=1e-2)#,gtol=1e-1,xtol=1e-1)
             R1=GiveResid(X['x'],F,iFacet)

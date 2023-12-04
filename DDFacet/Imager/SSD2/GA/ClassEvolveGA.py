@@ -233,11 +233,12 @@ class ClassEvolveGA():
                 # BEST
                 # half with the best indiv
                 PolyModelArray=None
-                if "Poly1" in self.ArrayMethodsMachine.PM.SolveParam:
+                if True:#"Poly1" in self.ArrayMethodsMachine.PM.SolveParam:
                     PolyModelArray=np.zeros((self.ArrayMethodsMachine.PM.NOrderPoly,self.ArrayMethodsMachine.PM.NPixListParms),np.float32)
                     for iOrder in range(self.ArrayMethodsMachine.PM.NOrderPoly):
                         PolyModelArray[iOrder]=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"Poly%i"%iOrder)
 
+                        
                 GSigModel=None
                 if "GSig" in self.ArrayMethodsMachine.PM.SolveParam:
                     GSigModel=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"GSig")
