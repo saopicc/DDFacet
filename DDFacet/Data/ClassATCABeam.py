@@ -152,8 +152,8 @@ class ClassATCABeam():
         NBand=len(DicoCoefs)
 
                 
-        chanBand0=np.zeros((ChanFreqs.size),dtype=np.int)
-        chanBand1=np.zeros((ChanFreqs.size),dtype=np.int)
+        chanBand0=np.zeros((ChanFreqs.size),dtype=int)
+        chanBand1=np.zeros((ChanFreqs.size),dtype=int)
         xNull=np.zeros((ChanFreqs.size,),np.float32)
         yNull=np.zeros((ChanFreqs.size,),np.float32)
         beamfreq0=np.zeros((ChanFreqs.size,),np.float32)
@@ -190,7 +190,7 @@ class ClassATCABeam():
     
     def GiveRawBeam(self,time,ra,dec):
         nch=self.MS.ChanFreq.size
-        Beam=np.zeros((ra.shape[0],self.MS.na,self.MS.NSPWChan,2,2),dtype=np.complex)
+        Beam=np.zeros((ra.shape[0],self.MS.na,self.MS.NSPWChan,2,2),dtype=complex)
         rac,decc=self.MS.OriginalRadec
         d=AngDist(ra,dec,rac,decc)*180./np.pi*60
         DicoCoefs=self.DicoCoefs

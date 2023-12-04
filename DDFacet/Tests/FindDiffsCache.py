@@ -54,7 +54,7 @@ def CheckDir(R0,R1):
                                 P=print
                             P("   %s: %e"%(k,diff))
                             
-                elif D0.dtype==np.bool:
+                elif D0.dtype==bool:
                     D0=np.float32(D0)
                     D1=np.float32(D1)
                     diff=np.abs(D0-D1).max()

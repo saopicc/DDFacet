@@ -115,7 +115,7 @@ def deconv(data, imp_resp, reg_val, reg=None, real=True):
     """
     if not reg:
         reg = udft.laplacian(data.ndim, data.shape)
-    if reg.dtype != np.complex:
+    if reg.dtype != complex:
         reg = udft.ir2tf(reg, data.shape)
 
     if imp_resp.shape != reg.shape:
@@ -212,7 +212,7 @@ def udeconv(data, imp_resp, reg=None, user_params={}):
 
     if not reg:
         reg = udft.laplacian(data.ndim, data.shape)
-    if reg.dtype != np.complex:
+    if reg.dtype != complex:
         reg = udft.ir2tf(reg, data.shape)
 
     if imp_resp.shape != reg.shape:

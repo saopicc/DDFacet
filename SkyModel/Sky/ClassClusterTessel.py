@@ -36,7 +36,7 @@ class ClassClusterTessel():
         x0,x1,y0,y1=np.min(x)-Dx,np.max(x)+Dx,np.min(y)-Dy,np.max(y)+Dy
         gx,gy=np.mgrid[x0:x1:Ncells*1j,y0:y1:Ncells*1j]
         
-        CatCell=np.zeros((gx.flatten().shape[0],),dtype=[("ToNumNode",np.int),("xcell",float),("ycell",float)])
+        CatCell=np.zeros((gx.flatten().shape[0],),dtype=[("ToNumNode",int),("xcell",float),("ycell",float)])
         CatCell=CatCell.view(np.recarray)
         CatCell.xcell=gx.reshape((NcellsSq,))
         CatCell.ycell=gy.reshape((NcellsSq,))
@@ -245,7 +245,7 @@ class ClassClusterTessel():
             x0,x1,y0,y1=extent
         gx,gy=np.mgrid[x0:x1:Ncells*1j,y0:y1:Ncells*1j]
         
-        CatCell=np.zeros((gx.flatten().shape[0],),dtype=[("ToNumNode",np.int),("xcell",float),("ycell",float)])
+        CatCell=np.zeros((gx.flatten().shape[0],),dtype=[("ToNumNode",int),("xcell",float),("ycell",float)])
         CatCell=CatCell.view(np.recarray)
         CatCell.xcell=gx.reshape((NcellsSq,))
         CatCell.ycell=gy.reshape((NcellsSq,))

@@ -222,7 +222,7 @@ def PackListArray(Name, LArray):
     for i in range(NArray):
         TotSize += LArray[i].size
 
-    Dim = SharedArray.create(DimName, 1+NArray+NDimTot, dtype=np.int)
+    Dim = SharedArray.create(DimName, 1+NArray+NDimTot, dtype=int)
     Dat = SharedArray.create(DatName, TotSize, dtype=dS)
     Dim[0] = NArray
     didx = 1

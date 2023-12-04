@@ -143,7 +143,7 @@ class ClassGMRTBeam():
     def GiveRawBeam(self,time,ra,dec):
         #self.LoadSR()
         nch=self.MS.ChanFreq.size
-        Beam=np.zeros((ra.shape[0],self.MS.na,self.MS.NSPWChan,2,2),dtype=np.complex)
+        Beam=np.zeros((ra.shape[0],self.MS.na,self.MS.NSPWChan,2,2),dtype=complex)
         rac,decc=self.MS.OriginalRadec
         d=AngDist(ra,dec,rac,decc)*180./np.pi*60
         

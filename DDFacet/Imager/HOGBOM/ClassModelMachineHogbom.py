@@ -455,10 +455,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         #pol,freq,decc1,rac1=im.toworld((0,0,1,0))
         dx=abs(im.coordinates().dict()["direction0"]["cdelt"][0])
 
-        SourceCat=np.zeros((X.shape[0],),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('Sref',np.float),('I',np.float),('Q',np.float),\
-                                           ('U',np.float),('V',np.float),('RefFreq',np.float),('alpha',np.float),('ESref',np.float),\
-                                           ('Ealpha',np.float),('kill',np.int),('Cluster',np.int),('Type',np.int),('Gmin',np.float),\
-                                           ('Gmaj',np.float),('Gangle',np.float),("Select",np.int),('l',np.float),('m',np.float),("Exclude",bool),
+        SourceCat=np.zeros((X.shape[0],),dtype=[('Name','|S200'),('ra',float),('dec',float),('Sref',float),('I',float),('Q',float),\
+                                           ('U',float),('V',float),('RefFreq',float),('alpha',float),('ESref',float),\
+                                           ('Ealpha',float),('kill',int),('Cluster',int),('Type',int),('Gmin',float),\
+                                           ('Gmaj',float),('Gangle',float),("Select",int),('l',float),('m',float),("Exclude",bool),
                                            ("X",np.int32),("Y",np.int32)])
         SourceCat=SourceCat.view(np.recarray)
 

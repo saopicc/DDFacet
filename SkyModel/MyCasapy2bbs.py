@@ -235,7 +235,7 @@ class MyCasapy2BBS():
 
         indx,indy=np.where(Model!=0.)
         NPix=indx.size
-        Cat=np.zeros((NPix,),dtype=[('ra',np.float),('dec',np.float),('s',np.float)])
+        Cat=np.zeros((NPix,),dtype=[('ra',float),('dec',float),('s',float)])
         Cat=Cat.view(np.recarray)
         X=[]
         Y=[]

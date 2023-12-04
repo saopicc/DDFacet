@@ -86,7 +86,7 @@ def SingleNumpyToShared(A):
         DicoType={"ctype":"d"}
     elif dtype==np.complex64:
         DicoType={"ctype":"f"}
-    elif dtype==np.bool:
+    elif dtype==bool:
         DicoType={"ctype":"i"}
     elif dtype==np.int32:
         DicoType={"ctype":"i"}

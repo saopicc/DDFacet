@@ -40,8 +40,8 @@ def rad2hmsdms(rad,Type="dec",deg=False):
 
     if np.sign(deg)==-1.: strsgn="-"
     deg=np.abs(deg)
-    degd=np.int(deg)
+    degd=int(deg)
     degms=(deg-degd)*60.
-    degm=np.int(degms)
+    degm=int(degms)
     degs=((degms-degm)*60)
     return "%s%2.2i %2.2i %06.3f"%(strsgn,degd,degm,degs)

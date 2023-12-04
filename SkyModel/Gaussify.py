@@ -141,7 +141,7 @@ def main(options=None):
     ylist=[]
     slist=[]
 
-    Cat=np.zeros((50000,),dtype=[('ra',np.float),('dec',np.float),('I',np.float),('Gmaj',np.float),('Gmin',np.float),('Gangle',np.float)])
+    Cat=np.zeros((50000,),dtype=[('ra',float),('dec',float),('I',float),('Gmaj',float),('Gmin',float),('Gangle',float)])
     Cat=Cat.view(np.recarray)
 
     isource=0
