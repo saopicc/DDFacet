@@ -203,6 +203,6 @@ setup(name=pkg,
           'moresane-support': ['pymoresane >= 0.3.0'],
           'testing-requirements': ['nose >= 1.3.7'],
           'fits-beam-support': ['meqtrees-cattery'],
-          'kms-support': ['bdsf > 1.8.15']
+          'kms-support': ['bdsf > 1.8.15,<=1.10.1']
       }
 )
