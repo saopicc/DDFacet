@@ -103,7 +103,7 @@ class ClassNenuBeam():
         ### convert time to astropy object with units of mjd for nenupy use
         time=Time(time/24./3600,format="mjd",scale="utc")
         ### create skycoord object of pointing direction: phase centre of MS
-        obs_coordinates=SkyCoord(self.MS.OriginalRadec[0],self.MS.OriginalRadec[1],unit="rad")
+        obs_coordinates=SkyCoord(self.MS.PointingRadec[0],self.MS.PointingRadec[1],unit="rad")
         obs_coords=FixedTarget(obs_coordinates)
         ### intrinsic dt of nenufar pointing: 6min. try to encode that somehow. Currently use 1s TODO
         pointing=Pointing.target_tracking(target=obs_coords,

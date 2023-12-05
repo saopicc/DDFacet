@@ -60,8 +60,10 @@ class ClassCoordConv():
             Rp=self.R+self.vl2*l+self.vm2*m-(1.-np.sqrt(1.-l**2-m**2))*self.vn2
             dec_list[i]=np.arcsin(Rp[2])
             ra_list[i]=np.arctan(Rp[1]/Rp[0])
-            if Rp[0]<0.: ra_list[i]+=np.pi
-    
+            if Rp[0]<0.:
+                ra_list[i]+=np.pi
+            if ra_list[i]<0:
+                ra_list[i]+=2*np.pi
         return ra_list,dec_list
 
     def radec2lm(self,ra,dec):

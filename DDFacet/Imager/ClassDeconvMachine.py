@@ -574,6 +574,7 @@ class ClassImagerDeconv():
                 # get loaded chunk from I/O thread, schedule next chunk
                 # self.VS.startChunkLoadInBackground()
                 DATA = self.VS.collectLoadedChunk(start_next=True)
+
                 if type(DATA) is str:
                     print(ModColor.Str("no more data: %s" % DATA, col="red"), file=log)
                     break
@@ -682,7 +683,18 @@ class ClassImagerDeconv():
                 # self.VS.startChunkLoadInBackground()
                 self.VS.collectPutColumnResults()
                 DATA = self.VS.collectLoadedChunk(start_next=True)
-
+                # try:
+                #     DATA["flags"].fill(0)
+                #     DATA["Weights"].fill(1)
+                # except:
+                #     pass
+                # u,v,w=DATA["uvw"].T
+                # ff=np.all(np.all(DATA["flags"],axis=-1),axis=-1)
+                # import pylab
+                # pylab.scatter(u[ff==0],v[ff==0],color="blue")
+                # pylab.scatter(u[ff==1],v[ff==1],color="red")
+                # pylab.show()
+                # stop
                 if type(DATA) is str:
                     print(ModColor.Str("no more data: %s"%DATA, col="red"), file=log)
                     break

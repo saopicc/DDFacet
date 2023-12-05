@@ -144,7 +144,7 @@ class ClassGMRTBeam():
         #self.LoadSR()
         nch=self.MS.ChanFreq.size
         Beam=np.zeros((ra.shape[0],self.MS.na,self.MS.NSPWChan,2,2),dtype=np.complex)
-        rac,decc=self.MS.OriginalRadec
+        rac,decc=self.MS.PointingRadec
         d=AngDist(ra,dec,rac,decc)*180./np.pi*60
         
         for ich in range(nch):

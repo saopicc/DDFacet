@@ -34,9 +34,10 @@ from DDFacet.Array import ModLinAlg
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Data import ClassLOFARBeam
 # comment out the below due to obnoxiousness of building Timba dependency. TODO fix
-#from DDFacet.Data import ClassFITSBeam
+from DDFacet.Data import ClassFITSBeam
 from DDFacet.Data import ClassGMRTBeam
 from DDFacet.Data import ClassATCABeam as ClassATCABeam
+from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 
 # import ClassSmoothJones is not used anywhere, should be able to remove it
 from DDFacet.Other import ClassGiveSolsFile
@@ -1117,7 +1118,8 @@ class ClassJones():
         
 
         
-        rac,decc=self.MS.OriginalRadec
+        rac,decc=self.MS.PointingRadec
+        
         pBAR= ProgressBar(Title="  Init E-Jones ")#, HeaderSize=10,TitleSize=13)
         if not progressBar: pBAR.disable()
         # pBAR.disable()
@@ -1132,13 +1134,27 @@ class ClassJones():
             #
             if self.GD["Beam"]["CenterNorm"]==1:
                 Beam0=self.GiveInstrumentBeam(ThisTime,np.array([rac]),np.array([decc]))
+                #print(rad2hmsdms(rac,Type="ra").replace(" ",":"),rad2hmsdms(decc,Type="dec").replace(" ","."))
+
                 Beam0inv= ModLinAlg.BatchInverse(Beam0)
+
                 nd,_,_,_,_=Beam.shape
                 Ones=np.ones((nd, 1, 1, 1, 1),np.float32)
                 Beam0inv=Beam0inv*Ones
                 BeamN= ModLinAlg.BatchDot(Beam0inv, Beam)
                 Beam=BeamN
 
+                
+            # import pylab
+            # pylab.clf()
+            # pylab.scatter(RA*180/np.pi,DEC*180/np.pi,c=np.abs(Beam[:,0,0,0,0]))
+            # ra0,dec0=self.MS.OriginalRadec
+            # pylab.scatter(ra0*180/np.pi,dec0*180/np.pi,color="blue",marker="s")
+            # pylab.scatter(rac*180/np.pi,decc*180/np.pi,color="red",marker="+")
+            # pylab.colorbar()
+            # pylab.draw()
+            # pylab.show()
+            # stop
             DicoBeam["Jones"][itime]=Beam
             NDone=itime+1
             pBAR.render(NDone,Tm.size)
