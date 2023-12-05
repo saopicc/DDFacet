@@ -136,7 +136,7 @@ def requirements():
     # this should avoid upstream breakage on released versions
     requirements = ["nose >= 1.3.7; python_version >= '3'", 
                     "Cython >= 0.25.2, <= 0.29.30; python_version >= '3'", 
-                    "numpy >= 1.15.1, <= 1.24.4; python_version >= '3'", 
+                    "numpy >= 1.15.1, <= 1.22.0; python_version >= '3'", 
                     "sharedarray >= 3.2.0, <= 3.2.1; python_version >= '3'", 
                     "Polygon3 >= 3.0.8, <= 3.0.9.1; python_version >= '3'", 
                     "pyFFTW >= 0.10.4, <= 0.12.0; python_version >= '3'", 
