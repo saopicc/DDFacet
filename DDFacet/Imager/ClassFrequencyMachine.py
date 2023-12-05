@@ -24,6 +24,7 @@ from __future__ import print_function
 
 from DDFacet.compatibility import range
 
+import pdb
 import numpy as np
 import warnings
 warnings.simplefilter('ignore', np.RankWarning)
@@ -52,9 +53,9 @@ class ClassFrequencyMachine(object):
 
     """
     def __init__(self, Freqs, Freqsp, ref_freq, GD=None, weights=None, PSFServer=None):
-        self.Freqs = np.asarray(Freqs)
+        self.Freqs = np.asarray(Freqs,dtype=np.float32)
         # Use the longer of the two frequency arrays
-        self.Freqsp = np.asarray(Freqsp)
+        self.Freqsp = np.asarray(Freqsp,dtype=np.float32)
         self.nchan = self.Freqs.size
         self.nchan_degrid = self.Freqsp.size
         self.ref_freq = ref_freq
@@ -87,7 +88,7 @@ class ClassFrequencyMachine(object):
         if self.nchan==1: #hack to deal with a single channel
             self.Fit = lambda vals, a, b: vals
             self.Eval = lambda vals: vals # this will just be the value in that channel
-            self.Eval_Degrid = lambda vals, Freqs: np.tile(vals, Freqs.size)
+            self.Eval_Degrid = lambda vals, Freqs: np.repeat(vals[0], Freqs.size)
             # Freqs unused here - nothing to be done but use the same model through
             # the entire passband. LB - Give SPI of -0.7 maybe?
         else:
@@ -301,6 +302,58 @@ class ClassFrequencyMachine(object):
         Wy = sqrtW * Iapp
         theta = pinv.dot(Wy)
         return theta
+
+    def FitLin(self, Iapp, JonesNorm, WeightsChansImages):
+        """
+        simple linear fitting between each adjacent channel pairs (for the gridding frequency, self.Freqs)
+        The output is a numpy array of linear fitting coeffciencies with a shape of (# of frequency pairs,2)
+        Hightest order first, following numpy polyfit
+        """
+        if self.Freqs.size == 1:
+            n_pairs = 1
+            coeffs = np.zeros((n_pairs, 2))
+            coeffs[0, 1] = Iapp[0]
+            coeffs[0, 0] = 0
+        else:
+            n_pairs = len(self.Freqs) - 1
+            coeffs = np.zeros((n_pairs, 2))
+            for i in range(n_pairs):
+                coeffs[i,:] = np.polyfit(self.Freqs[i:i+2], Iapp[i:i+2], deg=1, w = WeightsChansImages[i:i+2])
+        return coeffs
+
+    def EvalLin(self, coeffs, Freqsp):
+        """
+        calculate the flux at the given  frequencies Freqsp using the linear fitting coefficiencies from FitLin
+        """
+        if self.Freqs.size == 1:
+            if coeffs.size != 2:
+                raise RuntimeError("Fit coefficients must constant pair for single band data")
+            return coeffs[0, 1].reshape(1)
+        else:
+            if coeffs.size != 2 * (self.Freqs.size - 1):
+                raise RuntimeError("Fit coefficients must be pairs of the size or number of gridding bands - 1")
+            out_freq_array = np.array([Freqsp, np.ones(len(Freqsp))])
+            out_freq_array = out_freq_array.T
+
+            # first check if the given frequencies is the same as the gridding frequency self.Freqs
+            if np.array_equal(Freqsp, self.Freqs):
+                out_coeffs = np.concatenate((coeffs,np.array([coeffs[-1,:]])))
+                out_coeffs = out_coeffs.T
+            else:
+                #construct the frequency array of middle freqency between adjacent gridding frequency pairs 
+                if len(self.Freqs) >= 2:
+                    mid_grid_freq_array = np.array([np.mean(self.Freqs[i:i+2]) for i in range(len(self.Freqs)-1)])
+                else:
+                    mid_grid_freq_array = self.Freqs
+                
+                sel_coeffs = list(map(lambda gridfreq: np.argmin(np.abs(mid_grid_freq_array - gridfreq)), 
+                                    Freqsp))
+                out_coeffs = coeffs[sel_coeffs].reshape(coeffs[sel_coeffs].size//2, 2).T
+            
+            # freq array dotted with closest linear fit coefficients (Nfreq x 2 dot 2 x Nfreq)
+            out = np.dot(out_freq_array, out_coeffs)
+            
+            return np.diagonal(out)
 
     def EvalPoly(self, coeffs, Freqsp=None):
         """

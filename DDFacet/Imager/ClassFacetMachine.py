@@ -366,11 +366,6 @@ class ClassFacetMachine():
         _, NpixPaddedGrid_x = EstimateNpix(NpixFacet_x, Padding=Padding)
         _, NpixPaddedGrid_y = EstimateNpix(NpixFacet_y, Padding=Padding)
 
-        # if NpixPaddedGrid // NpixFacet > self.Padding and not getattr(self, '_warned_small_ffts', False):
-        #     print(ModColor.Str("WARNING: Your FFTs are too small. We will pad them by x%.2f "\
-        #                        "rather than x%.2f. Increase facet size and/or padding to get rid of this message." % (float(NpixPaddedGrid)/NpixFacet, Padding)),
-        #                        file=log)
-        #     self._warned_small_ffts = True
 
         diam_x = NpixFacet_x * self.CellSizeRad_x
         diamPadded_x = NpixPaddedGrid_x * self.CellSizeRad_x
@@ -480,7 +475,7 @@ class ClassFacetMachine():
                                    -lcenter_max:lcenter_max:self.GD["Facets"]["NFacets"] * 1j]
         lFacet = lFacet.flatten()
         mFacet = mFacet.flatten()
-        
+
         self.lmSols = lFacet, mFacet
 
         raSols, decSols = self.CoordMachine.lm2radec(lFacet.copy(), mFacet.copy())
@@ -571,146 +566,6 @@ class ClassFacetMachine():
         self.SetLogModeSubModules("Silent")
         self.MakeREG()
 
-
-    # #################################
-    # def setFacetsLocs(self):
-    #     """
-    #     Routine to split the image into a grid of squares.
-    #     This can be overridden to perform more complex tesselations
-    #     """
-    #     stop
-    #     Npix = self.GD["Image"]["NPix"]
-    #     self.NFacets = self.GD["Facets"]["NFacets"]**2
-    #     self.Padding = self.GD["Facets"]["Padding"]
-    #     self.NpixFacet, _ = EstimateNpix(float(Npix) / self.GD["Facets"]["NFacets"], Padding=1)
-    #     self.Npix = self.NpixFacet * self.GD["Facets"]["NFacets"]
-    #     Npix = self.Npix  # Just in case we use Npix instead of self.Npix
-    #     self.OutImShape = (self.nch, self.npol, self.Npix, self.Npix)
-    #     _, self.NpixPaddedGrid = EstimateNpix(self.NpixFacet, Padding=self.Padding)
-
-    #     self.NpixFacet = self.NpixFacet
-    #     self.FacetShape = (self.nch, self.npol, self.NpixFacet, self.NpixFacet)
-    #     self.PaddedGridShape = (self.nch, self.npol, self.NpixPaddedGrid, self.NpixPaddedGrid)
-
-    #     self.RadiusTot = self.CellSizeRad * self.Npix * 0.5
-
-    #     lMainCenter, mMainCenter = 0., 0.
-    #     self.lmMainCenter = lMainCenter, mMainCenter
-    #     self.CornersImageTot = np.array(
-    #                             [[lMainCenter - self.RadiusTot, mMainCenter - self.RadiusTot],
-    #                              [lMainCenter + self.RadiusTot, mMainCenter - self.RadiusTot],
-    #                              [lMainCenter + self.RadiusTot, mMainCenter + self.RadiusTot],
-    #                              [lMainCenter - self.RadiusTot, mMainCenter + self.RadiusTot]])
-
-    #     print("Sizes (%i x %i facets):" % (self.GD["Facets"]["NFacets"], self.GD["Facets"]["NFacets"]), file=log)
-    #     print("   - Main field :   [%i x %i] pix" % (self.Npix, self.Npix), file=log)
-    #     print("   - Each facet :   [%i x %i] pix" % (self.NpixFacet, self.NpixFacet), file=log)
-    #     print("   - Padded-facet : [%i x %i] pix" % (self.NpixPaddedGrid, self.NpixPaddedGrid), file=log)
-
-    #     ############################
-
-    #     # Set total extent of image
-    #     self.ImageExtent = [-self.RadiusTot, self.RadiusTot, -self.RadiusTot, self.RadiusTot]
-
-    #     # Set facet centers (coords)
-    #     self.RadiusFacet = self.NpixFacet * self.CellSizeRad * 0.5
-    #     lcenter_max = self.RadiusTot - self.RadiusFacet
-    #     lFacet, mFacet, = np.mgrid[-lcenter_max:lcenter_max:self.GD["Facets"]["NFacets"] * 1j,
-    #                                -lcenter_max:lcenter_max:self.GD["Facets"]["NFacets"] * 1j]
-    #     lFacet = lFacet.flatten()
-    #     mFacet = mFacet.flatten()
-
-    #     self.lmSols = lFacet, mFacet
-
-    #     raSols, decSols = self.CoordMachine.lm2radec(lFacet.copy(), mFacet.copy())
-    #     self.radecSols = raSols, decSols
-
-    #     # set coordinates of facet vertices
-    #     self.DicoImager = {}
-    #     if self.NFacets == 1:
-    #         self.DicoImager[0] = {}
-    #         self.DicoImager[0]["Polygon"] = self.CornersImageTot
-    #     else:
-    #         tmparray = np.zeros([4, 2])  # temp array to hold coordinates
-    #         for iFacet in range(self.NFacets):
-    #             self.DicoImager[iFacet] = {}
-
-    #             # since we are using regular tesselation
-    #             tmparray[0, 0] = lFacet[iFacet] + self.RadiusFacet
-    #             tmparray[0, 1] = mFacet[iFacet] - self.RadiusFacet
-    #             tmparray[1, 0] = lFacet[iFacet] - self.RadiusFacet
-    #             tmparray[1, 1] = mFacet[iFacet] - self.RadiusFacet
-    #             tmparray[2, 0] = lFacet[iFacet] - self.RadiusFacet
-    #             tmparray[2, 1] = mFacet[iFacet] + self.RadiusFacet
-    #             tmparray[3, 0] = lFacet[iFacet] + self.RadiusFacet
-    #             tmparray[3, 1] = mFacet[iFacet] + self.RadiusFacet
-
-    #             self.DicoImager[iFacet]["Polygon"] = tmparray.copy()
-
-    #     # get index of central facet (not necessarily NFacets//2)
-    #     distances = lFacet ** 2 + mFacet **2
-    #     self.iCentralFacet = np.argwhere(distances==distances.min()).squeeze()
-
-    #     NodesCat = np.zeros(
-    #         (raSols.size,),
-    #         dtype=[('ra', np.float),
-    #                ('dec', np.float),
-    #                ('l', np.float),
-    #                ('m', np.float)])
-    #     NodesCat = NodesCat.view(np.recarray)
-    #     NodesCat.ra = raSols
-    #     NodesCat.dec = decSols
-    #     # print>>log,"Facet RA %s"%raSols
-    #     # print>>log,"Facet Dec %s"%decSols
-    #     NodesCat.l = lFacet
-    #     NodesCat.m = mFacet
-
-    #     NJonesDir = NodesCat.shape[0]
-    #     self.JonesDirCat = np.zeros(
-    #         (NodesCat.shape[0],),
-    #         dtype=[('Name', '|S200'),
-    #                ('ra', np.float),
-    #                ('dec', np.float),
-    #                ('SumI', np.float),
-    #                ("Cluster", int),
-    #                ("l", np.float),
-    #                ("m", np.float),
-    #                ("I", np.float)])
-    #     self.JonesDirCat = self.JonesDirCat.view(np.recarray)
-    #     self.JonesDirCat.I = 1
-    #     self.JonesDirCat.SumI = 1
-
-    #     self.JonesDirCat.ra=NodesCat.ra
-    #     self.JonesDirCat.dec=NodesCat.dec
-    #     self.JonesDirCat.l=NodesCat.l
-    #     self.JonesDirCat.m=NodesCat.m
-    #     self.JonesDirCat.Cluster = range(NJonesDir)
-
-    #     print("Sizes (%i facets):" % (self.JonesDirCat.shape[0]), file=log)
-    #     print("   - Main field :   [%i x %i] pix" % (self.Npix, self.Npix), file=log)
-
-    #     for iFacet in range(lFacet.size):
-    #         l0 = lFacet[iFacet]
-    #         m0 = mFacet[iFacet]
-    #         self.AppendFacet(iFacet, l0, m0, self.NpixFacet * self.CellSizeRad)
-
-    #     # Write facet coords to file
-    #     FacetCoordFile = "%s.facetCoord.%stxt" % (self.GD["Output"]["Name"], "psf." if self.DoPSF else "")
-    #     print("Writing facet coordinates in %s" % FacetCoordFile, file=log)
-    #     f = open(FacetCoordFile, 'w')
-    #     ss = "# (Name, Type, Ra, Dec, I, Q, U, V, ReferenceFrequency='7.38000e+07', SpectralIndex='[]', MajorAxis, MinorAxis, Orientation) = format"
-    #     for iFacet in range(len(self.DicoImager)):
-    #         ra, dec = self.DicoImager[iFacet]["RaDec"]
-    #         sra = rad2hmsdms.rad2hmsdms(ra, Type="ra").replace(" ", ":")
-    #         sdec = rad2hmsdms.rad2hmsdms(dec).replace(" ", ".")
-    #         ss = "%s, %s, %f, %f" % (sra, sdec, ra, dec)
-    #         f.write(ss + '\n')
-    #     f.close()
-
-    #     self.SetLogModeSubModules("Silent")
-    #     self.MakeREG()
-    # ########################
-    
     def MakeREG(self):
         """
         Writes out ds9 tesselation region file
@@ -1129,14 +984,20 @@ class ClassFacetMachine():
         nch, npol, nx, ny = psf.shape
         PSFChannel = np.zeros((nch, npol, nx, ny), self.stitchedType)
         for ch in range(nch):
-            psf[ch][SPhe[0] < 1e-2] = 0
-            #print("!!!!!!!!!!!!!!!!!!!!!!!!!")
-            #psf[ch][0] = psf[ch][0].T[::-1, :]
-            SumJonesNorm = sumjonesnorm[ch]
-            # normalize to bring back transfer
-            # functions to approximate convolution
-            psf[ch] /= np.sqrt(SumJonesNorm)
             for pol in range(npol):
+                # FG: the below 2 lines doesn't work anymore for full polarizations
+                #psf[ch][SPhe[0] < 1e-2] = 0
+                #psf[ch][0] = psf[ch][0].T[::-1, :]
+                # try instead with
+                psf[ch][pol][SPhe[0][0] < 1e-2] = 0
+
+            
+                psf[ch][pol] = psf[ch][pol].T[::-1, :]
+                SumJonesNorm = sumjonesnorm[ch]
+                # normalize to bring back transfer
+                # functions to approximate convolution
+                psf[ch][pol] /= np.sqrt(SumJonesNorm)
+            
                 ThisSumWeights = sumweights[ch][pol]
                 # normalize the response per facet
                 # channel if jones corrections are enabled
@@ -1371,8 +1232,6 @@ class ClassFacetMachine():
             DicoImages["ChanMappingGrid"] = self.VS.DicoMSChanMapping
             DicoImages["ChanMappingGridChan"] = self.VS.DicoMSChanMappingChan
 
-            #DicoImages["Grids"] = self._facet_grids
-            
             DicoImages["ImageCube"] = self.FacetsToIm_Channel("PSF")
             if self.VS.MultiFreqMode:
                 DicoImages["MeanImage"] = np.sum(DicoImages["ImageCube"] * WBAND, axis=0).reshape((1, npol, Npix_x, Npix_y))
@@ -1568,19 +1427,6 @@ class ClassFacetMachine():
                         weights = ThisSumWeights[pol]*np.sqrt(ThisSumJones)
                         weights = np.where(weights, weights, 1.0)
                         # ...and the spatial weights
-                        
-                        # import pylab
-                        # pylab.clf()
-                        # pylab.subplot(1,3,1)
-                        # pylab.imshow(Im,interpolation="nearest")
-                        # pylab.subplot(1,3,2)
-                        # pylab.imshow(InvSPhe,interpolation="nearest")
-                        # pylab.subplot(1,3,3)
-                        # pylab.imshow(SpacialWeigth,interpolation="nearest")
-                        # pylab.draw()
-                        # pylab.show(block=False)
-                        # pylab.pause(0.1)
-                        # stop
                         numexpr.evaluate('Im*InvSPhe*SpacialWeigth/weights',out=Im,casting="unsafe")
                         Im[SPhe < 1e-3] = 0
                         # flip axis and extract facet

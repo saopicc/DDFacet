@@ -24,6 +24,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "degridder.h"
 #include <cstdint>
 
+#include <iostream>
+#include <vector>
+#include <string>
+
 namespace DDF {
   void pyAccumulateWeightsOntoGrid(py::array_t<double, py::array::c_style>& grid,
 				  const py::array_t<float, py::array::c_style>& weights,
@@ -113,7 +117,7 @@ namespace DDF {
 	throw std::invalid_argument("Only accepts I,Q,U,V as polarization output type");
       expstokes[i] = stokeslookup[polid];
       }
-    #define callgridder32(stokesgrid, nVisPol) \
+    #define callgridder(stokesgrid, nVisPol) \
       {\
             gridder::gridder<readcorr, mulaccum, stokesgrid, gridtype>(np_grid, vis, uvw, flags, weights, sumwt,\
                                                                        bool(dopsf), Lcfs, LcfsConj, WInfos, increment,\
@@ -128,15 +132,25 @@ namespace DDF {
       #define readcorr gridder::policies::Read_4Corr
       #define mulaccum gridder::policies::Mulaccum_4Corr
       if (expstokes==svec{"I"})
-	callgridder32(I_from_XXXYYXYY, 1)
+	callgridder(I_from_XXXYYXYY, 1)
+      else if (expstokes==svec{"Q"})
+	callgridder(Q_from_XXXYYXYY, 1)
+      else if (expstokes==svec{"U"})
+	callgridder(U_from_XXXYYXYY, 1)
+      else if (expstokes==svec{"V"})
+	callgridder(V_from_XXXYYXYY, 1)
       else if (expstokes==svec{"I", "Q"})
-	callgridder32(IQ_from_XXXYYXYY, 2)
+	callgridder(IQ_from_XXXYYXYY, 2)
+      else if (expstokes==svec{"I", "U"})
+	callgridder(IQ_from_XXXYYXYY, 2)
       else if (expstokes==svec{"I", "V"})
-	callgridder32(IV_from_XXXYYXYY, 2)
+	callgridder(IV_from_XXXYYXYY, 2)
       else if (expstokes==svec{"Q", "U"})
-	callgridder32(QU_from_XXXYYXYY, 2)
+	callgridder(QU_from_XXXYYXYY, 2)
+      else if (expstokes==svec{"I", "Q", "U"})
+	callgridder(IQU_from_XXXYYXYY, 3)
       else if (expstokes==svec{"I", "Q", "U", "V"})
-	callgridder32(IQUV_from_XXXYYXYY, 4)
+	callgridder(IQUV_from_XXXYYXYY, 4)
       #undef readcorr
       #undef mulaccum
       }
@@ -145,15 +159,19 @@ namespace DDF {
       #define readcorr gridder::policies::Read_4Corr
       #define mulaccum gridder::policies::Mulaccum_4Corr
       if (expstokes==svec{"I"})
-	callgridder32(I_from_RRRLLRLL, 1)
+	callgridder(I_from_RRRLLRLL, 1)
       else if (expstokes==svec{"I", "Q"})
-	callgridder32(IQ_from_RRRLLRLL, 2)
+	callgridder(IQ_from_RRRLLRLL, 2)
+      else if (expstokes==svec{"I", "U"})
+	callgridder(IU_from_RRRLLRLL, 2)
       else if (expstokes==svec{"I", "V"})
-	callgridder32(IV_from_RRRLLRLL, 2)
+	callgridder(IV_from_RRRLLRLL, 2)
       else if (expstokes==svec{"Q", "U"})
-	callgridder32(QU_from_RRRLLRLL, 2)
+	callgridder(QU_from_RRRLLRLL, 2)
+      else if (expstokes==svec{"I", "Q", "U"})
+	callgridder(IQU_from_RRRLLRLL, 3)
       else if (expstokes==svec{"I", "Q", "U", "V"})
-	callgridder32(IQUV_from_RRRLLRLL, 4)
+	callgridder(IQUV_from_RRRLLRLL, 4)
       #undef readcorr
       #undef mulaccum
       }
@@ -162,9 +180,9 @@ namespace DDF {
       #define readcorr gridder::policies::Read_2Corr_Pad
       #define mulaccum gridder::policies::Mulaccum_2Corr_Unpad
       if (expstokes==svec{"I"})
-	callgridder32(I_from_XXYY, 1)
+	callgridder(I_from_XXYY, 1)
       else if (expstokes==svec{"I", "Q"})
-	callgridder32(IQ_from_XXYY, 2)
+	callgridder(IQ_from_XXYY, 2)
       #undef readcorr
       #undef mulaccum
       }
@@ -173,9 +191,9 @@ namespace DDF {
       #define readcorr gridder::policies::Read_2Corr_Pad
       #define mulaccum gridder::policies::Mulaccum_2Corr_Unpad
       if (expstokes==svec{"I"})
-	callgridder32(I_from_RRLL, 1)
+	callgridder(I_from_RRLL, 1)
       else if (expstokes==svec{"I", "V"})
-	callgridder32(IV_from_RRLL, 2)
+	callgridder(IV_from_RRLL, 2)
       #undef readcorr
       #undef mulaccum
       }
@@ -184,7 +202,7 @@ namespace DDF {
       #define readcorr gridder::policies::Read_1Corr_Pad
       #define mulaccum gridder::policies::Mulaccum_1Corr_Unpad
       if (expstokes==svec{"I"})
-	callgridder32(I_from_I, 1)
+	callgridder(I_from_I, 1)
       #undef readcorr
       #undef mulaccum
       }
@@ -231,8 +249,6 @@ namespace DDF {
     for (size_t i=0; i<npol; ++i)
       {
       const uint16_t polid = LExpectedOutStokes.data(0)[i];
-      if (polid!=1)
-	throw std::invalid_argument("Only accepts I as polarization input type");
       expstokes[i] = stokeslookup[polid];
       }
     bool done=false;
@@ -242,6 +258,8 @@ namespace DDF {
       done=true;\
       }
     using namespace DDF::degridder::policies;
+
+      
     if (expstokes==svec{"I"})
       {
       if (inputcorr==svec{"XX", "XY", "YX", "YY"})
@@ -255,8 +273,79 @@ namespace DDF {
       else if (inputcorr==svec{"I"})
 	CALL_DEGRIDDER(gmode_corr_I_from_I, 1, 1)
       }
+    if (expstokes==svec{"Q"})
+      {
+      if (inputcorr==svec{"XX", "XY", "YX", "YY"})
+	CALL_DEGRIDDER(gmode_corr_XXXYYXYY_from_Q, 1, 4)
+      }
+    if (expstokes==svec{"U"})
+      {
+      if (inputcorr==svec{"XX", "XY", "YX", "YY"})
+	CALL_DEGRIDDER(gmode_corr_XXXYYXYY_from_U, 1, 4)
+      }
+    if (expstokes==svec{"V"})
+      {
+      if (inputcorr==svec{"XX", "XY", "YX", "YY"})
+	CALL_DEGRIDDER(gmode_corr_XXXYYXYY_from_V, 1, 4)
+      }
+      // below are new scripts by FG 20210610
+    if (expstokes==svec{"I","Q","U","V"})
+      {
+      if (inputcorr==svec{"XX", "XY", "YX", "YY"})
+        CALL_DEGRIDDER(gmode_corr_XXXYYXYY_from_IQUV, 4, 4)
+      else if (inputcorr==svec{"RR", "RL", "LR", "LL"})
+        CALL_DEGRIDDER(gmode_corr_RRRLLRLL_from_IQUV, 4, 4)
+      }
+      // BH 20220222 additional cases for cleaning dual polarized Q or V flux
+      // or cases where only Q or V is cleaned for calibrating I on linearly or circularly
+      // (respectively) flux
+    if (expstokes==svec{"I","Q"})
+      {
+      if (inputcorr==svec{"XX", "XY", "YX", "YY"})
+        CALL_DEGRIDDER(gmode_corr_XXXYYXYY_from_IQ, 2, 4)
+      else if (inputcorr==svec{"RR", "RL", "LR", "LL"})
+        CALL_DEGRIDDER(gmode_corr_RRRLLRLL_from_IQ, 2, 4)
+      else if (inputcorr==svec{"XX", "YY"})
+       CALL_DEGRIDDER(gmode_corr_XXYY_from_IQ, 2, 2)
+      }
+    if (expstokes==svec{"I","U"})
+      {
+      if (inputcorr==svec{"XX", "XY", "YX", "YY"})
+        CALL_DEGRIDDER(gmode_corr_XXXYYXYY_from_IU, 2, 4)
+      else if (inputcorr==svec{"RR", "RL", "LR", "LL"})
+        CALL_DEGRIDDER(gmode_corr_RRRLLRLL_from_IU, 2, 4)
+      //else if (inputcorr==svec{"XX", "YY"})
+      //  CALL_DEGRIDDER(gmode_corr_XXYY_from_IQ, 2, 2)
+      }
+    if (expstokes==svec{"I","V"})
+      {
+      if (inputcorr==svec{"RR", "RL", "LR", "LL"})
+        CALL_DEGRIDDER(gmode_corr_RRRLLRLL_from_IV, 2, 4)
+      else if (inputcorr==svec{"XX", "XY", "YX", "YY"})
+        CALL_DEGRIDDER(gmode_corr_XXXYYXYY_from_IV, 2, 4)
+      else if (inputcorr==svec{"RR", "LL"})
+       CALL_DEGRIDDER(gmode_corr_RRLL_from_IV, 2, 2)
+      }
+    if (expstokes==svec{"Q","U"})
+      {
+      if (inputcorr==svec{"XX", "XY", "YX", "YY"})
+        CALL_DEGRIDDER(gmode_corr_XXXYYXYY_from_QU, 2, 4)
+      //else if (inputcorr==svec{"XX", "YY"})
+      //  CALL_DEGRIDDER(gmode_corr_XXYY_from_IQ, 2, 2)
+      }
+    if (expstokes==svec{"I","Q","U"})
+      {
+      if (inputcorr==svec{"XX", "XY", "YX", "YY"})
+        CALL_DEGRIDDER(gmode_corr_XXXYYXYY_from_IQU, 3, 4)
+      else if (inputcorr==svec{"RR", "RL", "LR", "LL"})
+        CALL_DEGRIDDER(gmode_corr_RRRLLRLL_from_IQU, 3, 4)
+      //else if (inputcorr==svec{"XX", "YY"})
+      //  CALL_DEGRIDDER(gmode_corr_XXYY_from_IQ, 2, 2)
+      }
     if (!done)
+      {
       throw std::invalid_argument("Cannot convert input Stokes parameter to desired output correlations.");
+      }
     return np_vis;
   }
     #if PY_MAJOR_VERSION >= 3

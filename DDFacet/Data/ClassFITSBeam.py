@@ -51,16 +51,27 @@ for varname in "CATTERY_PATH","MEQTREES_CATTERY_PATH":
         sys.path.append(os.environ[varname])
         explicit_cattery = True
 
+cattery_import_failure = False
+
 if explicit_cattery:
-    import Siamese.OMS.Utils as Utils
-    import Siamese
-    import Siamese.OMS.InterpolatedBeams as InterpolatedBeams
-    print("explicit Cattery path set: using custom Siamese module from %s"%os.path.dirname(Siamese.__file__), file=log)
+    try:
+        import Siamese.OMS.Utils as Utils
+        import Siamese
+        import Siamese.OMS.InterpolatedBeams as InterpolatedBeams
+        print("explicit Cattery path set: using custom Siamese module from %s"%os.path.dirname(Siamese.__file__), file=log)
+    except ImportError:
+        cattery_import_failure = True
 else:
-    import Cattery.Siamese.OMS.Utils as Utils
-    import Cattery.Siamese as Siamese
-    import Cattery.Siamese.OMS.InterpolatedBeams as InterpolatedBeams
-    print("using standard Cattery.Siamese module from %s"%os.path.dirname(Siamese.__file__), file=log)
+    try:
+        import Cattery.Siamese.OMS.Utils as Utils
+        import Cattery.Siamese as Siamese
+        import Cattery.Siamese.OMS.InterpolatedBeams as InterpolatedBeams
+        print("using standard Cattery.Siamese module from %s"%os.path.dirname(Siamese.__file__), file=log)
+    except ImportError:
+        cattery_import_failure = True
+
+if cattery_import_failure:
+    print("WARNING! Failure to import Meqtrees Cattery. FITS-based primary beam correction disabled", file=log)
 
 # This a list of the Stokes enums (as defined in casacore header measures/Stokes.h)
 # These are referenced by the CORR_TYPE column of the MS POLARIZATION subtable.
@@ -303,6 +314,10 @@ class ClassFITSBeam (object):
 
 
     def __init__ (self, ms, opts):
+        if cattery_import_failure:
+            raise ImportError("The MeqTrees Cattery was not found in your path. Run installation with e.g. "
+                              "the optional extras specifier: 'pip install ddfacet[fits-beam-support]'. "
+                              "Brackets may need to be escaped depending on your shell of choice (e.g. with zsh)")
         self.ms = ms
         # filename is potentially a list (frequencies will be matched)
         self.beamsets = opts["FITSFile"]

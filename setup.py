@@ -33,7 +33,10 @@ import sys
 
 pkg='DDFacet'
 skymodel_pkg='SkyModel'
-__version__ = "0.6.0.0"
+__version__ = "0.7.2.0"
+# Bump when building for a new release version of Python
+MAJ_REQ = 3
+MIN_REQ = 8
 build_root=os.path.dirname(__file__)
 
 try:
@@ -41,6 +44,18 @@ try:
 except ImportError as e:
     raise ImportError("Pybind11 not installed. Please install C++ binding package pybind11 before running DDFacet install. "
                       "You should not see this message unless you are not running pip install (19.x) -- run pip install!")
+
+# it seems the deprecated python setup.py install does not check the
+# version numbers required by the package in the descriptor. Although this is
+# not an issue with pip install, this leads to issues with upstream
+# packages.
+if not (sys.version_info.major == MAJ_REQ and sys.version_info.minor == MIN_REQ):
+    print("Your Python version '{}' is not officially supported. This package "
+          "requires version {}".format(sys.version,
+                                       "{}.{}".format(MAJ_REQ,
+                                                      MIN_REQ)))
+    print("You should not be seeing this message unless you are not using pip "
+          "install to install this software. Please use pip install")
 
 def backend(compile_options):
     if compile_options is not None:
@@ -117,6 +132,8 @@ def readme():
         return f.read()
 
 def requirements():
+    # Only upgrade these when testing with a new release version
+    # this should avoid upstream breakage on released versions
     requirements = ["nose >= 1.3.7; python_version >= '3'", 
                     "Cython >= 0.25.2, <= 0.29.30; python_version >= '3'", 
                     "numpy >= 1.15.1, <= 1.19.5; python_version >= '3'", 
@@ -148,7 +165,7 @@ def requirements():
                     "regions <=0.5",
                     "pywavelets <=1.1.1",
                     "tqdm<=4.64.0"
-                    ]
+                    ] 
     install_requirements = requirements
 
     return install_requirements
@@ -174,7 +191,7 @@ setup(name=pkg,
                 'build': custom_build,
                 'build_ext': custom_build_ext
                },
-      python_requires='>=3.0,<3.10',
+      python_requires='>=3.0,<{}'.format("{}.{}".format(MAJ_REQ, MIN_REQ+1)),
       packages=[pkg, skymodel_pkg],
       install_requires=requirements(),
       include_package_data=True,
@@ -186,6 +203,6 @@ setup(name=pkg,
           'moresane-support': ['pymoresane >= 0.3.0'],
           'testing-requirements': ['nose >= 1.3.7'],
           'fits-beam-support': ['meqtrees-cattery'],
-          'kms-support': ['bdsf > 1.8.15']
+          'kms-support': ['bdsf > 1.8.15,<=1.10.1']
       }
 )
