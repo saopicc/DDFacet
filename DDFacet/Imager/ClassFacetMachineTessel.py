@@ -283,8 +283,22 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         if (self.GD["Facets"]["CatNodes"] is not None) and (SolsFile is not None):
             log.print(ModColor.Str("Both --Facets-CatNodes and --DDESolutions-DDSols are specified which might have different clusterings..."))
 
+        VM = ModVoronoiToReg.VoronoiToReg(*self.MainRaDec)
+        xc=[]
+        yc=[]
+        Label=[]
+        
+        xc=np.array([ms.PointingRadec[0] for ms in self.VS.ListMS])
+        yc=np.array([ms.PointingRadec[1] for ms in self.VS.ListMS])
+        
+        Label=["MS_%i"%i for i in range(len(xc))]
             
-                
+        regFile = "%s.PointingCenter.reg" % self.GD["Output"]["Name"]
+        VM.PointsToReg(regFile,xc,yc,
+                       radius=0.1,
+                       Col="blue",
+                       Label=Label)
+        
 #        if "CatNodes" in self.GD.keys():
         regular_grid = False
         if self.GD["Facets"]["CatNodes"] is not None:
