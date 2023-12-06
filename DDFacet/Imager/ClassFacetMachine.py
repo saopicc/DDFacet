@@ -1988,9 +1988,11 @@ class ClassFacetMachine():
         """
         # reload shared dicts
         GridMachine = self._createGridMachine(iFacet, cf_dict=cf_dict)
-        Grid = griddict[iFacet]
-        # note that this FFTs in-place
-        GridMachine.GridToIm(Grid)
+        if iFacet in list(griddict.keys()):
+            Grid = griddict[iFacet]
+            # note that this FFTs in-place
+            GridMachine.GridToIm(Grid)
+            
         return {"iFacet": iFacet}
 
     def fourierTransformInBackground(self):
