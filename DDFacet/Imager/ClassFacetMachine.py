@@ -1286,6 +1286,7 @@ class ClassFacetMachine():
             self.DicoImager[iFacet]["SumJonesNorm"] = np.zeros(self.VS.NFreqBands, np.float64)
 
             for Channel in range(self.VS.NFreqBands):
+                
                 ThisSumSqWeights = self.DicoImager[iFacet]["SumJones"][1][Channel]
                 if ThisSumSqWeights == 0:
                     ThisSumSqWeights = 1.
@@ -1720,20 +1721,19 @@ class ClassFacetMachine():
             # init or zero grid array
             grid = self._facet_grids.get(iFacet)
             if grid is None:
-                # ##
-                # if mean-Jones is not high engough, grid/degrid will be skipped anyway,
-                # so do not create the grids
-                if self.DicoSumJonesNorm_FacetLabel is not None:
-                    ThisDicoSumJonesNorm=self.DicoSumJonesNorm_FacetLabel[iFacet]
-                    FacetWillHaveData=np.any([(ThisDicoSumJonesNorm[label]>self.GD["Facets"]["SkipTh"]) for label in ThisDicoSumJonesNorm.keys()])
-                    
-                    if not FacetWillHaveData:
-                        # print("KDFIJTRGIJTRGITRGJGJIIJIJ")
-                        # print("KDFIJTRGIJTRGITRGJGJIIJIJ")
-                        # print("KDFIJTRGIJTRGITRGJGJIIJIJ")
-                        # print("KDFIJTRGIJTRGITRGJGJIIJIJ")
-                        continue
-                # ##
+                # # ##
+                # # if mean-Jones is not high engough, grid/degrid will be skipped anyway,
+                # # so do not create the grids
+                # if self.DicoSumJonesNorm_FacetLabel is not None:
+                #     ThisDicoSumJonesNorm=self.DicoSumJonesNorm_FacetLabel[iFacet]
+                #     FacetWillHaveData=np.any([(ThisDicoSumJonesNorm[label]>self.GD["Facets"]["SkipTh"]) for label in ThisDicoSumJonesNorm.keys()])
+                #     if not FacetWillHaveData:
+                #         # print("KDFIJTRGIJTRGITRGJGJIIJIJ")
+                #         # print("KDFIJTRGIJTRGITRGJGJIIJIJ")
+                #         # print("KDFIJTRGIJTRGITRGJGJIIJIJ")
+                #         # print("KDFIJTRGIJTRGITRGJGJIIJIJ")
+                #         continue
+                # # ##
                 grid = self._facet_grids.addSharedArray(iFacet, (self.VS.NFreqBands, self.npol, NX, NY), self.CType)
             else:
                 grid.fill(0)
