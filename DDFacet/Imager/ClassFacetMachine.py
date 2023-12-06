@@ -1850,6 +1850,7 @@ class ClassFacetMachine():
         self._grid_iMS, self._grid_iChunk = DATA["iMS"], DATA["iChunk"]
         self._grid_job_label = DATA["label"]
         self._grid_job_id = "%s.Grid.%s:" % (self._app_id, self._grid_job_label)
+        self.NGridJobs=0
         for iFacet in self.DicoImager.keys():
             label=DATA["label"]
             # if the Jones term is too small, skip
@@ -1859,7 +1860,8 @@ class ClassFacetMachine():
             APP.runJob("%sF%d" % (self._grid_job_id, iFacet), self._grid_worker,
                             args=(iFacet, DATA.readonly(), self._CF[iFacet].readonly(),
                                   self._facet_grids.readonly()))#,serial=True)
-
+            self.NGridJobs+=1
+            
     # ##############################################
     # ##### Smooth beam ############################
     def _SmoothAverageBeam_worker(self, DATA, iDir):
@@ -1945,6 +1947,8 @@ class ClassFacetMachine():
             return
         # collect results of grid workers
 
+        if self.NGridJobs==0:
+            return
         results = APP.awaitJobResults(self._grid_job_id+"*",progress=
                             ("Grid PSF %s" if self.DoPSF else "Grid %s") % self._grid_job_label)
         
