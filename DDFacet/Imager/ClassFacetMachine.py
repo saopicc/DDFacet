@@ -1854,6 +1854,7 @@ class ClassFacetMachine():
             label=DATA["label"]
             # if the Jones term is too small, skip
             if self.DicoSumJonesNorm_FacetLabel and self.DicoSumJonesNorm_FacetLabel[iFacet][label] < self.GD["Facets"]["SkipTh"]:
+                log.print("[P%s@F%i] Skipping beam power = %.2f"%(label,iFacet,self.DicoSumJonesNorm_FacetLabel[iFacet][label]))
                 continue
             APP.runJob("%sF%d" % (self._grid_job_id, iFacet), self._grid_worker,
                             args=(iFacet, DATA.readonly(), self._CF[iFacet].readonly(),
@@ -1943,6 +1944,7 @@ class ClassFacetMachine():
         if self._grid_job_id is None:
             return
         # collect results of grid workers
+
         results = APP.awaitJobResults(self._grid_job_id+"*",progress=
                             ("Grid PSF %s" if self.DoPSF else "Grid %s") % self._grid_job_label)
         
@@ -2224,14 +2226,16 @@ class ClassFacetMachine():
 
         self._degrid_job_label = DATA["label"]
         self._degrid_job_id = "%s.Degrid.%s:" % (self._app_id, self._degrid_job_label)
-
+        self.NDegridJobs=0
         for iFacet in self.DicoImager.keys():
             label=DATA["label"]
             if self.DicoSumJonesNorm_FacetLabel and self.DicoSumJonesNorm_FacetLabel[iFacet][label] < self.GD["Facets"]["SkipTh"]:
+                log.print("[P%s@F%i] Skipping beam power = %.2f"%(label,iFacet,self.DicoSumJonesNorm_FacetLabel[iFacet][label]))
                 continue
             APP.runJob("%sF%d" % (self._degrid_job_id, iFacet), self._degrid_worker,
                             args=(iFacet, DATA.readonly(), self._CF[iFacet].readonly(),
                                   ChanSel, self._model_dict.readonly()))#,serial=True)
+            self.NDegridJobs+=1
         #APP.awaitJobResults(self._degrid_job_id + "*", progress="Degrid %s" % self._degrid_job_label)
 
 
@@ -2244,7 +2248,8 @@ class ClassFacetMachine():
         if self._degrid_job_id is None:
             return
         # collect results of degrid workers
-        APP.awaitJobResults(self._degrid_job_id + "*", progress="Degrid %s" % self._degrid_job_label)
+        if self.NDegridJobs>0:
+            APP.awaitJobResults(self._degrid_job_id + "*", progress="Degrid %s" % self._degrid_job_label)
         self._degrid_job_id = None
         return True
 
