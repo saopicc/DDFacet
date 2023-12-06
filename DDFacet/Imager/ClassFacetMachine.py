@@ -116,9 +116,12 @@ class ClassFacetMachine():
             APP.registerJobHandlers(self)
             self._fft_job_counter = APP.createJobCounter("fft")
             self._app_id = ("FMPSF" if DoPSF else "FM") if custom_id is None else custom_id
-
+        
         DicoConfigGM = {}
         self.DicoConfigGM = DicoConfigGM
+        
+        self.DicoSumJones = {}      # to store compute SumJones per facet per label
+        self.DicoSumJonesNorm=None  # to store compute normed SumJones per facet per label
         self.DoPSF = DoPSF
         # self.MDC.setFreqs(ChanFreq)
         self.CasaImage = None
@@ -347,6 +350,7 @@ class ClassFacetMachine():
         diam_y *= self.Oversize
         DicoConfigGM = None
         lmShift = (l0, m0)
+        self.DicoSumJones[iFacet]={}
         self.DicoImager[iFacet]["lmShift"] = lmShift
         # CellRad=(Cell/3600.)*np.pi/180.
 
@@ -1224,8 +1228,31 @@ class ClassFacetMachine():
         DicoImages["WeightChansImages"] = DicoImages["SumWeights"] / np.sum(DicoImages["SumWeights"])
 
         # compute sum of Jones terms per facet and channel
+        self.DicoSumJonesNorm={}
         for iFacet in self.DicoImager.keys():
             self.DicoImager[iFacet]["SumJonesNorm"] = np.zeros(self.VS.NFreqBands, np.float64)
+            ##ThisSumSqWeights = self.DicoImager[iFacet]["SumJones"][1][Channel]
+            #if ThisSumSqWeights == 0:
+            #    ThisSumSqWeights = 1.
+            #ThisSumJones = self.DicoImager[iFacet]["SumJones"][0][Channel] / ThisSumSqWeights
+
+            self.DicoSumJonesNorm[iFacet]={}
+            ThisDicoSumJones=self.DicoSumJones[iFacet]
+            for ThisLabel in ThisDicoSumJones.keys():
+                ThisSumJones=ThisDicoSumJones[ThisLabel]
+                ThisSumSqWeights = ThisSumJones[1][:]
+                ThisSumSqWeights[ThisSumSqWeights==0]=1
+                ThisSumJones = ThisSumJones[0][:] / ThisSumSqWeights
+                
+                self.DicoSumJonesNorm[iFacet][ThisLabel]=np.max(ThisSumJones)
+
+            LLabels=list(self.DicoSumJonesNorm[iFacet].keys())
+            BB=np.array([self.DicoSumJonesNorm[iFacet][ThisLabel] for ThisLabel in LLabels])
+            BBs=np.sum(BB)
+            if BBs==1: continue
+            for ThisLabel in LLabels:
+                self.DicoSumJonesNorm[iFacet][ThisLabel]/=BBs
+                
             for Channel in range(self.VS.NFreqBands):
                 ThisSumSqWeights = self.DicoImager[iFacet]["SumJones"][1][Channel]
                 if ThisSumSqWeights == 0:
@@ -1234,6 +1261,8 @@ class ClassFacetMachine():
                 if ThisSumJones == 0:
                     ThisSumJones = 1.
                 self.DicoImager[iFacet]["SumJonesNorm"][Channel] = ThisSumJones
+
+                
 
         # build facet-normalization image
         self.BuildFacetNormImage()
@@ -1659,6 +1688,20 @@ class ClassFacetMachine():
             # init or zero grid array
             grid = self._facet_grids.get(iFacet)
             if grid is None:
+                # ##
+                # if mean-Jones is not high engough, grid/degrid will be skipped anyway,
+                # so do not create the grids
+                if self.DicoSumJonesNorm is not None:
+                    ThisDicoSumJonesNorm=self.DicoSumJonesNorm[iFacet]
+                    FacetWillHaveData=np.any([(ThisDicoSumJonesNorm[label]>self.GD["Facets"]["SkipTh"]) for label in ThisDicoSumJonesNorm.keys()])
+                    
+                    if not FacetWillHaveData:
+                        # print("KDFIJTRGIJTRGITRGJGJIIJIJ")
+                        # print("KDFIJTRGIJTRGITRGJGJIIJIJ")
+                        # print("KDFIJTRGIJTRGITRGJGJIIJIJ")
+                        # print("KDFIJTRGIJTRGITRGJGJIIJIJ")
+                        continue
+                # ##
                 grid = self._facet_grids.addSharedArray(iFacet, (self.VS.NFreqBands, self.npol, NX, NY), self.CType)
             else:
                 grid.fill(0)
@@ -1758,7 +1801,7 @@ class ClassFacetMachine():
         SumJonesChan = GridMachine.SumJonesChan.copy()
         
 
-        return {"iFacet": iFacet, "Weights": Sw, "SumJones": SumJones, "SumJonesChan": SumJonesChan}
+        return {"iFacet": iFacet, "Weights": Sw, "SumJones": SumJones, "SumJonesChan": SumJonesChan,"label":DATA["label"]}
 
     def gridChunkInBackground(self, DATA):
         """
@@ -1776,6 +1819,10 @@ class ClassFacetMachine():
         self._grid_job_label = DATA["label"]
         self._grid_job_id = "%s.Grid.%s:" % (self._app_id, self._grid_job_label)
         for iFacet in self.DicoImager.keys():
+            label=DATA["label"]
+            # if the Jones term is too small, skip
+            if self.DicoSumJonesNorm and self.DicoSumJonesNorm[iFacet][label] < self.GD["Facets"]["SkipTh"]:
+                continue
             APP.runJob("%sF%d" % (self._grid_job_id, iFacet), self._grid_worker,
                             args=(iFacet, DATA.readonly(), self._CF[iFacet].readonly(),
                                   self._facet_grids.readonly()))#,serial=True)
@@ -1875,6 +1922,8 @@ class ClassFacetMachine():
             self.DicoImager[iFacet]["SumWeights"] += DicoResult["Weights"]
             self.DicoImager[iFacet]["SumJones"] += DicoResult["SumJones"]
             self.DicoImager[iFacet]["SumJonesChan"][self._grid_iMS] += DicoResult["SumJonesChan"]
+            self.DicoSumJones[iFacet][DicoResult["label"]]=DicoResult["SumJones"]
+
         self._grid_job_id = None
 
         if self.AverageBeamMachine is not None and \
@@ -2140,6 +2189,9 @@ class ClassFacetMachine():
         self._degrid_job_id = "%s.Degrid.%s:" % (self._app_id, self._degrid_job_label)
 
         for iFacet in self.DicoImager.keys():
+            label=DATA["label"]
+            if self.DicoSumJonesNorm and self.DicoSumJonesNorm[iFacet][label] < self.GD["Facets"]["SkipTh"]:
+                continue
             APP.runJob("%sF%d" % (self._degrid_job_id, iFacet), self._degrid_worker,
                             args=(iFacet, DATA.readonly(), self._CF[iFacet].readonly(),
                                   ChanSel, self._model_dict.readonly()))#,serial=True)

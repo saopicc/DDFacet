@@ -683,6 +683,7 @@ class ClassImagerDeconv():
                 # self.VS.startChunkLoadInBackground()
                 self.VS.collectPutColumnResults()
                 DATA = self.VS.collectLoadedChunk(start_next=True)
+                
                 # try:
                 #     DATA["flags"].fill(0)
                 #     DATA["Weights"].fill(1)
