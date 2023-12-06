@@ -380,7 +380,7 @@ class ClassImageDeconvMachine():
         diverged_count = 0
         stalled = False
         scale_stall_count = {}
-        scales_stalled = np.zeros(self.ModelMachine.ScaleMachine.Nscales, dtype=np.bool)
+        scales_stalled = np.zeros(self.ModelMachine.ScaleMachine.Nscales, dtype=bool)
         # reset retired scales at the start of each major cycle
         self.ModelMachine.ScaleMachine.retired_scales = []
         for scale in self.ModelMachine.ScaleMachine.forbidden_scales:

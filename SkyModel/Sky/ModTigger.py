@@ -6,10 +6,10 @@ def ReadTiggerModel(infile,header=["name", "ra_d", "dec_d", "i", "emaj_d", "emin
     
 
 
-    Cat=np.zeros((1000,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('Sref',np.float),('I',np.float),('Q',np.float),\
-                                ('U',np.float),('V',np.float),('RefFreq',np.float),('alpha',np.float),('ESref',np.float),\
-                                ('Ealpha',np.float),('kill',np.int),('Cluster',np.int),('Type',np.int),('Gmin',np.float),\
-                                ('Gmaj',np.float),('Gangle',np.float)])
+    Cat=np.zeros((1000,),dtype=[('Name','|S200'),('ra',float),('dec',float),('Sref',float),('I',float),('Q',float),\
+                                ('U',float),('V',float),('RefFreq',float),('alpha',float),('ESref',float),\
+                                ('Ealpha',float),('kill',int),('Cluster',int),('Type',int),('Gmin',float),\
+                                ('Gmaj',float),('Gangle',float)])
     Cat=Cat.view(np.recarray)
     Cat.RefFreq=1.
 
@@ -23,7 +23,7 @@ def ReadTiggerModel(infile,header=["name", "ra_d", "dec_d", "i", "emaj_d", "emin
         L=Lin.replace("\n","").split(" ")
 
         ok=0
-        donekey=np.zeros((len(F),),dtype=np.bool)
+        donekey=np.zeros((len(F),),dtype=bool)
         #print L
         for i in range(len(L)):
             if L[0][0]=="#": break

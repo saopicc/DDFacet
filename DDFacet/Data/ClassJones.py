@@ -346,13 +346,13 @@ class ClassJones():
                     self.ClusterCatBeam = np.zeros(
                         (NDir,),
                         dtype=[('Name', '|S200'),
-                               ('ra', np.float),
-                               ('dec', np.float),
-                               ('SumI', np.float),
+                               ('ra', float),
+                               ('dec', float),
+                               ('SumI', float),
                                ("Cluster", int),
-                               ("l", np.float),
-                               ("m", np.float),
-                               ("I", np.float)])
+                               ("l", float),
+                               ("m", float),
+                               ("I", float)])
                     self.ClusterCatBeam = self.ClusterCatBeam.view(np.recarray)
                     self.ClusterCatBeam.I = self.DicoClusterDirs_kMS["I"]
                     self.ClusterCatBeam.SumI = self.DicoClusterDirs_kMS["I"]
@@ -363,13 +363,13 @@ class ClassJones():
                 self.ClusterCatBeam = np.zeros(
                     (1,),
                     dtype=[('Name', '|S200'),
-                           ('ra', np.float),
-                           ('dec', np.float),
-                           ('SumI', np.float),
+                           ('ra', float),
+                           ('dec', float),
+                           ('SumI', float),
                            ("Cluster", int),
-                           ("l", np.float),
-                           ("m", np.float),
-                           ("I", np.float)])
+                           ("l", float),
+                           ("m", float),
+                           ("I", float)])
                 self.ClusterCatBeam = self.ClusterCatBeam.view(np.recarray)
                 self.ClusterCatBeam.I = 1
                 self.ClusterCatBeam.SumI = 1
@@ -719,9 +719,9 @@ class ClassJones():
         DicoClusterDirs["Cluster"] = np.arange(lm.shape[0])
 
         ClusterCat = np.zeros((lm.shape[0],), dtype=[('Name', '|S200'),
-                                                     ('ra', np.float), ('dec', np.float),
-                                                     ('l', np.float), ('m', np.float),
-                                                     ('SumI', np.float), ("Cluster", int)])
+                                                     ('ra', float), ('dec', float),
+                                                     ('l', float), ('m', float),
+                                                     ('SumI', float), ("Cluster", int)])
         ClusterCat = ClusterCat.view(np.recarray)
         ClusterCat.l = lm[:, 0]
         ClusterCat.m = lm[:, 1]

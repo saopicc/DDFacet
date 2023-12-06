@@ -308,7 +308,7 @@ class DataDictionaryManager(object):
         # fast varying
         self._sort_index = np.lexsort(np.array((time, antenna1, antenna2))[::-1])
 
-        tfilter = np.zeros(time[self._sort_index].shape, dtype=np.bool)
+        tfilter = np.zeros(time[self._sort_index].shape, dtype=bool)
         tfilter[1:] = time[self._sort_index][1:] != time[self._sort_index][:-1]
         self._tindx = np.cumsum(tfilter)
         self._ntime = self._tindx[-1] + 1
@@ -333,7 +333,7 @@ class DataDictionaryManager(object):
                              "trying to predict.")
         
         # construct a mask to indicate values sparse matrix
-        self._datamask = np.zeros((self._ntime, self._nbl), dtype=np.bool)
+        self._datamask = np.zeros((self._ntime, self._nbl), dtype=bool)
         self._datamask[self._tindx, self._blindx] = True
         self._datamask = self._datamask.reshape((self._nrow))
         print("Padding data matrix for missing baselines (%.2f %% data missing from MS)" % \

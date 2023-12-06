@@ -156,7 +156,7 @@ class ClassScaleMachine(object):
         if self.GD["WSCMS"]["AutoMask"]:
             self.AppendMaskComponents = True  # set to false once masking kicks in
             for iScale in range(self.Nscales):
-                self.ScaleMaskArray[str(iScale)] = np.ones((1, 1, self.Npix, self.Npix), dtype=np.bool)
+                self.ScaleMaskArray[str(iScale)] = np.ones((1, 1, self.Npix, self.Npix), dtype=bool)
         else:
             self.AppendMaskComponents = False
 

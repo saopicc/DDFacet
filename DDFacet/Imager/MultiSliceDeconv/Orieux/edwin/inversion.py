@@ -355,7 +355,7 @@ def usual_umse(hessian_proj, forward, transpose, init, size, data, reg=None, pre
     """
     if reg is None:
         reg, _ = udft.laplacian(data.ndim, data.shape)
-    if reg.dtype != np.complex:
+    if reg.dtype != complex:
         reg = udft.ir2tf(reg, data.shape)
 
     proper_reg = reg.copy()

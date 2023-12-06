@@ -22,6 +22,12 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+
+
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning) 
+
+
 from pyrap.tables  import table
 
 from DDFacet.compatibility import range
@@ -387,7 +393,7 @@ def main(OP=None, messages=[]):
     #             img, col="yellow")
 
 if __name__ == "__main__":
-    warnings.filterwarnings("default", category=DeprecationWarning)
+    #warnings.filterwarnings("default", category=DeprecationWarning)
     #os.system('clear')
     #logo.print_logo()
 
@@ -403,12 +409,12 @@ if __name__ == "__main__":
     args = OP.GiveArguments()
     
     DicoConfig = OP.DicoConfig
-    if DicoConfig["Misc"]["IgnoreDeprecationMarking"]:
-        warnings.filterwarnings("always", category=DeprecationWarning, module=r"DDFacet[.\w]*|__main__|SkyModel[.\w]*")
-        warnings.filterwarnings("always", category=DeprecationWarning, module=r"DDFacet[.\w]*|__main__|SkyModel[.\w]*")
-    else:
-        warnings.filterwarnings("error", category=DeprecationWarning, module=r"DDFacet[.\w]*|__main__|SkyModel[.\w]*")
-        warnings.filterwarnings("error", category=DeprecationWarning, module=r"DDFacet[.\w]*|__main__|SkyModel[.\w]*")
+    #if DicoConfig["Misc"]["IgnoreDeprecationMarking"]:
+    #    warnings.filterwarnings("always", category=DeprecationWarning, module=r"DDFacet[.\w]*|__main__|SkyModel[.\w]*")
+    #    warnings.filterwarnings("always", category=DeprecationWarning, module=r"DDFacet[.\w]*|__main__|SkyModel[.\w]*")
+    #else:
+    #    warnings.filterwarnings("error", category=DeprecationWarning, module=r"DDFacet[.\w]*|__main__|SkyModel[.\w]*")
+    #    warnings.filterwarnings("error", category=DeprecationWarning, module=r"DDFacet[.\w]*|__main__|SkyModel[.\w]*")
     if six.PY2:
         warnings.warn("Python 2 has reached end of life and is no longer supported. "
                     "You can continue running the software in Python 2 (along with other deprecated modes) by setting "

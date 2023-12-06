@@ -43,10 +43,10 @@ def ReadBBSModelNew(infile,infile_cluster=""):
 
     print(F)
 
-    Cat=np.zeros((10000,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('Sref',np.float),('I',np.float),('Q',np.float),\
-                                 ('U',np.float),('V',np.float),('RefFreq',np.float),('alpha',np.float),('ESref',np.float),\
-                                 ('Ealpha',np.float),('kill',np.int),('Cluster',np.int),('Type',np.int),('Gmin',np.float),\
-                                 ('Gmaj',np.float),('Gangle',np.float),("Select",np.int),('l',np.float),('m',np.float),("Exclude",bool)])
+    Cat=np.zeros((10000,),dtype=[('Name','|S200'),('ra',float),('dec',float),('Sref',float),('I',float),('Q',float),\
+                                 ('U',float),('V',float),('RefFreq',float),('alpha',float),('ESref',float),\
+                                 ('Ealpha',float),('kill',int),('Cluster',int),('Type',int),('Gmin',float),\
+                                 ('Gmaj',float),('Gangle',float),("Select",int),('l',float),('m',float),("Exclude",bool)])
     Cat=Cat.view(np.recarray)
     Cat.Select=1
     Cat.Exclude=0
@@ -74,7 +74,7 @@ def ReadBBSModelNew(infile,infile_cluster=""):
             break
 
         ok=0
-        donekey=np.zeros((len(F),),dtype=np.bool)
+        donekey=np.zeros((len(F),),dtype=bool)
         #print L
         for i in range(len(L)):
             if len(L[0])==0: break
@@ -170,7 +170,7 @@ def ReadBBSModelNew(infile,infile_cluster=""):
                 continue
 
 
-#Gmin',np.float),('Gmaj',np.float),('Gangle
+#Gmin',float),('Gmaj',float),('Gangle
 #MajorAxis, MinorAxis, Orientation
 
         if (len(L)==0): continue
@@ -267,10 +267,10 @@ def ReadBBSModelOld(infile,infile_cluster=""):
     #    F[i]=F[i].lower().replace(" ","")
         
 
-    Cat=np.zeros((10000,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('Sref',np.float),('I',np.float),('Q',np.float),\
-                                 ('U',np.float),('V',np.float),('RefFreq',np.float),('alpha',np.float),('ESref',np.float),\
-                                 ('Ealpha',np.float),('kill',np.int),('Cluster',np.int),('Type',np.int),('Gmin',np.float),\
-                                 ('Gmaj',np.float),('Gangle',np.float),("Select",np.int),('l',np.float),('m',np.float),("Exclude",bool)])
+    Cat=np.zeros((10000,),dtype=[('Name','|S200'),('ra',float),('dec',float),('Sref',float),('I',float),('Q',float),\
+                                 ('U',float),('V',float),('RefFreq',float),('alpha',float),('ESref',float),\
+                                 ('Ealpha',float),('kill',int),('Cluster',int),('Type',int),('Gmin',float),\
+                                 ('Gmaj',float),('Gangle',float),("Select",int),('l',float),('m',float),("Exclude",bool)])
     Cat=Cat.view(np.recarray)
     Cat.Select=1
     Cat.Exclude=0
@@ -298,7 +298,7 @@ def ReadBBSModelOld(infile,infile_cluster=""):
             break
 
         ok=0
-        donekey=np.zeros((len(F),),dtype=np.bool)
+        donekey=np.zeros((len(F),),dtype=bool)
         #print L
         for i in range(len(L)):
             if L[0][0]=="#": break
@@ -392,7 +392,7 @@ def ReadBBSModelOld(infile,infile_cluster=""):
                 continue
 
 
-#Gmin',np.float),('Gmaj',np.float),('Gangle
+#Gmin',float),('Gmaj',float),('Gangle
 #MajorAxis, MinorAxis, Orientation
 
         if (len(L)==0): continue
