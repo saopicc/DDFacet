@@ -64,6 +64,7 @@ from scipy.spatial import Voronoi
 from SkyModel.Sky import ModVoronoi
 import Polygon
 from DDFacet.ToolsDir import rad2hmsdms
+from DDFacet.Other import MyPickle
 
 class ClassFacetMachine():
     """
@@ -119,9 +120,10 @@ class ClassFacetMachine():
         
         DicoConfigGM = {}
         self.DicoConfigGM = DicoConfigGM
+
         
-        self.DicoSumJones = {}      # to store compute SumJones per facet per label
-        self.DicoSumJonesNorm=None  # to store compute normed SumJones per facet per label
+        self.DicoSumJones_FacetLabel=None # to store compute normed SumJones per facet per label
+        self.DicoSumJonesNorm_FacetLabel=None  # to store compute normed SumJones per facet per label
         self.DoPSF = DoPSF
         # self.MDC.setFreqs(ChanFreq)
         self.CasaImage = None
@@ -350,7 +352,8 @@ class ClassFacetMachine():
         diam_y *= self.Oversize
         DicoConfigGM = None
         lmShift = (l0, m0)
-        self.DicoSumJones[iFacet]={}
+
+        #self.DicoSumJones_FacetLabel[iFacet]={}
         self.DicoImager[iFacet]["lmShift"] = lmShift
         # CellRad=(Cell/3600.)*np.pi/180.
 
@@ -887,6 +890,7 @@ class ClassFacetMachine():
 
 
     def initCFInBackground (self, other_fm=None):
+        self.setDicoSumJonesNorm()
         # if we have another FacetMachine supplied, check if the same CFs apply
         if other_fm and self.Oversize == other_fm.Oversize:
             self._CF = other_fm._CF
@@ -1175,6 +1179,54 @@ class ClassFacetMachine():
         fmr[:] = np.sum(ThisDirty * WBAND, axis=0).reshape((1, npol, npix_x, npix_y))
         fmr /= cf_dict[iFacet]["Sphe"]
 
+
+    def setDicoSumJonesNorm(self):
+        # Need this to know when a facet has to power from a given MS/Chunk
+        if self.DicoSumJonesNorm_FacetLabel is not None:
+            return
+        CacheName="DicoSumJonesNorm_FacetLabel.pickle"
+        saveFile, valid = self.VS.maincache.checkCache("%s"%CacheName, 
+                                                       dict(VisData=self.GD["Data"], 
+                                                            Beam=self.GD["Beam"], 
+                                                            Facets=self.GD["Facets"],
+                                                            DataSelection=self.GD["Selection"],
+                                                            DDESolutions=self.GD["DDESolutions"],
+                                                            ImagerMainFacet=self.GD["Image"]))
+        if valid:
+            log.print("Reading %s from cache"%saveFile)
+            self.DicoSumJonesNorm_FacetLabel=MyPickle.Load(saveFile)
+            return
+        
+        if self.DicoSumJones_FacetLabel is None:
+            return
+        
+        
+        self.DicoSumJonesNorm_FacetLabel={}
+        for iFacet in self.DicoImager.keys():
+            DicoSumJonesNorm_label={}
+            ThisDicoSumJones=self.DicoSumJones_FacetLabel[iFacet]
+            for ThisLabel in ThisDicoSumJones.keys():
+                ThisSumJones=ThisDicoSumJones[ThisLabel]
+                ThisSumSqWeights = ThisSumJones[1][:]
+                ThisSumSqWeights[ThisSumSqWeights==0]=1
+                ThisSumJones = ThisSumJones[0][:] / ThisSumSqWeights
+                
+                DicoSumJonesNorm_label[ThisLabel]=np.max(ThisSumJones)
+
+            LLabels=list(DicoSumJonesNorm_label.keys())
+            BB=np.array([DicoSumJonesNorm_label[ThisLabel] for ThisLabel in LLabels])
+            BBs=np.sum(BB)
+            if BBs==1: continue
+            for ThisLabel in LLabels:
+                DicoSumJonesNorm_label[ThisLabel]/=BBs
+            self.DicoSumJonesNorm_FacetLabel[iFacet]=DicoSumJonesNorm_label
+            
+        MyPickle.Save(self.DicoSumJonesNorm_FacetLabel, "%s"%saveFile)
+        self.VS.maincache.saveCache(CacheName)
+            
+            
+
+        
     def FacetsToIm(self, NormJones=False):
         """
         Fourier transforms the individual facet grids and then
@@ -1228,31 +1280,11 @@ class ClassFacetMachine():
         DicoImages["WeightChansImages"] = DicoImages["SumWeights"] / np.sum(DicoImages["SumWeights"])
 
         # compute sum of Jones terms per facet and channel
-        self.DicoSumJonesNorm={}
+        self.setDicoSumJonesNorm()
+        
         for iFacet in self.DicoImager.keys():
             self.DicoImager[iFacet]["SumJonesNorm"] = np.zeros(self.VS.NFreqBands, np.float64)
-            ##ThisSumSqWeights = self.DicoImager[iFacet]["SumJones"][1][Channel]
-            #if ThisSumSqWeights == 0:
-            #    ThisSumSqWeights = 1.
-            #ThisSumJones = self.DicoImager[iFacet]["SumJones"][0][Channel] / ThisSumSqWeights
 
-            self.DicoSumJonesNorm[iFacet]={}
-            ThisDicoSumJones=self.DicoSumJones[iFacet]
-            for ThisLabel in ThisDicoSumJones.keys():
-                ThisSumJones=ThisDicoSumJones[ThisLabel]
-                ThisSumSqWeights = ThisSumJones[1][:]
-                ThisSumSqWeights[ThisSumSqWeights==0]=1
-                ThisSumJones = ThisSumJones[0][:] / ThisSumSqWeights
-                
-                self.DicoSumJonesNorm[iFacet][ThisLabel]=np.max(ThisSumJones)
-
-            LLabels=list(self.DicoSumJonesNorm[iFacet].keys())
-            BB=np.array([self.DicoSumJonesNorm[iFacet][ThisLabel] for ThisLabel in LLabels])
-            BBs=np.sum(BB)
-            if BBs==1: continue
-            for ThisLabel in LLabels:
-                self.DicoSumJonesNorm[iFacet][ThisLabel]/=BBs
-                
             for Channel in range(self.VS.NFreqBands):
                 ThisSumSqWeights = self.DicoImager[iFacet]["SumJones"][1][Channel]
                 if ThisSumSqWeights == 0:
@@ -1691,8 +1723,8 @@ class ClassFacetMachine():
                 # ##
                 # if mean-Jones is not high engough, grid/degrid will be skipped anyway,
                 # so do not create the grids
-                if self.DicoSumJonesNorm is not None:
-                    ThisDicoSumJonesNorm=self.DicoSumJonesNorm[iFacet]
+                if self.DicoSumJonesNorm_FacetLabel is not None:
+                    ThisDicoSumJonesNorm=self.DicoSumJonesNorm_FacetLabel[iFacet]
                     FacetWillHaveData=np.any([(ThisDicoSumJonesNorm[label]>self.GD["Facets"]["SkipTh"]) for label in ThisDicoSumJonesNorm.keys()])
                     
                     if not FacetWillHaveData:
@@ -1821,7 +1853,7 @@ class ClassFacetMachine():
         for iFacet in self.DicoImager.keys():
             label=DATA["label"]
             # if the Jones term is too small, skip
-            if self.DicoSumJonesNorm and self.DicoSumJonesNorm[iFacet][label] < self.GD["Facets"]["SkipTh"]:
+            if self.DicoSumJonesNorm_FacetLabel and self.DicoSumJonesNorm_FacetLabel[iFacet][label] < self.GD["Facets"]["SkipTh"]:
                 continue
             APP.runJob("%sF%d" % (self._grid_job_id, iFacet), self._grid_worker,
                             args=(iFacet, DATA.readonly(), self._CF[iFacet].readonly(),
@@ -1913,7 +1945,9 @@ class ClassFacetMachine():
         # collect results of grid workers
         results = APP.awaitJobResults(self._grid_job_id+"*",progress=
                             ("Grid PSF %s" if self.DoPSF else "Grid %s") % self._grid_job_label)
-
+        
+        if self.DicoSumJones_FacetLabel is None:
+            self.DicoSumJones_FacetLabel={}
         for DicoResult in results:
             # if we hit a returned exception, raise it again
             if isinstance(DicoResult, Exception):
@@ -1922,7 +1956,10 @@ class ClassFacetMachine():
             self.DicoImager[iFacet]["SumWeights"] += DicoResult["Weights"]
             self.DicoImager[iFacet]["SumJones"] += DicoResult["SumJones"]
             self.DicoImager[iFacet]["SumJonesChan"][self._grid_iMS] += DicoResult["SumJonesChan"]
-            self.DicoSumJones[iFacet][DicoResult["label"]]=DicoResult["SumJones"]
+            
+            if self.DicoSumJones_FacetLabel.get(iFacet,None) is None:
+                self.DicoSumJones_FacetLabel[iFacet]={}
+            self.DicoSumJones_FacetLabel[iFacet][DicoResult["label"]]=DicoResult["SumJones"]
 
         self._grid_job_id = None
 
@@ -2190,7 +2227,7 @@ class ClassFacetMachine():
 
         for iFacet in self.DicoImager.keys():
             label=DATA["label"]
-            if self.DicoSumJonesNorm and self.DicoSumJonesNorm[iFacet][label] < self.GD["Facets"]["SkipTh"]:
+            if self.DicoSumJonesNorm_FacetLabel and self.DicoSumJonesNorm_FacetLabel[iFacet][label] < self.GD["Facets"]["SkipTh"]:
                 continue
             APP.runJob("%sF%d" % (self._degrid_job_id, iFacet), self._degrid_worker,
                             args=(iFacet, DATA.readonly(), self._CF[iFacet].readonly(),
