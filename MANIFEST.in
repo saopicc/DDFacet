@@ -18,6 +18,7 @@ recursive-include SkyModel/Other *.py
 recursive-include SkyModel/PSourceExtract *.py
 recursive-include SkyModel/Sky *.py
 recursive-include SkyModel/Tools *.py
+recursive-include SkyModel/Mask *.py
 include SkyModel/*.py
 include DDFacet/*.py
 
