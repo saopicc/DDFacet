@@ -1188,6 +1188,9 @@ class ClassFacetMachine():
         G=np.array([self.DicoSumJonesNorm_FacetLabel[iFacet][label] for label in LLabel])
         if np.all(G<self.GD["Facets"]["SkipTh"]):
             log.print(ModColor.Str("None of the pointings contributing to facet #%i are above SkipTh"%iFacet))
+            #iGMax=np.argmax(G)
+            #labelMax=LLabel[iGMax]
+            #return (label==labelMax)
             return False
         return self.DicoSumJonesNorm_FacetLabel[iFacet][label]<self.GD["Facets"]["SkipTh"]
         
@@ -1229,9 +1232,9 @@ class ClassFacetMachine():
             LLabels=list(DicoSumJonesNorm_label.keys())
             BB=np.array([DicoSumJonesNorm_label[ThisLabel] for ThisLabel in LLabels])
             BBs=np.sum(BB)
-            if BBs==1: continue
-            for ThisLabel in LLabels:
-                DicoSumJonesNorm_label[ThisLabel]/=BBs
+            # if BBs==1: continue
+            # for ThisLabel in LLabels:
+            #     DicoSumJonesNorm_label[ThisLabel]/=BBs
             self.DicoSumJonesNorm_FacetLabel[iFacet]=DicoSumJonesNorm_label
             
         MyPickle.Save(self.DicoSumJonesNorm_FacetLabel, "%s"%saveFile)
