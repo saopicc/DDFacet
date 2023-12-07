@@ -147,7 +147,7 @@ class ClassWeighting():
                     continue
                 print("  %d.%d reading %s UVW" % (iMS + 1, iChunk + 1, ms.MSName), file=log)
                 uvw = tab.getcol("UVW", row0, nrows)
-                flags = np.empty((nrows, len(ms.ChanFreq), len(ms.CorrelationIds)), np.bool)
+                flags = np.empty((nrows, len(ms.ChanFreq), len(ms.CorrelationIds)), bool)
                 # print>>log,(ms.cs_tlc,ms.cs_brc,ms.cs_inc,flags.shape)
                 print("  reading FLAG" % ms.MSName, file=log)
                 tab.getcolslicenp("FLAG", flags, ms.cs_tlc, ms.cs_brc, ms.cs_inc, row0, nrows)

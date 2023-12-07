@@ -373,7 +373,7 @@ class ClassMS():
 
     # def GiveBeam(self,time,ra,dec):
     #     self.LoadSR()
-    #     Beam=np.zeros((ra.shape[0],self.na,self.NSPWChan,2,2),dtype=np.complex)
+    #     Beam=np.zeros((ra.shape[0],self.na,self.NSPWChan,2,2),dtype=complex)
     #     for i in range(ra.shape[0]):
     #         self.SR.setDirection(ra[i],dec[i])
     #         Beam[i]=self.SR.evaluate(time)
@@ -464,7 +464,7 @@ class ClassMS():
     #         row1=self.nbl
     #     A0=self.A0[row0:row1]
     #     A1=self.A1[row0:row1]
-    #     MapOut=np.ones((self.nbl,),dtype=np.bool)
+    #     MapOut=np.ones((self.nbl,),dtype=bool)
     #     if FlagAutoCorr:
     #         ind=np.where(A0==A1)[0]
     #         MapOut[ind]=False

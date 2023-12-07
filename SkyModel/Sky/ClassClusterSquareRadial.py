@@ -52,7 +52,7 @@ class ClassClusterSquareRadial():
 
         nreg=self.NCluster-1
         th=np.linspace(0.,2.*np.pi,nreg+1)-np.pi
-        Cluster=np.zeros((x.size,),np.int)
+        Cluster=np.zeros((x.size,),int)
         
         for j in range(th.size-1):
             th0,th1=th[j],th[j+1]

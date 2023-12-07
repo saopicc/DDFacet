@@ -34,7 +34,7 @@ D={"A":"a",
 
 def giveStrDiffObj(D0,D1):
     if isinstance(D0,np.ndarray):
-        if D0.dtype==np.bool:
+        if D0.dtype==bool:
             D0=np.float32(D0)
             D1=np.float32(D1)
             diff=np.abs(D0-D1).max()

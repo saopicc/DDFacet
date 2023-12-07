@@ -140,7 +140,7 @@ class ClassLOFARBeamEB():
 
     def GiveRawBeam(self,time,ra,dec):
         #self.LoadSR()
-        Beam=np.zeros((ra.shape[0],self.MS.na,self.MS.NSPWChan,2,2),dtype=np.complex)
+        Beam=np.zeros((ra.shape[0],self.MS.na,self.MS.NSPWChan,2,2),dtype=complex)
         for i in range(ra.shape[0]):
             for iAnt in range(self.MS.na):
                 for freq in self.MS.ChanFreq.flatten():
@@ -223,7 +223,7 @@ class ClassLOFARBeam():
 
     def GiveRawBeam(self,time,ra,dec):
         #self.LoadSR()
-        Beam=np.zeros((ra.shape[0],self.MS.na,self.MS.NSPWChan,2,2),dtype=np.complex)
+        Beam=np.zeros((ra.shape[0],self.MS.na,self.MS.NSPWChan,2,2),dtype=complex)
         for i in range(ra.shape[0]):
             self.SR.setDirection(ra[i],dec[i])
             Beam[i]=self.SR.evaluate(time)

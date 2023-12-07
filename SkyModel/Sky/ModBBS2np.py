@@ -75,7 +75,7 @@ def ReadBBSModelNew(infile,infile_cluster="",nSources=1000,PatchName=None):
             break
 
         ok=0
-        donekey=np.zeros((len(F),),dtype=np.bool)
+        donekey=np.zeros((len(F),),dtype=bool)
         #print L
         for i in range(len(L)):
             if len(L[0])==0: break
@@ -178,7 +178,7 @@ def ReadBBSModelNew(infile,infile_cluster="",nSources=1000,PatchName=None):
                 continue
 
 
-#Gmin',np.float),('Gmaj',np.float),('Gangle
+#Gmin',float),('Gmaj',float),('Gangle
 #MajorAxis, MinorAxis, Orientation
 
         if (len(L)==0): continue
@@ -308,7 +308,7 @@ def ReadBBSModelOld(infile,infile_cluster="",nSources=10000,PatchName=None):
             break
 
         ok=0
-        donekey=np.zeros((len(F),),dtype=np.bool)
+        donekey=np.zeros((len(F),),dtype=bool)
         #print L
         for i in range(len(L)):
             if L[0].startswith("#"): break
@@ -426,7 +426,7 @@ def ReadBBSModelOld(infile,infile_cluster="",nSources=10000,PatchName=None):
                 continue
 
 
-#Gmin',np.float),('Gmaj',np.float),('Gangle
+#Gmin',float),('Gmaj',float),('Gangle
 #MajorAxis, MinorAxis, Orientation
 
         if (len(L)==0): continue

@@ -378,7 +378,7 @@ def init2():
     a[5,6]=1
         #a[1,2]=1
     l=[]
-    A=np.zeros((a.shape),dtype=np.float)
+    A=np.zeros((a.shape),dtype=float)
     A[a]=10
     print(A)
     FindAllIslands(A,1.)

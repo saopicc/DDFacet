@@ -285,7 +285,7 @@ class ClusterImage():
         xc,yc=self.xcyc
         nNodes=xc.size
 
-        ClusterCat=np.zeros((xc.size,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),("Cluster",int)])
+        ClusterCat=np.zeros((xc.size,),dtype=[('Name','|S200'),('ra',float),('dec',float),('SumI',float),("Cluster",int)])
         ClusterCat=ClusterCat.view(np.recarray)
 
         for iDir in range(nNodes):

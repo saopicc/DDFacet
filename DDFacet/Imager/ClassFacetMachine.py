@@ -509,10 +509,10 @@ class ClassFacetMachine():
 
         NodesCat = np.zeros(
             (raSols.size,),
-            dtype=[('ra', np.float),
-                   ('dec', np.float),
-                   ('l', np.float),
-                   ('m', np.float)])
+            dtype=[('ra', float),
+                   ('dec', float),
+                   ('l', float),
+                   ('m', float)])
         NodesCat = NodesCat.view(np.recarray)
         NodesCat.ra = raSols
         NodesCat.dec = decSols
@@ -525,13 +525,13 @@ class ClassFacetMachine():
         self.JonesDirCat = np.zeros(
             (NodesCat.shape[0],),
             dtype=[('Name', '|S200'),
-                   ('ra', np.float),
-                   ('dec', np.float),
-                   ('SumI', np.float),
+                   ('ra', float),
+                   ('dec', float),
+                   ('SumI', float),
                    ("Cluster", int),
-                   ("l", np.float),
-                   ("m", np.float),
-                   ("I", np.float)])
+                   ("l", float),
+                   ("m", float),
+                   ("I", float)])
         self.JonesDirCat = self.JonesDirCat.view(np.recarray)
         self.JonesDirCat.I = 1
         self.JonesDirCat.SumI = 1

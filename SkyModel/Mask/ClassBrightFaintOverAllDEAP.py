@@ -131,7 +131,7 @@ class ClassBrightFaintOverAllDEAP():
         MaskBright=np.zeros((nx,nx),np.float32)
         MaskFaint=np.zeros((nx,nx),np.float32)
         
-        ClusterCat=np.zeros((NDir,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),("Cluster",int)])
+        ClusterCat=np.zeros((NDir,),dtype=[('Name','|S200'),('ra',float),('dec',float),('SumI',float),("Cluster",int)])
         ClusterCat=ClusterCat.view(np.recarray)
 
         xc=np.zeros((len(ListIslands),),np.float64)
