@@ -1174,11 +1174,24 @@ class ClassFacetMachine():
         SumJonesNorm = np.sqrt(SumJonesNorm)
         if np.max(SumJonesNorm) > 0.:
             ThisW = ThisW * SumJonesNorm.reshape((self.VS.NFreqBands, 1, 1, 1))
+            
         ThisDirty = np.where(ThisW > 0, dirty.real / ThisW, dirty.real)
         fmr = fmr_dict.addSharedArray(iFacet, (1, npol, npix_x, npix_y), ThisDirty.dtype)
         fmr[:] = np.sum(ThisDirty * WBAND, axis=0).reshape((1, npol, npix_x, npix_y))
         fmr /= cf_dict[iFacet]["Sphe"]
 
+    def skipGridDegrid(self,iFacet,label):
+        if self.DicoSumJonesNorm_FacetLabel is None:
+            return False
+
+        LLabel=sorted(list(self.DicoSumJonesNorm_FacetLabel[iFacet].keys()))
+        G=np.array([self.DicoSumJonesNorm_FacetLabel[iFacet][label] for label in LLabel])
+        if np.all(G<self.GD["Facets"]["SkipTh"]):
+            log.print(ModColor.Str("None of the pointings contributing to facet #%i are above SkipTh"%iFacet))
+            return False
+        return self.DicoSumJonesNorm_FacetLabel[iFacet][label]<self.GD["Facets"]["SkipTh"]
+        
+            
 
     def setDicoSumJonesNorm(self):
         # Need this to know when a facet has to power from a given MS/Chunk
@@ -1854,7 +1867,7 @@ class ClassFacetMachine():
         for iFacet in self.DicoImager.keys():
             label=DATA["label"]
             # if the Jones term is too small, skip
-            if self.DicoSumJonesNorm_FacetLabel and self.DicoSumJonesNorm_FacetLabel[iFacet][label] < self.GD["Facets"]["SkipTh"]:
+            if self.skipGridDegrid(iFacet,label):
                 log.print("[P%s@F%i] Skipping beam power = %.2f"%(label,iFacet,self.DicoSumJonesNorm_FacetLabel[iFacet][label]))
                 continue
             APP.runJob("%sF%d" % (self._grid_job_id, iFacet), self._grid_worker,
@@ -2235,7 +2248,7 @@ class ClassFacetMachine():
         self.NDegridJobs=0
         for iFacet in self.DicoImager.keys():
             label=DATA["label"]
-            if self.DicoSumJonesNorm_FacetLabel and self.DicoSumJonesNorm_FacetLabel[iFacet][label] < self.GD["Facets"]["SkipTh"]:
+            if self.skipGridDegrid(iFacet,label):
                 log.print("[P%s@F%i] Skipping beam power = %.2f"%(label,iFacet,self.DicoSumJonesNorm_FacetLabel[iFacet][label]))
                 continue
             APP.runJob("%sF%d" % (self._degrid_job_id, iFacet), self._degrid_worker,
