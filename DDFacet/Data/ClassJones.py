@@ -171,8 +171,7 @@ class ClassJones():
                                                                                      DataSelection=self.GD["Selection"],
                                                                                      ImagerMainFacet=self.GD["Image"],
                                                                                      Facets=self.GD["Facets"],
-                                                                                     PhaseCenterRADEC=self.GD["Image"]["PhaseCenterRADEC"]),
-                                                                                reset=(self.GD["Cache"]["Jones"].lower()=="reset"))
+                                                                                     PhaseCenterRADEC=self.GD["Image"]["PhaseCenterRADEC"]))
             if valid:
                 print("  using cached Jones matrices from %s" % self.JonesNormSolsFile_killMS, file=log)
                 DicoSols, TimeMapping, DicoClusterDirs = self.DiskToSols(self.JonesNormSolsFile_killMS)
@@ -346,11 +345,6 @@ class ClassJones():
                     DicoClusterDirs["dec"] = self.ClusterCatBeam.dec
                     DicoClusterDirs["I"] = self.ClusterCatBeam.I
                     DicoClusterDirs["Cluster"] = self.ClusterCatBeam.Cluster
-                    # VM = ModVoronoiToReg.VoronoiToReg(self.MS.rac, self.MS.decc)
-                    # VM.PointsToReg("FacetDirCat.reg",DicoClusterDirs["ra"],DicoClusterDirs["dec"],Col="red")
-                    # VM.PointsToReg("JonesDirCat.reg",self.FacetMachine.JonesDirCat["ra"],self.FacetMachine.JonesDirCat["dec"],Col="blue")
-                    # VM.PointsToReg("DicoClusterDirs_kMS.reg",self.DicoClusterDirs_kMS["ra"],self.DicoClusterDirs_kMS["dec"],Col="green")
-                    # stop
                 else:
                     print("  Getting beam Jones directions from DDE solution tessels", file=log)
                     DicoClusterDirs = self.DicoClusterDirs_kMS
@@ -557,6 +551,7 @@ class ClassJones():
         return DicoClusterDirs, DicoJones
 
     def ReadNPZ(self,SolsFile):
+        print("  Loading solution file %s" % (SolsFile), file=log)
 
         self.ApplyCal = True
         DicoSolsFile = np.load(SolsFile,allow_pickle=1)
@@ -1069,16 +1064,6 @@ class ClassJones():
         #     print rad2hmsdms(ra,Type="ra").replace(" ",":"),rad2hmsdms(dec,Type="dec").replace(" ",".")
 
         DicoBeam = self.EstimateBeam(beam_times, RAs, DECs)
-        # print("BBBBBB",DicoBeam["Jones"].flat[0])
-        # print("BBBBBB",DicoBeam["Jones"].flat[0])
-        # print("BBBBBB",DicoBeam["Jones"].flat[0])
-        # beam_times1=np.array([5146.26037562, 5146.26067562])*1e6
-        # RAs1=np.array([3.12856748])
-        # DECs1=np.array([0.20224818])
-        # iDir=0
-        # DJ=self.EstimateBeam(beam_times1[0:2], RAs1[iDir:iDir+1], DECs1[iDir:iDir+1], progressBar=False, quiet=True)
-        # print("AAAAAA",beam_times1[0:2]/1e6, RAs1[iDir:iDir+1], DECs1[iDir:iDir+1],DJ["Jones"].flat[0])
-        # stop
         return DicoBeam
 
     def GiveVisToJonesChanMapping(self, FreqDomains):

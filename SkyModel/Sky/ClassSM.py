@@ -208,7 +208,6 @@ class ClassSM():
 
 
         self.SetSelection()
-
         if self.DoPrint: self.PrintBasics()
 
 
