@@ -318,11 +318,6 @@ class ClassImageDeconvMachine():
                 continue_deconvolution[pol_task_id] = True # continue if stop flag has already been raised
 
             PeakMap = None
-            # FG 20220620:
-
-
-        self.RMS=RMS
-
             nchan,npol,_,_=self._Dirty.shape
             
 

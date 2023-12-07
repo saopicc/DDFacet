@@ -33,8 +33,7 @@ import os
 from DDFacet.Array import ModLinAlg
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Data import ClassLOFARBeam
-# comment out the below due to obnoxiousness of building Timba dependency. TODO fix
-#from DDFacet.Data import ClassFITSBeam
+from DDFacet.Data import ClassFITSBeam
 from DDFacet.Data import ClassGMRTBeam
 from DDFacet.Data import ClassATCABeam as ClassATCABeam
 

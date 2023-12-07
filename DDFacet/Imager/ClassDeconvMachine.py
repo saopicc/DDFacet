@@ -423,7 +423,9 @@ class ClassImagerDeconv():
         return cachepath, valid, writecache
 
     def _checkForCachedDirty (self, sparsify, key=None):
-        mode = self.GD["Cache"]["Dirty"].lower()
+        mode = self.GD["Cache"]["Dirty"]
+        if isinstance(mode, str):
+            mode = mode.lower()
         if mode in (0, False, None, 'off'):
             cachepath, valid = None, False
             writecache = False
