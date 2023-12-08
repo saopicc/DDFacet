@@ -862,7 +862,7 @@ class ClassFacetMachine():
         HasTouchedWisdomFile = False
         T=ClassTimeIt.ClassTimeIt("setWisdom")
         T.disable()
-        for iFacet in sorted(self.DicoImager.keys()):
+        for iFacet in sorted(list(self.DicoImager.keys())):
             NPixPadded_x,NPixPadded_y=self.DicoImager[iFacet]["NpixFacetPadded"]
             if self.GD["RIME"]["Precision"]=="S":
                 TypeKey=(NPixPadded_x,NPixPadded_y,np.complex64)
@@ -1346,7 +1346,7 @@ class ClassFacetMachine():
             for iFacet in facets:
                 APP.runJob("buildpsf:%s"%iFacet, self._buildFacetSlice_worker,
                            args=(iFacet, self._facet_grids.readonly(), DicoVariablePSF.writeonly(), self._CF[iFacet].readonly(),
-                                 self.DicoImager[iFacet]["SumJonesNorm"], self.DicoImager[iFacet]["SumWeights"], W))
+                                 self.DicoImager[iFacet]["SumJonesNorm"], self.DicoImager[iFacet]["SumWeights"], W))#,serial=True)
             APP.awaitJobResults("buildpsf:*", progress="Build PSF facet slices")
             DicoVariablePSF.reload()
 

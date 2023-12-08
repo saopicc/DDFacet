@@ -1143,8 +1143,13 @@ class ClassJones():
                 Beam0inv=Beam0inv*Ones
                 BeamN= ModLinAlg.BatchDot(Beam0inv, Beam)
                 Beam=BeamN
-
                 
+            Bxx=Beam[...,0,0]
+            Bxx[np.abs(Bxx)<1e-6]=1e-6
+            Byy=Beam[...,1,1]
+            Byy[np.abs(Byy)<1e-6]=1e-6
+            
+            
             # import pylab
             # pylab.clf()
             # pylab.scatter(RA*180/np.pi,DEC*180/np.pi,c=np.abs(Beam[:,0,0,0,0]))
