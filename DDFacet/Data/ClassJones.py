@@ -615,7 +615,10 @@ class ClassJones():
 
         if "BeamTimes" in list(DicoSolsFile.keys()) and DicoSolsFile["BeamTimes"][()] is not None:
             # print(DicoSolsFile["BeamTimes"] is None)
-            self.BeamTimes_kMS = (DicoSolsFile["BeamTimes"]["t0"]+DicoSolsFile["BeamTimes"]["t1"])/2
+            if DicoSolsFile["BeamTimes"].dtype == np.float64:
+                self.BeamTimes_kMS = DicoSolsFile["BeamTimes"]
+            else:
+                self.BeamTimes_kMS = (DicoSolsFile["BeamTimes"]["t0"]+DicoSolsFile["BeamTimes"]["t1"])/2
 
         return VisToJonesChanMapping,DicoClusterDirs,DicoSols,G
 
@@ -1143,6 +1146,7 @@ class ClassJones():
                 Beam0inv=Beam0inv*Ones
                 BeamN= ModLinAlg.BatchDot(Beam0inv, Beam)
                 Beam=BeamN
+
                 
             Bxx=Beam[...,0,0]
             Bxx[np.abs(Bxx)<1e-6]=1e-6

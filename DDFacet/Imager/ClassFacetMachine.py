@@ -1186,13 +1186,15 @@ class ClassFacetMachine():
 
         LLabel=sorted(list(self.DicoSumJonesNorm_FacetLabel[iFacet].keys()))
         G=np.array([self.DicoSumJonesNorm_FacetLabel[iFacet][label] for label in LLabel])
-        if np.all(G<self.GD["Facets"]["SkipTh"]):
+        Th=(self.GD["Facets"]["SkipTh"])**2
+        
+        if np.all(G<Th):
             log.print(ModColor.Str("None of the pointings contributing to facet #%i are above SkipTh"%iFacet))
             #iGMax=np.argmax(G)
             #labelMax=LLabel[iGMax]
             #return (label==labelMax)
             return False
-        return self.DicoSumJonesNorm_FacetLabel[iFacet][label]<self.GD["Facets"]["SkipTh"]
+        return self.DicoSumJonesNorm_FacetLabel[iFacet][label]<Th
         
             
 

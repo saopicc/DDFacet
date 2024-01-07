@@ -218,7 +218,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             if "killMS" in SolsFile:
                 try:
                     from killMS.Parset import ReadCFG as ReadCFGkMS
-                    PName=SolsFile[0:-4]+".parset"
+                    PName=SolsFile[0:-9]+".parset"
                     DoCheckParset=os.path.isfile(PName)
                     if not DoCheckParset:
                         log.print(ModColor.Str("File %s does not exist - can't check parset consistencies"%PName))

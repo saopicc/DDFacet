@@ -408,7 +408,7 @@ class ClassImagerDeconv():
         elif mode in (1, True, 'auto'):
             cachepath, valid = self.VS.maincache.checkCache("PSF", key or self._createDirtyPSFCacheKey(sparsify))
             writecache = not valid
-        elif mode == 'force':
+        elif mode.lower() == 'force':
             cachepath = self.VS.maincache.getElementPath("PSF")
             valid = os.path.exists(cachepath)
             print(ModColor.Str("Forcing to read the cached PSF", col="red"), file=log)
