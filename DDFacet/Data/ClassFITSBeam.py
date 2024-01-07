@@ -35,6 +35,7 @@ from DDFacet.Other import logger
 log = logger.getLogger("ClassFITSBeam")
 
 import pyrap.tables
+from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 
 import numpy as np
 import json
@@ -350,8 +351,10 @@ class ClassFITSBeam (object):
         self.pos0 = dm.position('itrf',*[ dq.quantity(x,'m') for x in self.ms.StationPos[0] ]) 
 
         # make direction measure from field centre
-        ra,dec = self.ms.OriginalRadec
+        ra,dec = self.ms.PointingRadec
         self.field_centre = dm.direction('J2000',dq.quantity(ra,"rad"),dq.quantity(dec,"rad"))
+        
+        #print(rad2hmsdms(ra,Type="ra").replace(" ",":"),rad2hmsdms(dec,Type="dec").replace(" ","."))
 
         # get channel frequencies from MS
         self.freqs = self.ms.ChanFreq.ravel()

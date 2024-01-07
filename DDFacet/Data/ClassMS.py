@@ -1143,8 +1143,23 @@ class ClassMS():
         if rarad<0.:
             log.print(ModColor.Str("The phase center has a ra<0, adding 2*pi to its value..."))
             rarad+=2.*np.pi
-        self.OriginalRadec = self.OldRadec = rarad,decrad
 
+        # try:
+        #     tp=table(table_all.getkeyword('POINTING'),ack=False)
+        #     rarad_Pointing,decrad_Pointing=tp.getcol("DIRECTION").ravel()
+        # except:
+        #     log.print("There are no POINTING table, taking the beam center from the DELAY_DIR")
+        #     rarad_Pointing,decrad_Pointing=ta.getcol('DELAY_DIR')[self.Field][0]
+        # if rarad_Pointing<0.:
+        #     rarad_Pointing+=2.*np.pi
+        # self.PointingRadec=rarad_Pointing,decrad_Pointing
+        # rarad_Original,decrad_Original=ta.getcol('DELAY_DIR')[self.Field][0]
+        # if rarad_Original<0.:
+        #     rarad_Original+=2.*np.pi
+        # self.OriginalRadec=rarad_Original,decrad_Original
+        
+        self.PointingRadec = self.OriginalRadec = rarad,decrad
+        
         if self.ToRADEC is not None:
             ranew, decnew = rarad, decrad
             # get RA/Dec from first MS, or else parse as coordinate string
@@ -1167,7 +1182,7 @@ class ClassMS():
             # only enable rotation if coordinates actually change
             if ranew != rarad or decnew != decrad:
                 print(ModColor.Str("MS %s will be rephased to %s"%(self.MSName,which)), file=log)
-                self.OldRadec = rarad,decrad
+                self.OriginalRadec = rarad,decrad
                 self.NewRadec = ranew,decnew
                 rarad,decrad = ranew,decnew
             else:
@@ -1229,7 +1244,7 @@ class ClassMS():
         self.nbl=nbl
         self.StrRA  = rad2hmsdms(self.rarad,Type="ra").replace(" ",":")
         self.StrDEC = rad2hmsdms(self.decrad,Type="dec").replace(" ",".")
-        self.lm_PhaseCenter=self.radec2lm_scalar(self.OldRadec[0],self.OldRadec[1])
+        self.lm_PhaseCenter=self.radec2lm_scalar(self.OriginalRadec[0],self.OriginalRadec[1])
         self.ColNames=table_all.colnames()
         table_all.close()
         T.timeit()
@@ -1675,11 +1690,11 @@ class ClassMS():
     def Rotate(self,DATA,RotateType=["uvw","vis"],Sense="ToTarget",DataFieldName="data"):
         #DDFacet.ToolsDir.ModRotate.Rotate(self,radec)
         if Sense=="ToTarget":
-            ra0,dec0=self.OldRadec
+            ra0,dec0=self.OriginalRadec
             ra1,dec1=self.NewRadec
         elif Sense=="ToPhaseCenter":
             ra0,dec0=self.NewRadec
-            ra1,dec1=self.OldRadec
+            ra1,dec1=self.OriginalRadec
 
         StrRAOld  = rad2hmsdms(ra0,Type="ra").replace(" ",":")
         StrDECOld = rad2hmsdms(dec0,Type="dec").replace(" ",".")

@@ -53,6 +53,7 @@ import copy
 from DDFacet.Other import ClassGiveSolsFile
 from astropy.io import fits
 from astropy.time import Time as astropyTime
+from SkyModel.Sky import ModVoronoi
 
 log = logger.getLogger("ClassVisServer")
 
@@ -402,7 +403,8 @@ class ClassVisServer():
 
 #        self.RefFreq=np.mean(self.ListFreqs)
         self.RefFreq = np.mean(self.GlobalFreqs)
-
+        
+        
         self.nTotalChunks = sum([ms.numChunks() for ms in self.ListMS])
         self.ReInitChunkCount()
 

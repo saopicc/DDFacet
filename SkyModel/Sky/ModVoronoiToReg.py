@@ -20,7 +20,7 @@ class VoronoiToReg():
         self.CoordMachine=ModCoord.ClassCoordConv(rac,decc)
 
 
-    def PointsToReg(self,regFile,xc,yc,radius=0.1,Col="red"):
+    def PointsToReg(self,regFile,xc,yc,radius=0.1,Col="red",Label=None):
         log.print("Writing voronoi in: %s"%ModColor.Str(regFile,col="blue"))
         f=open(regFile,"w")
         f.write("# Region file format: DS9 version 4.1\n")
@@ -34,9 +34,13 @@ class VoronoiToReg():
             xm,ym=xc[i],yc[i]
             xm*=180./np.pi+(np.random.rand(1)[0]-0.5)*1/3600
             ym*=180./np.pi+(np.random.rand(1)[0]-0.5)*1/3600
-            ThisText="%3i"%i
-            f.write("point(%f,%f) # text={%s} point=circle 5 color=%s width=2\n"%(xm,ym,ThisText,Col))
-            
+            if Label is not None:
+                ThisText=Label[i]
+                f.write("point(%f,%f) # text={%s} point=circle 5 color=%s width=2\n"%(xm,ym,ThisText,Col))
+            else:
+                f.write("point(%f,%f) # point=circle 5 color=%s width=2\n"%(xm,ym,Col))
+
+                
         f.close()
 
         

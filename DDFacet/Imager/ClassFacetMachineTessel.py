@@ -218,7 +218,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             if "killMS" in SolsFile:
                 try:
                     from killMS.Parset import ReadCFG as ReadCFGkMS
-                    PName=SolsFile[0:-4]+".parset"
+                    PName=SolsFile[0:-9]+".parset"
                     DoCheckParset=os.path.isfile(PName)
                     if not DoCheckParset:
                         log.print(ModColor.Str("File %s does not exist - can't check parset consistencies"%PName))
@@ -283,8 +283,22 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         if (self.GD["Facets"]["CatNodes"] is not None) and (SolsFile is not None):
             log.print(ModColor.Str("Both --Facets-CatNodes and --DDESolutions-DDSols are specified which might have different clusterings..."))
 
+        VM = ModVoronoiToReg.VoronoiToReg(*self.MainRaDec)
+        xc=[]
+        yc=[]
+        Label=[]
+        
+        xc=np.array([ms.PointingRadec[0] for ms in self.VS.ListMS])
+        yc=np.array([ms.PointingRadec[1] for ms in self.VS.ListMS])
+        
+        Label=["MS_%i"%i for i in range(len(xc))]
             
-                
+        regFile = "%s.PointingCenter.reg" % self.GD["Output"]["Name"]
+        VM.PointsToReg(regFile,xc,yc,
+                       radius=0.1,
+                       Col="blue",
+                       Label=Label)
+        
 #        if "CatNodes" in self.GD.keys():
         regular_grid = False
         if self.GD["Facets"]["CatNodes"] is not None:
