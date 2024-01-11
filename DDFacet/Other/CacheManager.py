@@ -121,7 +121,7 @@ class CacheManager (object):
         self.pid = os.getpid()
         if not os.path.exists(dirname):
             print("cache directory %s does not exist, creating" % dirname, file=log)
-            os.mkdir(dirname)
+            os.makedirs(dirname)
         else:
             if reset:
                 print("clearing cache %s, since we were asked to reset the cache" % dirname, file=log)
