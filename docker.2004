@@ -113,36 +113,38 @@ RUN mkdir -p /usr/share/casacore/data/
 WORKDIR /usr/share/casacore/data/
 RUN rsync -avz rsync://casa-rsync.nrao.edu/casa-data .
 
+RUN apt-get install -y libgsl-dev
 #####################################################################
 ## BUILD CASACORE AND CASAREST FROM SOURCE
 #####################################################################
 WORKDIR /opt
-RUN wget https://github.com/casacore/casacore/archive/v3.4.0.tar.gz && \
-    tar xvf v3.4.0.tar.gz && \
-    rm v3.4.0.tar.gz && \
-    mkdir casacore-3.4.0/build && \
-    cd /opt/casacore-3.4.0/build && \
-    cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DBUILD_DEPRECATED=ON -DBUILD_PYTHON=OFF -DBUILD_PYTHON3=ON ../ && \
-    make -j 4 && \
+RUN wget https://github.com/casacore/casacore/archive/v3.5.0.tar.gz && \
+    tar xvf v3.5.0.tar.gz && \
+    rm v3.5.0.tar.gz && \
+    mkdir casacore-3.5.0/build && \
+    cd /opt/casacore-3.5.0/build && \
+    cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DBUILD_DEPRECATED=OFF -DBUILD_PYTHON=OFF -DBUILD_PYTHON3=ON ../ && \
+    make -j 16 && \
     make install && \
-    rm -r /opt/casacore-3.4.0 && \
-    cd /opt && \
-    wget https://github.com/casacore/casarest/archive/v1.8.0.tar.gz && \
-    tar xvf v1.8.0.tar.gz && \
-    rm v1.8.0.tar.gz && \
-    cd /opt/casarest-1.8.0 && \
+    rm -r /opt/casacore-3.5.0 && \
+    ldconfig
+RUN cd /opt && \
+    wget https://github.com/casacore/casarest/archive/v1.8.1.tar.gz && \
+    tar xvf v1.8.1.tar.gz && \
+    rm v1.8.1.tar.gz && \
+    cd /opt/casarest-1.8.1 && \
     mkdir -p build && \
-    cd /opt/casarest-1.8.0/build && \
+    cd /opt/casarest-1.8.1/build && \
     cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release ../ && \
-    make -j 4 && \
+    make -j 16 && \
     make install && \
-    rm -r /opt/casarest-1.8.0 && \
-    ldconfig && \
-    cd /opt && \
-    wget https://github.com/casacore/python-casacore/archive/v3.4.0.tar.gz && \
-    tar xvf v3.4.0.tar.gz && \
-    rm v3.4.0.tar.gz && \
-    cd /opt/python-casacore-3.4.0 && \
+    rm -r /opt/casarest-1.8.1 && \
+    ldconfig
+RUN cd /opt && \
+    wget https://github.com/casacore/python-casacore/archive/v3.5.2.tar.gz && \
+    tar xvf v3.5.2.tar.gz && \
+    rm v3.5.2.tar.gz && \
+    cd /opt/python-casacore-3.5.2 && \
     . /opt/venv/bin/activate && python -m pip install . "numpy==${NUMPYVER}" && \
     cd / && \
     python -c "from pyrap.tables import table as tbl"
@@ -233,7 +235,7 @@ ADD .gitmodules /opt/DDFacet/.gitmodules
 RUN cd /opt/DDFacet/ && git submodule update --init --recursive && cd /
 # Finally install DDFacet
 RUN rm -rf /opt/DDFacet/DDFacet/cbuild
-RUN . /opt/venv/bin/activate && python -m pip install -U "/opt/DDFacet[dft-support,moresane-support,testing-requirements,fits-beam-support,kms-support]"
+RUN . /opt/venv/bin/activate && python -m pip install -U "/opt/DDFacet[dft-support,moresane-support,testing-requirements,fits-beam-support,kms-support,alternate-data-backends]"
 
 # test montblanc install
 WORKDIR /tmp

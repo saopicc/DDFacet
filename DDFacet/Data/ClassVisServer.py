@@ -32,7 +32,7 @@ else:
     import cPickle
 import math, os, traceback
 
-from DDFacet.Data import ClassMS
+from DDFacet.Data import ClassMS, ClassDaskMS
 from DDFacet.Data.ClassStokes import ClassStokes
 from DDFacet.Other import ModColor
 from DDFacet.Other import logger
@@ -151,13 +151,14 @@ class ClassVisServer():
 
         # max chunk shape accumulated here
         self._chunk_shape = [0, 0, 0]
+        CMS = ClassDaskMS.ClassDaskMS if self.GD["Data"]["Dask"] else ClassMS.ClassMS 
 
         for msspec in self.MSList:
             if not isinstance(msspec,str):
                 msname, ddid, field, column = msspec
             else:
                 msname, ddid, field, column = msspec, self.DicoSelectOptions["DDID"], self.DicoSelectOptions["Field"], self.ColName
-            MS = ClassMS.ClassMS(
+            MS = CMS(
                 msname,
                 Col=column or self.ColName,
                 SubCol=self.SubColName,
@@ -177,8 +178,8 @@ class ClassVisServer():
             max_freq_Data = max(max_freq_Data, (MS.ChanFreq+MS.ChanWidth/2).max())
 
             # accumulate largest chunk shape
-            for row0, row1 in MS.getChunkRow0Row1():
-                shape = (row1-row0, len(MS.ChanFreq), MS.Ncorr)
+            for nrow in MS.getPerChunkRowCounts():
+                shape = (nrow, len(MS.ChanFreq), MS.Ncorr)
                 self._chunk_shape = [max(a, b)
                                      for a, b in zip(self._chunk_shape, shape)]
 
@@ -428,12 +429,9 @@ class ClassVisServer():
     def visPutColumnHandler (self, DATA, field, column, likecol):
         iMS, iChunk = DATA["iMS"], DATA["iChunk"]
         ms = self.ListMS[iMS]
-        row0, row1 = ms.getChunkRow0Row1()[iChunk]
         if ms.ToRADEC is not None:
             ms.Rotate(DATA,RotateType=["vis"],Sense="ToPhaseCenter",DataFieldName=field)
-            
-
-        ms.PutVisColumn(column, DATA[field], row0, row1, likecol=likecol, sort_index=DATA["sort_index"])
+        ms.PutVisColumn(column, DATA[field], iChunk, likecol=likecol, sort_index=DATA["sort_index"])
 
     def collectPutColumnResults(self):
         if self._put_vis_column_job_id:
@@ -595,7 +593,7 @@ class ClassVisServer():
             print(ModColor.Str("This chunk is all flagged or has zero weight."), file=log)
             return
         
-        if DATA["sort_index"] is not None and DATA["Weights"] is not 1:
+        if DATA["sort_index"] is not None: # and DATA["Weights"] is not 1: # OMS 2023/12 they're not "1" ever and this seems a bug
             DATA["Weights"] = DATA["Weights"][DATA["sort_index"]]
 
         self.computeBDAInBackground(dictname, ms, DATA,
@@ -720,7 +718,7 @@ class ClassVisServer():
             self.VisWeights = shared_dict.attach("VisWeights")
             # check for errors
             for iMS, MS in enumerate(self.ListMS):
-                for ichunk in range(len(MS.getChunkRow0Row1())):
+                for ichunk in range(len(MS.getPerChunkRowCounts())):
                     msw = self.VisWeights[iMS][ichunk]
                     if "error" in msw:
                         print(ModColor.Str("error computing weights for %s"%MS.MSName), file=log)
@@ -814,9 +812,9 @@ class ClassVisServer():
         have_all_weights = wmax_valid and uvmax_valid
         for iMS, MS in enumerate(self.ListMS):
             msweights = self._weight_dict.addSubdict(iMS)
-            for ichunk, (row0, row1) in enumerate(MS.getChunkRow0Row1()):
+            for ichunk in range(len(MS.getPerChunkRowCounts())):
                 msw = msweights.addSubdict(ichunk)
-                path, valid = MS.getChunkCache(row0, row1).checkCache("ImagingWeights.npy", cache_keys, reset=(self.GD["Cache"]["Weight"]=="reset"))
+                path, valid = MS.getChunkCache(ichunk).checkCache("ImagingWeights.npy", cache_keys, reset=(self.GD["Cache"]["Weight"]=="reset"))
                 have_all_weights = have_all_weights and valid
                 msw["cachepath"] = path
                 if valid:
@@ -829,7 +827,7 @@ class ClassVisServer():
         # spawn parallel jobs to load weights
         for ims,ms in enumerate(self.ListMS):
             msweights = self._weight_dict[ims]
-            for ichunk in range(len(ms.getChunkRow0Row1())):
+            for ichunk in range(len(MS.getPerChunkRowCounts())):
                 msw = msweights[ichunk]
                 APP.runJob("LoadWeights:%d:%d"%(ims,ichunk), self._loadWeights_handler,
                            args=(msw.writeonly(), ims, ichunk, self._ignore_vis_weights),
@@ -842,7 +840,7 @@ class ClassVisServer():
         # now work out weight grid sizes, etc.
         for ims, ms in enumerate(self.ListMS):
             msweights = self._weight_dict[ims]
-            for ichunk in range(len(ms.getChunkRow0Row1())):
+            for ichunk in range(len(ms.getPerChunkRowCounts())):
                 msw = msweights[ichunk]
                 if "error" in msw:
                     raise msw["error"]
@@ -889,7 +887,7 @@ class ClassVisServer():
             # now run parallel jobs to accumulate weights
             parallel = num_valid_chunks > 1
             for ims, ms in enumerate(self.ListMS):
-                for ichunk in range(len(ms.getChunkRow0Row1())):
+                for ichunk in range(len(ms.getPerChunkRowCounts())):
                     if "weight" in self._weight_dict[ims][ichunk]:
                         APP.runJob("AccumWeights:%d:%d" % (ims, ichunk), self._accumulateWeights_handler,
                                    args=(self._weight_grid.readonly(),
@@ -909,7 +907,7 @@ class ClassVisServer():
 
         # launch jobs to finalize weights and save them to the cache
         for ims, ms in enumerate(self.ListMS):
-            for ichunk in range(len(ms.getChunkRow0Row1())):
+            for ichunk in range(len(ms.getPerChunkRowCounts())):
                 self._CalcSigmoidTaper(ims, ms, ichunk)
                 APP.runJob("FinalizeWeights:%d:%d" % (ims, ichunk), self._finalizeWeights_handler,
                            args=(self._weight_grid.readonly(),
@@ -923,13 +921,13 @@ class ClassVisServer():
         # check for errors
         self._weight_dict.reload()
         for ims, ms in enumerate(self.ListMS):
-            for ichunk, (row0, row1) in enumerate(ms.getChunkRow0Row1()):
+            for ichunk in range(len(ms.getPerChunkRowCounts())):
                 if not self._weight_dict[ims][ichunk].get("success"):
                     raise RuntimeError("weight computation has failed, see error messages above")
         # mark cache as valid
         for ims, ms in enumerate(self.ListMS):
-            for ichunk, (row0, row1) in enumerate(ms.getChunkRow0Row1()):
-                ms.getChunkCache(row0, row1).saveCache("ImagingWeights.npy")
+            for ichunk in range(len(ms.getPerChunkRowCounts())):
+                ms.getChunkCache(ichunk).saveCache("ImagingWeights.npy")
 
     def _loadWeights_handler(self, msw, ims, ichunk, wmax_only=False):
         """If wmax_only is True, then don't actually read or compute weighs -- only read UVWs
@@ -937,37 +935,17 @@ class ClassVisServer():
         msname = "MS %d chunk %d"%(ims, ichunk)
         try:
             ms = self.ListMS[ims]
-            msname = "%s chunk %d"%(ms.MSName, ichunk)
-            row0, row1 = ms.getChunkRow0Row1()[ichunk]
-            msfreqs = ms.ChanFreq
-            nrows = row1 - row0
-            chanslice = ms.ChanSlice
-            if not nrows:
-    #            print>> log, "  0 rows: empty chunk"
-                return
-            tab = ms.GiveMainTable()
-    #        print>>log,"  %d.%d reading %s UVW" % (ims+1, ichunk+1, ms.MSName)
-            uvw = tab.getcol("UVW", row0, nrows)
-            flags = np.empty((nrows, len(ms.ChanFreq), len(ms.CorrelationIds)), bool)
-            # print>>log,(ms.cs_tlc,ms.cs_brc,ms.cs_inc,flags.shape)
-    #        print>>log,"  reading FLAG"
-            tab.getcolslicenp("FLAG", flags, ms.cs_tlc, ms.cs_brc, ms.cs_inc, row0, nrows)
-            if ms._reverse_channel_order:
-                flags = flags[:,::-1,:]
-            # if any polarization is flagged, flag all 4 correlations. Shape of flags becomes nrow,nchan
-    #        print>>log,"  adjusting flags"
-            # if any polarization is flagged, flag all 4 correlations. Shape
-            # of flags becomes nrow,nchan
-            flags = flags.max(axis=2)
-            valid = ~flags
-            # if all channels are flagged, flag whole row. Shape of flags becomes nrow
-            rowflags = flags.min(axis=1)
-            # if everything is flagged, skip this entry
-            if rowflags.all():
-    #            print>> log, "  all flagged: marking as null"
+            List_weight_col = self.GD["Weight"]["ColName"]
+            if not isinstance(List_weight_col,list):
+                List_weight_col=[List_weight_col]
+            uvw, flags, rowflags, weights = ms.readWeights(ichunk, uvw_only=wmax_only, weightcols=List_weight_col)
+            # skip empty or fully flagged chunks
+            if uvw is None:
                 msw["wmax"] = 0
                 msw["uvmax_wavelengths"] = 0
                 return
+            msname = "%s chunk %d"%(ms.MSName, ichunk)
+            msfreqs = ms.ChanFreq
             # max of |u|, |v| in wavelengths
             uv = uvw[:, :2]
             uvmax_wavelengths = abs(uv[~rowflags,:]).max() * msfreqs.max() / _cc
@@ -981,63 +959,11 @@ class ClassVisServer():
             msw["flags"] = rowflags
             
             # now read the weights
-            weight = msw.addSharedArray("weight", (nrows, ms.Nchan), np.float32)
-            List_weight_col = self.GD["Weight"]["ColName"]
-            if not isinstance(List_weight_col,list):
-                List_weight_col=[List_weight_col]
-            weight.fill(1.)
-
-            for weight_col in List_weight_col:
-                print("reading weighting column %s"%weight_col, file=log)
-                if weight_col == "WEIGHT_SPECTRUM":
-                    w = tab.getcol(weight_col, row0, nrows)[:, chanslice]
-        #            print>> log, "  reading column %s for the weights, shape is %s" % (weight_col, w.shape)
-                    if ms._reverse_channel_order:
-                        w = w[:, ::-1, :]
-                    # take mean weight across correlations and apply this to all
-                    weight[...] *= w.mean(axis=2)
-                elif weight_col == "None" or weight_col == None:
-                    #            print>> log, "  Selected weights columns is None, filling weights with ones"
-                    pass#weight.fill(1)
-                elif weight_col == "Lucky_kMS" and self.GD["DDESolutions"]["DDSols"]:
-                    ID=row0
-                    SolsName=self.GD["DDESolutions"]["DDSols"]
-                    SolsDir=self.GD["DDESolutions"]["SolsDir"]
-                    if SolsDir is None:
-                        FileName="%skillMS.%s.Weights.%i.npy"%(reformat.reformat(ms.MSName),SolsName,ID)
-                    else:
-                        _MSName=reformat.reformat(ms.MSName).split("/")[-2]
-                        DirName=os.path.abspath("%s%s"%(reformat.reformat(SolsDir),_MSName))
-                        if not os.path.isdir(DirName):
-                            os.makedirs(DirName)
-                        FileName="%s/killMS.%s.Weights.%i.npy"%(DirName,SolsName,ID)
-                    log.print( "  loading weights from file: %s"%FileName)
-                    w=np.load(FileName)
-                    weight[...] *= w
-                elif ".npy" in weight_col:
-                    ID=row0
-                    FileName=weight_col
-                    log.print( "  loading weights from file: %s"%FileName)
-                    w=np.load(FileName)
-                    weight[...] *= w[row0:row0+nrows,...]
-                elif weight_col == "WEIGHT":
-                    w = tab.getcol(weight_col, row0, nrows)
-        #            print>> log, "  reading column %s for the weights, shape is %s, will expand frequency axis" % (weight_col, w.shape)
-                    # take mean weight across correlations, and expand to have frequency axis
-                    weight[...] *= w.mean(axis=1)[:, np.newaxis]
-                else:
-                    # in all other cases (i.e. IMAGING_WEIGHT) assume a column
-                    # of shape NRow,NFreq to begin with, check for this:
-                    w = tab.getcol(weight_col, row0, nrows)[:, chanslice]
-        #            print>> log, "  reading column %s for the weights, shape is %s" % (weight_col, w.shape)
-                    if w.shape != valid.shape:
-                        raise TypeError("weights column expected to have shape of %s" %
-                            (valid.shape,))
-                    weight[...] *= w
-                # end for wieghcol loop
+            weight = msw.addSharedArray("weight", flags.shape, np.float32)
+            weight[...] = weights
+            weight[flags] = 0
             
-            # flagged points get zero weight
-            weight *= valid
+            # check for null weights
             nullweight = (weight==0).all()
             if nullweight:
                 msw.delete_item("weight")
@@ -1154,9 +1080,9 @@ class ClassVisServer():
         have_all_weights = wmax_valid and uvmax_valid
         for iMS, MS in enumerate(self.ListMS):
             msweights = self._weight_dict.addSubdict(iMS)
-            for ichunk, (row0, row1) in enumerate(MS.getChunkRow0Row1()):
+            for ichunk, nrow in enumerate(MS.getPerChunkRowCounts()):
                 msw = msweights.addSubdict(ichunk)
-                path, valid = MS.getChunkCache(row0, row1).checkCache("ImagingWeights.npy", cache_keys)
+                path, valid = MS.getChunkCache(ichunk).checkCache("ImagingWeights.npy", cache_keys)
                 have_all_weights = have_all_weights and valid
                 msw["cachepath"] = path
                 if valid:
@@ -1172,10 +1098,10 @@ class ClassVisServer():
         for ims, ms in enumerate(self.ListMS):
             ms = self.ListMS[ims]
             max_freq = ms.ChanFreq.max()
-            for ichunk in range(len(ms.getChunkRow0Row1())):
+            for ichunk in range(len(ms.getPerChunkRowCounts())):
                 print("scanning UVWs %d.%d" % (ims, ichunk), file=log)
-                row0, row1 = ms.getChunkRow0Row1()[ichunk]
-                nrows = row1 - row0
+                nrows = ms.getPerChunkRowCounts()[ichunk]
+                row0 = np.sum(ms.getPerChunkRowCounts()[:ichunk+1]) - nrows
                 if not nrows:
                     continue
                 tab = ms.GiveMainTable()
@@ -1220,7 +1146,7 @@ class ClassVisServer():
         # scan through MSs one by one
         for ims, ms in enumerate(self.ListMS):
             msweights = self._weight_dict[ims]
-            for ichunk in range(len(ms.getChunkRow0Row1())):
+            for ichunk in range(len(ms.getPerChunkRowCounts())):
                 msw = msweights[ichunk]
                 print("loading weights %d.%d"%(ims, ichunk), file=log)
                 self._loadWeights_handler(msw, ims, ichunk, self._ignore_vis_weights)
@@ -1273,7 +1199,7 @@ class ClassVisServer():
             # rescan through MSs one by one to re-adjust the weights
             for ims, ms in enumerate(self.ListMS):
                 msweights = self._weight_dict[ims]
-                for ichunk in range(len(ms.getChunkRow0Row1())):
+                for ichunk in range(len(ms.getPerChunkRowCounts())):
                     msw = msweights[ichunk]
                     if msw["null"]:
                         print("skipping weights %d.%d (null)" % (ims, ichunk), file=log)
@@ -1291,7 +1217,7 @@ class ClassVisServer():
         # free memory
         for ims, ms in enumerate(self.ListMS):
             msweights = self._weight_dict[ims]
-            for ichunk in range(len(ms.getChunkRow0Row1())):
+            for ichunk in range(len(ms.getPerChunkRowCounts())):
                 msw = msweights[ichunk]
                 # delete to save memory
                 if self.Weighting != "natural":
@@ -1301,5 +1227,5 @@ class ClassVisServer():
 
         # mark caches as valid
         for ims, ms in enumerate(self.ListMS):
-            for ichunk, (row0, row1) in enumerate(ms.getChunkRow0Row1()):
-                ms.getChunkCache(row0, row1).saveCache("ImagingWeights.npy")
+            for ichunk, nrow in enumerate(ms.getPerChunkRowCounts()):
+                ms.getChunkCache(ichunk).saveCache("ImagingWeights.npy")

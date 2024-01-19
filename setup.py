@@ -144,7 +144,7 @@ def requirements():
                     "deap >= 1.0.1, <= 1.3.1; python_version >= '3'", 
                     "ptyprocess>=0.5, <= 0.7.0; python_version >= '3'", 
                     "ipdb >= 0.10.3, <=0.13.9; python_version >= '3'", 
-                    "python-casacore >= 3.0.0, <=3.4.0; python_version >= '3'", 
+                    "python-casacore >= 3.0.0, <=3.5.2; python_version >= '3'", 
                     "pyephem >= 3.7.6.0, <=9.99; python_version >= '3'", 
                     "numexpr >= 2.6.2,<=2.8.1; python_version >= '3'", 
                     "matplotlib >= 2.0.0,<=3.3.4; python_version >= '3'", 
@@ -156,11 +156,11 @@ def requirements():
                     "prettytable >= 0.7.2,<=2.5.0; python_version >= '3'", 
                     "pybind11 >= 2.2.2,<=2.9.2; python_version >= '3'", 
                     "configparser >= 3.7.1,<=5.2.0; python_version >= '3'", 
-                    "pandas >=0.23.3,<=1.1.5; python_version >= '3'", 
+                    "pandas >=0.23.3,<=1.3; python_version >= '3'", 
                     "ruamel.yaml >= 0.15.92,<=0.17.21; python_version >= '3'", 
                     "pylru >= 1.1.0,<=1.2.1; python_version >= '3'", 
                     "six >= 1.12.0,<=1.16.0; python_version >= '3'", 
-                    "dask[array] >= 1.1.0,<=2021.3.0; python_version >= '3'", 
+                    "dask[array] <= 2023.5.0; python_version >= '3'", 
                     "codex-africanus[dask] <= 0.2.10; python_version >= '3'", 
                     "regions <=0.5",
                     "pywavelets <=1.1.1",
@@ -203,6 +203,8 @@ setup(name=pkg,
           'moresane-support': ['pymoresane >= 0.3.0'],
           'testing-requirements': ['nose >= 1.3.7'],
           'fits-beam-support': ['meqtrees-cattery'],
-          'kms-support': ['bdsf > 1.8.15,<=1.10.1']
+          'kms-support': ['bdsf > 1.8.15,<=1.10.1'],
+          'alternate-data-backends': ['dask-ms[xarray]<=0.2.18',
+                                      'xarray<=2023.01.0']
       }
 )

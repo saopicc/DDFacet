@@ -30,7 +30,7 @@ import pyrap.quanta as qa
 from astropy.time import Time
 from pyrap.tables import table
 from datetime import datetime as dt
-
+from typing import List
 import ephem
 import numpy as np
 from DDFacet.Other import ModColor
@@ -150,8 +150,17 @@ class ClassMS():
 
 
         self.SR=None
-        if GetBeam:
-            self.LoadSR()
+        # 2023/12 OMS: no longer exists
+        # if GetBeam:
+        #     self.LoadSR()
+
+
+    # This a list of the Stokes enums (as defined in casacore header measures/Stokes.h)
+    # These are referenced by the CORR_TYPE column of the MS POLARIZATION subtable.
+    # E.g. 5,6,7,8 corresponds to RR,RL,LR,LL
+    MS_STOKES_ENUMS = [
+        "Undefined", "I", "Q", "U", "V", "RR", "RL", "LR", "LL", "XX", "XY", "YX", "YY", "RX", "RY", "LX", "LY", "XR", "XL", "YR", "YL", "PP", "PQ", "QP", "QQ", "RCircular", "LCircular", "Linear", "Ptotal", "Plinear", "PFtotal", "PFlinear", "Pangle"
+        ]
 
     def get_obs_details(self):
         """Gets observer details from MS, for FITS header mainly"""
@@ -231,53 +240,53 @@ class ClassMS():
         #return d.datetime().isoformat().replace("T","/")
         return d.datetime()#.isoformat().replace("T","/")
 
-    def GiveDataChunk(self,it0,it1):
-        MapSelBLs=self.MapSelBLs
-        nbl=self.nbl
-        row0,row1=it0*nbl,it1*nbl
-        NtimeBlocks=nt=it1-it0
-        nrow=row1-row0
-        _,nch,_=self.data.shape
+    # # 2023/12 OMS: no longer used (MakeMovie.py deprecated), removing
+    # def GiveDataChunk(self,it0,it1):
+    #     MapSelBLs=self.MapSelBLs
+    #     nbl=self.nbl
+    #     row0,row1=it0*nbl,it1*nbl
+    #     NtimeBlocks=nt=it1-it0
+    #     nrow=row1-row0
+    #     _,nch,_=self.data.shape
 
-        DataOut=self.data[row0:row1,:,:].copy()
-        DataOut=DataOut.reshape((NtimeBlocks,nbl,nch,4))
-        DataOut=DataOut[:,self.MapSelBLs,:,:]
-        DataOut=DataOut.reshape((DataOut.shape[1]*NtimeBlocks,nch,4))
+    #     DataOut=self.data[row0:row1,:,:].copy()
+    #     DataOut=DataOut.reshape((NtimeBlocks,nbl,nch,4))
+    #     DataOut=DataOut[:,self.MapSelBLs,:,:]
+    #     DataOut=DataOut.reshape((DataOut.shape[1]*NtimeBlocks,nch,4))
 
-        flags=self.flag_all[row0:row1,:,:].copy()
-        flags=flags.reshape((NtimeBlocks,nbl,nch,4))
-        flags=flags[:,self.MapSelBLs,:,:]
-        flags=flags.reshape((flags.shape[1]*NtimeBlocks,nch,4))
+    #     flags=self.flag_all[row0:row1,:,:].copy()
+    #     flags=flags.reshape((NtimeBlocks,nbl,nch,4))
+    #     flags=flags[:,self.MapSelBLs,:,:]
+    #     flags=flags.reshape((flags.shape[1]*NtimeBlocks,nch,4))
 
-        uvw=self.uvw[row0:row1,:].copy()
-        uvw=uvw.reshape((NtimeBlocks,self.nbl,3))
-        uvw=uvw[:,self.MapSelBLs,:]
-        uvw=uvw.reshape((uvw.shape[1]*NtimeBlocks,3))
+    #     uvw=self.uvw[row0:row1,:].copy()
+    #     uvw=uvw.reshape((NtimeBlocks,self.nbl,3))
+    #     uvw=uvw[:,self.MapSelBLs,:]
+    #     uvw=uvw.reshape((uvw.shape[1]*NtimeBlocks,3))
 
-        A0=self.A0[self.MapSelBLs].copy()
-        A1=self.A1[self.MapSelBLs].copy()
+    #     A0=self.A0[self.MapSelBLs].copy()
+    #     A1=self.A1[self.MapSelBLs].copy()
 
-        times=self.times_all[row0:row1].copy()
-        times=times.reshape((NtimeBlocks,self.nbl))
-        times=times[:,self.MapSelBLs]
-        times=times.reshape((times.shape[1]*NtimeBlocks))
+    #     times=self.times_all[row0:row1].copy()
+    #     times=times.reshape((NtimeBlocks,self.nbl))
+    #     times=times[:,self.MapSelBLs]
+    #     times=times.reshape((times.shape[1]*NtimeBlocks))
         
-        DicoOut={"data":DataOut,
-                 "flags":flags,
-                 "A0A1":(A0,A1),
-                 "times":times,
-                 "uvw":uvw}
-        return DicoOut
-
-        
+    #     DicoOut={"data":DataOut,
+    #              "flags":flags,
+    #              "A0A1":(A0,A1),
+    #              "times":times,
+    #              "uvw":uvw}
+    #     return DicoOut
 
 
-    def PutLOFARKeys(self):
-        keys=["LOFAR_ELEMENT_FAILURE", "LOFAR_STATION", "LOFAR_ANTENNA_FIELD"]
-        t=table(self.MSName,ack=False)
-        for key in keys:
-            t.putkeyword(key,'Table: %s/%s'%(self.MSName,key))
-        t.close()
+    # # 2023/12 OMS: unused, removing        
+    # def PutLOFARKeys(self):
+    #     keys=["LOFAR_ELEMENT_FAILURE", "LOFAR_STATION", "LOFAR_ANTENNA_FIELD"]
+    #     t=table(self.MSName,ack=False)
+    #     for key in keys:
+    #         t.putkeyword(key,'Table: %s/%s'%(self.MSName,key))
+    #     t.close()
 
     def DelData(self):
         try:
@@ -290,45 +299,16 @@ class ClassMS():
         except:
             pass
 
-
-    # def LoadSR(self,useElementBeam=True,useArrayFactor=True):
-    #     if self.SR is not None: return
-    #     # t=table(self.MSName,ack=False,readonly=False)
-    #     # if not("LOFAR_ANTENNA_FIELD" in t.getkeywords().keys()):
-    #     #     self.PutLOFARKeys()
-    #     # t.close()
-        
-    #     #print>>log, "Import"
-    #     #print>>log, "  Done"
-        
-    #     # f=self.ChanFreq.flatten()
-    #     # if f.shape[0]>1:
-    #     #     t=table(self.MSName+"/SPECTRAL_WINDOW/",ack=False)
-    #     #     c=t.getcol("CHAN_WIDTH")
-    #     #     c.fill(np.abs((f[0:-1]-f[1::])[0]))
-    #     #     t.putcol("CHAN_WIDTH",c)
-    #     #     t.close()
-
-    #     #print>>log, "Declare %s"%self.MSName
-    #     self.SR = lsr.stationresponse(self.MSName,
-    #                                   useElementResponse=useElementBeam,
-    #                                   #useElementBeam=useElementBeam,
-    #                                   useArrayFactor=useArrayFactor)#,useChanFreq=True)
-    #     #print>>log, "  Done"
-    #     #print>>log, "Set direction %f, %f"%(self.rarad,self.decrad)
-    #     self.SR.setDirection(self.rarad,self.decrad)
-    #     #print>>log, "  Done"
-
-        
-    def CopyNonSPWDependent(self,MSnodata):
-        MSnodata.A0=self.A0
-        MSnodata.A1=self.A1
-        MSnodata.uvw=self.uvw
-        MSnodata.ntimes=self.ntimes
-        MSnodata.times=self.times
-        MSnodata.times_all=self.times_all
-        MSnodata.LOFAR_ANTENNA_FIELD=self.LOFAR_ANTENNA_FIELD
-        return MSnodata
+    # # 2023/12 OMS: unused, removing        
+    # def CopyNonSPWDependent(self,MSnodata):
+    #     MSnodata.A0=self.A0
+    #     MSnodata.A1=self.A1
+    #     MSnodata.uvw=self.uvw
+    #     MSnodata.ntimes=self.ntimes
+    #     MSnodata.times=self.times
+    #     MSnodata.times_all=self.times_all
+    #     MSnodata.LOFAR_ANTENNA_FIELD=self.LOFAR_ANTENNA_FIELD
+    #     return MSnodata
 
     def LoadLOFAR_ANTENNA_FIELD(self):
         t=table("%s/LOFAR_ANTENNA_FIELD"%self.MSName,ack=False)
@@ -366,17 +346,6 @@ class ClassMS():
         t.close()
         self.LOFAR_ANTENNA_FIELD=Dico
         
-
-    # def GiveBeam(self,time,ra,dec):
-    #     self.LoadSR()
-    #     Beam=np.zeros((ra.shape[0],self.na,self.NSPWChan,2,2),dtype=complex)
-    #     for i in range(ra.shape[0]):
-    #         self.SR.setDirection(ra[i],dec[i])
-    #         Beam[i]=self.SR.evaluate(time)
-    #     #Beam=np.swapaxes(Beam,1,2)
-    #     return Beam
-
-
     def GiveMappingAnt(self,ListStrSel,row0=None,row1=None,FlagAutoCorr=True,WriteAttribute=True):
 
         if type(ListStrSel)!=list:
@@ -447,55 +416,7 @@ class ClassMS():
         else:
             LNumFlaggedStations=sorted(list(set(range(self.na))-set(np.array(LNumFlaggedStations).flatten().tolist())))
             return LNumFlaggedStations
-        
-
-
-    # def GiveMappingAntOld(self,ListStrSel,(row0,row1)=(None,None),FlagAutoCorr=True):
-    #     #ListStrSel=["RT9-RTA", "RTA-RTB", "RTC-RTD", "RT6-RT7", "RT5-RT*"]
-
-    #     print ModColor.Str("  ... Building BL-mapping for %s"%str(ListStrSel))
-
-    #     if row1 is None:
-    #         row0=0
-    #         row1=self.nbl
-    #     A0=self.A0[row0:row1]
-    #     A1=self.A1[row0:row1]
-    #     MapOut=np.ones((self.nbl,),dtype=bool)
-    #     if FlagAutoCorr:
-    #         ind=np.where(A0==A1)[0]
-    #         MapOut[ind]=False
-
-
-    #     for blsel in ListStrSel:
-    #         if "-" in blsel:
-    #             StrA0,StrA1=blsel.split("-")
-    #             NumA0=np.where(np.array(self.StationNames)==StrA0)[0]
-    #             NumA1=np.where(np.array(self.StationNames)==StrA1)[0]
-    #             C0=((A0==NumA0)&(A1==NumA1))
-    #             C1=((A1==NumA0)&(A0==NumA1))
-    #         else:
-    #             NumA0=np.where(np.array(self.StationNames)==blsel)[0]
-    #             C0=(A0==NumA0)
-    #             C1=(A1==NumA0)
-    #         ind=np.where(C1|C0)[0]
-    #         MapOut[ind]=False
-    #     self.MapSelBLs=MapOut
-    #     return self.MapSelBLs
-                
-
-
-
-    # def SelChannel(self,(start,end,step)=(None,None,None),Revert=False):
-    #     if start is not None:
-    #         if Revert==False:
-    #             ind=np.arange(self.Nchan)[start:end:step]
-    #         else:
-    #             ind=np.array(sorted(list(set(np.arange(self.Nchan).tolist())-set(np.arange(self.Nchan)[start:end:step].tolist()))))
-    #         self.data=self.data[:,ind,:]
-    #         self.flag_all=self.flag_all[:,ind,:]
-    #         shape=self.ChanFreq.shape
-    #         self.ChanFreq=self.ChanFreq[ind]
-    
+            
     def Give_dUVW_dt(self,ttVec,A0,A1,R="UVW_dt"):
 
         # tt=self.times_all[0]
@@ -540,46 +461,45 @@ class ClassMS():
             UVW_dt=np.dot(R_dt,L.T).T
             return np.float32(UVW_dt)
 
-    def ReinitChunkIter(self):
-        self.current_chunk = -1
+    # # # 2023/12 OMS: no longer used, removing
+    # def ReinitChunkIter(self):
+    #     self.current_chunk = -1
 
-    def getChunkCache (self, row0, row1):
-        return self._chunk_caches[row0, row1]
+    def getChunkCache (self, ichunk):
+        return self._chunk_caches[ichunk]
 
-    def GiveChunk (self, DATA, chunk, use_cache=None, read_data=True, sort_by_baseline=False):
-        row0, row1 = self._chunk_r0r1[chunk]
-        self.cache = self.getChunkCache(row0, row1)
-        return self.ReadData(DATA, row0, row1, use_cache=use_cache, read_data=read_data, sort_by_baseline=sort_by_baseline)
+    def GiveChunk (self, DATA, ichunk, use_cache=None, read_data=True, sort_by_baseline=False):
+        self.cache = self.getChunkCache(ichunk)
+        return self.ReadData(DATA, ichunk, use_cache=use_cache, read_data=read_data, sort_by_baseline=sort_by_baseline)
 
-    def GiveNextChunk(self, use_cache=None, read_data=True, sort_by_baseline=False):
-        # release data/flag arrays, if holding them, and mark cache as valid
-        if self._datapath:
-            self.cache.saveCache("Data")
-        if self._flagpath:
-            self.cache.saveCache("Flags")
-        self._datapath = self._flagpath = None
-        # get row0:row1 of next chunk. If row1==row0, chunk is empty and we must skip it
-        while self.current_chunk < self.Nchunk-1:
-            self.current_chunk += 1
-            return self.GiveChunk(self.current_chunk,
-                                  use_cache=use_cache,read_data=read_data,sort_by_baseline=sort_by_baseline)
-        return "EndMS"
-
+    # # 2023/12 OMS: no longer used, removing
+    # def GiveNextChunk(self, use_cache=None, read_data=True, sort_by_baseline=False):
+    #     # release data/flag arrays, if holding them, and mark cache as valid
+    #     if self._datapath:
+    #         self.cache.saveCache("Data")
+    #     if self._flagpath:
+    #         self.cache.saveCache("Flags")
+    #     self._datapath = self._flagpath = None
+    #     # get row0:row1 of next chunk. If row1==row0, chunk is empty and we must skip it
+    #     while self.current_chunk < self.Nchunk-1:
+    #         self.current_chunk += 1
+    #         return self.GiveChunk(self.current_chunk,
+    #                               use_cache=use_cache,read_data=read_data,sort_by_baseline=sort_by_baseline)
+    #     return "EndMS"
 
     def numChunks (self):
         return len(self._chunk_r0r1)
 
-    def getChunkRow0Row1 (self):
-        return self._chunk_r0r1
+    def getPerChunkRowCounts(self):
+        return [r1-r0 for r0, r1 in self._chunk_r0r1]
         
-    def ReadData(self,DATA,row0,row1,
+    def ReadData(self,DATA,ichunk,
                  ReadWeight=False,
                  use_cache=False, read_data=True,
                  sort_by_baseline=True):
         """
         Args:
-            row0:
-            row1:
+            ichunk: chunk number
             ReadWeight:
             use_cache: if True, reads data and flags from the chunk cache, if available
             databuf: a buffer to read data into. If None, a new array is created.
@@ -589,6 +509,7 @@ class ClassMS():
         Returns:
             DATA dictionary containing all read elements
         """
+        row0, row1 = self._chunk_r0r1[ichunk]
         self.ROW0 = row0
         self.ROW1 = row1
         self.nRowRead = nRowRead = row1-row0
@@ -741,6 +662,8 @@ class ClassMS():
                 print("sorting took %.1fs"%(time.time()-t0), file=log)
             else:
                 table_all.getcolslicenp("FLAG", flags, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
+            if self._reverse_channel_order:
+                flags[:,:,:] = flags[:,::-1,:]
             self.UpdateFlags(flags, uvw, visdata, A0, A1, time_all)
             if use_cache:
                 print("caching flags to %s" % flagpath, file=log)
@@ -749,7 +672,6 @@ class ClassMS():
         if table_all:
             table_all.close()
 
-        ColNames=self.ColNames
         #table_all.close()
         #del(table_all)
         DecorrMode=self.GD["RIME"]["DecorrMode"]
@@ -897,44 +819,45 @@ class ClassMS():
         DATA["flags"]=(FlagOut.reshape((NRowOut,NChanOut,4))[ind]).copy()
         return DATA
 
-    def SaveAllDataStruct(self):
-        t=self.GiveMainTable(readonly=False)
+    # # 2023/12 OMS: unused, removing
+    # def SaveAllDataStruct(self):
+    #     t=self.GiveMainTable(readonly=False)
 
-        t.putcol('ANTENNA1',self.A0)
-        t.putcol('ANTENNA2',self.A1)
-        t.putcol("TIME",self.times_all)
-        t.putcol("TIME_CENTROID",self.times_all)
-        t.putcol("UVW",self.uvw)
-        t.putcol("FLAG",self.flag_all)
-        for icol in range(len(self.ColName)):
-            t.putcol(self.ColName[icol],self.data[icol])
-        t.close()
+    #     t.putcol('ANTENNA1',self.A0)
+    #     t.putcol('ANTENNA2',self.A1)
+    #     t.putcol("TIME",self.times_all)
+    #     t.putcol("TIME_CENTROID",self.times_all)
+    #     t.putcol("UVW",self.uvw)
+    #     t.putcol("FLAG",self.flag_all)
+    #     for icol in range(len(self.ColName)):
+    #         t.putcol(self.ColName[icol],self.data[icol])
+    #     t.close()
 
-    def RemoveStation(self):
+    # def RemoveStation(self):
         
-        DelStationList=self.DelStationList
-        if DelStationList is None: return
+    #     DelStationList=self.DelStationList
+    #     if DelStationList is None: return
 
-        StationNames=self.StationNames
-        self.MapStationsKeep=np.arange(len(StationNames))
-        DelNumStationList=[]
-        for Station in DelStationList:
-            ind=np.where(Station==np.array(StationNames))[0]
-            self.MapStationsKeep[ind]=-1
-            DelNumStationList.append(ind)
-            indRemove=np.where((self.A0!=ind)&(self.A1!=ind))[0]
-            self.A0=self.A0[indRemove]
-            self.A1=self.A1[indRemove]
-            self.data=self.data[indRemove,:,:]
-            self.flag_all=self.flag_all[indRemove,:,:]
-            self.times_all=self.times_all[indRemove,:,:]
-        self.MapStationsKeep=self.MapStationsKeep[self.MapStationsKeep!=-1]
-        StationNames=(np.array(StationNames)[self.MapStationsKeep]).tolist()
+    #     StationNames=self.StationNames
+    #     self.MapStationsKeep=np.arange(len(StationNames))
+    #     DelNumStationList=[]
+    #     for Station in DelStationList:
+    #         ind=np.where(Station==np.array(StationNames))[0]
+    #         self.MapStationsKeep[ind]=-1
+    #         DelNumStationList.append(ind)
+    #         indRemove=np.where((self.A0!=ind)&(self.A1!=ind))[0]
+    #         self.A0=self.A0[indRemove]
+    #         self.A1=self.A1[indRemove]
+    #         self.data=self.data[indRemove,:,:]
+    #         self.flag_all=self.flag_all[indRemove,:,:]
+    #         self.times_all=self.times_all[indRemove,:,:]
+    #     self.MapStationsKeep=self.MapStationsKeep[self.MapStationsKeep!=-1]
+    #     StationNames=(np.array(StationNames)[self.MapStationsKeep]).tolist()
 
-        na=self.MapStationsKeep.shape[0]
-        self.na=na
-        self.StationPos=self.StationPos[self.MapStationsKeep,:]
-        self.nbl=(na*(na-1))/2+na
+    #     na=self.MapStationsKeep.shape[0]
+    #     self.na=na
+    #     self.StationPos=self.StationPos[self.MapStationsKeep,:]
+    #     self.nbl=(na*(na-1))/2+na
         
 
     # static member caching DDID/FIELD_ID lookups
@@ -988,23 +911,16 @@ class ClassMS():
 
 
         # get polarizations
-        # This a list of the Stokes enums (as defined in casacore header measures/Stokes.h)
-        # These are referenced by the CORR_TYPE column of the MS POLARIZATION subtable.
-        # E.g. 5,6,7,8 corresponds to RR,RL,LR,LL
-        MS_STOKES_ENUMS = [
-            "Undefined", "I", "Q", "U", "V", "RR", "RL", "LR", "LL", "XX", "XY", "YX", "YY", "RX", "RY", "LX", "LY", "XR", "XL", "YR", "YL", "PP", "PQ", "QP", "QQ", "RCircular", "LCircular", "Linear", "Ptotal", "Plinear", "PFtotal", "PFlinear", "Pangle"
-          ]
         tp = table(table_all.getkeyword('POLARIZATION'),ack=False)
         # get list of corrype enums for first row of polarization table, and convert to strings via MS_STOKES_ENUMS. 
         # self.CorrelationNames will be a list of strings
         self.CorrelationIds = tp.getcol('CORR_TYPE',self._polid,1)[0]
 
-        self.CorrelationNames = [ (ctype >= 0 and ctype < len(MS_STOKES_ENUMS) and MS_STOKES_ENUMS[ctype]) or
+        self.CorrelationNames = [ (ctype >= 0 and ctype < len(self.MS_STOKES_ENUMS) and self.MS_STOKES_ENUMS[ctype]) or
                 None for ctype in self.CorrelationIds ]
         self.Ncorr = len(self.CorrelationNames)
         # NB: it is possible for the MS to have different polarization
 
-        self.ColNames=table_all.colnames()
         self.F_nrows=table_all.nrows()#-nbl
 
         # make mapping into chunks
@@ -1034,11 +950,11 @@ class ClassMS():
         self._chunk_r0r1 = [ chunk_row0[i:i+2] for i in range(self.Nchunk) ]
 
         # init the per-chunk caches
-        for row0, row1 in self._chunk_r0r1:
+        for ichunk in range(self.Nchunk):
             # note that we don't need to reset the chunk cache -- the top-level MS cache would already have been reset,
             # being the parent directory
-            self._chunk_caches[row0, row1] = CacheManager(
-                os.path.join(self.maincache.dirname, "R%d:%d" % (row0, row1)),
+            self._chunk_caches[ichunk] = CacheManager(
+                os.path.join(self.maincache.dirname, f"ch{ichunk}"),
                 reset=False)
 
         #SPW=table_all.getcol('DATA_DESC_ID')
@@ -1212,7 +1128,6 @@ class ClassMS():
         self.StrRA  = rad2hmsdms(self.rarad,Type="ra").replace(" ",":")
         self.StrDEC = rad2hmsdms(self.decrad,Type="dec").replace(" ",".")
         self.lm_PhaseCenter=self.radec2lm_scalar(self.OldRadec[0],self.OldRadec[1])
-        self.ColNames=table_all.colnames()
         table_all.close()
         T.timeit()
         # self.StrRADEC=(rad2hmsdms(self.rarad,Type="ra").replace(" ",":")\
@@ -1346,16 +1261,18 @@ class ClassMS():
         return l,m
 
 
-    def PutVisColumn(self, colname, vis, row0, row1, likecol="DATA", sort_index=None, ColDesc=None):
+    def PutVisColumn(self, colname, vis, ichunk, likecol="DATA", sort_index=None, ColDesc=None):
         self.AddCol(colname,
                     LikeCol=likecol,
                     quiet=True,
                     ColDesc=ColDesc)
         
+        row0, row1 = self._chunk_r0r1[ichunk]
         nrow = row1 - row0
         if self._reverse_channel_order:
             vis = vis[:,::-1,...]
         print("writing column %s rows %d:%d"%(colname,row0,row1), file=log)
+
         t = self.GiveMainTable(readonly=False, ack=False)
 
         # if sorting rows, rearrange vis array back into MS order
@@ -1400,23 +1317,23 @@ class ClassMS():
         t.close()
 
 
-        
-    def SaveVis(self,vis=None,Col="CORRECTED_DATA",spw=0,DoPrint=True):
-        if vis is None:
-            vis=self.data
-        if DoPrint: print("Writing data in column %s" % ModColor.Str(Col, col="green"), file=log)
-        table_all=self.GiveMainTable(readonly=False)
+    # # 2023/12 OMS: unused, removing
+    # def SaveVis(self,vis=None,Col="CORRECTED_DATA",spw=0,DoPrint=True):
+    #     if vis is None:
+    #         vis=self.data
+    #     if DoPrint: print("Writing data in column %s" % ModColor.Str(Col, col="green"), file=log)
+    #     table_all=self.GiveMainTable(readonly=False)
 
-        if self.swapped:
-            visout=np.swapaxes(vis[spw*self.Nchan:(spw+1)*self.Nchan],0,1)
-            flag_all=np.swapaxes(self.flag_all[spw*self.Nchan:(spw+1)*self.Nchan],0,1)
-        else:
-            visout=vis
-            flag_all=self.flag_all
+    #     if self.swapped:
+    #         visout=np.swapaxes(vis[spw*self.Nchan:(spw+1)*self.Nchan],0,1)
+    #         flag_all=np.swapaxes(self.flag_all[spw*self.Nchan:(spw+1)*self.Nchan],0,1)
+    #     else:
+    #         visout=vis
+    #         flag_all=self.flag_all
 
-        table_all.putcol(Col,visout.astype(self.data.dtype),self.ROW0,self.nRowRead)
-        table_all.putcol("FLAG",flag_all,self.ROW0,self.nRowRead)
-        table_all.close()
+    #     table_all.putcol(Col,visout.astype(self.data.dtype),self.ROW0,self.nRowRead)
+    #     table_all.putcol("FLAG",flag_all,self.ROW0,self.nRowRead)
+    #     table_all.close()
         
     def GiveUvwBL(self,a0,a1):
         vecout=self.uvw[(self.A0==a0)&(self.A1==a1),:]
@@ -1470,11 +1387,12 @@ class ClassMS():
             pylab.draw()
             pylab.show()
 
-    def GiveCol(self,ColName):
-        t=self.GiveMainTable(readonly=False)
-        col=t.getcol(ColName)
-        t.close()
-        return col
+    # # 2023/12 OMS: unused, removing
+    # def GiveCol(self,ColName):
+    #     t=self.GiveMainTable(readonly=False)
+    #     col=t.getcol(ColName)
+    #     t.close()
+    #     return col
 
     def PutColInData(self,SpwChan,pol,data):
         if self.swapped:
@@ -1482,51 +1400,52 @@ class ClassMS():
         else:
             self.data[:,SpwChan,pol]=data
 
-    def Restore(self):
-        backname="CORRECTED_DATA_BACKUP"
-        backnameFlag="FLAG_BACKUP"
-        t=table(self.MSName,readonly=False,ack=False)
-        if backname in t.colnames():
-            print("  Copying ",backname," to CORRECTED_DATA", file=log)
-            #t.putcol("CORRECTED_DATA",t.getcol(backname))
-            self.CopyCol(backname,"CORRECTED_DATA")
-            print("  Copying ",backnameFlag," to FLAG", file=log)
-            self.CopyCol(backnameFlag,"FLAG")
-            #t.putcol(,t.getcol(backnameFlag))
-        t.close()
+    # # # 2023/12 OMS: unused, removing
+    # def Restore(self):
+    #     backname="CORRECTED_DATA_BACKUP"
+    #     backnameFlag="FLAG_BACKUP"
+    #     t=table(self.MSName,readonly=False,ack=False)
+    #     if backname in t.colnames():
+    #         print("  Copying ",backname," to CORRECTED_DATA", file=log)
+    #         #t.putcol("CORRECTED_DATA",t.getcol(backname))
+    #         self.CopyCol(backname,"CORRECTED_DATA")
+    #         print("  Copying ",backnameFlag," to FLAG", file=log)
+    #         self.CopyCol(backnameFlag,"FLAG")
+    #         #t.putcol(,t.getcol(backnameFlag))
+    #     t.close()
 
-    def ZeroFlagSave(self,spw=0):
-        self.flag_all.fill(0)
-        if self.swapped:
-            flagout=np.swapaxes(self.flag_all[spw*self.Nchan:(spw+1)*self.Nchan],0,1)
-        else:
-            flagout=self.flag_all
-        t=self.GiveMainTable(readonly=False)
-        t.putcol("FLAG",flagout)
+    # def ZeroFlagSave(self,spw=0):
+    #     self.flag_all.fill(0)
+    #     if self.swapped:
+    #         flagout=np.swapaxes(self.flag_all[spw*self.Nchan:(spw+1)*self.Nchan],0,1)
+    #     else:
+    #         flagout=self.flag_all
+    #     t=self.GiveMainTable(readonly=False)
+    #     t.putcol("FLAG",flagout)
         
-        t.close()
+    #     t.close()
 
-    def CopyCol(self,Colin,Colout):
-        t=table(self.MSName,readonly=False,ack=False)
-        if self.TimeChunkSize is None:
-            print("  ... Copying column %s to %s"%(Colin,Colout), file=log)
-            t.putcol(Colout,t.getcol(Colin))
-        else:
-            print("  ... Copying column %s to %s"%(Colin,Colout), file=log)
-            TimesInt=np.arange(0,self.DTh,self.TimeChunkSize).tolist()
-            if not(self.DTh in TimesInt): TimesInt.append(self.DTh)
-            for i in range(len(TimesInt)-1):
-                t0,t1=TimesInt[i],TimesInt[i+1]
-                print("      ... Copy in [%5.2f,%5.2f] hours"%( t0,t1), file=log)
-                t0=t0*3600.+self.F_tstart
-                t1=t1*3600.+self.F_tstart
-                ind0=np.argmin(np.abs(t0-self.F_times))
-                ind1=np.argmin(np.abs(t1-self.F_times))
-                row0=ind0*self.nbl
-                row1=ind1*self.nbl
-                NRow=row1-row0
-                t.putcol(Colout,t.getcol(Colin,row0,NRow),row0,NRow)
-        t.close()
+    # def CopyCol(self,Colin,Colout):
+    #     t=table(self.MSName,readonly=False,ack=False)
+    #     if self.TimeChunkSize is None:
+    #         print("  ... Copying column %s to %s"%(Colin,Colout), file=log)
+    #         t.putcol(Colout,t.getcol(Colin))
+    #     else:
+    #         print("  ... Copying column %s to %s"%(Colin,Colout), file=log)
+    #         TimesInt=np.arange(0,self.DTh,self.TimeChunkSize).tolist()
+    #         if not(self.DTh in TimesInt): TimesInt.append(self.DTh)
+    #         for i in range(len(TimesInt)-1):
+    #             t0,t1=TimesInt[i],TimesInt[i+1]
+    #             print("      ... Copy in [%5.2f,%5.2f] hours"%( t0,t1), file=log)
+    #             t0=t0*3600.+self.F_tstart
+    #             t1=t1*3600.+self.F_tstart
+    #             ind0=np.argmin(np.abs(t0-self.F_times))
+    #             ind1=np.argmin(np.abs(t1-self.F_times))
+    #             row0=ind0*self.nbl
+    #             row1=ind1*self.nbl
+    #             NRow=row1-row0
+    #             t.putcol(Colout,t.getcol(Colin,row0,NRow),row0,NRow)
+    #     t.close()
 
     def AddCol(self,ColName,LikeCol="DATA",quiet=False,ColDesc=None):
         t=table(self.MSName,readonly=False,ack=False)
@@ -1550,43 +1469,44 @@ class ClassMS():
         t.addcols(desc)
         t.close()
         
-    def PutBackupCol(self,incol="CORRECTED_DATA"):
-        backname="%s_BACKUP"%incol
-        backnameFlag="FLAG_BACKUP"
-        self.PutCasaCols()
-        t=table(self.MSName,readonly=False,ack=False)
-        JustAdded=False
-        if not(backname in t.colnames()):
-            print("  Putting column ",backname," in MS", file=log)
-            desc=t.getcoldesc("CORRECTED_DATA")
-            desc["name"]=backname
-            desc['comment']=desc['comment'].replace(" ","_")
-            t.addcols(desc)
-            print("  Copying %s in %s"%(incol,backname), file=log)
-            self.CopyCol(incol,backname)
-        else:
-            print("  Column %s already there"%(backname), file=log)
+    # # # 2023/12 OMS: unused, removing
+    # def PutBackupCol(self,incol="CORRECTED_DATA"):
+    #     backname="%s_BACKUP"%incol
+    #     backnameFlag="FLAG_BACKUP"
+    #     self.PutCasaCols()
+    #     t=table(self.MSName,readonly=False,ack=False)
+    #     JustAdded=False
+    #     if not(backname in t.colnames()):
+    #         print("  Putting column ",backname," in MS", file=log)
+    #         desc=t.getcoldesc("CORRECTED_DATA")
+    #         desc["name"]=backname
+    #         desc['comment']=desc['comment'].replace(" ","_")
+    #         t.addcols(desc)
+    #         print("  Copying %s in %s"%(incol,backname), file=log)
+    #         self.CopyCol(incol,backname)
+    #     else:
+    #         print("  Column %s already there"%(backname), file=log)
 
-        if not(backnameFlag in t.colnames()):
-            desc=t.getcoldesc("FLAG")
-            desc["name"]=backnameFlag
-            desc['comment']=desc['comment'].replace(" ","_")
-            t.addcols(desc)
-            self.CopyCol("FLAG",backnameFlag)
+    #     if not(backnameFlag in t.colnames()):
+    #         desc=t.getcoldesc("FLAG")
+    #         desc["name"]=backnameFlag
+    #         desc['comment']=desc['comment'].replace(" ","_")
+    #         t.addcols(desc)
+    #         self.CopyCol("FLAG",backnameFlag)
 
-            JustAdded=True
+    #         JustAdded=True
 
-        t.close()
-        return JustAdded
+    #     t.close()
+    #     return JustAdded
 
-    def PutNewCol(self,Name,LikeCol="CORRECTED_DATA"):
-        if not(Name in self.ColNames):
-            print("  Putting column %s in MS, with format of %s"%(Name,LikeCol), file=log)
-            t=table(self.MSName,readonly=False,ack=False)
-            desc=t.getcoldesc(LikeCol)
-            desc["name"]=Name
-            t.addcols(desc) 
-            t.close()
+    # def PutNewCol(self,Name,LikeCol="CORRECTED_DATA"):
+    #     if not(Name in self.ColNames):
+    #         print("  Putting column %s in MS, with format of %s"%(Name,LikeCol), file=log)
+    #         t=table(self.MSName,readonly=False,ack=False)
+    #         desc=t.getcoldesc(LikeCol)
+    #         desc["name"]=Name
+    #         t.addcols(desc) 
+    #         t.close()
     
 
     def Rotate(self,DATA,RotateType=["uvw","vis"],Sense="ToTarget",DataFieldName="data"):
@@ -1609,28 +1529,12 @@ class ClassMS():
         DDFacet.ToolsDir.ModRotate.Rotate2(ra0,dec0,ra1,dec1,DATA["uvw"],DATA[DataFieldName],self.wavelength_chan,
                                            RotateType=RotateType)
 
-
-
-    # def RotateMS(self,radec):
-    #     import ModRotate
-    #     ModRotate.Rotate(self,radec)
-    #     ta=table(self.MSName+'/FIELD/',ack=False,readonly=False)
-    #     ra,dec=radec
-    #     radec=np.array([[[ra,dec]]])
-    #     ta.putcol("DELAY_DIR",radec)
-    #     ta.putcol("PHASE_DIR",radec)
-    #     ta.putcol("REFERENCE_DIR",radec)
-    #     ta.close()
-    #     t=self.GiveMainTable(readonly=False)
-    #     t.putcol(self.ColName,self.data)
-    #     t.putcol("UVW",self.uvw)
-    #     t.close()
-    
-    def PutCasaCols(self):
-        import pyrap.tables
-        pyrap.tables.addImagingColumns(self.MSName,ack=False)
-        #self.PutNewCol("CORRECTED_DATA")
-        #self.PutNewCol("MODEL_DATA")
+    # # 2023/12 OMS: unused, removing
+    # def PutCasaCols(self):
+    #     import pyrap.tables
+    #     pyrap.tables.addImagingColumns(self.MSName,ack=False)
+    #     #self.PutNewCol("CORRECTED_DATA")
+    #     #self.PutNewCol("MODEL_DATA")
 
     def ComputeDotUVW (self, A0, A1, times, UVW):
         na = self.na
@@ -1654,68 +1558,144 @@ class ClassMS():
             pBAR.render(ant0 + 1, na)
         return UVW_dt
 
-    def AddUVW_dt(self):
-        print("Compute UVW speed column", file=log)
-        MSName=self.MSName
-        MS=self
-        t=table(MSName,readonly=False,ack=False)
-        times=t.getcol("TIME")
-        A0=t.getcol("ANTENNA1")
-        A1=t.getcol("ANTENNA2")
-        UVW=t.getcol("UVW")
-        UVW_dt=np.zeros_like(UVW)
-        if "UVWDT" not in t.colnames():
-            print("Adding column UVWDT in %s"%self.MSName, file=log)
-            desc=t.getcoldesc("UVW")
-            desc["name"]="UVWDT"
-            desc['comment']=desc['comment'].replace(" ","_")
-            t.addcols(desc)
+    def readUVWs(self, ichunk):
+        row0, row1 = self._chunk_r0r1[ichunk]
+        return self.GiveMainTable().getcol("UVW", row0, row1 - row0)
+
+    def readWeights(self, ichunk, weightcols: List[str], uvw_only=False):
+        row0, row1 = self._chunk_r0r1[ichunk]
+        nrows = row1 - row0
+        if not nrows:
+            return None, None, None, None
+        tab = self.GiveMainTable()
+        uvw = tab.getcol("UVW", row0, nrows) 
+        flags = tab.getcol("FLAG", row0, nrows)
+        flags = flags[:,self.ChanSlice,:]
+        if self._reverse_channel_order:
+            flags = flags[:,::-1,:]
+        flags = flags.max(axis=2)
+        valid = ~flags
+        # if all channels are flagged, flag whole row. Shape of flags becomes nrow
+        rowflags = flags.min(axis=1)
+        # if everything is flagged, skip this entry
+        if rowflags.all():
+            return None, None, None, None
+        # if only UVWs needed, return now
+        if uvw_only:
+            return uvw, None, None, None
         
-        # # #######################
-        # LTimes=np.sort(np.unique(times))
-        # for iTime,ThisTime in enumerate(LTimes):
-        #     print iTime,LTimes.size
-        #     ind=np.where(times==ThisTime)[0]
-        #     UVW_dt[ind]=MS.Give_dUVW_dt(times[ind],A0[ind],A1[ind])
-        # # #######################
+        # now read the weights
+        weights = None
+
+        for weight_col in weightcols:
+            if weight_col == "WEIGHT_SPECTRUM":
+                w = tab.getcol(weight_col, row0, nrows)[:, self.ChanSlice]
+    #            print>> log, "  reading column %s for the weights, shape is %s" % (weight_col, w.shape)
+                if self._reverse_channel_order:
+                    w = w[:, ::-1, :]
+                # take mean weight across correlations and apply this to all
+                w = w.mean(axis=2)
+            elif weight_col == "None" or weight_col == None:
+                w = None
+            elif weight_col == "Lucky_kMS" and self.GD["DDESolutions"]["DDSols"]:
+                ID = self._chunk_r0r1[ichunk][0]
+                SolsName=self.GD["DDESolutions"]["DDSols"]
+                SolsDir=self.GD["DDESolutions"]["SolsDir"]
+                if SolsDir is None:
+                    FileName="%skillMS.%s.Weights.%i.npy"%(reformat.reformat(self.MSName),SolsName,ID)
+                else:
+                    _MSName=reformat.reformat(self.MSName).split("/")[-2]
+                    DirName=os.path.abspath("%s%s"%(reformat.reformat(SolsDir),_MSName))
+                    if not os.path.isdir(DirName):
+                        os.makedirs(DirName)
+                    FileName="%s/killMS.%s.Weights.%i.npy"%(DirName,SolsName,ID)
+                log.print( "  loading weights from file: %s"%FileName)
+                w = np.load(FileName)
+            elif weight_col.endswith(".npy"):
+                log.print("  loading weights from file: %s"%weight_col)
+                w = np.load(weight_col)[slice(self._chunk_r0r1[ichunk]), :]
+            elif weight_col == "WEIGHT":
+                w = tab.getcol(weight_col, row0, nrows)
+                w = w.mean(axis=1)[:, np.newaxis]
+                # broadcast will not work to initialize weights array below, so do init here
+                if weights is None:
+                    weights = np.empty((nrows, self.Nchan), np.float32) 
+                    weights[...] = w
+                else:
+                    weights *= w
+                continue
+            else:
+                # in all other cases (i.e. IMAGING_WEIGHT) assume a column
+                # of shape NRow,NFreq to begin with, check for this:
+                w = tab.getcol(weight_col, row0, nrows)[:, self.ChanSlice]
+                if w.shape != valid.shape:
+                    raise TypeError("weights column expected to have shape of %s" %
+                        (valid.shape,))
+            # multiply into weights
+            if weights is None:
+                weights = w if w is not None else np.ones((nrows, self.Nchan), np.float32)
+            elif w is not None:
+                weights *= w
+
+        return uvw, flags, rowflags, weights
+
+
+
+    # # 2023/12 OMS: unused, removing
+    # def AddUVW_dt(self):
+    #     print("Compute UVW speed column", file=log)
+    #     MSName=self.MSName
+    #     MS=self
+    #     t=table(MSName,readonly=False,ack=False)
+    #     times=t.getcol("TIME")
+    #     A0=t.getcol("ANTENNA1")
+    #     A1=t.getcol("ANTENNA2")
+    #     UVW=t.getcol("UVW")
+    #     UVW_dt=np.zeros_like(UVW)
+    #     if "UVWDT" not in t.colnames():
+    #         print("Adding column UVWDT in %s"%self.MSName, file=log)
+    #         desc=t.getcoldesc("UVW")
+    #         desc["name"]="UVWDT"
+    #         desc['comment']=desc['comment'].replace(" ","_")
+    #         t.addcols(desc)
         
-        na=MS.na
-        pBAR= ProgressBar(Title=" Calc dUVW/dt ")
-        pBAR.render(0,na)
-        for ant0 in range(na):
-            for ant1 in range(ant0,MS.na):
-                if ant0==ant1: continue
-                C0=((A0==ant0)&(A1==ant1))
-                C1=((A1==ant0)&(A0==ant1))
-                ind=np.where(C0|C1)[0]
-                UVWs=UVW[ind]
-                timess=times[ind]
-                dtimess=timess[1::]-timess[0:-1]
-                UVWs_dt0=(UVWs[1::]-UVWs[0:-1])/dtimess.reshape((-1,1))
-                UVW_dt[ind[0:-1]]=UVWs_dt0
-                UVW_dt[ind[-1]]=UVWs_dt0[-1]
-            intPercent = int(100 * (ant0+1) / float(na))
-            pBAR.render(ant0+1, na)
+    #     na=MS.na
+    #     pBAR= ProgressBar(Title=" Calc dUVW/dt ")
+    #     pBAR.render(0,na)
+    #     for ant0 in range(na):
+    #         for ant1 in range(ant0,MS.na):
+    #             if ant0==ant1: continue
+    #             C0=((A0==ant0)&(A1==ant1))
+    #             C1=((A1==ant0)&(A0==ant1))
+    #             ind=np.where(C0|C1)[0]
+    #             UVWs=UVW[ind]
+    #             timess=times[ind]
+    #             dtimess=timess[1::]-timess[0:-1]
+    #             UVWs_dt0=(UVWs[1::]-UVWs[0:-1])/dtimess.reshape((-1,1))
+    #             UVW_dt[ind[0:-1]]=UVWs_dt0
+    #             UVW_dt[ind[-1]]=UVWs_dt0[-1]
+    #         intPercent = int(100 * (ant0+1) / float(na))
+    #         pBAR.render(ant0+1, na)
                     
     
-        print("Writing in column UVWDT", file=log)
-        t.putcol("UVWDT",UVW_dt)
-        t.close()
+    #     print("Writing in column UVWDT", file=log)
+    #     t.putcol("UVWDT",UVW_dt)
+    #     t.close()
     
-        # import pylab
-        # u,v,w=t.getcol("UVW").T
-        # A0=t.getcol("ANTENNA1")
-        # A1=t.getcol("ANTENNA2")
-        # ind=np.where((A0==0)&(A1==10))[0]
-        # us=u[ind]
-        # du,dv,dw=t.getcol("UVWDT").T
-        # dus1=du[ind]
-        # dus0=us[1::]-us[0:-1]
-        # pylab.show()
-        # DT=t.getcol("INTERVAL")[0]
-        # pylab.plot(dus0/DT)
-        # pylab.plot(dus1)
-        # pylab.show()
+    #     # import pylab
+    #     # u,v,w=t.getcol("UVW").T
+    #     # A0=t.getcol("ANTENNA1")
+    #     # A1=t.getcol("ANTENNA2")
+    #     # ind=np.where((A0==0)&(A1==10))[0]
+    #     # us=u[ind]
+    #     # du,dv,dw=t.getcol("UVWDT").T
+    #     # dus1=du[ind]
+    #     # dus0=us[1::]-us[0:-1]
+    #     # pylab.show()
+    #     # DT=t.getcol("INTERVAL")[0]
+    #     # pylab.plot(dus0/DT)
+    #     # pylab.plot(dus1)
+    #     # pylab.show()
     
 def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
     """Given an MSName argument, converts it into a list of measurement sets.
