@@ -62,5 +62,9 @@ class TestWidefieldDirty(ClassCompareFITSImage.ClassCompareFITSImage):
         """
         return [1e-7,1e-7,1e-7,1e-7] #epsilons per image pair, as listed in defineImageList
 
+    @classmethod
+    def additional_cmd_args(cls):
+        return ["--Data-Dask=1"]
+
 if __name__ == '__main__':
     unittest.main()

@@ -162,6 +162,10 @@ class ClassCompareFITSImage(unittest.TestCase):
         pass
 
     @classmethod
+    def additional_cmd_args(cls):
+        return []
+
+    @classmethod
     def setUpClass(cls):
         unittest.TestCase.setUpClass()
         cls._inputDir = getenv('DDFACET_TEST_DATA_DIR','./')+"/"
@@ -231,7 +235,7 @@ class ClassCompareFITSImage(unittest.TestCase):
             #'--Debug-APPVerbose=2', #enable if you ever need verbose logs
             '--Log-Boring=1',
             '--Output-Name=%s' % cls._imagePrefix,
-            '--Cache-Dir=.']
+            '--Cache-Dir=.'] + cls.additional_cmd_args()
 
         cls.pre_imaging_hook()
         
