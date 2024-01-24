@@ -339,8 +339,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         ModelImage = self.GiveModelImage(self.GridFreqs)
 
         # pad GausKern and take FT
-        GaussKern = np.pad(GaussKern, self.Npad, mode='constant')
-        FTshape, _ = GaussKern.shape
+        # GaussKern = np.pad(GaussKern, self.Npad, mode='constant')
+        GaussKern = np.pad(GaussKern, ((self.Npad_x,self.Npad_x),(self.Npad_y,self.Npad_y)), mode='constant')
+        
+        FTshape_x, FTshape_y = GaussKern.shape
         from scipy import fftpack as FT
         #GaussKernhat = FT.fft2(iFs(GaussKern))
         GaussKernhat = FFT(iFs(GaussKern))
