@@ -26,6 +26,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pytypes.h>
+#include <stdio.h>
 
 namespace DDF {
   namespace py=pybind11;
@@ -129,7 +130,12 @@ namespace DDF {
 	int DoApplyJones=0;
 	dcMat J0, J1, J0H, J1H;
 
+	int ComputeMTilde=0;
+	dcmplx MTilde2[16];
+
+
 	double *ptrSumJones, *ptrSumJonesChan;
+	dcmplx *ptrSumMTilde;
 
 	JonesServer(py::list& LJones, double WaveLengthMeanIn);
 

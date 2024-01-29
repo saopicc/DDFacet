@@ -45,6 +45,7 @@ else:
 import numpy as np
 import os
 from DDFacet.Imager import ModCF
+from DDFacet.Array import ModLinAlg
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Parset import ReadCFG
@@ -570,6 +571,7 @@ class ClassDDEGridMachine():
         self.NChan, self.npol, _, _ = self.GridShape
         self.SumWeigths = np.zeros((self.NChan, self.npol), np.float64)
         self.SumJones = np.zeros((2, self.NChan), np.float64)
+        self.SumMTilde = np.zeros((self.NChan, 4,4), np.complex128)
 
     def setDecorr(self,uvw_dt,DT,Dnu,SmearMode="FT",
                   lm_min=None,
@@ -714,7 +716,7 @@ class ClassDDEGridMachine():
 
     def put(self, times, uvw, visIn, flag, A0A1, W=None,
             PointingID=0, DoNormWeights=True, DicoJonesMatrices=None,
-            freqs=None, DoPSF=0, ChanMapping=None, ResidueGrid=None, sparsification=None):
+            freqs=None, DoPSF=0, ChanMapping=None, ResidueGrid=None, sparsification=None,ComputeMTilde=False):
         """
         Gridding routine, wraps external python extension C gridder
         Args:
@@ -821,10 +823,13 @@ class ClassDDEGridMachine():
             LSumJones=[self.SumJones]
             LSumJonesChan=[self.SumJonesChan]
             ParamJonesList=self.GiveParamJonesList(DicoJonesMatrices,times,A0,A1,uvw,gridder=True)
-            ParamJonesList=ParamJonesList+LApplySol+LSumJones+LSumJonesChan+[np.float32(self.GD["DDESolutions"]["ReWeightSNR"])]
+            ParamJonesList=ParamJonesList+LApplySol+LSumJones+LSumJonesChan+\
+                [np.float32(self.GD["DDESolutions"]["ReWeightSNR"])]+\
+                [ComputeMTilde,self.SumMTilde]
 
         #T2= ClassTimeIt.ClassTimeIt("Gridder")
         #T2.disable()
+
         T.timeit("stuff")
 
         # if self.IDFacet==10:
@@ -896,6 +901,11 @@ class ClassDDEGridMachine():
 
             T.timeit("gridder")
             T.timeit("grid %d" % self.IDFacet)
+            
+                    
+
+
+                    
         elif self.GD["RIME"]["BackwardMode"] == "BDA-grid-classic":
             OptimisationInfos = [
                 self.JonesType,
@@ -1109,6 +1119,7 @@ class ClassDDEGridMachine():
                 DicoJonesMatrices, times, A0, A1, uvw, degridder=True)
             ParamJonesList = ParamJonesList+LApplySol+LSumJones+LSumJonesChan + \
                 [np.float32(self.GD["DDESolutions"]["ReWeightSNR"])]
+            
 
         T.timeit("3")
         #print vis

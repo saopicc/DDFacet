@@ -187,6 +187,8 @@ namespace DDF {
 	ptrSumJonesChan=py::array_t<double, py::array::c_style>(LJones[18]).mutable_data(0);
 
 	ReWeightSNR=LJones[19].cast<double>();
+	ComputeMTilde=LJones[20].cast<bool>();
+	ptrSumMTilde=py::array_t<dcmplx, py::array::c_style>(LJones[21]).mutable_data(0);
 	}
       }
 
@@ -290,8 +292,106 @@ namespace DDF {
 
 	BB=(abs(J0[0])*abs(J1[0])+abs(J0[3])*abs(J1[3]))/2.;
 	BB*=BB;
+
+	
+	
+
 	J0H=J0.hermitian();
 	J1H=J1.hermitian();
+
+	if (ComputeMTilde){
+	//std::cout<<"bla"<<ComputeMTilde<<std::endl;
+	
+	// dcmplx a0=J0H[0];
+	// dcmplx b0=J0H[1];
+	// dcmplx c0=J0H[2];
+	// dcmplx d0=J0H[3];
+	// dcmplx a1=J1[0];
+	// dcmplx b1=J1[1];
+	// dcmplx c1=J1[2];
+	// dcmplx d1=J1[3];
+	// dcmplx a0c=conj(a0);
+    	// dcmplx b0c=conj(b0);
+    	// dcmplx c0c=conj(c0);
+    	// dcmplx d0c=conj(d0);
+    	// dcmplx a1c=conj(a1);
+    	// dcmplx b1c=conj(b1);
+    	// dcmplx c1c=conj(c1);
+    	// dcmplx d1c=conj(d1);
+	// MTilde2[0]=a0*a1*a0c*a1c + a0*c1*a0c*c1c + a1*c0*a1c*c0c + c0*c1*c0c*c1c;
+   	// MTilde2[1]=a0*b1*a0c*a1c + a0*d1*a0c*c1c + b1*c0*a1c*c0c + c0*d1*c0c*c1c;
+    	// MTilde2[2]=a1*b0*a0c*a1c + a1*d0*a1c*c0c + b0*c1*a0c*c1c + c1*d0*c0c*c1c;
+        // MTilde2[3]=b0*b1*a0c*a1c + b0*d1*a0c*c1c + b1*d0*a1c*c0c + d0*d1*c0c*c1c;
+        // MTilde2[4]=a0*a1*a0c*b1c + a0*c1*a0c*d1c + a1*c0*b1c*c0c + c0*c1*c0c*d1c;
+        // MTilde2[5]=a0*b1*a0c*b1c + a0*d1*a0c*d1c + b1*c0*b1c*c0c + c0*d1*c0c*d1c;
+        // MTilde2[6]=a1*b0*a0c*b1c + a1*d0*b1c*c0c + b0*c1*a0c*d1c + c1*d0*c0c*d1c;
+        // MTilde2[7]=b0*b1*a0c*b1c + b0*d1*a0c*d1c + b1*d0*b1c*c0c + d0*d1*c0c*d1c;
+        // MTilde2[8]=a0*a1*a1c*b0c + a0*c1*b0c*c1c + a1*c0*a1c*d0c + c0*c1*c1c*d0c;
+        // MTilde2[9]=a0*b1*a1c*b0c + a0*d1*b0c*c1c + b1*c0*a1c*d0c + c0*d1*c1c*d0c;
+        // MTilde2[10]=a1*b0*a1c*b0c + a1*d0*a1c*d0c + b0*c1*b0c*c1c + c1*d0*c1c*d0c;
+        // MTilde2[11]=b0*b1*a1c*b0c + b0*d1*b0c*c1c + b1*d0*a1c*d0c + d0*d1*c1c*d0c;
+        // MTilde2[12]=a0*a1*b0c*b1c + a0*c1*b0c*d1c + a1*c0*b1c*d0c + c0*c1*d0c*d1c;
+        // MTilde2[13]=a0*b1*b0c*b1c + a0*d1*b0c*d1c + b1*c0*b1c*d0c + c0*d1*d0c*d1c;
+        // MTilde2[14]=a1*b0*b0c*b1c + a1*d0*b1c*d0c + b0*c1*b0c*d1c + c1*d0*d0c*d1c;
+        // MTilde2[15]=b0*b1*b0c*b1c + b0*d1*b0c*d1c + b1*d0*b1c*d0c + d0*d1*d0c*d1c;
+
+	dcmplx a0=J0[0];
+	dcmplx b0=J0[1];
+	dcmplx c0=J0[2];
+	dcmplx d0=J0[3];
+	dcmplx a1=J1[0];
+	dcmplx b1=J1[1];
+	dcmplx c1=J1[2];
+	dcmplx d1=J1[3];
+	dcmplx a0c=conj(a0);
+    	dcmplx b0c=conj(b0);
+    	dcmplx c0c=conj(c0);
+    	dcmplx d0c=conj(d0);
+    	dcmplx a1c=conj(a1);
+    	dcmplx b1c=conj(b1);
+    	dcmplx c1c=conj(c1);
+    	dcmplx d1c=conj(d1);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+	MTilde2[0]= (a0*a0c + c0*c0c)*(a1*a1c + c1*c1c);
+	MTilde2[1]= (a1*a1c + c1*c1c)*(b0*a0c + d0*c0c);
+	MTilde2[2]= (a0*a0c + c0*c0c)*(a1*b1c + c1*d1c);
+	MTilde2[3]= (a1*b1c + c1*d1c)*(b0*a0c + d0*c0c);
+	MTilde2[4]= (a0*b0c + c0*d0c)*(a1*a1c + c1*c1c);
+	MTilde2[5]= (a1*a1c + c1*c1c)*(b0*b0c + d0*d0c);
+        MTilde2[6]= (a0*b0c + c0*d0c)*(a1*b1c + c1*d1c);
+        MTilde2[7]= (a1*b1c + c1*d1c)*(b0*b0c + d0*d0c);
+        MTilde2[8]= (a0*a0c + c0*c0c)*(b1*a1c + d1*c1c);
+        MTilde2[9]= (b0*a0c + d0*c0c)*(b1*a1c + d1*c1c);
+        MTilde2[10]=(a0*a0c + c0*c0c)*(b1*b1c + d1*d1c);
+        MTilde2[11]=(b0*a0c + d0*c0c)*(b1*b1c + d1*d1c);
+        MTilde2[12]=(a0*b0c + c0*d0c)*(b1*a1c + d1*c1c);
+        MTilde2[13]=(b0*b0c + d0*d0c)*(b1*a1c + d1*c1c);
+        MTilde2[14]=(a0*b0c + c0*d0c)*(b1*b1c + d1*d1c);
+        MTilde2[15]=(b0*b0c + d0*d0c)*(b1*b1c + d1*d1c);
+
+	
+	}
+
+	
+
         return true;
 	}
       return false;
