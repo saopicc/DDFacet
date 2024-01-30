@@ -1118,7 +1118,7 @@ class ClassDDEGridMachine():
             ParamJonesList = self.GiveParamJonesList(
                 DicoJonesMatrices, times, A0, A1, uvw, degridder=True)
             ParamJonesList = ParamJonesList+LApplySol+LSumJones+LSumJonesChan + \
-                [np.float32(self.GD["DDESolutions"]["ReWeightSNR"])]
+                [np.float32(self.GD["DDESolutions"]["ReWeightSNR"])]+[0,self.SumMTilde]
             
 
         T.timeit("3")

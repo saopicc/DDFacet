@@ -125,6 +125,9 @@ class ClassFacetMachine():
         
         self.DicoSumJones_FacetLabel=None # to store compute normed SumJones per facet per label
         self.DicoSumJonesNorm_FacetLabel=None  # to store compute normed SumJones per facet per label
+        self.ApplyMTilde = self.ComputeMTilde = ((self.GD["RIME"]["PolMode"]=="IQUV") and self.GD["RIME"]["FullMTilde"])
+
+        
         self.DoPSF = DoPSF
         # self.MDC.setFreqs(ChanFreq)
         self.CasaImage = None
@@ -135,6 +138,8 @@ class ClassFacetMachine():
         self.SpheNorm = False
         self.Oversize = Oversize
 
+        self._CF = shared_dict.create("CFPSF" if self.DoPSF else "CF")
+        
         DecorrMode=self.GD["RIME"]["DecorrMode"]
         if DecorrMode is not None and DecorrMode != "":
             print(ModColor.Str("Using decorrelation mode %s"%DecorrMode), file=log)
@@ -1437,8 +1442,15 @@ class ClassFacetMachine():
                                                                    FacetNorm.shape[0],
                                                                    FacetNorm.shape[1]])
 
-
-
+    def _applyMTilde(self,Grid,MTilde):
+        M=(1./np.sqrt(2))*np.array([[1,0,0,1],[1,0,0,-1],[0,1,1,0],[0,-1j,1j,0]],np.complex128)
+        nChGrid,nPolGrid,nxGrid,nyGrid=Grid.shape
+        for iChGrid in range(nChGrid):
+            SqrtSumMTilde=MTilde[iChGrid]
+            MTildeInv=ModLinAlg.invSVD(SqrtSumMTilde)
+            gg=Grid[iChGrid].reshape((nPolGrid,nxGrid*nyGrid))
+            MTildeInv=np.dot(M,np.dot(MTildeInv,M.T))
+            Grid[iChGrid,:,:,:]=np.dot(MTildeInv,gg).reshape((nPolGrid,nxGrid,nyGrid))
 
 
     def FacetsToIm_Channel(self, kind="Dirty",ChanSel=None):
@@ -1603,12 +1615,12 @@ class ClassFacetMachine():
             self.DicoGridMachine[iFacet]["Dirty"] = grid
             self.DicoImager[iFacet]["SumWeights"] = np.zeros((self.VS.NFreqBands, self.npol), np.float64)
             self.DicoImager[iFacet]["SumJones"] = np.zeros((2, self.VS.NFreqBands), np.float64)
-            self.DicoImager[iFacet]["SumMTilde"] = np.zeros((self.VS.NFreqBands,4,4), np.complex128)
-            self.DicoImager[iFacet]["NormedSumMTilde"] = np.zeros((self.VS.NFreqBands,4,4), np.complex128)
             self.DicoImager[iFacet]["SumJonesChan"] = []
             for iMS in range(self.VS.nMS):
                 nVisChan = self.VS.ListMS[iMS].ChanFreq.size
                 self.DicoImager[iFacet]["SumJonesChan"].append(np.zeros((2, nVisChan), np.float64))
+            if self.DicoImager[iFacet].get("SumMTilde",None) is None:
+                self.DicoImager[iFacet]["SumMTilde"] = np.zeros((self.VS.NFreqBands,4,4), np.complex128)
 
     def applySparsification(self, DATA, factor):
         """Computes a sparsification vector for use in the BDA gridder. This is a vector of bools,
@@ -1625,7 +1637,7 @@ class ClassFacetMachine():
             #DATA["Sparsification.Degrid"] = np.random.sample(num_blocks) < 1.0 / factor
             #print>> log, "applying sparsification factor of %f to %d BDA degrid blocks, left with %d" % (factor, num_blocks, DATA["Sparsification.Degrid"].sum())
 
-    def _grid_worker(self, iFacet, DATA, cf_dict, griddict):
+    def _grid_worker(self, iFacet, DATA, cf_dict, griddict,ComputeMTilde):
         T = ClassTimeIt.ClassTimeIt()
         T.disable()
 
@@ -1682,12 +1694,12 @@ class ClassFacetMachine():
         if Apply_Beam:
             DicoJonesMatrices["DicoJones_Beam"] = DATA["Beam"]
 
-        NormedSumMTilde=self.DicoImager[iFacet].get("SumMTilde",None)
+        #self.DicoImager.reload()
 
-        ComputeMTilde=False
-        if (np.all(NormedSumMTilde==0)) and (self.GD["RIME"]["PolMode"]=="IQUV"):
-            ComputeMTilde=True
-            
+
+        # print("ComputeMTilde",ComputeMTilde)
+        
+        #print("KSKSHSKFH",ComputeMTilde,NormedSumMTilde,self.GD["RIME"]["PolMode"])
         GridMachine.put(times, uvwThis, visThis, flagsThis, A0A1, W,
                         DoNormWeights=False,
                         DicoJonesMatrices=DicoJonesMatrices,
@@ -1739,7 +1751,8 @@ class ClassFacetMachine():
                 continue
             APP.runJob("%sF%d" % (self._grid_job_id, iFacet), self._grid_worker,
                             args=(iFacet, DATA.readonly(), self._CF[iFacet].readonly(),
-                                  self._facet_grids.readonly()),serial=True)
+                                  self._facet_grids.readonly(),self.ComputeMTilde)
+                       )#,serial=True)
             self.NGridJobs+=1
             
     # ##############################################
@@ -1841,8 +1854,9 @@ class ClassFacetMachine():
             iFacet = DicoResult["iFacet"]
             self.DicoImager[iFacet]["SumWeights"] += DicoResult["Weights"]
             self.DicoImager[iFacet]["SumJones"] += DicoResult["SumJones"]
-            self.DicoImager[iFacet]["SumMTilde"] += DicoResult["SumMTilde"]
             self.DicoImager[iFacet]["SumJonesChan"][self._grid_iMS] += DicoResult["SumJonesChan"]
+            if self.ComputeMTilde:
+                self.DicoImager[iFacet]["SumMTilde"] += DicoResult["SumMTilde"]
             
             if self.DicoSumJones_FacetLabel.get(iFacet,None) is None:
                 self.DicoSumJones_FacetLabel[iFacet]={}
@@ -1859,7 +1873,7 @@ class ClassFacetMachine():
 
         return True
 
-    def _fft_worker(self, iFacet, cf_dict, griddict, CorrectMTilde=True):
+    def _fft_worker(self, iFacet, cf_dict, griddict, MTilde):
         """
         Fourier transforms the grids currently housed in shared memory
         Precondition:
@@ -1873,38 +1887,9 @@ class ClassFacetMachine():
             Grid = griddict[iFacet]
             # note that this FFTs in-place
             GridMachine.GridToIm(Grid)
-            
-            if CorrectMTilde:
-                # J=np.array([[2.+1j,5-1j],[1j,3+4j]])
-                # MM=np.kron(np.dot(J.T.conj(),J).T,np.dot(J.T.conj(),J))
-                M=(1./np.sqrt(2))*np.array([[1,0,0,1],[1,0,0,-1],[0,1,1,0],[0,-1j,1j,0]],np.complex128)
-
-                
-                # SumMTilde=self.SumMTilde/self.SumJones[1].reshape((-1,1,1))
-                SumMTilde=self.DicoImager[iFacet]["SumMTilde"]
-                SumJones=self.DicoImager[iFacet]["SumJones"]
-                SumMTilde_n=SumMTilde/SumJones[0].reshape((-1,1,1))
-                self.DicoImager[iFacet]["NormedSumMTilde"][:]=SumMTilde_n[:]
-                #print(np.dot(M,np.dot(SumMTilde[0],np.array([1,0,0,1]).reshape((-1,1)))))
-                
-                #SumMTilde=SumMTilde/(self.SumJones[0].reshape((-1,1,1))/self.SumJones[1].reshape((-1,1,1)))
-                nChGrid,nPolGrid,nxGrid,nyGrid=Grid.shape
-                #gg=Grid/self.SumWeigths.reshape((10,4,1,1))
-                #print("===============")
-                #print("MM=",MM)
-                #print(np.max(np.abs(gg.reshape((10,4,-1))),axis=-1)[0])
-                #print(np.int64(SumMTilde[0]))
-                for iChGrid in range(nChGrid):
-                    #SqrtSumMTilde=ModLinAlg.sqrtSVD(SumMTilde[iChGrid])
-                    SqrtSumMTilde=SumMTilde_n[iChGrid]
-                    #print(SumMTilde[iChGrid])
-
-                    MTildeInv=ModLinAlg.invSVD(SqrtSumMTilde)
-                    # MTildeInv=ModLinAlg.invSVD(SumMTilde[iChGrid])
-                    gg=Grid[iChGrid].reshape((nPolGrid,nxGrid*nyGrid))
-                    MTildeInv=np.dot(M,np.dot(MTildeInv,M.T))
-                    Grid[iChGrid,:,:,:]=np.dot(MTildeInv,gg).reshape((nPolGrid,nxGrid,nyGrid))
-            
+            if MTilde is not None:
+                # print("Apply [%i] "%iFacet)
+                self._applyMTilde(Grid,MTilde)
             
         return {"iFacet": iFacet}
 
@@ -1917,10 +1902,18 @@ class ClassFacetMachine():
         self.collectGriddingResults()
         # run FFT jobs
         self._fft_job_id = "%s.FFT:" % self._app_id
+        MTilde=None
         for iFacet in self.DicoImager.keys():
+            SumMTilde=self.DicoImager[iFacet]["SumMTilde"]
+            if np.any(SumMTilde!=0):
+                SumJones=self.DicoImager[iFacet]["SumJones"]
+                MTilde=SumMTilde/SumJones[0].reshape((-1,1,1))
+
             APP.runJob("%sF%d" % (self._fft_job_id, iFacet),
                        self._fft_worker,
-                       args=(iFacet, self._CF[iFacet].readonly(), self._facet_grids.readonly()),serial=True)
+                       args=(iFacet, self._CF[iFacet].readonly(), self._facet_grids.readonly(),MTilde))#,serial=True)
+            
+        self.ComputeMTilde = False
         # APP.awaitJobResults(self._fft_job_id+"*", progress=("FFT PSF" if self.DoPSF else "FFT"))
 
     def collectFourierTransformResults (self):
