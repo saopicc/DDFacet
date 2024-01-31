@@ -1442,15 +1442,6 @@ class ClassFacetMachine():
                                                                    FacetNorm.shape[0],
                                                                    FacetNorm.shape[1]])
 
-    def _applyMTilde(self,Grid,MTilde):
-        M=(1./np.sqrt(2))*np.array([[1,0,0,1],[1,0,0,-1],[0,1,1,0],[0,-1j,1j,0]],np.complex128)
-        nChGrid,nPolGrid,nxGrid,nyGrid=Grid.shape
-        for iChGrid in range(nChGrid):
-            SqrtSumMTilde=MTilde[iChGrid]
-            MTildeInv=ModLinAlg.invSVD(SqrtSumMTilde)
-            gg=Grid[iChGrid].reshape((nPolGrid,nxGrid*nyGrid))
-            MTildeInv=np.dot(M,np.dot(MTildeInv,M.T))
-            Grid[iChGrid,:,:,:]=np.dot(MTildeInv,gg).reshape((nPolGrid,nxGrid,nyGrid))
 
 
     def FacetsToIm_Channel(self, kind="Dirty",ChanSel=None):
@@ -1893,6 +1884,26 @@ class ClassFacetMachine():
             
         return {"iFacet": iFacet}
 
+    def _applyMTilde(self,Grid,MTilde):
+        M=(1./np.sqrt(2))*np.array([[1,0,0,1],[1,0,0,-1],[0,1,1,0],[0,-1j,1j,0]],np.complex128)
+        nChGrid,nPolGrid,nxGrid,nyGrid=Grid.shape
+        
+        # J1=J0=np.array([[2.+1j,5-1j],[1j,3+4j]])
+        # J0H=J1H=J0.T.conj()
+        # MTs=np.kron(np.dot(J1H , J1).T, np.dot(J0H, J0))
+        # print(MTs,MTilde[0])
+        # stop
+
+        for iChGrid in range(nChGrid):
+            #SqrtSumMTilde=(MTilde[iChGrid]+MTilde[iChGrid].T.conj())/2
+            SqrtSumMTilde=MTilde[iChGrid].T
+            #SqrtSumMTilde=ModLinAlg.sqrtSVD(MTilde[iChGrid])
+
+            MTildeInv=ModLinAlg.invSVD(SqrtSumMTilde)
+            gg=Grid[iChGrid].reshape((nPolGrid,nxGrid*nyGrid))
+            MTildeInv=np.dot(M,np.dot(MTildeInv,M.T.conj()))
+            Grid[iChGrid,:,:,:]=np.dot(MTildeInv,gg).reshape((nPolGrid,nxGrid,nyGrid))
+            
     def fourierTransformInBackground(self):
         '''
         Fourier transforms the individual facet grids in-place.
@@ -1908,6 +1919,14 @@ class ClassFacetMachine():
             if np.any(SumMTilde!=0):
                 SumJones=self.DicoImager[iFacet]["SumJones"]
                 MTilde=SumMTilde/SumJones[0].reshape((-1,1,1))
+
+                # S1=np.array([105.83,-85.5,49.4,-38]).T
+                # J1=J0=np.array([[2.+1j,5-1j],[1j,3+4j]])
+                # J0H=J1H=J0.T.conj()
+                # MTs=np.kron(np.dot(J1H , J1).T, np.dot(J0H, J0))
+                # print(MTs,MTilde[0])
+
+                
 
             APP.runJob("%sF%d" % (self._fft_job_id, iFacet),
                        self._fft_worker,
