@@ -312,30 +312,50 @@ namespace DDF {
 	dcmplx b1=J1[1];
 	dcmplx c1=J1[2];
 	dcmplx d1=J1[3];
-	dcmplx a0c=conj(a0);
-    	dcmplx b0c=conj(b0);
-    	dcmplx c0c=conj(c0);
-    	dcmplx d0c=conj(d0);
-    	dcmplx a1c=conj(a1);
-    	dcmplx b1c=conj(b1);
-    	dcmplx c1c=conj(c1);
-    	dcmplx d1c=conj(d1);
-	MTilde2[0]= (a0*a0c + c0*c0c)*(a1*a1c + c1*c1c);
-	MTilde2[1]= (a1*a1c + c1*c1c)*(b0*a0c + d0*c0c);
-	MTilde2[2]= (a0*a0c + c0*c0c)*(a1*b1c + c1*d1c);
-	MTilde2[3]= (a1*b1c + c1*d1c)*(b0*a0c + d0*c0c);
-	MTilde2[4]= (a0*b0c + c0*d0c)*(a1*a1c + c1*c1c);
-	MTilde2[5]= (a1*a1c + c1*c1c)*(b0*b0c + d0*d0c);
-        MTilde2[6]= (a0*b0c + c0*d0c)*(a1*b1c + c1*d1c);
-        MTilde2[7]= (a1*b1c + c1*d1c)*(b0*b0c + d0*d0c);
-        MTilde2[8]= (a0*a0c + c0*c0c)*(b1*a1c + d1*c1c);
-        MTilde2[9]= (b0*a0c + d0*c0c)*(b1*a1c + d1*c1c);
-        MTilde2[10]=(a0*a0c + c0*c0c)*(b1*b1c + d1*d1c);
-        MTilde2[11]=(b0*a0c + d0*c0c)*(b1*b1c + d1*d1c);
-        MTilde2[12]=(a0*b0c + c0*d0c)*(b1*a1c + d1*c1c);
-        MTilde2[13]=(b0*b0c + d0*d0c)*(b1*a1c + d1*c1c);
-        MTilde2[14]=(a0*b0c + c0*d0c)*(b1*b1c + d1*d1c);
-        MTilde2[15]=(b0*b0c + d0*d0c)*(b1*b1c + d1*d1c);
+	// dcmplx a0c=conj(a0);
+    	// dcmplx b0c=conj(b0);
+    	// dcmplx c0c=conj(c0);
+    	// dcmplx d0c=conj(d0);
+    	// dcmplx a1c=conj(a1);
+    	// dcmplx b1c=conj(b1);
+    	// dcmplx c1c=conj(c1);
+    	// dcmplx d1c=conj(d1);
+
+	dcmplx a0a0c=a0*conj(a0);
+	dcmplx a0b0c=a0*conj(b0);
+	dcmplx a1a1c=a1*conj(a1);
+	dcmplx a1b1c=a1*conj(b1);
+	dcmplx b0a0c=b0*conj(a0);
+	dcmplx b0b0c=b0*conj(b0);
+	dcmplx b1a1c=b1*conj(a1);
+	dcmplx b1b1c=b1*conj(b1);
+	dcmplx c0c0c=c0*conj(c0);
+	dcmplx c0d0c=c0*conj(d0);
+	dcmplx c1c1c=c1*conj(c1);
+	dcmplx c1d1c=c1*conj(d1);
+	dcmplx d0c0c=d0*conj(c0);
+	dcmplx d0d0c=d0*conj(d0);
+	dcmplx d1c1c=d1*conj(c1);
+	dcmplx d1d1c=d1*conj(d1);
+
+	
+	MTilde2[0]= (a0a0c + c0c0c)*(a1a1c + c1c1c);
+	MTilde2[1]= (a1a1c + c1c1c)*(b0a0c + d0c0c);
+	MTilde2[2]= (a0a0c + c0c0c)*(a1b1c + c1d1c);
+	MTilde2[3]= (a1b1c + c1d1c)*(b0a0c + d0c0c);
+	MTilde2[4]= (a0b0c + c0d0c)*(a1a1c + c1c1c);
+	MTilde2[5]= (a1a1c + c1c1c)*(b0b0c + d0d0c);
+        MTilde2[6]= (a0b0c + c0d0c)*(a1b1c + c1d1c);
+        MTilde2[7]= (a1b1c + c1d1c)*(b0b0c + d0d0c);
+        MTilde2[8]= (a0a0c + c0c0c)*(b1a1c + d1c1c);
+        MTilde2[9]= (b0a0c + d0c0c)*(b1a1c + d1c1c);
+        MTilde2[10]=(a0a0c + c0c0c)*(b1b1c + d1d1c);
+        MTilde2[11]=(b0a0c + d0c0c)*(b1b1c + d1d1c);
+        MTilde2[12]=(a0b0c + c0d0c)*(b1a1c + d1c1c);
+        MTilde2[13]=(b0b0c + d0d0c)*(b1a1c + d1c1c);
+        MTilde2[14]=(a0b0c + c0d0c)*(b1b1c + d1d1c);
+        MTilde2[15]=(b0b0c + d0d0c)*(b1b1c + d1d1c);
+
 	}
 	// ===============================================
 
