@@ -261,8 +261,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         DicoSM = {}
         for key in DicoComp.keys():
             for pol in range(npol):
-                if self.model_stokes[pol] == "I" or self.model_stokes[pol] == "V":
-                    keyS = "SolsArray_I" if self.model_stokes[pol] == "I" else "SolsArray_V"
+                if self.model_stokes[pol] == "I" or self.model_stokes[pol] == "V" or self.model_stokes[pol] == "Q" or self.model_stokes[pol] == "U":
+                    #keyS = "SolsArray_I" if self.model_stokes[pol] == "I" else "SolsArray_V"
+                    keyS = "SolsArray_%s"%self.model_stokes[pol]
                     # first check if the corresponding key exist already
                     if DicoComp[key].get(keyS) is not None:
                         Sol = DicoComp[key][keyS][:]  # /self.DicoSMStacked[key]["SumWeights"]
@@ -278,7 +279,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                                        "'Hogbom-NumFreqBasisFuncs' or if you think this is a bug report it.")
                         else:
                             ModelImage[:, pol, x, y] += interp
-                elif self.model_stokes[pol] == "Q" or self.model_stokes[pol] == "U":
+                elif False:#self.model_stokes[pol] == "Q" or self.model_stokes[pol] == "U":
                     # first check if the corresponding key exist already
                     keyS = "SolsArray_Q" if self.model_stokes[pol] == "Q" else "SolsArray_U"
                     if DicoComp[key].get(keyS) is not None:
