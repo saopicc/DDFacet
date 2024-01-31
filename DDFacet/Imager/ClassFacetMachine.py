@@ -1734,6 +1734,8 @@ class ClassFacetMachine():
         self._grid_job_label = DATA["label"]
         self._grid_job_id = "%s.Grid.%s:" % (self._app_id, self._grid_job_label)
         self.NGridJobs=0
+        if self.ComputeMTilde:
+            log.print("Will compute full MTilde")
         for iFacet in self.DicoImager.keys():
             label=DATA["label"]
             # if the Jones term is too small, skip
@@ -1914,6 +1916,8 @@ class ClassFacetMachine():
         # run FFT jobs
         self._fft_job_id = "%s.FFT:" % self._app_id
         MTilde=None
+        if np.any(self.DicoImager[0]["SumMTilde"]!=0):
+            log.print("Will apply full MTilde")
         for iFacet in self.DicoImager.keys():
             SumMTilde=self.DicoImager[iFacet]["SumMTilde"]
             if np.any(SumMTilde!=0):

@@ -304,39 +304,30 @@ namespace DDF {
 	// TensorProduct((J1H * J1).T, J0H * J0)
 	if (ComputeMTilde){
 	//std::cout<<"bla"<<ComputeMTilde<<std::endl;
-	dcmplx a0=J0[0];
-	dcmplx b0=J0[1];
-	dcmplx c0=J0[2];
-	dcmplx d0=J0[3];
-	dcmplx a1=J1[0];
-	dcmplx b1=J1[1];
-	dcmplx c1=J1[2];
-	dcmplx d1=J1[3];
-	// dcmplx a0c=conj(a0);
-    	// dcmplx b0c=conj(b0);
-    	// dcmplx c0c=conj(c0);
-    	// dcmplx d0c=conj(d0);
-    	// dcmplx a1c=conj(a1);
-    	// dcmplx b1c=conj(b1);
-    	// dcmplx c1c=conj(c1);
-    	// dcmplx d1c=conj(d1);
-
-	dcmplx a0a0c=a0*conj(a0);
-	dcmplx a0b0c=a0*conj(b0);
-	dcmplx a1a1c=a1*conj(a1);
-	dcmplx a1b1c=a1*conj(b1);
-	dcmplx b0a0c=b0*conj(a0);
-	dcmplx b0b0c=b0*conj(b0);
-	dcmplx b1a1c=b1*conj(a1);
-	dcmplx b1b1c=b1*conj(b1);
-	dcmplx c0c0c=c0*conj(c0);
-	dcmplx c0d0c=c0*conj(d0);
-	dcmplx c1c1c=c1*conj(c1);
-	dcmplx c1d1c=c1*conj(d1);
-	dcmplx d0c0c=d0*conj(c0);
-	dcmplx d0d0c=d0*conj(d0);
-	dcmplx d1c1c=d1*conj(c1);
-	dcmplx d1d1c=d1*conj(d1);
+	a0=J0[0];
+	b0=J0[1];
+	c0=J0[2];
+	d0=J0[3];
+	a1=J1[0];
+	b1=J1[1];
+	c1=J1[2];
+	d1=J1[3];
+	a0a0c=a0*conj(a0);
+	a0b0c=a0*conj(b0);
+	a1a1c=a1*conj(a1);
+	a1b1c=a1*conj(b1);
+	b0a0c=b0*conj(a0);
+	b0b0c=b0*conj(b0);
+	b1a1c=b1*conj(a1);
+	b1b1c=b1*conj(b1);
+	c0c0c=c0*conj(c0);
+	c0d0c=c0*conj(d0);
+	c1c1c=c1*conj(c1);
+	c1d1c=c1*conj(d1);
+	d0c0c=d0*conj(c0);
+	d0d0c=d0*conj(d0);
+	d1c1c=d1*conj(c1);
+	d1d1c=d1*conj(d1);
 
 	
 	MTilde2[0]= (a0a0c + c0c0c)*(a1a1c + c1c1c);
