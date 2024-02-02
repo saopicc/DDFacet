@@ -135,6 +135,26 @@ def ReadBBSModelNew(infile,infile_cluster="",nSources=1000,PatchName=None):
                 SI=L[i]
                 Cat.V[icat]=float(L[i])
                 continue
+
+            if F[i]=="l":
+                SI=L[i]
+                Cat.L[icat]=float(L[i])
+                continue
+            if F[i]=="rm":
+                SI=L[i]
+                Cat.RM[icat]=float(L[i])
+                continue
+            if F[i]=="rmphi":
+                SI=L[i]
+                Cat.RMPhi[icat]=float(L[i])
+                continue
+            if F[i]=="alphal":
+                SI=L[i]
+                Cat.AlphaL[icat]=float(L[i])
+                continue
+
+
+            
             if F[i]=="referencefrequency":
                 SRefFreq=L[i]
                 if len(SRefFreq.replace(" ",""))>0:
@@ -380,6 +400,25 @@ def ReadBBSModelOld(infile,infile_cluster="",nSources=10000,PatchName=None):
                 SI=L[i]
                 Cat.V[icat]=float(L[i])
                 continue
+
+            if F[i]=="l":
+                SI=L[i]
+                Cat.L[icat]=float(L[i])
+                continue
+            if F[i]=="rm":
+                SI=L[i]
+                Cat.RM[icat]=float(L[i])
+                continue
+            if F[i]=="rmphi":
+                SI=L[i]
+                Cat.RMPhi[icat]=float(L[i])
+                continue
+            if F[i]=="alphal":
+                SI=L[i]
+                Cat.AlphaL[icat]=float(L[i])
+                continue
+
+            
             if F[i]=="referencefrequency":
                 SRefFreq=L[i]
                 if len(SRefFreq.replace(" ",""))>0:

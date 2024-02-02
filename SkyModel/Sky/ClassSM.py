@@ -30,8 +30,10 @@ from . import ModRegFile
 import time
 from DDFacet.ToolsDir import ModCoord
 
-dtypeSourceList=[('Name','|S200'),('Patch','|S200'),('ra',np.float32),('dec',np.float32),('Sref',np.float32),('I',np.float32),('Q',np.float32),\
-                 ('U',np.float32),('V',np.float32),('RefFreq',np.float32),('alpha',np.float32),('ESref',np.float32),\
+dtypeSourceList=[('Name','|S200'),('Patch','|S200'),('ra',np.float32),('dec',np.float32),('Sref',np.float32),
+                 ('I',np.float32),('Q',np.float32),('U',np.float32),('V',np.float32),
+                 ('L',np.float32),('RM',np.float32),('RMPhi',np.float32),('AlphaL',np.float32),
+                 ('RefFreq',np.float32),('alpha',np.float32),('ESref',np.float32),\
                  ('Ealpha',np.float32),('kill',np.int32),('Cluster',np.int32),('Type',np.int32),('Gmin',np.float32),\
                  ('Gmaj',np.float32),('Gangle',np.float32),("Select",np.int32),('l',np.float32),('m',np.float32),("Exclude",bool)]
 
