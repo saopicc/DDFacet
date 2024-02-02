@@ -95,9 +95,11 @@ class ClassSM():
                  ReName=False,
                  DoREG=False,SaveNp=False,NCluster=0,DoPlot=True,Tigger=False,\
                  FromExt=None,ClusterMethod=1,SelSource=False,DoPrint=True,ListBody=None,
-                 radecCenter=None):
+                 radecCenter=None,
+                 ClusterOnProjection=True):
         self.ClusterCatExt=None
         self.ClusterMethod=ClusterMethod
+        self.ClusterOnProjection=ClusterOnProjection
         self.infile_cluster=infile_cluster
         self.TargetList=infile
         self.Type="Catalog"
@@ -193,7 +195,6 @@ class ClassSM():
             CAS=ClassAppendSource.ClassAppendSource(self,ListBody)
             CAS.appendAll()
             self.ClusterCat=None
-
         if self.ClusterCat is None:
             self.Dirs=sorted(list(set(self.SourceCat.Cluster.tolist())))
             self.NDir=0
@@ -624,7 +625,7 @@ class ClassSM():
             ClusterCatMean.ra[indDirComps[0]]=ram
             ClusterCatMean.dec[indDirComps[0]]=decm
         self.ClusterCatMeanSource=ClusterCatMean
-
+        stop
     
         
     def AppendRefSource(self,rac,decc):
@@ -737,12 +738,16 @@ class ClassSM():
         icat=0
         for d in self.Dirs:
             cat=self.SourceCat[self.SourceCat.Cluster==d]
-            l,m=self.CoordMachine.radec2lm(cat.ra, cat.dec)
-            if cat.I.max()>0:
-                lmean,mmean=np.sum(l*cat.I)/np.sum(cat.I),np.sum(m*cat.I)/np.sum(cat.I)
+
+            if self.ClusterOnProjection:
+                l,m=self.CoordMachine.radec2lm(cat.ra, cat.dec)
+                if cat.I.max()>0:
+                    lmean,mmean=np.sum(l*cat.I)/np.sum(cat.I),np.sum(m*cat.I)/np.sum(cat.I)
+                else:
+                    lmean,mmean=np.mean(l),np.mean(m)
+                ramean,decmean=self.CoordMachine.lm2radec(np.array([lmean]),np.array([mmean]))
             else:
-                lmean,mmean=np.mean(l),np.mean(m)
-            ramean,decmean=self.CoordMachine.lm2radec(np.array([lmean]),np.array([mmean]))
+                ramean,decmean=np.sum(cat.ra*cat.I)/np.sum(cat.I),np.sum(cat.dec*cat.I)/np.sum(cat.I)
             ClusterCat.ra[icat]=ramean
             ClusterCat.dec[icat]=decmean
             ClusterCat.SumI[icat]=np.sum(cat.I)

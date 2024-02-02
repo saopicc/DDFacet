@@ -1117,12 +1117,15 @@ class ClassJones():
             DicoBeam["tm"][itime]=Tm[itime]
             ThisTime=Tm[itime]
             Beam=self.GiveInstrumentBeam(ThisTime,RA,DEC)#
+            # for iDir in range(RA.size):
+            #     Srac,Sdecx=(rad2hmsdms(RA[iDir],Type="ra").replace(" ",":"),rad2hmsdms(DEC[iDir],Type="dec").replace(" ","."))
+            #     print("Src : ",Srac,Sdecx)
 
             #
             if self.GD["Beam"]["CenterNorm"]==1:
                 Beam0=self.GiveInstrumentBeam(ThisTime,np.array([rac]),np.array([decc]))
-                #print(rad2hmsdms(rac,Type="ra").replace(" ",":"),rad2hmsdms(decc,Type="dec").replace(" ","."))
-
+                Srac,Sdecx=(rad2hmsdms(rac,Type="ra").replace(" ",":"),rad2hmsdms(decc,Type="dec").replace(" ","."))
+                #print("Center : ",Srac,Sdecx)
                 Beam0inv= ModLinAlg.BatchInverse(Beam0)
 
                 nd,_,_,_,_=Beam.shape
