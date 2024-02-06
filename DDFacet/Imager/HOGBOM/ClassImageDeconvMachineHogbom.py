@@ -561,12 +561,12 @@ class ClassImageDeconvMachine():
                         W = self.WeightsChansImages[:, indx] if self.WeightsChansImages.ndim == 2 else self.WeightsChansImages
                         # FG:the Coeffs_Q will have the length of the exact polynomial order used in the fitting
                         Coeffs_Q = self.ModelMachine.FreqMachine.Fit(Iapp, JonesNorm, W)
-                        Coeffs_Q_dev = self.ModelMachine.FreqMachine.FitLin(Iapp, JonesNorm, W) 
+                        #Coeffs_Q_dev = self.ModelMachine.FreqMachine.FitLin(Iapp, JonesNorm, W) 
                     elif pol_task == "U":
                         indx = indexU
                         W = self.WeightsChansImages[:, indx] if self.WeightsChansImages.ndim == 2 else self.WeightsChansImages
                         Coeffs_U = self.ModelMachine.FreqMachine.Fit(Iapp, JonesNorm, W)
-                        Coeffs_U_dev = self.ModelMachine.FreqMachine.FitLin(Iapp, JonesNorm, W)
+                        #Coeffs_U_dev = self.ModelMachine.FreqMachine.FitLin(Iapp, JonesNorm, W)
                     else:
                         indx = indexI if pol_task == "I" else indexV
                         W = self.WeightsChansImages[:, indx] if self.WeightsChansImages.ndim == 2 else self.WeightsChansImages
@@ -580,10 +580,10 @@ class ClassImageDeconvMachine():
                         Iapp_U_dev = self.ModelMachine.FreqMachine.EvalLin(Coeffs_U_dev, self.ModelMachine.FreqMachine.Freqs)
                     elif pol_task == "Q" :
                         Iapp_Q = self.ModelMachine.FreqMachine.Eval(Coeffs_Q)
-                        Iapp_Q_dev = self.ModelMachine.FreqMachine.EvalLin(Coeffs_Q_dev, self.ModelMachine.FreqMachine.Freqs)
+                        #Iapp_Q_dev = self.ModelMachine.FreqMachine.EvalLin(Coeffs_Q_dev, self.ModelMachine.FreqMachine.Freqs)
                     elif pol_task == "U":
                         Iapp_U = self.ModelMachine.FreqMachine.Eval(Coeffs_U)
-                        Iapp_U_dev = self.ModelMachine.FreqMachine.EvalLin(Coeffs_U_dev, self.ModelMachine.FreqMachine.Freqs)
+                        #Iapp_U_dev = self.ModelMachine.FreqMachine.EvalLin(Coeffs_U_dev, self.ModelMachine.FreqMachine.Freqs)
                     else:
                         Iapp = self.ModelMachine.FreqMachine.Eval(Coeffs)
                     
@@ -601,9 +601,11 @@ class ClassImageDeconvMachine():
                     if pol_task == "I":
                         self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs, indexI)
                     elif pol_task == "Q":
-                        self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs_Q_dev, indexQ)
+                        self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs_Q, indexQ)
+                        #self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs_Q_dev, indexQ)
                     elif pol_task == "U":
-                        self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs_U_dev, indexU)
+                        self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs_U, indexU)
+                        #self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs_U_dev, indexU)
                     elif pol_task == "V":
                         self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs, indexV)
                     elif pol_task == "Q+iU": 

@@ -202,6 +202,8 @@ namespace DDF {
 
 	double visChanMean=0., FreqMean=0;
 	double ThisWeight=0., ThisSumJones=0., ThisSumSqWeights=0.;
+        dcmplx ThisSumMTilde2[16];
+	
 	int NVisThisblock=0;
 	double Umean=0, Vmean=0, Wmean=0;
 
@@ -260,6 +262,11 @@ namespace DDF {
 	      mulaccum(VisMeas, Weight, Vis);
 	      /*Compute per channel and overall approximate matrix sqroot:*/
 	      ThisSumJones += JS.BB*FWeightDecorr;
+	      if(JS.ComputeMTilde){
+	      for (size_t iMueller=0; iMueller<16; ++iMueller){
+	      ThisSumMTilde2[iMueller]+=JS.MTilde2[iMueller]*FWeightDecorr;
+	      }
+	      }
 	      ThisSumJonesChan[visChan] += JS.BB*FWeightDecorr;
 //  	      if(facet==0 && visChan==0)
 //                std::fprintf(stderr,"F%dB%dR%d weight %f jones %f %f BB %f wsq %f sj %f\n",facet,iBlock,irow,FWeight,JS.J0.v[0].real(),JS.J0.v[0].imag(),
@@ -361,6 +368,10 @@ namespace DDF {
 	    for (int sx=-supx; sx<=supx; ++sx)
 	      gridPtr[sx] += VisVal * dcmplx(*cf0++);
 	  sumWtPtr[ipol+gridChan*nGridPol] += ThisWeight;
+	  
+	  
+	  } /* end for ipol */
+	
 	  if (JS.DoApplyJones)
 	    {
 	    JS.ptrSumJones[gridChan]+=ThisSumJones;
@@ -372,7 +383,15 @@ namespace DDF {
 	      JS.ptrSumJonesChan[nVisChan+visChan]+=ThisSumSqWeightsChan[visChan];
 	      }
 	    }
-	  } /* end for ipol */
+	  
+          if (JS.ComputeMTilde)
+	    {
+		for(size_t iMueller=0; iMueller<16; iMueller++)
+		{
+		   JS.ptrSumMTilde[gridChan*16+iMueller]+=ThisSumMTilde2[iMueller];
+	        }
+	    }
+
 	} /*end for Block*/
       } /* end */
     }
