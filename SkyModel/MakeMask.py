@@ -404,7 +404,10 @@ class ClassMakeMask():
                 #print ipix,jpix
                 if d<Radius: 
                     #print "ones",ipix,jpix
-                    self.ImMask[jpix,ipix]=1
+                    try:
+                        self.ImMask[jpix,ipix]=1
+                    except:
+                        pass
 
             
 

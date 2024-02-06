@@ -525,12 +525,23 @@ class ClassImagerDeconv():
     def _fitAndSavePSF (self, FacetMachinePSF, save=True, cycle=None):
         if not self.HasFittedPSFBeam:
             self.fit_stat = self.FitPSF()
+
+        
+
+            
         if save and self._psfmean is not None:
             cycle_label = ".%02d"%cycle if cycle else ""
-            if "P" in self._saveims or "p" in self._saveims:
+            if "p" in self._saveims:
                 FacetMachinePSF.ToCasaImage(self._psfmean, ImageName="%s%s.psf" % (self.BaseName, cycle_label),
                                             Fits=True, beam=self.FWHMBeamAvg,
                                             Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            if "P" in self._saveims:
+                NormImage=self.DicoImagesPSF["JonesNorm"]
+                PSFCorr = self.DicoImagesPSF["ImageCube"]/np.sqrt(NormImage)
+                FacetMachinePSF.ToCasaImage(PSFCorr, ImageName="%s%s.psf.corr" % (self.BaseName, cycle_label),
+                                            Fits=True, beam=self.FWHMBeamAvg,
+                                            Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                
             if "P" in self._savecubes or "p" in self._savecubes:
                 FacetMachinePSF.ToCasaImage(self._psfcube,
                                               ImageName="%s%s.cube.psf" % (self.BaseName, cycle_label),

@@ -177,9 +177,9 @@ def main(OP=None, messages=[]):
                       DicoConfig["Log"]["Boring"]
 
     if messages:
-        if not DicoConfig["Log"]["Boring"]:
-            #os.system('clear')
-            logo.print_logo()
+        # if not DicoConfig["Log"]["Boring"]:
+        #     #os.system('clear')
+        #     logo.print_logo()
         for msg in messages:
             print(msg, file=log)
 
@@ -390,7 +390,7 @@ def main(OP=None, messages=[]):
 
 if __name__ == "__main__":
     warnings.filterwarnings("default", category=DeprecationWarning)
-    os.system('clear')
+    #os.system('clear')
     logo.print_logo()
 
     # work out DDFacet version
