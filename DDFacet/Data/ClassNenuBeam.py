@@ -41,6 +41,10 @@ import astropy.units as u
 import warnings
 warnings.filterwarnings("ignore")#, category=DeprecationWarning) 
 
+
+
+
+
 def AngDist(ra0,dec0,ra1,dec1):
     AC=np.arccos
     C=np.cos
@@ -54,6 +58,25 @@ def AngDist(ra0,dec0,ra1,dec1):
         if D<-1.: D=-1.
     return AC(D)
 
+from DDFacet.Data import ClassMS
+def test():
+    GD={"NBand":1,
+        "PhasedArrayMode":"A",
+        "DtBeamMin":5}
+
+    MS=ClassMS.ClassMS("mosaic/20230901_013600_20230901_020400_S2_SL27_CELL_53_RUN_6/SB222.MS",DoReadData=0)
+    ras,decs=MS.PointingRadec
+    for ii in range(2):
+        print("===============")
+        MS=ClassMS.ClassMS("mosaic/20230901_013600_20230901_020400_S2_SL27_CELL_53_RUN_6/SB222.MS",DoReadData=0)
+        CNB=ClassNenuBeam(MS,GD)
+        print(CNB.GiveInstrumentBeam(MS.F_tstart,[ras],[decs]).flatten())
+        
+        MS=ClassMS.ClassMS("mosaic/20231001_234400_20231002_001200_S2_SL37_CELL_69_RUN_6/SB222.MS",DoReadData=0)
+        CNB=ClassNenuBeam(MS,GD)
+        print(CNB.GiveInstrumentBeam(MS.F_tstart,[ras],[decs]).flatten())
+
+    
 class ClassNenuBeam():
     def __init__(self,MS,GD):
         self.GD=GD
@@ -104,6 +127,7 @@ class ClassNenuBeam():
         time=Time(time/24./3600,format="mjd",scale="utc")
         ### create skycoord object of pointing direction: phase centre of MS
         obs_coordinates=SkyCoord(self.MS.PointingRadec[0],self.MS.PointingRadec[1],unit="rad")
+        # print("PointingRadec",self.MS.PointingRadec)
         obs_coords=FixedTarget(obs_coordinates)
         ### intrinsic dt of nenufar pointing: 6min. try to encode that somehow. Currently use 1s TODO
         pointing=Pointing.target_tracking(target=obs_coords,

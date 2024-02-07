@@ -285,13 +285,16 @@ class ClassImageDeconvMachine():
             self._initMSM_facet(centralFacet,
                                 self.facetcache.addSubdict(centralFacet) if init_cache else self.facetcache[centralFacet],
                                 None, self.SideLobeLevel, self.OffsetSideLobe, verbose=True)
+
         if approx:
             print("HMP approximation mode: using PSF of central facet (%d)" % centralFacet, file=log)
             for iFacet in range(self.PSFServer.NFacets):
                 self.DicoMSMachine[iFacet] = MSM0
-        elif (self.GD["Facets"]["NFacets"]==1)&(not self.GD["DDESolutions"]["DDSols"]):
+
+        # Has only one facet
+        # elif (self.GD["Facets"]["NFacets"]==1)&(not self.GD["DDESolutions"]["DDSols"]):
+        elif self.PSFServer.NFacets==1:#len(self.DicoVariablePSF["DicoImager"].keys())
             self.DicoMSMachine[0] = MSM0
-            
         else:
             # if no facet cache, init in parallel
             if init_cache:
