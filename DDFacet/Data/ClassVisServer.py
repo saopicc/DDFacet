@@ -156,7 +156,7 @@ class ClassVisServer():
         # max chunk shape accumulated here
         self._chunk_shape = [0, 0, 0]
 
-        for msspec in self.MSList:
+        for iMS,msspec in enumerate(self.MSList):
             if not isinstance(msspec,str):
                 msname, ddid, field, column = msspec
             else:
@@ -171,7 +171,7 @@ class ClassVisServer():
                 TimeChunkSize=self.TMemChunkSize, ChanSlice=chanslice,
                 GD=self.GD, ResetCache=self.GD["Cache"]["Reset"],
                 DicoSelectOptions = self.DicoSelectOptions,
-                first_ms=self.ListMS[0] if self.ListMS else None)
+                first_ms=self.ListMS[0] if self.ListMS else None,iMS=iMS)
             if MS.empty:
                 continue
             self.ListMS.append(MS)

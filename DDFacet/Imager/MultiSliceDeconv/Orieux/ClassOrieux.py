@@ -31,7 +31,6 @@ from tqdm import tqdm
 def test():
     dirty = np.squeeze(pyfits.open("../test.dirty.fits")[0].data)
     psf = np.squeeze(pyfits.open("../test.psf.fits")[0].data)
-
     
     CO=ClassOrieux(dirty,psf)
     

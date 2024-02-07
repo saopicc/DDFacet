@@ -71,7 +71,7 @@ class ClassMS():
                  DicoSelectOptions={},
                  ResetCache=False,
                  first_ms=None,
-                 get_obs_detail=False):
+                 get_obs_detail=False,iMS=0):
 
         """
         Args:
@@ -103,7 +103,7 @@ class ClassMS():
             self.ToRADEC=self.GD["Image"]["PhaseCenterRADEC"]
         if not self.ToRADEC:
             self.ToRADEC = None
-
+        self.iMS=iMS
         self.AverageSteps=AverageTimeFreq
         self.MSName = MSName = reformat.reformat(os.path.abspath(MSname), LastSlash=False)
         
@@ -133,7 +133,9 @@ class ClassMS():
         self._chunk_caches = {}
         cachedir="."
         if self.GD is not None: cachedir=self.GD["Cache"]["Dir"]
-        self.maincache = CacheManager(MSName+".F%d.D%d.ddfcache"%(self.Field, self.DDID), reset=ResetCache, cachedir=cachedir, nfswarn=True)
+        # CT: add iMS because it can happen that two MSs are different but have the same name (in a different parent directory)
+        # and in that case the cache manager gets confused, loading cache for MSs are indeed different
+        self.maincache = CacheManager(MSName+".N%i.F%d.D%d.ddfcache"%(self.iMS,self.Field, self.DDID), reset=ResetCache, cachedir=cachedir, nfswarn=True)
 
         self.ReadMSInfo(first_ms=first_ms,DoPrint=DoPrint)
         self.LFlaggedStations=[]
