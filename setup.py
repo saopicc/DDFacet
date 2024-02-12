@@ -145,7 +145,7 @@ def requirements():
     # this should avoid upstream breakage on released versions
     requirements = ["Cython >= 0.25.2, <= 0.29.30; python_version >= '3.8' and python_version < '3.11'", 
                     "numpy >= 1.15.1, <= 1.22.0; python_version >= '3.8' and python_version < '3.11'",
-                    "sharedarray >= 3.2.0,<=3.2.3; python_version >= '3.8' and python_version < '3.11'", 
+                    "sharedarray >= 3.2.0, <= 3.2.1; python_version >= '3.8' and python_version < '3.11'", 
                     "Polygon3 >= 3.0.8,<=3.0.9.1; python_version >= '3.8' and python_version < '3.11'", 
                     "pyFFTW >= 0.10.4,<=0.13.1; python_version >= '3.8' and python_version < '3.11'", 
                     "astropy >= 3.0,<=6.0.0; python_version >= '3.8' and python_version < '3.11'", 
@@ -177,14 +177,14 @@ def requirements():
     install_requirements = requirements
     extras_require={
           'dft-support': ["montblanc >= 0.6.1, <= 0.7.3.1; python_version >= '3.8' and python_version < '3.11'"],
-          'moresane-support': ["pymoresane >= 0.3.0; python_version > '3.8' and python_version < '3.11'"],
-          'fits-beam-support': ["meqtrees-cattery <= 1.7.9; python_version > '3.8' and python_version < '3.11'"],
-          'kms-support': ["bdsf > 1.8.15,<=1.10.1; python_version > '3.8' and python_version < '3.11'"],
-          'alternate-data-backends': ["dask-ms[xarray]<=0.2.20; python_version > '3.8' and python_version < '3.11'",
-                                      "xarray<=2023.12.0; python_version > '3.8' and python_version < '3.11'"],
+          'moresane-support': ["pymoresane >= 0.3.0; python_version >= '3.8' and python_version < '3.11'"],
+          'fits-beam-support': ["meqtrees-cattery <= 1.7.9; python_version >= '3.8' and python_version < '3.11'"],
+          'kms-support': ["bdsf > 1.8.15,<=1.10.1; python_version >= '3.8' and python_version < '3.11'"],
+          'alternate-data-backends': ["dask-ms[xarray]<=0.2.20; python_version >= '3.8' and python_version < '3.11'",
+                                      "xarray<=2023.12.0; python_version >= '3.8' and python_version < '3.11'"],
           'testing-requirements': ["nose >= 1.3.7; python_version >= '3' and python_version < '3.9'",
                                    "pynose >= 1.4.8; python_version >= '3.9' and python_version < '3.11'",
-                                   "owlcat >= 1.7.5; python_version >= '3.9' and python_version < '3.11'"],
+                                   "owlcat >= 1.7.5; python_version >= '3.8' and python_version < '3.11'"],
     }
     return (install_requirements, extras_require)
 
