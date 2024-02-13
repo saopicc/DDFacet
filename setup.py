@@ -147,7 +147,7 @@ def requirements():
                     "numpy >= 1.15.1, <= 1.22.0; python_version >= '3.8' and python_version < '3.11'",
                     "sharedarray >= 3.2.0, <= 3.2.1; python_version >= '3.8' and python_version < '3.11'", 
                     "Polygon3 >= 3.0.8,<=3.0.9.1; python_version >= '3.8' and python_version < '3.11'", 
-                    "pyFFTW >= 0.10.4,<=0.13.1; python_version >= '3.8' and python_version < '3.11'", 
+                    "pyFFTW >= 0.10.4,<=0.12.0; python_version >= '3.8' and python_version < '3.11'", 
                     "astropy >= 3.0,<=6.0.0; python_version >= '3.8' and python_version < '3.11'", 
                     "deap >= 1.0.1,<=1.4.1; python_version >= '3.8' and python_version < '3.11'",
                     "ptyprocess>=0.5,<=0.7.0; python_version >= '3.8' and python_version < '3.11'", 
@@ -170,7 +170,7 @@ def requirements():
                     "six >= 1.12.0,<=1.16.0; python_version >= '3.8' and python_version < '3.11'", 
                     "dask[array]<= 2023.5.0; python_version >= '3.8' and python_version < '3.11'", 
                     "codex-africanus[dask]<=0.3.5; python_version >= '3.8' and python_version < '3.11'", 
-                    "regions<=0.8; python_version >= '3.8' and python_version < '3.11'",
+                    "regions<=0.5; python_version >= '3.8' and python_version < '3.11'",
                     "pywavelets<=1.4.1; python_version >= '3.8' and python_version < '3.11'",
                     "tqdm<=4.64.0; python_version >= '3.8' and python_version < '3.11'"
                     ] 
