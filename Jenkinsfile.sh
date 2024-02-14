@@ -33,5 +33,5 @@ docker run -m 100g --cap-add sys_ptrace \
                    -v $WORKSPACE_ROOT:/workspace \
 		   --workdir /test_output \
                    --entrypoint sh \
-                   $IMAGENAME:$BUILD_NUMBER \
+                   $IMAGENAME.2204:$BUILD_NUMBER \
                    -c "ln -s /test_data/beams /test_output/beams && pynose -s --with-xunit --xunit-file /workspace/nosetests.xml /src/DDFacet/DDFacet/Tests"
