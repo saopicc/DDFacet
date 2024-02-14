@@ -3,4 +3,5 @@ requires = ["setuptools",
             "wheel", 
             "numpy>=1.15.1,<=1.22.0",
             "pybind11 >= 2.2.2",
-            "packaging"]
+            "packaging",
+            "cython<=0.29.30"]
