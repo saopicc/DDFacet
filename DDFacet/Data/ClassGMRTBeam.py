@@ -159,6 +159,9 @@ class ClassGMRTBeam():
             
         return Beam
 
+    def evaluateBeam(self,time,ras,decs):
+        return self.GiveInstrumentBeam(time,ras,decs)
+    
     def GiveInstrumentBeam(self,*args,**kwargs):
         
         T=ClassTimeIt.ClassTimeIt("GiveInstrumentBeam")
