@@ -1,0 +1,264 @@
+FROM ubuntu:22.04
+
+#Package dependencies
+COPY apt.sources.list /etc/apt/sources.list
+RUN sed -i 's/bionic/jammy/g' /etc/apt/sources.list
+
+#Setup environment
+ENV DDFACET_TEST_DATA_DIR /test_data
+ENV DDFACET_TEST_OUTPUT_DIR /test_output
+
+# Support large mlocks
+RUN echo "*        -   memlock     unlimited" > /etc/security/limits.conf
+ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_PRIORITY critical
+ENV GNUCOMPILER 11
+ENV PYTHONVER 3.10
+ENV DEB_SETUP_DEPENDENCIES \
+    dpkg-dev \
+    g++-$GNUCOMPILER \
+    gcc-$GNUCOMPILER \
+    libc-dev \
+    cmake \
+    gfortran-$GNUCOMPILER \
+    git \
+    wget \
+    subversion \
+    rsync
+
+ENV DEB_DEPENCENDIES \
+    python3-virtualenv \
+    python3-pip \
+    libfftw3-dev \
+    python3-numpy \
+    libfreetype6 \
+    libfreetype6-dev \
+    libpng-dev \
+    pkg-config \
+    python3-dev \
+    libboost-all-dev \
+    libcfitsio-dev \
+    libhdf5-dev \
+    wcslib-dev \
+    libatlas-base-dev \
+    liblapack-dev \
+    python3-tk \
+    libreadline6-dev \
+    subversion \
+    liblog4cplus-dev \
+    libhdf5-dev \
+    libncurses5-dev \
+    flex \
+    bison \
+    libbison-dev \
+    libqdbm-dev \
+    libgsl-dev \
+    # Reference image generation dependencies
+    make
+
+RUN apt-get update
+RUN apt-get install -y $DEB_SETUP_DEPENDENCIES
+RUN apt-get install -y $DEB_DEPENCENDIES
+
+
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-$GNUCOMPILER 100 && \
+    update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-$GNUCOMPILER 100 && \
+    update-alternatives --install /usr/bin/x86_64-linux-gnu-gcc x86_64-linux-gnu-gcc /usr/bin/gcc-$GNUCOMPILER 100 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-$GNUCOMPILER 100 && \
+    update-alternatives --install /usr/bin/x86_64-linux-gnu-g++ x86_64-linux-gnu-g++ /usr/bin/g++-$GNUCOMPILER 100 && \
+    update-alternatives --install /usr/bin/cpp cpp /usr/bin/g++-$GNUCOMPILER 100 && \
+    update-alternatives --install /usr/bin/x86_64-linux-gnu-cpp x86_64-linux-gnu-cpp /usr/bin/g++-$GNUCOMPILER 100 && \
+    update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-$GNUCOMPILER 100 && \
+    update-alternatives --install /usr/bin/x86_64-linux-gnu-gfortran x86_64-linux-gnu-gfortran /usr/bin/gfortran-$GNUCOMPILER 100
+
+## All python dependencies go into venv
+ENV NUMPYVER 1.22.0
+
+WORKDIR /opt
+RUN virtualenv venv -p python${PYTHONVER}
+RUN . /opt/venv/bin/activate && python -m pip install -U pip setuptools wheel
+
+########################################
+# build SOFA
+########################################
+WORKDIR /opt
+RUN wget http://www.iausofa.org/2021_0512_C/sofa_c-20210512.tar.gz && \
+    tar xvfz sofa_c-20210512.tar.gz && \
+    rm sofa_c-20210512.tar.gz && \
+    cd /opt/sofa/20210512/c/src && \
+    sed -i '52s/.*/INSTALL_DIR = \/usr/' makefile && \
+    make -j4 && \
+    make install && \
+    make test && \
+    rm -r /opt/sofa
+
+#################################################################
+## build blitz from source
+#################################################################
+WORKDIR /opt
+RUN wget https://github.com/blitzpp/blitz/archive/1.0.2.tar.gz && \
+    tar -xvf 1.0.2.tar.gz && \
+    rm 1.0.2.tar.gz && \
+    cd /opt/blitz-1.0.2 && \
+    grep -rl python . | xargs sed -i "s/python/python${PYTHONVER}/g" && \
+    ./configure --enable-shared && \
+    make -j16 && \
+    make install && \
+    ldconfig && \
+    rm -r /opt/blitz-1.0.2
+
+#####################################################################
+## Get CASACORE ephem data
+#####################################################################
+RUN mkdir -p /usr/share/casacore/data/
+WORKDIR /usr/share/casacore/data/
+RUN rsync -avz rsync://casa-rsync.nrao.edu/casa-data .
+
+#####################################################################
+## BUILD CASACORE AND CASAREST FROM SOURCE
+#####################################################################
+WORKDIR /opt
+RUN wget https://github.com/casacore/casacore/archive/v3.5.0.tar.gz && \
+    tar xvf v3.5.0.tar.gz && \
+    rm v3.5.0.tar.gz && \
+    mkdir casacore-3.5.0/build && \
+    cd /opt/casacore-3.5.0/build && \
+    cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DBUILD_DEPRECATED=OFF -DBUILD_PYTHON=OFF -DBUILD_PYTHON3=ON ../ && \
+    make -j 16 && \
+    make install && \
+    rm -r /opt/casacore-3.5.0 && \
+    ldconfig
+RUN cd /opt && \
+    wget https://github.com/casacore/casarest/archive/v1.8.1.tar.gz && \
+    tar xvf v1.8.1.tar.gz && \
+    rm v1.8.1.tar.gz && \
+    cd /opt/casarest-1.8.1 && \
+    mkdir -p build && \
+    cd /opt/casarest-1.8.1/build && \
+    cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release ../ && \
+    make -j 16 && \
+    make install && \
+    rm -r /opt/casarest-1.8.1 && \
+    ldconfig
+RUN cd /opt && \
+    wget https://github.com/casacore/python-casacore/archive/v3.5.2.tar.gz && \
+    tar xvf v3.5.2.tar.gz && \
+    rm v3.5.2.tar.gz && \
+    cd /opt/python-casacore-3.5.2 && \
+    . /opt/venv/bin/activate && python -m pip install . "numpy==${NUMPYVER}" && \
+    cd / && \
+    python -c "from pyrap.tables import table as tbl"
+
+#####################################################################
+## BUILD MAKEMS FROM SOURCE AND TEST
+#####################################################################
+WORKDIR /opt
+RUN wget https://github.com/ska-sa/makems/archive/v1.5.5.tar.gz && \
+    tar xvf v1.5.5.tar.gz && \
+    rm v1.5.5.tar.gz && \
+    mkdir -p /opt/makems-1.5.5/LOFAR/build/gnu_opt && \
+    cd /opt/makems-1.5.5/LOFAR/build/gnu_opt && \
+    cmake -DCMAKE_MODULE_PATH:PATH=/opt/makems-1.5.5/LOFAR/CMake \
+          -DUSE_LOG4CPLUS=OFF -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_INSTALL_PREFIX=/usr ../.. && \
+    make -j 16 && \
+    make install && \
+    cd /opt/makems-1.5.5/test && \
+    makems WSRT_makems.cfg && \
+    rm -r /opt/makems-1.5.5
+
+#####################################################################
+## BUILD MEQTREES FROM SOURCE AND TEST
+#####################################################################
+WORKDIR /opt
+# Get MeqTrees universe python packages
+WORKDIR /opt
+
+RUN . /opt/venv/bin/activate && python -m pip install purr owlcat kittens meqtrees-cattery astro-tigger-lsm "numpy==${NUMPYVER}" && \
+    wget https://github.com/ska-sa/meqtrees-timba/archive/refs/tags/v1.10.tar.gz && \
+    tar zxvf v1.10.tar.gz && \
+    rm v1.10.tar.gz && \
+    cd meqtrees-timba-1.10 && \
+    mkdir build && \
+    cd build && \
+    cmake -DCMAKE_INSTALL_PREFIX=/usr \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DENABLE_PYTHON_3=ON \
+          -DPYTHON_PACKAGES_DIR=/opt/venv/lib/python${PYTHONVER}/site-packages \
+          .. && \
+    make -j4 && \
+    make install && \
+    ldconfig && \
+    rm -r /opt/meqtrees-timba-1.10 && \
+    cd /opt && \
+    wget https://github.com/ska-sa/pyxis/archive/v1.7.5.tar.gz && \
+    tar zxvf v1.7.5.tar.gz && \
+    rm v1.7.5.tar.gz && \
+    python -m pip install /opt/pyxis-1.7.5 pynose "numpy==${NUMPYVER}" && \
+    cd /opt/pyxis-1.7.5/Pyxis/recipes/meqtrees-batch-test && \
+    pynose && \
+    rm -r /opt/pyxis-1.7.5
+
+#####################################################################
+## BUILD LOFAR FROM SOURCE
+#####################################################################
+WORKDIR /opt
+RUN wget https://github.com/bennahugo/LOFARBeam/archive/refs/tags/DDF_KMS_22.04.tar.gz && \
+    tar zxvf DDF_KMS_22.04.tar.gz && \
+    rm DDF_KMS_22.04.tar.gz && \
+    cd LOFARBeam-DDF_KMS_22.04 && \
+    mkdir -p build/gnucxx11_opt && \
+    cd build/gnucxx11_opt && \
+    cmake -DCMAKE_INSTALL_PREFIX=/usr \
+          -DPYTHON_PACKAGES_DIR=/opt/venv/lib/python${PYTHONVER}/site-packages \
+          ../../ && \
+    make -j4 && \
+    make install && \
+    . /opt/venv/bin/activate && python -c "import lofar.stationresponse as lsr" && \
+    rm -r /opt/LOFARBeam-DDF_KMS_22.04
+
+#####################################################################
+## BUILD DDF FROM SOURCE
+#####################################################################
+#Copy DDFacet and SkyModel into the image
+ADD DDFacet /opt/DDFacet/DDFacet
+ADD SkyModel /opt/DDFacet/SkyModel
+ADD MANIFEST.in /opt/DDFacet/MANIFEST.in
+ADD setup.py /opt/DDFacet/setup.py
+ADD setup.cfg /opt/DDFacet/setup.cfg
+ADD README.rst /opt/DDFacet/README.rst
+ADD pyproject.toml /opt/DDFacet/pyproject.toml
+ADD .git /opt/DDFacet/.git
+ADD .gitignore /opt/DDFacet/.gitignore
+ADD .gitmodules /opt/DDFacet/.gitmodules
+
+RUN cd /opt/DDFacet/ && git submodule update --init --recursive && cd /
+# Finally install DDFacet
+RUN rm -rf /opt/DDFacet/DDFacet/cbuild
+RUN . /opt/venv/bin/activate && python -m pip install --use-pep517 -U "/opt/DDFacet[dft-support,moresane-support,testing-requirements,fits-beam-support,kms-support,alternate-data-backends]"
+
+# test montblanc install
+WORKDIR /tmp
+RUN . /opt/venv/bin/activate && python -c "import montblanc"
+RUN . /opt/venv/bin/activate && pynose /opt/venv/lib/python${PYTHONVER}/site-packages/montblanc/impl/rime/tensorflow/rime_ops/test*
+
+# ensure bdsf backend still works
+RUN . /opt/venv/bin/activate && python -c "import bdsf"
+
+# Finally Make VENV globally available in this container
+ENV LD_LIBRARY_PATH /opt/venv/lib:$LD_LIBRARY_PATH
+ENV PATH /opt/venv/bin:$PATH
+ENV PYTHONPATH /opt/venv/lib/python${PYTHONVER}/site-packages
+
+# perform some basic tests
+RUN DDF.py --help
+RUN MakeMask.py --help
+RUN MakeCatalog.py --help
+RUN MakeModel.py --help
+RUN MaskDicoModel.py --help
+RUN ClusterCat.py --help
+
+
+# set as entrypoint - user should be able to run docker run ddftag and get help printed
+ENTRYPOINT ["DDF.py"]
+CMD ["--help"]
