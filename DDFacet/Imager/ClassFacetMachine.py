@@ -1895,7 +1895,9 @@ class ClassFacetMachine():
         # MTs=np.kron(np.dot(J1H , J1).T, np.dot(J0H, J0))
         # print(MTs,MTilde[0])
         # stop
+        
 
+        
         for iChGrid in range(nChGrid):
             #SqrtSumMTilde=(MTilde[iChGrid]+MTilde[iChGrid].T.conj())/2
             SqrtSumMTilde=MTilde[iChGrid].T
