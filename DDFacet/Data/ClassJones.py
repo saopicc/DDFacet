@@ -37,6 +37,7 @@ from DDFacet.Data import ClassFITSBeam
 from DDFacet.Data import ClassGMRTBeam
 from DDFacet.Data import ClassATCABeam as ClassATCABeam
 from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
+from DDFacet.Other import ModColor
 
 # import ClassSmoothJones is not used anywhere, should be able to remove it
 from DDFacet.Other import ClassGiveSolsFile
@@ -561,8 +562,13 @@ class ClassJones():
         ClusterCat = ClusterCat.view(np.recarray)
         self.ClusterCat = ClusterCat
         DicoClusterDirs = {}
-        DicoClusterDirs["l"] = ClusterCat.l
-        DicoClusterDirs["m"] = ClusterCat.m
+        if "l" not in list(ClusterCat.dtype.fields.keys()):
+            log.print(ModColor.Str("(l,m) coordinates are not the solution's ClusterCat field, internally computing"))
+            l,m=self.FacetMachine.CoordMachine.radec2lm(ClusterCat.ra, ClusterCat.dec)
+        else:
+            l,m=ClusterCat.l,ClusterCat.m
+        DicoClusterDirs["l"] = l
+        DicoClusterDirs["m"] = m
         DicoClusterDirs["ra"] = ClusterCat.ra
         DicoClusterDirs["dec"] = ClusterCat.dec
         # DicoClusterDirs["l"]=ClusterCat.l
