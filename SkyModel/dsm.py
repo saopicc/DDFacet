@@ -13,10 +13,7 @@ from pyrap.images import image
 import glob
 import numpy as np
 
-
-if __name__=="__main__":
-
-
+def driver():
     S=sys.argv[1::]
     
     ll=glob.glob(S[-1])
@@ -35,3 +32,8 @@ if __name__=="__main__":
     ss="ds9 -cmap bb -scalelims %f %f %s -lock slice image -lock frame wcs -lock scale yes -match scalelimits -match scale -match colorbar -lock colorbar yes -view vertical"%(vmin,vmax,S)
     print(ss)
     os.system(ss)
+
+if __name__=="__main__":
+    # do not place any other code here --- cannot be called as a package entrypoint otherwise, see:
+    # https://packaging.python.org/en/latest/specifications/entry-points/
+    driver()

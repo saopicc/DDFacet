@@ -392,7 +392,7 @@ def main(OP=None, messages=[]):
     #             "\nDon't understand %s, not opening that image\n" %
     #             img, col="yellow")
 
-if __name__ == "__main__":
+def driver():
     #warnings.filterwarnings("default", category=DeprecationWarning)
     #os.system('clear')
     #logo.print_logo()
@@ -512,3 +512,8 @@ if __name__ == "__main__":
     APP.shutdown()
     Multiprocessing.cleanupShm()
     sys.exit(retcode)
+
+if __name__ == "__main__":
+    # do not place any other code here --- cannot be called as a package entrypoint otherwise, see:
+    # https://packaging.python.org/en/latest/specifications/entry-points/
+    driver()

@@ -241,11 +241,15 @@ def main(options=None):
         SM.print_sm2()
 
     
-
-
-if __name__=="__main__":
+def driver():
     read_options()
     f = open(SaveName,'rb')
     options = pickle.load(f)
 
     main(options=options)
+
+
+if __name__=="__main__":
+    # do not place any other code here --- cannot be called as a package entrypoint otherwise, see:
+    # https://packaging.python.org/en/latest/specifications/entry-points/
+    driver()

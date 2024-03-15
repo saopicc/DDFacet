@@ -1,15 +1,9 @@
 DDFacet
 ###################################
 A facet-based radio imaging package
-    .. image:: https://jenkins.meqtrees.net/job/DDFacet_master_cron/badge/icon
-        :alt: Build status
-        :target: https://jenkins.meqtrees.net/job/DDFacet_master_cron
 
-    .. image:: https://img.shields.io/aur/license/yaourt.svg
-        :alt: AUR
-
-Copyright (C) 2013-2016  Cyril Tasse, l'Observatoire de Paris,
-SKA South Africa, Rhodes University
+Copyright (C) 2013-2024  Cyril Tasse, l'Observatoire de Paris,
+SKA South Africa, South African Radio Astronomy Observatory, Rhodes University
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -91,21 +85,22 @@ We prefer that users use DDFacet though Docker. However, if this is not availabl
 environments) we recommend you use a virtual environment. If you install it directly into your system packages you're
 on your own -- be warned!!
 
-1. You need to add in the KERN 5 ppa if you don't already have it::
+**WARNING: you may encounter issues if you have previously installed numpy in the environment - build isolation
+will fail if the numpy you have installed is older than the build system pulls during isolation.
+You may need to use --no-build-isolation when installing or, even better, ensure that you install DDF and KillMS
+in an empty new virtual environment.**
 
-        add-apt-repository -y -s ppa:kernsuite/kern-5
+1. Install each of the debian dependencies. The latest full list of apt dependencies can be be found in the Dockerfile <https://github.com/saopicc/DDFacet/blob/master/docker.2204>
 
-2. Install each of the debian dependencies. The latest full list of apt dependencies can be be found in the Dockerfile <https://github.com/saopicc/DDFacet/blob/master/Dockerfile>
-
-3. Create a virtual environment somewhere on your system and activate::
+2. Create a virtual environment somewhere on your system and activate::
 
         virtualenv ddfacet
         source ddfacet/bin/activate
         
-4. Then, install directly from the Python Package Index (PyPI) using pip - **ensure your venv is activated**::
+3. Then, install directly from the Python Package Index (PyPI) using pip - **ensure your venv is activated**::
 
-        pip install -U pip setuptools
-        pip install DDFacet -U
+        pip install -U pip
+        pip install DDFacet
 
 5. When you're done with your imaging business::
 
@@ -133,16 +128,21 @@ be slower than usual::
 
 (Developers/Note): Architecture dependent binary
 ==========================================================
-The default build system **DOES NOT** produce portable binaries at the cost of a slight improvement in runtime. You have to modify setup.cfg
-and set the following lines in both [install] and [build] **before** compiling packages:
+The default build system configuration **DOES NOT** produce portable binaries at the cost of a slight improvement in runtime. 
+You have to modify pyproject.toml and set the following line **before** compiling packages:
 
 ```
-compopts=""
+cmake.define = {ENABLE_NATIVE_TUNING = "ON", ENABLE_FAST_MATH = "ON", ENABLE_PYTHON_2 = "OFF", ENABLE_PYTHON_3 = "ON"}
 ```
 
 (Developers/Recommended): setting up your dev environment
 ==========================================================
-**NOTE:Setup your virtual environment just as specified in the user section above. Ensure you activate!**
+**NOTE:Setup your virtual environment just as specified in the user section above. Ensure you activate!
+  WARNING: you may encounter issues if you have previously installed numpy in the environment - build isolation
+  will fail if the numpy you have installed is older than the build system pulls during isolation.
+  You may need to use --no-build-isolation when installing or, even better, ensure that you install DDF and KillMS
+  in an empty new virtual environment.
+**
 
 To setup your local development environment navigate clone DDFacet and run::
 
@@ -150,8 +150,10 @@ To setup your local development environment navigate clone DDFacet and run::
         (ddfvenv) $ pip install -e DDFacet/
 
 **IMPORTANT NOTE: You may need to remove the development version before running PIP when installing. If you
-are switching between release and debug versions of the backend you should remove the DDFacet/DDFacet/cbuild
-directory and everything in it**
+are switching between release and debug versions of the backend -- or recompiling in a different configuration -- 
+you should remove the DDFacet/DDFacet/cbuild directory and everything in it**
+
+Note that Python3.8 support is deprecated and editable installation is only tested to work on Python 3.10.
 
 (Developers/Testing) Docker-based build
 ==========================================================
@@ -159,7 +161,7 @@ directory and everything in it**
 
     git clone git@github.com:cyriltasse/DDFacet.git
     cd DDFacet
-    docker build -t ddf .
+    docker build -t ddf -f docker.2204 .
 
 2. You should now be able to run DDFacet in a container. Note that your parsets must have filenames relative to the mounted volume inside the container, for instance::
 
@@ -170,11 +172,13 @@ directory and everything in it**
 (Developers/Debugging) Build a few libraries (by hand with custom flags)
 ==========================================================
 You can build against custom versions of libraries such is libPython and custom numpy versions.
-To do this modify setup.cfg. Find and modify the following lines::
-
-    compopts=-DENABLE_NATIVE_TUNING=ON -ENABLE_FAST_MATH=ON -DCMAKE_BUILD_TYPE=Release
-    # or -DCMAKE_BUILD_TYPE=RelWithDebInfo for developers: this includes debugging symbols
-    # or -DCMAKE_BUILD_TYPE=Debug to inspect the stacks using kdevelop or something similar
+To do this modify pyproject.toml. Find and modify the following lines::
+```
+cmake.build-type = "ReleaseWithDebugSymbols" # can be set to Debug e.g.
+cmake.define = {ENABLE_NATIVE_TUNING = "OFF", ENABLE_FAST_MATH = "ON", ENABLE_PYTHON_2 = "OFF", ENABLE_PYTHON_3 = "ON"} # can be tuned to enable processor 
+                                                                                                                        # specific marching
+```
+You can also specify path settings for other libraries if you have custom built, e.g. numpy through these ```cmake.define```
 
 (Developers/Acceptance tests)
 ==========================================================
@@ -211,14 +215,5 @@ To resimulate images and add more tests:
 In the Jenkins server data directory add a recipe to the makefile simulate and/or set up new reference images. This should only be done with the ``origin/master`` branch - not your branch or fork! Use the ddfacet-generate-refims task
 to do this. You should manually verify that all the reference images are correct when you regenerate them. Each time you add a new option to DDFacet also add an option to the makefile in this directory. Once the option is set up in the makefile you can build the reference images on Jenkins.
 
-Important directories on the CI server: 
----------------------------------------------------------
- - Reference data stored here: /var/lib/jenkins/test-data
- - /var/lib/jenkins/jobs/ddfacet-pr-build/workspace
- - /var/lib/jenkins/jobs/DDFacet_master_cron/workspace
- - /var/lib/jenkins/jobs/DDFacet_experimental/workspace
-
-
-[tf_pip_install]: <https://www.tensorflow.org/get_started/os_setup#pip_installation>
 
 

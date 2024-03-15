@@ -223,10 +223,8 @@ RUN wget https://github.com/bennahugo/LOFARBeam/archive/refs/tags/DDF_KMS_22.04.
 #Copy DDFacet and SkyModel into the image
 ADD DDFacet /opt/DDFacet/DDFacet
 ADD SkyModel /opt/DDFacet/SkyModel
-ADD MANIFEST.in /opt/DDFacet/MANIFEST.in
-ADD setup.py /opt/DDFacet/setup.py
-ADD setup.cfg /opt/DDFacet/setup.cfg
 ADD README.rst /opt/DDFacet/README.rst
+ADD LICENSE.md /opt/DDFacet/LICENSE.md
 ADD pyproject.toml /opt/DDFacet/pyproject.toml
 ADD .git /opt/DDFacet/.git
 ADD .gitignore /opt/DDFacet/.gitignore

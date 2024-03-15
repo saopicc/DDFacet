@@ -195,11 +195,11 @@ class ClassMemMonitor():
         monitorMem()
 
 
-def test():
+def driver(): 
     MM=ClassMemMonitor()
     MM.start()
-    
 
 if __name__=="__main__":
-    MM=ClassMemMonitor()
-    MM.start()
+    # do not place any other code here --- cannot be called as a package entrypoint otherwise, see:
+    # https://packaging.python.org/en/latest/specifications/entry-points/
+    driver()

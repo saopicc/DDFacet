@@ -13,6 +13,7 @@ add_custom_command(
                 ${CMAKE_CURRENT_BINARY_DIR}/_pyGridder${PYVER}.so
                 ${CMAKE_CURRENT_BINARY_DIR}/../_pyGridder${PYVER}.so)
 
+install(TARGETS _pyGridder${PYVER} LIBRARY DESTINATION DDFacet/cbuild/Gridder)
 
 #compile and link _pyGridderSmearPols.so
 add_library(_pyGridderSmearPolsClassic${PYVER} GridderSmearPols.c GridderSmearPols.h Semaphores.h)
@@ -24,3 +25,5 @@ add_custom_command(
       COMMAND ${CMAKE_COMMAND} -E copy
 	      ${CMAKE_CURRENT_BINARY_DIR}/_pyGridderSmearPolsClassic${PYVER}.so
 	      ${CMAKE_CURRENT_BINARY_DIR}/../_pyGridderSmearPolsClassic${PYVER}.so)
+
+install(TARGETS _pyGridderSmearPolsClassic${PYVER} LIBRARY DESTINATION DDFacet/cbuild/Gridder)
