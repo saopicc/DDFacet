@@ -8,7 +8,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "DDFacet"
-version = "0.7.2.0"
+version = "0.8.0.0"
 description = "Facet-based radio astronomy continuum imager"
 license = {file = "LICENSE.md"}
 readme = "README.rst"
