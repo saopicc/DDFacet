@@ -16,7 +16,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 (Users / Recommended - Docker based) Run via. Stimela >= 0.2.9 
-==========================================================
+===============================================================
 We recommend running the imaging package through the Stimela framework <https://github.com/SpheMakh/Stimela>, built on a
 widely supported containerization framework, called Docker. This package is on PiPY and and is purely python-based, requiring no dependencies other than Docker. It gives the user instantanious access to other commonly used packages such as Meqtrees, CASA, etc.
 
@@ -107,12 +107,12 @@ in an empty new virtual environment.**
         deactivate
         
 (Users/Optional) FitsBeam, Montblanc, Moresane, Killms support
-==========================================================
+================================================================
 Optional requirements like the FITS beam can be installed by specifying them in brackets.
 E.g. pip install "/src/DDFacet/[dft-support,moresane-support,testing-requirements,fits-beam-support,kms-support]"
 
 (Users/Troubleshooting) Configure max shared memory
-==========================================================
+================================================================
 Running DDFacet on large images requires a lot of shared memory. Most systems limit the amount of shared memory to about 10%. To increase this limit add the following line to your ``/etc/default/tmpfs`` file::
 
         SHM_SIZE=100%
@@ -137,21 +137,20 @@ cmake.define = {ENABLE_NATIVE_TUNING = "ON", ENABLE_FAST_MATH = "ON", ENABLE_PYT
 
 (Developers/Recommended): setting up your dev environment
 ==========================================================
-**NOTE:Setup your virtual environment just as specified in the user section above. Ensure you activate!
-  WARNING: you may encounter issues if you have previously installed numpy in the environment - build isolation
-  will fail if the numpy you have installed is older than the build system pulls during isolation.
-  You may need to use --no-build-isolation when installing or, even better, ensure that you install DDF and KillMS
-  in an empty new virtual environment.
-**
+**NOTE:Setup your virtual environment just as specified in the user section above. Ensure you activate!**
+**WARNING: you may encounter issues if you have previously installed numpy in the environment - build isolation**
+**will fail if the numpy you have installed is older than the build system pulls during isolation.**
+**You may need to use --no-build-isolation when installing or, even better, ensure that you install DDF and KillMS**
+**in an empty new virtual environment.**
 
 To setup your local development environment navigate clone DDFacet and run::
 
         (ddfvenv) $ git clone https://github.com/cyriltasse/DDFacet
         (ddfvenv) $ pip install -e DDFacet/
 
-**IMPORTANT NOTE: You may need to remove the development version before running PIP when installing. If you
-are switching between release and debug versions of the backend -- or recompiling in a different configuration -- 
-you should remove the DDFacet/DDFacet/cbuild directory and everything in it**
+**IMPORTANT NOTE: You may need to remove the development version before running PIP when installing. If you**
+**are switching between release and debug versions of the backend -- or recompiling in a different configuration -- **
+**you should remove the DDFacet/DDFacet/cbuild directory and everything in it**
 
 Note that Python3.8 support is deprecated and editable installation is only tested to work on Python 3.10.
 
@@ -170,13 +169,12 @@ Note that Python3.8 support is deprecated and editable installation is only test
 **Important: if you ran ``git submodule update --init --recursive`` before you may need to remove the cached SkyModel before building the docker image with ``git rm --cached SkyModel``**
 
 (Developers/Debugging) Build a few libraries (by hand with custom flags)
-==========================================================
+=========================================================================
 You can build against custom versions of libraries such is libPython and custom numpy versions.
 To do this modify pyproject.toml. Find and modify the following lines::
 ```
 cmake.build-type = "ReleaseWithDebugSymbols" # can be set to Debug e.g.
-cmake.define = {ENABLE_NATIVE_TUNING = "OFF", ENABLE_FAST_MATH = "ON", ENABLE_PYTHON_2 = "OFF", ENABLE_PYTHON_3 = "ON"} # can be tuned to enable processor 
-                                                                                                                        # specific marching
+cmake.define = {ENABLE_NATIVE_TUNING = "OFF", ENABLE_FAST_MATH = "ON", ENABLE_PYTHON_2 = "OFF", ENABLE_PYTHON_3 = "ON"} # can be tuned to enable processor specific marching
 ```
 You can also specify path settings for other libraries if you have custom built, e.g. numpy through these ```cmake.define```
 
@@ -190,7 +188,7 @@ Add this to your ``.bashrc``::
         export DDFACET_TEST_OUTPUT_DIR=[folder where you want the acceptance test output to be dumped]
 
 To test your branch against the master branch using Jenkins
----------------------------------------------------------
+------------------------------------------------------------
 Most of the core use cases will in the nearby future have reference images and an automated acceptance test.
 
 Please **do not** commit against cyriltasse/master. The correct strategy is to branch/fork and do a pull request on Github
