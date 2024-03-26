@@ -477,6 +477,7 @@ class ClassDaskMS(ClassMS):
                     weights[...] = w
                 else:
                     weights *= w
+                continue
             else:
                 # in all other cases (i.e. IMAGING_WEIGHT) assume a column
                 # of shape NRow,NFreq to begin with, check for this:
