@@ -133,7 +133,7 @@ class RegToNp():
                 Cat.dec[iCat] = reg.center.dec.rad
                 Cat.Radius[iCat] = reg.radius.to("rad").value
                 Cat.Type[iCat]   = "Circle"
-            
+
             # treat ellipse and box the same (Cyril ignored ellipses)
             elif type(reg) is regions.RectangleSkyRegion or type(reg) is regions.EllipseSkyRegion:
                 

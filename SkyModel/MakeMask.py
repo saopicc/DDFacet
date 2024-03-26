@@ -391,7 +391,11 @@ class ClassMakeMask():
             RadiusPix=(1.1*Radius/self.incr_rad)
             freq,pol,_,_=self.CasaIm.toworld((0,0,0,0))
 
-            _,_,yc,xc=self.CasaIm.topixel((freq,pol,decc,rac))
+            try:
+                _,_,yc,xc=self.CasaIm.topixel((freq,pol,decc,rac))
+            except Exception as e:
+                print(str(e))
+                continue
             
             xGrid,yGrid=np.mgrid[int(xc-RadiusPix):int(xc+RadiusPix)+1,int(yc-RadiusPix):int(yc+RadiusPix)+1]
             xGrid=xGrid.flatten().tolist()
@@ -399,6 +403,7 @@ class ClassMakeMask():
 
             for ipix,jpix in zip(xGrid,yGrid):
                 _,_,dec,ra=self.CasaIm.toworld((0,0,jpix,ipix))
+                
                 #d=np.sqrt((ra-rac)**2+(dec-decc)**2)
                 d=self.GiveAngDist(ra,dec,rac,decc)
                 #print ipix,jpix
