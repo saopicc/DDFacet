@@ -33,6 +33,7 @@ import os
 from DDFacet.Array import ModLinAlg
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Data import ClassLOFARBeam
+# comment out the below due to obnoxiousness of building Timba dependency. TODO fix
 from DDFacet.Data import ClassFITSBeam
 from DDFacet.Data import ClassGMRTBeam
 from DDFacet.Data import ClassATCABeam as ClassATCABeam
@@ -147,9 +148,19 @@ def _parse_solsfile(SolsFile):
 
 class ClassJones():
 
-    def __init__(self, GD, MS, FacetMachine=None, CacheMode=True):
+    def __init__(self, GD, MS, FacetMachine=None, CacheMode=True,
+                 iField=None):
         self.GD = GD
         self.FacetMachine = FacetMachine
+        self.iField=iField
+        self.StrField=""
+        self.StrCounter=""
+        # if iField is not None:
+        #     self.StrField="_Field%i"%iField
+        #     self.StrCounter=" F#%i"%iField
+        #     self.FacetMachine = self.FacetMachine.LFM[iField]
+            
+        
         self.MS = MS
         self.HasKillMSSols = False
         self.BeamTimes_kMS = np.array([], np.float32)
@@ -167,7 +178,7 @@ class ClassJones():
             self.ApplyCal = True
             valid=False
             if self.CacheMode:
-                self.JonesNormSolsFile_killMS, valid = self.MS.cache.checkCache("JonesNorm_killMS",
+                self.JonesNormSolsFile_killMS, valid = self.MS.cache.checkCache("JonesNorm_killMS%s"%self.StrField,
                                                                                 dict(VisData=GD["Data"], 
                                                                                      DDESolutions=GD["DDESolutions"], 
                                                                                      DataSelection=self.GD["Selection"],
@@ -179,7 +190,7 @@ class ClassJones():
                 DicoSols, TimeMapping, DicoClusterDirs = self.DiskToSols(self.JonesNormSolsFile_killMS)
             else:
                 DicoSols, TimeMapping, DicoClusterDirs = self.MakeSols("killMS", DATA, quiet=quiet)
-                if self.CacheMode: self.MS.cache.saveCache("JonesNorm_killMS")
+                if self.CacheMode: self.MS.cache.saveCache("JonesNorm_killMS%s"%self.StrField)
 
             # DEBUG plot
             #if True:
@@ -206,7 +217,7 @@ class ClassJones():
             #            plt.close('all')
             #    exit()
 
-            DATA["killMS"] =  dict(Jones=DicoSols, TimeMapping=TimeMapping, Dirs=DicoClusterDirs)
+            DATA["killMS%s"%self.StrField] =  dict(Jones=DicoSols, TimeMapping=TimeMapping, Dirs=DicoClusterDirs)
             self.DicoClusterDirs_kMS=DicoClusterDirs
 
             self.HasKillMSSols = True
@@ -230,7 +241,7 @@ class ClassJones():
                                     lbeamsethashes["bs"] = hashlib.md5(fbs.read().encode()).hexdigest()
                     return lbeamsethashes
 
-                self.JonesNormSolsFile_Beam, valid = self.MS.cache.checkCache("JonesNorm_Beam.npz", 
+                self.JonesNormSolsFile_Beam, valid = self.MS.cache.checkCache("JonesNorm_Beam%s"%self.StrField, 
                                                                               dict(VisData=GD["Data"], 
                                                                                    Beam=GD["Beam"], 
                                                                                    Facets=self.GD["Facets"],
@@ -242,9 +253,9 @@ class ClassJones():
                 DicoSols, TimeMapping, DicoClusterDirs = self.DiskToSols(self.JonesNormSolsFile_Beam)
             else:
                 DicoSols, TimeMapping, DicoClusterDirs = self.MakeSols("Beam", DATA, quiet=quiet)
-                if self.CacheMode: self.MS.cache.saveCache("JonesNorm_Beam.npz")
-            
-            DATA["Beam"] =  dict(Jones=DicoSols, TimeMapping=TimeMapping, Dirs=DicoClusterDirs)
+                if self.CacheMode: self.MS.cache.saveCache("JonesNorm_Beam%s"%self.StrField)
+            DATA["Beam%s"%self.StrField] =  dict(Jones=DicoSols, TimeMapping=TimeMapping, Dirs=DicoClusterDirs)
+
 
     # def ToShared(self, StrType, DicoSols, TimeMapping, DicoClusterDirs):
     #     print>>log, "  Putting %s Jones in shm" % StrType
@@ -336,9 +347,9 @@ class ClassJones():
 
             if self.FacetMachine is not None:
                 if not(self.HasKillMSSols) or self.GD["Beam"]["At"] == "facet":
-                    print("  Getting beam Jones directions from facets", file=log)
-                    DicoImager = self.FacetMachine.DicoImager
-                    NFacets = len(DicoImager)
+                    print("  Getting beam Jones directions from facets [%i directions]"%(self.FacetMachine.FacetDirCat.l.size), file=log)
+                    # DicoImager = self.FacetMachine.DicoImager
+                    # NFacets = len(DicoImager)
                     self.ClusterCatBeam = self.FacetMachine.FacetDirCat
                     DicoClusterDirs = {}
                     DicoClusterDirs["l"] = self.ClusterCatBeam.l
@@ -347,8 +358,15 @@ class ClassJones():
                     DicoClusterDirs["dec"] = self.ClusterCatBeam.dec
                     DicoClusterDirs["I"] = self.ClusterCatBeam.I
                     DicoClusterDirs["Cluster"] = self.ClusterCatBeam.Cluster
+
+                    # VM = ModVoronoiToReg.VoronoiToReg(self.MS.rac, self.MS.decc)
+                    # VM.PointsToReg("FacetDirCat.reg",DicoClusterDirs["ra"],DicoClusterDirs["dec"],Col="red")
+                    # VM.PointsToReg("JonesDirCat.reg",self.FacetMachine.JonesDirCat["ra"],self.FacetMachine.JonesDirCat["dec"],Col="blue")
+                    # VM.PointsToReg("DicoClusterDirs_kMS.reg",self.DicoClusterDirs_kMS["ra"],self.DicoClusterDirs_kMS["dec"],Col="green")
+                    # stop
+
                 else:
-                    print("  Getting beam Jones directions from DDE solution tessels", file=log)
+                    print("  Getting beam Jones directions from DDE solution tessels [%i directions]"%(self.DicoClusterDirs_kMS["ra"].size), file=log)
                     DicoClusterDirs = self.DicoClusterDirs_kMS
                     NDir = DicoClusterDirs["l"].size
                     self.ClusterCatBeam = np.zeros(
@@ -369,7 +387,7 @@ class ClassJones():
                     
             else:
                 if self.HasKillMSSols and self.GD["Beam"]["At"] == "tessel":
-                    print("  Getting beam Jones directions from DDE solution tessels", file=log)
+                    print("  Getting beam Jones directions from DDE solution tessels [%i directions]"%(self.DicoClusterDirs_kMS["ra"].size), file=log)
                     DicoClusterDirs = self.DicoClusterDirs_kMS
                     NDir = DicoClusterDirs["l"].size
                     self.ClusterCatBeam = np.zeros(
@@ -417,7 +435,8 @@ class ClassJones():
                     DicoClusterDirs["I"] = self.ClusterCatBeam.I
                     DicoClusterDirs["Cluster"] = np.arange(RABeam.size)
                 else:
-                    print("  Has no DDE information taking single Jones directions current phase center", file=log)
+                    print("  Has no DDE information taking single Jones directions from current phase center", file=log)
+
                     self.ClusterCatBeam = np.zeros(
                         (1,),
                         dtype=[('Name', '|S200'),
@@ -1111,9 +1130,9 @@ class ClassJones():
         
 
         
-        rac,decc=self.MS.PointingRadec
-        
-        pBAR= ProgressBar(Title="  Init E-Jones ")#, HeaderSize=10,TitleSize=13)
+        rac,decc=self.MS.OriginalRadec
+        pBAR= ProgressBar(Title="  Init E-Jones%s"%self.StrCounter)#, HeaderSize=10,TitleSize=13)
+
         if not progressBar: pBAR.disable()
         # pBAR.disable()
         pBAR.render(0, Tm.size)

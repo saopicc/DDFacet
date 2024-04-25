@@ -63,7 +63,11 @@ import numexpr
 import numpy as np
 from DDFacet.Other import logo
 from DDFacet.Array import NpParallel
+
 from DDFacet.Imager import ClassDeconvMachine
+
+from DDFacet.Imager.MultiFields import ClassDeconvMachineMultiField
+
 from DDFacet.Imager import ClassFacetMachine
 from DDFacet.Parset import ReadCFG
 from DDFacet.Other import MyPickle
@@ -87,6 +91,7 @@ log = None
 
 import numpy as np
 import warnings
+from DDFacet.Other.AsciiReader import readMultiFieldFile
 
 # # ##############################
 # # Catch numpy warning
@@ -278,17 +283,31 @@ def main(OP=None, messages=[]):
 
     # data machine initialized for all cases except PSF-only mode
     # psf machine initialized for all cases except Predict-only mode
-    Imager = ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig,
-                                                  BaseName=ImageName,
-                                                  predict_only=(Mode == "Predict" or Mode == "Subtract"),
-                                                  data=(Mode != "PSF"),
-                                                  psf=(Mode != "Predict" and Mode != "Dirty" and Mode != "Subtract"),
-                                                  readcol=(Mode != "Predict" and Mode != "PSF"),
-                                                  deconvolve=("Clean" in Mode))
 
+
+    if DicoConfig["Image"]["MultiFieldFile"] is None:
+        
+        Imager = ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig,
+                                                      #BaseName=ImageName,
+                                                      predict_only=(Mode == "Predict" or Mode == "Subtract"),
+                                                      data=(Mode != "PSF"),
+                                                      psf=(Mode != "Predict" and Mode != "Dirty" and Mode != "Subtract"),
+                                                      readcol=(Mode != "Predict" and Mode != "PSF"),
+                                                      deconvolve=("Clean" in Mode))
+
+    else:
+        DicoFields=readMultiFieldFile(DicoConfig["Image"]["MultiFieldFile"])
+
+        Imager = ClassDeconvMachineMultiField.ClassImagerDeconv(GD=DicoConfig,
+                                                                #BaseName=ImageName,
+                                                                predict_only=(Mode == "Predict" or Mode == "Subtract"),
+                                                                data=(Mode != "PSF"),
+                                                                psf=(Mode != "Predict" and Mode != "Dirty" and Mode != "Subtract"),
+                                                                readcol=(Mode != "Predict" and Mode != "PSF"),
+                                                                deconvolve=("Clean" in Mode),DicoFields=DicoFields)
+        
     Imager.Init()
         
-
     # Imager.testDegrid()
     # stop
     if "Predict" in Mode or "Subtract" in Mode:

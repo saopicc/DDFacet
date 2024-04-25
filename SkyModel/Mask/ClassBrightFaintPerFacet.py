@@ -70,14 +70,14 @@ class ClassBrightFaintPerFacet():
         log.print("Loading %s"%PolyFacetFile)
         D=DDFacet.Other.MyPickle.Load(PolyFacetFile)
 
-        #LSol=[D[iFacet]["iSol"][0] for iFacet in D.keys()]
+        #LSol=[D[iFacet]["iDirJones"][0] for iFacet in D.keys()]
         DicoDir={}
         for iFacet in list(D.keys()):
-            iSol=D[iFacet]["iSol"][0]
-            if not iSol in list(DicoDir.keys()):
-                DicoDir[iSol]=[iFacet]
+            iDirJones=D[iFacet]["iDirJones"][0]
+            if not iDirJones in list(DicoDir.keys()):
+                DicoDir[iDirJones]=[iFacet]
             else:
-                DicoDir[iSol].append(iFacet)
+                DicoDir[iDirJones].append(iFacet)
             
         MaskBright=np.zeros((nx,nx),np.float32)
         MaskFaint=np.zeros((nx,nx),np.float32)
@@ -104,10 +104,10 @@ class ClassBrightFaintPerFacet():
 
         DicoDiam={}
         log.print("Computing max distance within tessel...")
-        for iSol in sorted(list(DicoDir.keys())):#[27:28]:
+        for iDirJones in sorted(list(DicoDir.keys())):#[27:28]:
             Ll=[]
             Lm=[]
-            for iFacet in DicoDir[iSol]:
+            for iFacet in DicoDir[iDirJones]:
                 PolyGon=D[iFacet]["Polygon"]
                 l,m=PolyGon.T
                 x0,y0=give_in_points(l,m)
@@ -125,17 +125,17 @@ class ClassBrightFaintPerFacet():
             dy=y0.reshape((-1,1))-y0.reshape((1,-1))
             dd=np.sqrt(dx**2+dy**2)
             ThisDMaxDeg=dd.max()*180/np.pi
-            DicoDiam[iSol]=ThisDMaxDeg
+            DicoDiam[iDirJones]=ThisDMaxDeg
 
         DiamMax_deg=2.
             
         L_raCal=[]
         L_decCal=[]
-        for iSol in sorted(list(DicoDir.keys())):#[27:28]:
-            print("===================== Processing direction %2.2i/%2.2i ====================="%(iSol,len(DicoDir)), file=log)
+        for iDirJones in sorted(list(DicoDir.keys())):#[27:28]:
+            print("===================== Processing direction %2.2i/%2.2i ====================="%(iDirJones,len(DicoDir)), file=log)
             ThisFacetMask=np.zeros_like(Mask)-1
             PutAllIslands=False
-            for iFacet in DicoDir[iSol]:
+            for iFacet in DicoDir[iDirJones]:
                 PolyGon=D[iFacet]["Polygon"]
                 l,m=PolyGon.T
                 
@@ -182,8 +182,8 @@ class ClassBrightFaintPerFacet():
             ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
 
 
-            if DicoDiam[iSol]>DiamMax_deg:
-                log.print("Tessel is too big [%.2f > %.2f deg] - including all islands as calibrators"%(DicoDiam[iSol],DiamMax_deg))
+            if DicoDiam[iDirJones]>DiamMax_deg:
+                log.print("Tessel is too big [%.2f > %.2f deg] - including all islands as calibrators"%(DicoDiam[iDirJones],DiamMax_deg))
                 PutAllIslands=True
                 for iIsland,Island in enumerate(ListIslands):
                     x,y=np.array(Island).T

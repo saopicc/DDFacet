@@ -68,7 +68,7 @@ def FileToArray(FileName,CorrT=True):
 
 class ClassCasaimage():
 
-    def __init__(self,ImageName,ImShape,Cell,radec,Freqs=None,KeepCasa=False,Stokes=["I"],header_dict=None,history=None):
+    def __init__(self,ImageName,ImShape,Cell,radec,Freqs=None,KeepCasa=False,Stokes=["I"],header_dict=None,history=None,l0m0=None):
         """ Create internal data structures, then call CreateScratch to
         make the image itself. 
         header_dict is a dict of FITS keywords to add.
@@ -89,7 +89,7 @@ class ClassCasaimage():
             self.delta_stokes = self.sorted_stokes[1] - self.sorted_stokes[0]
         else:
             self.delta_stokes = 1
-
+        self.l0m0=l0m0
         for si in range(len(self.sorted_stokes)-1):
             if self.sorted_stokes[si+1] - self.sorted_stokes[si] != self.delta_stokes:
                 raise RuntimeError("Your selection of Stokes parameters cannot "
@@ -127,7 +127,13 @@ class ClassCasaimage():
         self.w.wcs.cdelt[2] = self.delta_stokes
         self.w.wcs.cunit = ['deg','deg','','Hz']
         self.w.wcs.crval = [self.radec[0]*180.0/np.pi,self.radec[1]*180.0/np.pi,self.sorted_stokes[0],0]
-        self.w.wcs.crpix = [1+(self.Npix_x-1)/2.0,1+(self.Npix_y-1)/2.0,1,1]
+
+        x0,y0=1+(self.Npix_x-1)/2.0,1+(self.Npix_y-1)/2.0
+        if self.l0m0 is not None:
+            l0,m0=self.l0m0
+            x0-=-l0/(self.Cell[0]*np.pi/180/3600)
+            y0-=m0/(self.Cell[1]*np.pi/180/3600)
+        self.w.wcs.crpix = [x0,y0,1,1]
 
         self.fmean=None
         if self.Freqs is not None:

@@ -83,6 +83,9 @@ class ClassImageDeconvMachine():
         self.Chi2Thr = 10000
         self._MaskArray = None
         self.GD = GD
+        from DDFacet.Imager.MultiFields.AppendSubFieldInfo import AppendSubFieldInfo
+        AppendSubFieldInfo(self)
+        CacheFileName="%s%s"%(CacheFileName,self.StrField)
         self.SubPSF = None
         self.MultiFreqMode = NFreqBands > 1
         self.NFreqBands = NFreqBands
@@ -93,7 +96,7 @@ class ClassImageDeconvMachine():
         self.PeakFactor = PeakFactor
         self.PrevPeakFactor = PrevPeakFactor
         self.CacheFileName=CacheFileName
-        self.GainMachine=ClassGainMachine.get_instance()
+        self.GainMachine=None#ClassGainMachine.get_instance()
         self.ModelMachine = None
         self.PSFServer = None
         if ModelMachine is not None:
@@ -106,7 +109,10 @@ class ClassImageDeconvMachine():
         self.facetcache=None
         self._MaskArray=None
         self.MaskMachine=None
-        self.ParallelMode=ParallelMode
+        MultiFieldFile=self.GD["Image"]["MultiFieldFile"]
+        self.MultiField=((MultiFieldFile is not None) and (MultiFieldFile!=""))
+        self.ParallelMode=(ParallelMode and not self.MultiField)
+        #self.ParallelMode=False
         if self.ParallelMode:
             APP.registerJobHandlers(self)
 
@@ -304,8 +310,9 @@ class ClassImageDeconvMachine():
                         if self.ParallelMode:
                             args=(fcdict.writeonly(), MSM0.ScaleFuncs.readonly(), self.DicoVariablePSF.readonly(),
                                   iFacet, self.SideLobeLevel, self.OffsetSideLobe, False)
-                            APP.runJob("InitHMP:%d"%iFacet, self._initMSM_handler,
-                                       args=args)
+                            APP.runJob("InitHMP:%d"%iFacet,
+                                       self._initMSM_handler,
+                                       args=args)#,serial=True)
                         else:
                             self.DicoMSMachine[iFacet] = \
                                 self._initMSM_facet(iFacet, fcdict, None,
@@ -658,7 +665,7 @@ class ClassImageDeconvMachine():
 
         if UpdateRMS: self.updateRMS()
         RMS=self.RMS
-        self.GainMachine.SetRMS(RMS)
+        #self.GainMachine.SetRMS(RMS)
 
         Fluxlimit_RMS = self.RMSFactor*RMS
         #print "startmax",self._MeanDirty.shape,self._MaskArray.shape
@@ -784,7 +791,7 @@ class ClassImageDeconvMachine():
         # pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Cleaning   ", HeaderSize=20,TitleSize=30)
         # pBAR.disable()
 
-        self.GainMachine.SetFluxMax(ThisFlux)
+        #self.GainMachine.SetFluxMax(ThisFlux)
         # pBAR.render(0,"g=%3.3f"%self.GainMachine.GiveGain())
         PreviousFlux=ThisFlux
 
@@ -842,7 +849,7 @@ class ClassImageDeconvMachine():
 
                 
                 #x,y=self.PSFServer.SolveOffsetLM(self._MeanDirty[0,0],x,y); ThisFlux=self._MeanDirty[0,0,x,y]
-                self.GainMachine.SetFluxMax(ThisFlux)
+                #self.GainMachine.SetFluxMax(ThisFlux)
 
                 # #x,y=1224, 1994
                 # print x,y,ThisFlux

@@ -1263,6 +1263,8 @@ class ClassMS():
 
         ThresholdFlag = 0.9 # flag antennas with % of flags over threshold
 
+        T=ClassTimeIt.ClassTimeIt("UpdateFlags")
+        T.disable()
         # flag autocorrelations
         # print>>log,"  flagging autocorrelations"
         flags[A0==A1] = True
@@ -1272,12 +1274,13 @@ class ClassMS():
             ind = np.isnan(data)
             flags[ind] = True
             data[flags] = 1e9
+        T.timeit("nan")
         # if one of 4 correlations is flagged, flag all 4. Make smaller array of flags per row/channel
         # print>>log,"  flagging incomplete coherency matrices"
         flags1 = flags.any(axis=2)
         flags[flags1] = True
-
         FlagAntNumber = set()
+        T.timeit("pol")
 
         
         if self.DicoSelectOptions["UVRangeKm"]:
@@ -1287,6 +1290,7 @@ class ClassMS():
             d1 = d1**2*1e6
             duv = (uvw[:,:2]**2).sum(1)  # u^2+v^2... and we already squared d0 and d1
             flags[(duv < d0) | (duv > d1),:,:] = True
+            T.timeit("UVRangeKm")
 
         if self.DicoSelectOptions["TimeRange"]:
             st0, st1 = list(map(lambda x: dt.utcfromtimestamp(qa.quantity(x).to_unix_time()),
@@ -1327,34 +1331,40 @@ class ClassMS():
                 FlagAntNumber.add(iAnt)
 
 
-        try:
-            Cell_x,Cell_y=self.GD["Image"]["Cell"]
-        except:
-            Cell_x=Cell_y=self.GD["Image"]["Cell"]
-        Cell_x*=np.pi/180/3600
-        Cell_y*=np.pi/180/3600
-        f_x=1./Cell_x/3
-        f_y=1./Cell_y/3
-        u,v,w=uvw.T
-        fd_u=u.reshape((-1,1))*self.ChanFreq.reshape((1,-1))/3e8
-        fd_v=v.reshape((-1,1))*self.ChanFreq.reshape((1,-1))/3e8
-        fd_uv=np.sqrt((fd_u/f_x)**2+(fd_v/f_y)**2)
-        flag_Nyquist=(fd_uv>1)#(fd_u>f_x)|(fd_v>f_y))
-        fraction_flag_Nyquist=100*np.count_nonzero(flag_Nyquist)/flag_Nyquist.size
-        if fraction_flag_Nyquist>0:
-            if self.GD["Selection"]["AutoFlagNyquist"]:
-                log.print("Fraction of uv points beyond Nyquist sampling: %.2f%%"%fraction_flag_Nyquist)
-                log.print("  flagging uv-points that are further than Nyquist sampling")
-                _,_,npol=flags.shape
-                #flags0=flags.copy()
-                flag_Nyquist=flag_Nyquist.reshape((u.size,self.ChanFreq.size,1))*np.ones((1,1,npol),bool)
-                flags[flag_Nyquist]=1
-                #print(np.count_nonzero(flags0),np.count_nonzero(flags))
+            
+        if self.GD["Selection"]["AutoFlagNyquist"]:
+            try:
+                Cell_x,Cell_y=self.GD["Image"]["Cell"]
+            except:
+                Cell_x=Cell_y=self.GD["Image"]["Cell"]
+                
+            Cell_x*=np.pi/180/3600
+            Cell_y*=np.pi/180/3600
+            f_x=1./Cell_x/3
+            f_y=1./Cell_y/3
+            u,v,w=uvw.T
+            T.timeit("cell")
+            fd_u=u.reshape((-1,1))*self.ChanFreq.reshape((1,-1))/3e8
+            fd_v=v.reshape((-1,1))*self.ChanFreq.reshape((1,-1))/3e8
+            fd_uv=np.sqrt((fd_u/f_x)**2+(fd_v/f_y)**2)
+            flag_Nyquist=(fd_uv>1)#(fd_u>f_x)|(fd_v>f_y))
+            fraction_flag_Nyquist=100*np.count_nonzero(flag_Nyquist)/flag_Nyquist.size
+            T.timeit("fd_uv")
+            if fraction_flag_Nyquist>0:
+                if self.GD["Selection"]["AutoFlagNyquist"]:
+                    log.print("Fraction of uv points beyond Nyquist sampling: %.2f%%"%fraction_flag_Nyquist)
+                    log.print("  flagging uv-points that are further than Nyquist sampling")
+                    _,_,npol=flags.shape
+                    #flags0=flags.copy()
+                    flag_Nyquist=flag_Nyquist.reshape((u.size,self.ChanFreq.size,1))*np.ones((1,1,npol),bool)
+                    flags[flag_Nyquist]=1
+                    #print(np.count_nonzero(flags0),np.count_nonzero(flags))
+                else:
+                    log.print(ModColor.Str("Fraction of uv points beyond Nyquist sampling: %.2f%%"%fraction_flag_Nyquist))
+                    log.print(ModColor.Str("  you might want to either (i) chose a smaller pixel size, or (ii) unselect longest uv-points/baselines, or (iii) use --Selection-AutoFlagNyquist=True"))
             else:
-                log.print(ModColor.Str("Fraction of uv points beyond Nyquist sampling: %.2f%%"%fraction_flag_Nyquist))
-                log.print(ModColor.Str("  you might want to either (i) chose a smaller pixel size, or (ii) unselect longest uv-points/baselines, or (iii) use --Selection-AutoFlagNyquist=True"))
-        else:
-            log.print("Your pixel size is small enough, longest baselines will be properly modeled")
+                log.print("Your pixel size is small enough, longest baselines will be properly modeled")
+            T.timeit("rest nyquist")
             
                 
         # C0=(A0 == 7) & (A1 == 17)
@@ -1371,6 +1381,7 @@ class ClassMS():
         
         antenna_flagfrac = [flags1[rows].sum() / float(flags1[rows].size or 1) for rows in antenna_rows]
         print("  flagged fractions per antenna: %s" % " ".join(["%.2f" % frac for frac in antenna_flagfrac]), file=log)
+        T.timeit("Antenna")
 
         # print("lhjhgkljklhkhm")
         # print("lhjhgkljklhkhm")
@@ -1386,6 +1397,7 @@ class ClassMS():
         for A in FlagAntFrac:
             print("    antenna %i has ~%4.1f%s of flagged data (more than %4.1f%s)" % \
                          (A, antenna_flagfrac[A] * 100, "%", ThresholdFlag * 100, "%"), file=log)
+        T.timeit("per Antenna")
 
         if self.DicoSelectOptions["FlagAnts"]:
             FlagAnts = self.DicoSelectOptions["FlagAnts"]
@@ -1400,6 +1412,7 @@ class ClassMS():
 
         for A in FlagAntNumber:
             flags[antenna_rows[A], :, :] = True
+        T.timeit("end")
             
         
         print("Fraction of flagged data: %.2f %s"%(100*np.count_nonzero(flags==1)/flags.size,"%"), file=log)

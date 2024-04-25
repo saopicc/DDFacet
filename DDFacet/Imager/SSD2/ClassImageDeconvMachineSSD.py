@@ -66,6 +66,10 @@ class ClassImageDeconvMachine():
         self.MaxMinorIter=MaxMinorIter
         self.NCPU=NCPU
         self.GD=copy.deepcopy(GD)
+        from DDFacet.Imager.MultiFields.AppendSubFieldInfo import AppendSubFieldInfo
+        AppendSubFieldInfo(self)
+        
+        
         self.DicoDicoInitIndiv=None
         if NCPU==0:
             self.NCPU=int(GD["Parallel"]["NCPU"] or psutil.cpu_count())
@@ -74,13 +78,14 @@ class ClassImageDeconvMachine():
             self.IdSharedMem=str(os.getpid())
         else:
             self.IdSharedMem=IdSharedMem
+        self.IdSharedMem="%s%s"%(self.IdSharedMem,self.StrField)
         self.SubPSF=None
         self.MultiFreqMode=(self.GD["Freq"]["NBand"]>1)
         self.FluxThreshold = FluxThreshold 
         self.CycleFactor = CycleFactor
         self.RMSFactor = RMSFactor
         self.PeakFactor = PeakFactor
-        self.GainMachine=ClassGainMachine.get_instance()
+        #self.GainMachine=ClassGainMachine.get_instance()
         # if ModelMachine is None:
         #     from DDFacet.Imager.SSD import ClassModelMachineSSD
         #     self.ModelMachine=ClassModelMachineSSD.ClassModelMachine(self.GD,GainMachine=self.GainMachine)
@@ -180,6 +185,7 @@ class ClassImageDeconvMachine():
         
 
     def SetPSF(self,DicoVariablePSF):
+
         self.PSFServer=ClassPSFServer(self.GD)
         self.PSFServer.setDicoVariablePSF(DicoVariablePSF)
         self.PSFServer.setRefFreq(self.ModelMachine.RefFreq)
@@ -303,7 +309,10 @@ class ClassImageDeconvMachine():
             #     self.ListIslands.append(ListIslands[iIsland])
             # ###############################
         # #############################
+        
         print("  selected %i islands [out of %i] with peak flux > %.3g Jy"%(len(ListIslandsFiltered),len(ListIslands),Threshold), file=log)
+        if len(ListIslandsFiltered)==0:
+            return "NoIslands"
         ListIslands=ListIslandsFiltered
         #ListIslands=[np.load("errIsland_000524.npy").tolist()]
         
@@ -380,7 +389,7 @@ class ClassImageDeconvMachine():
         if self.DicoDicoInitIndiv is not None:
             self.DicoDicoInitIndiv.delete()
             
-        self.DicoDicoInitIndiv  = shared_dict.create("DicoDicoInitIndiv")
+        self.DicoDicoInitIndiv  = shared_dict.create("DicoDicoInitIndiv%s"%self.StrField)
         if np.count_nonzero(ListDoIslandsInit)>0:
             self.ListDicoInitIndiv=[]
             for iMachine,InitMachine in enumerate(self.ListInitMachine):
@@ -424,7 +433,7 @@ class ClassImageDeconvMachine():
         #print "::::::::::::::::::::::"
         self.RMS=RMS
 
-        self.GainMachine.SetRMS(RMS)
+        #self.GainMachine.SetRMS(RMS)
         
         Fluxlimit_RMS = self.RMSFactor*RMS
 
@@ -482,7 +491,9 @@ class ClassImageDeconvMachine():
             print(ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done here" % (ThisFlux),col="green" ), file=log)
             return "FluxThreshold", False, False
 
-        self.SearchIslands(StopFlux)
+        rep=self.SearchIslands(StopFlux)
+        if rep=="NoIslands":
+            return "FluxThreshold", False, False
         #return None,None,None
         self.InitIslands()
 
@@ -577,7 +588,7 @@ class ClassImageDeconvMachine():
 
 
         # shared dict to hold inputs and outputs to workers (each island number is a key)
-        deconv_dict  = shared_dict.create("DeconvListIslands")
+        deconv_dict  = shared_dict.create("DeconvListIslands%s"%self.StrField)
 
 
         NJobs=NIslands

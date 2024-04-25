@@ -39,6 +39,7 @@ dtypeSourceList=[('Name','|S200'),('Patch','|S200'),('ra',np.float32),('dec',np.
 
 dtypeClusterCat=[('Name','|S200'),('ra',np.float32),('dec',np.float32),('SumI',np.float32),("Cluster",int),('l',np.float32),('m',np.float32)]
 
+
 def AngDist(ra0,ra1,dec0,dec1):
     AC=np.arccos
     C=np.cos

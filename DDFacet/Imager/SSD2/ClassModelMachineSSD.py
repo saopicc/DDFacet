@@ -85,7 +85,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         
 
     def setRefFreq(self,RefFreq,Force=False):#,AllFreqs):
-        if self.RefFreq is not None and not Force:
+        if self.RefFreq is not None and not Force and RefFreq!=self.RefFreq:
             print(ModColor.Str("Reference frequency already set to %f MHz"%(self.RefFreq/1e6)), file=log)
             return
         self.RefFreq=RefFreq
@@ -147,8 +147,12 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
 
     def FromDico(self,DicoSMStacked):
-        print("Reading dico model from dico with %i components"%len(DicoSMStacked["Comp"]), file=log)
+        if "Comp" not in DicoSMStacked.keys():
+            NComp = 0
+        else:
+            NComp=len(DicoSMStacked["Comp"])
         #self.PM=self.DicoSMStacked["PM"]
+        print("Reading dico model from dico with %i components"%NComp, file=log)
         self.DicoSMStacked=DicoSMStacked
         self.RefFreq=self.DicoSMStacked["RefFreq"]
         self.ModelShape=self.DicoSMStacked["ModelShape"]
@@ -292,10 +296,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         for x,y in DicoComp.keys():
             ListSols=DicoComp[(x,y)]["Vals"]#/self.DicoSMStacked[key]["SumWeights"]
 #            print "pixel %i,%i len(listsol):"%(x,y),len(ListSols)
-            for iSol in range(len(ListSols)):
-                ThisSol=ListSols[iSol]
+            for iDirJones in range(len(ListSols)):
+                ThisSol=ListSols[iDirJones]
 
-                #print>>log,((x,y),iSol,ThisSol)
+                #print>>log,((x,y),iDirJones,ThisSol)
 
                 iS=np.where(SolveParam=="Poly0")[0]
                 S=ThisSol[iS]

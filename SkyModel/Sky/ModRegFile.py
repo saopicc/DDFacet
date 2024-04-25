@@ -19,7 +19,8 @@ def radecRad2Reg(regFile,ra,dec,
                  label=None,
                  Type="Box",
                  Color="blue",
-                 width=4):
+                 width=4,
+                 size=None):
     if label is None:
         label=[""]*ra.size
 
@@ -45,19 +46,35 @@ def radecRad2Reg(regFile,ra,dec,
             'fontweight': 'roman'}
 
     Lr=[]
-    for iReg in range(ra.size):
-        ra0,dec0=ra[iReg],dec[iReg]
-        center = SkyCoord(ra[iReg],dec[iReg], unit='rad', frame='fk5')
-        m=copy.deepcopy(meta)
-        v=copy.deepcopy(visual)
-        m["label"]=label[iReg]
-        m["text"]=label[iReg]
-        v["linewidth"]=width
-        v["color"]=Color.lower()
+    if size is None:
+        for iReg in range(ra.size):
+            ra0,dec0=ra[iReg],dec[iReg]
+            center = SkyCoord(ra[iReg],dec[iReg], unit='rad', frame='fk5')
+            m=copy.deepcopy(meta)
+            v=copy.deepcopy(visual)
+            m["label"]=label[iReg]
+            m["text"]=label[iReg]
+            v["linewidth"]=width
+            v["color"]=Color.lower()
+            Lr.append(regions.PointSkyRegion(center, meta=m, visual=v))
+        R=regions.Regions(Lr)
+    else:
+        for iReg in range(ra.size):
+            ra0,dec0=ra[iReg],dec[iReg]
+            center = SkyCoord(ra[iReg],dec[iReg], unit='rad', frame='fk5')
+            m=copy.deepcopy(meta)
+            v=copy.deepcopy(visual)
+            m["label"]=label[iReg]
+            m["text"]=label[iReg]
+            v["linewidth"]=width
+            v["color"]=Color.lower()
+            width=size[iReg]
+            width=width*u.rad
+            height=width
+            Lr.append(regions.RectangleSkyRegion(center, width, height))#, meta=m, visual=v))
+        R=regions.Regions(Lr)
         
-        Lr.append(regions.PointSkyRegion(center, meta=m, visual=v))
-    R=regions.Regions(Lr)
-    
+        
     log.print("Writting %s"%regFile)
     R.write(regFile,overwrite=1)
     
