@@ -60,7 +60,7 @@ class ClassPSFServer():
         self.CubeVariablePSF=DicoVariablePSF["CubeVariablePSF"]
         self.CubeMeanVariablePSF=DicoVariablePSF["CubeMeanVariablePSF"]
         self.NFacets,nch,npol,NPixMin_x,NPixMin_y=self.CubeVariablePSF.shape
-        print("JFDUFH",self.iField,self.CubeVariablePSF.shape)
+        # print("JFDUFH",self.iField,self.CubeVariablePSF.shape)
         self.ShapePSF=nch,npol,NPixMin_x,NPixMin_y
         self.NPSF=NPixMin_x,NPixMin_y
 
