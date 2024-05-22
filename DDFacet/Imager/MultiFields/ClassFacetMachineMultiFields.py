@@ -287,6 +287,10 @@ class ClassFacetMachineMultiFields():
         elif isinstance(ListArray,np.ndarray):
             if not ListArray.shape[0]==self.NFields: stop
 
+        # if os.path.exists(ImageName):
+        #     os.system("rm -rf %s"%ImageName)
+        # os.system("mkdir -p %s"%ImageName)
+        
         for iFM,FM in enumerate(self.LFM):
             Array=ListArray[iFM]
             if Array.dtype.type is not np.float32:
@@ -297,7 +301,8 @@ class ClassFacetMachineMultiFields():
             ThisBeamCube=beamcube
             if beamcube is not None:
                 ThisBeamCube=beamcube[iFM]
-            FM.ToCasaImage(Array,Fits=Fits, ImageName="%s_Field%i"%(ImageName,iFM),
+            
+            FM.ToCasaImage(Array,Fits=Fits, ImageName="%s_Field%3.3i"%(ImageName,iFM),
                            beam=ThisBeam, beamcube=ThisBeamCube, Freqs=Freqs, Stokes=Stokes)
     def releaseGrids(self,*args,**kwargs):
         for iFM,FM in enumerate(self.LFM):
@@ -410,6 +415,13 @@ class ClassFacetMachineMultiFields():
             FM.ReinitDirty(*args,**kwargs)
 
     def collectGriddingResults(self,*args,**kwargs):
+        
+        # for iFM,FM in enumerate(self.LFM):
+        #     FM.fourierTransformInBackground()
+        # for iFM,FM in enumerate(self.LFM):
+        #     FM.collectFourierTransformResults()
+        #     FM.HasFourierTransformed = True
+            
         for FM in self.LFM:
             FM.collectGriddingResults(*args,**kwargs)
 
