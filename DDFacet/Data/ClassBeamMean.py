@@ -78,8 +78,8 @@ class ClassBeamMean():
         logger.setLoud(["ClassJones", "ClassLOFARBeam"])
 
     def CalcGrid(self):
-        _,_,nx,ny=self.VS.FullImShape
-        CellSizeRad_x,CellSizeRad_y=self.VS.CellSizeRad
+        _,_,nx,ny=self.VS.FacetMachine.OutImShape
+        CellSizeRad_x,CellSizeRad_y=self.VS.FacetMachine.CellSizeRad
         FOV_x=nx*CellSizeRad_x
         FOV_y=ny*CellSizeRad_y
         npix_x=npix_y=self.GD["Beam"]["SmoothNPix"]
@@ -259,8 +259,8 @@ class ClassBeamMean():
         #self.SumJJsq=np.rollaxis(SumJJsq,2)#np.mean(SumJJsq,axis=2)
 
 
-        _,_,nx,ny=self.VS.FullImShape
-        CellSizeRad_x,CellSizeRad_y=self.VS.CellSizeRad
+        _,_,nx,ny=self.VS.FacetMachine.OutImShape
+        CellSizeRad_x,CellSizeRad_y=self.VS.FacetMachine.CellSizeRad
         FOV_x=nx*CellSizeRad_x
         FOV_y=ny*CellSizeRad_y
         npix_x=nx
