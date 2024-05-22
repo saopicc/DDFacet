@@ -398,14 +398,29 @@ class ClassWeightMachine():
             # print>>log,(ms.cs_tlc,ms.cs_brc,ms.cs_inc,flags.shape)
     #        print>>log,"  reading FLAG"
             tab.getcolslicenp("FLAG", flags, ms.cs_tlc, ms.cs_brc, ms.cs_inc, row0, nrows)
-            if ms._reverse_channel_order:
-                flags = flags[:,::-1,:]
             # if any polarization is flagged, flag all 4 correlations. Shape of flags becomes nrow,nchan
     #        print>>log,"  adjusting flags"
             # if any polarization is flagged, flag all 4 correlations. Shape
             # of flags becomes nrow,nchan
+
+            
+            
+            d0, d1 = self.GD["Selection"]["UVRangeKm"]
+            d0 = d0**2*1e6
+            d1 = d1**2*1e6
+            duv = (uvw[:,:2]**2).sum(1)  # u^2+v^2... and we already squared d0 and d1
+            flags[(duv < d0) | (duv > d1),:,:] = True
+            #flags = flags.any(axis=2)
+            #rowflags = flags.all(axis=1)
+            
+            if ms._reverse_channel_order:
+                flags = flags[:,::-1,:]
             flags = flags.max(axis=2)
             valid = ~flags
+
+
+
+            
             # if all channels are flagged, flag whole row. Shape of flags becomes nrow
             rowflags = flags.min(axis=1)
             # if everything is flagged, skip this entry
@@ -772,13 +787,27 @@ class ClassWeightMachine():
                     continue
                 tab = ms.GiveMainTable()
                 uvw = tab.getcol("UVW", row0, nrows)
-                rowflags = tab.getcol("FLAG_ROW", row0, nrows)
+                # rowflags = tab.getcol("FLAG_ROW", row0, nrows)
+                
+                # if all channels are flagged, flag whole row. Shape of flags becomes nrow
+                flags = tab.getcol("FLAG", row0, nrows)
+                d0, d1 = self.GD["Selection"]["UVRangeKm"]
+                d0 = d0**2*1e6
+                d1 = d1**2*1e6
+                duv = (uvw[:,:2]**2).sum(1)  # u^2+v^2... and we already squared d0 and d1
+                flags[(duv < d0) | (duv > d1),:,:] = True
+                if ms._reverse_channel_order:
+                    flags = flags[:,::-1,:]
+                flags = flags.any(axis=2)
+                rowflags = flags.all(axis=1)
+                
                 # max of |u|, |v| in wavelengths
                 if not rowflags.all():
                     uvmax_wavelengths = abs(uvw[~rowflags, :2]).max() * max_freq / _cc
                     self._uvmax = max(self._uvmax, uvmax_wavelengths)
                     wmax = max(wmax, abs(uvw[~rowflags, 2]).max())
-        
+                    
+
         # setup uv-grid for non-natural weights
         if self.Weighting != "natural":
             self._weight_grid = shared_dict.create("VisWeights.Grid")

@@ -1923,7 +1923,7 @@ class ClassFacetMachine():
         if self.AverageBeamMachine is not None and \
            self.AverageBeamMachine.SmoothBeam is None and\
            self._smooth_job_label is not None:
-            JobName="StackBeam%sF"%self._smooth_job_label
+            JobName="%sStackBeam%sF"%(self._app_id,self._smooth_job_label)
             APP.awaitJobResults(JobName+"*",
                                 progress=("Stack Beam %s%s" % (self._smooth_job_label,self.CounterName)))
 
