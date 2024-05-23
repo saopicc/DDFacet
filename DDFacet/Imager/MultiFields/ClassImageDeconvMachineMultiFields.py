@@ -136,16 +136,23 @@ class ClassImageDeconvMachineMultiFields():
         Lcontinue_deconv=[]
         Lupdate_model=[]
         for iField in range(self.NFields):
+            MM=self.LImageDeconvMachine[iField].ModelMachine
+            Dirty=shared_dict.attach("AllImages_FM_Field%i"%iField)["ImageCube"]
+            #MM.setModelShape(Dirty.shape)
+            DicoSMStacked=MM.DicoSMStacked
+            #print(list(DicoSMStacked.keys()))
             APP.runJob("Deconvolve:%s"%(iField), self._worker_Deconvolve,
-                            args=(iField, self.InitPars,))#,serial=True)
+                            args=(iField, self.InitPars,DicoSMStacked))#,serial=True)
         workers_res=APP.awaitJobResults("Deconvolve:*", progress="Minor Cycle")
-        for (repMinor, continue_deconv, update_model) in workers_res:
+        for (iField,repMinor, continue_deconv, update_model,DicoSMStacked) in workers_res:
             LrepMinor.append(repMinor)
             Lcontinue_deconv.append(continue_deconv)
             Lupdate_model.append(update_model)
+            self.LImageDeconvMachine[iField].ModelMachine.DicoSMStacked=DicoSMStacked
+            
         return LrepMinor, Lcontinue_deconv, Lupdate_model
 
-    def _worker_Deconvolve(self,iField, InitPars):
+    def _worker_Deconvolve(self,iField, InitPars,DicoSMStacked):
         log.print(ModColor.Str("=============== Deconv Field #%i / %i ============="%(iField+1,self.NFields),col="blue"))
         DicoDirty=shared_dict.attach("AllImages_FM_Field%i"%iField)
         
@@ -155,6 +162,8 @@ class ClassImageDeconvMachineMultiFields():
         ImageDeconvMachine.MaskMachine.updateMask(DicoDirty)
         DicoCurrentMask=shared_dict.attach("CurrentMask")
         DicoCurrentMask[iField]=ImageDeconvMachine.MaskMachine.CurrentMask
+        
+        ImageDeconvMachine.ModelMachine.DicoSMStacked=DicoSMStacked
         
         ImageDeconvMachine.Init(PSFVar=DicoImagesPSF,
                                 PSFAve=DicoImagesPSF["PSFSidelobesAvg"],
@@ -168,7 +177,7 @@ class ClassImageDeconvMachineMultiFields():
                                 BaseName=self.FacetMachine.LFM[iField].ImageName)
         ImageDeconvMachine.Update(DicoDirty)
         repMinor, continue_deconv, update_model = ImageDeconvMachine.Deconvolve()
-        return repMinor, continue_deconv, update_model
+        return iField,repMinor, continue_deconv, update_model,ImageDeconvMachine.ModelMachine.DicoSMStacked
     
     def Deconvolve(self):
         return self.Deconvolve_parallel()
