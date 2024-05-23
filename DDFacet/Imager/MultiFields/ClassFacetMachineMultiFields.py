@@ -397,7 +397,10 @@ class ClassFacetMachineMultiFields():
         for iFM,FM in enumerate(self.LFM):
             FM.releaseModelImage(*args,**kwargs)
             
-            
+    def collectModelGrids(self,*args,**kwargs):
+        for iFM,FM in enumerate(self.LFM):
+            FM.collectModelGrids(*args,**kwargs)
+
     def initCFInBackground(self, other_fm=None):
         ThisOtherFM=None
         for iFM,FM in enumerate(self.LFM):

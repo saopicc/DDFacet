@@ -2036,7 +2036,7 @@ class ClassFacetMachine():
         if DoReturn:
             return ModelGrid
 
-    def set_model_grid (self,ToGrid=True,ApplyNorm=True,DeleteZeroValuedGrids=False):
+    def set_model_grid (self,ToGrid=True,ApplyNorm=True,DeleteZeroValuedGrids=False,Collect=True):
         self.awaitInitCompletion()
 
         #modeldict_path=self._model_dict.path
@@ -2061,6 +2061,11 @@ class ClassFacetMachine():
                        self._set_model_grid_worker,
                        args=(iFacet, self._model_dict.readwrite(), self._CF[iFacet].readwrite(),#.readonly(),
                              ChanSel,ToSHMDict,ToGrid,ApplyNorm,False,DeleteZeroValuedGrids))#,serial=True)
+
+        if Collect:
+            self.collectModelGrids()
+            
+    def collectModelGrids(self):
         APP.awaitJobResults(self._set_model_grid_job_id + "*", progress="Make model grids%s"%self.CounterName)
         del(self._model_dict["Image"])
 
