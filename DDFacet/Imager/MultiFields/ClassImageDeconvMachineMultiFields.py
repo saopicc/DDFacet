@@ -42,6 +42,7 @@ class ClassImageDeconvMachineMultiFields():
         GD=copy.deepcopy(self.GD)
         GD["Image"]["iField"]=iField
         if GD["Deconv"]["Mode"]!="SSD2":
+            print("DSLFSDLKSDF",GD["Deconv"]["Mode"])
             stop
         MinorCycleConfig["GD"] = GD
         # Specify which deconvolution algorithm to use
@@ -137,7 +138,7 @@ class ClassImageDeconvMachineMultiFields():
         Lupdate_model=[]
         for iField in range(self.NFields):
             APP.runJob("Deconvolve:%s"%(iField), self._worker_Deconvolve,
-                            args=(iField, self.InitPars,))#,serial=True)
+                            args=(iField, self.InitPars,),serial=True)
         workers_res=APP.awaitJobResults("Deconvolve:*", progress="Minor Cycle")
         for (repMinor, continue_deconv, update_model) in workers_res:
             LrepMinor.append(repMinor)

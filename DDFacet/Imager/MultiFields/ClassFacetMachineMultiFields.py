@@ -334,10 +334,20 @@ class ClassFacetMachineMultiFields():
     def FacetsToIm(self,*args,**kwargs):
         self.DicoImages=DictImages()
         for iFM,FM in enumerate(self.LFM):
+            if not FM.HasFourierTransformed:
+                FM.fourierTransformInBackground()
+                
+        for iFM,FM in enumerate(self.LFM):
+            if not FM.HasFourierTransformed:
+                FM.collectFourierTransformResults()
+                FM.HasFourierTransformed = True
+                
+        for iFM,FM in enumerate(self.LFM):
             self.DicoImages[iFM]=FM.FacetsToIm(*args,**kwargs)
             
         self.LJonesNorm = self.DicoImages[:,"JonesNorm"]
         self.LMeanJonesNorm=[]
+        
         for iFM in range(self.NFields):
             JonesNorm=self.LJonesNorm[iFM]
             nch,npol,nx,ny = JonesNorm.shape
@@ -415,16 +425,11 @@ class ClassFacetMachineMultiFields():
             FM.ReinitDirty(*args,**kwargs)
 
     def collectGriddingResults(self,*args,**kwargs):
-        
-        # for iFM,FM in enumerate(self.LFM):
-        #     FM.fourierTransformInBackground()
-        # for iFM,FM in enumerate(self.LFM):
-        #     FM.collectFourierTransformResults()
-        #     FM.HasFourierTransformed = True
-            
         for FM in self.LFM:
             FM.collectGriddingResults(*args,**kwargs)
 
+
+            
     def setNormImages(self,DicoDirty):
         self.JonesNorm=DictImages()
         self.MeanJonesNorm=DictImages()
