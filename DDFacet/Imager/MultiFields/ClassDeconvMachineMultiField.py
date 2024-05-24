@@ -115,7 +115,7 @@ class ClassImagerDeconv():
                  #BaseName="ImageTest2",
                  ReplaceDico=None,
                  predict_only=False, data=True, psf=True, readcol=True, deconvolve=True,
-                 DicoFields=None):
+                 DicoFields=None,DicoModelName=None):
         # if ParsetFile is not None:
         #     GD=ClassGlobalData(ParsetFile)
         #     self.GD=GD
@@ -128,7 +128,7 @@ class ClassImagerDeconv():
         self.BaseName=GD["Output"]["Name"]
         
         #self.BaseName=BaseName
-        self.DicoModelName="%s.DicoModel"%self.BaseName
+        self.DicoModelName="%s.DicoModel"%DicoModelName
         self.DicoMetroModelName="%s.Metro.DicoModel"%self.BaseName
         #self.PointingID=PointingID
         
@@ -1359,7 +1359,8 @@ class ClassImagerDeconv():
 
             # write out current model, using final or intermediate name
             if continue_deconv:
-                self.DeconvMachine.ToFile("%s.%2.2i.DicoModel" % (self.BaseName, iMajor) )
+                pass
+                #self.DeconvMachine.ToFile("%s.%2.2i.DicoModel" % (self.BaseName, iMajor) )
             else:
                 self.DeconvMachine.ToFile(self.DicoModelName)
 

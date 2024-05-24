@@ -286,7 +286,6 @@ def main(OP=None, messages=[]):
 
 
     if DicoConfig["Image"]["MultiFieldFile"] is None:
-        
         Imager = ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig,
                                                       #BaseName=ImageName,
                                                       predict_only=(Mode == "Predict" or Mode == "Subtract"),
@@ -297,6 +296,9 @@ def main(OP=None, messages=[]):
 
     else:
         DicoFields=readMultiFieldFile(DicoConfig["Image"]["MultiFieldFile"])
+        os.system("mkdir -p %s"%DicoConfig["Output"]["Name"])
+        DicoModelName=DicoConfig["Output"]["Name"]
+        DicoConfig["Output"]["Name"]="%s/image"%DicoConfig["Output"]["Name"]
 
         Imager = ClassDeconvMachineMultiField.ClassImagerDeconv(GD=DicoConfig,
                                                                 #BaseName=ImageName,
@@ -304,7 +306,9 @@ def main(OP=None, messages=[]):
                                                                 data=(Mode != "PSF"),
                                                                 psf=(Mode != "Predict" and Mode != "Dirty" and Mode != "Subtract"),
                                                                 readcol=(Mode != "Predict" and Mode != "PSF"),
-                                                                deconvolve=("Clean" in Mode),DicoFields=DicoFields)
+                                                                deconvolve=("Clean" in Mode),
+                                                                DicoFields=DicoFields,
+                                                                DicoModelName=DicoModelName)
         
     Imager.Init()
         
