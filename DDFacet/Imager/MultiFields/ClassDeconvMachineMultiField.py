@@ -255,7 +255,8 @@ class ClassImagerDeconv():
                                                                                                      LMaskMachine=self.MaskMachine.LMaskMachine,
                                                                                                      NMajor=self.NMajor)
         self.CreateFacetMachines()
-        self.DeconvMachine.setFM(self.FacetMachine)
+        if self.do_deconvolve:
+            self.DeconvMachine.setFM(self.FacetMachine)
         self.VS.setFacetMachine(self.FacetMachine or self.FacetMachinePSF)
 
         self.DoSmoothBeam=(self.GD["Beam"]["Smooth"] and self.GD["Beam"]["Model"]) and self.FacetMachine is not None
