@@ -306,7 +306,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         ClusterNodes=None
         self.ClusterNodes_All=None
         if self.GD["Facets"]["CatNodes"] is not None:
-            if self.GD["Facets"]["CatNodes"]=="Single":
+            if self.GD["Facets"]["CatNodes"]=="Single" or self.GD["Facets"]["CatNodes"]=="FieldBased":
                 print("Setting Single central direction for the tessel", file=log)
                 ClusterNodes = np.zeros((1,),dtype=ClassSM.dtypeClusterCat)
                 ClusterNodes = ClusterNodes.view(np.recarray)
