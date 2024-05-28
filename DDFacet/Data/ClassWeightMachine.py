@@ -332,7 +332,7 @@ class ClassWeightMachine():
                                    args=(self._weight_grid.readonly(),
                                          self._weight_dict[ims][ichunk].readwrite(),
                                          ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax, useSems,iGrid),
-                                   counter=self._weightjob_counter, collect_result=False)#,serial=True)
+                                   counter=self._weightjob_counter, collect_result=False,serial=SERIAL)
                         if OneGridPerJob:
                             iGrid+=1
                             
@@ -359,7 +359,7 @@ class ClassWeightMachine():
                            args=(self._weight_grid.readonly(),
                                  self._weight_dict[ims][ichunk].readwrite(),
                                  ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax),
-                           counter=self._weightjob_counter, collect_result=False)#,serial=True)
+                           counter=self._weightjob_counter, collect_result=False,serial=SERIAL)
         APP.awaitJobCounter(self._weightjob_counter, progress="Finalize weights")
         # delete stuff
         if self._weight_grid is not None:

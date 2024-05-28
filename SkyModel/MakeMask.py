@@ -65,6 +65,7 @@ def read_options():
     group.add_option('--BaseImageName',type="str",help="look at the code",default="")
     group.add_option('--SplitBrightFaint',type=int,help="look at the code",default=0)
     group.add_option('--SplitBrightFaintMethod',type=str,help="look at the code",default="Overall")
+    group.add_option('--BrightMaxRadius',type=float,help="look at the code",default=0)
     group.add_option('--ExtendedMedThres',type="float",help="Median threshold for picking up extended emission",default=0.1)
         
     
