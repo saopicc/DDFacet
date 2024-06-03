@@ -296,7 +296,9 @@ class ClassJones():
                  t0=t0, t1=t1, tm=tm,
                  ra=ra,dec=dec,
                  TimeMapping=TimeMapping,
-                 VisToJonesChanMapping=VisToJonesChanMapping)
+                 VisToJonesChanMapping=VisToJonesChanMapping,
+                 StationNames=DicoSols["StationNames"],
+                 )
         np.save(open("%s.npy"%OutName, "wb"),
                 Jones)
 
@@ -325,6 +327,7 @@ class ClassJones():
         DicoSols["Jones"] = Jones
 
         DicoSols["VisToJonesChanMapping"] = SolsFile["VisToJonesChanMapping"]
+        DicoSols["StationNames"] = SolsFile["StationNames"]
         TimeMapping = SolsFile["TimeMapping"]
         return DicoSols, TimeMapping, DicoClusterDirs
 
@@ -602,6 +605,7 @@ class ClassJones():
         DicoSols["t0"] = Sols.t0
         DicoSols["t1"] = Sols.t1
         DicoSols["tm"] = (Sols.t1+Sols.t0)/2.
+        DicoSols["StationNames"] = DicoSolsFile["StationNames"]
 
         if "MaskedSols" in DicoSolsFile.keys():
             m0=np.bool8(DicoSolsFile["MaskedSols"][0,:,0,0,0,0])
@@ -1014,7 +1018,27 @@ class ClassJones():
         # Gc[:,N,:,:,:,:]=G[:,N,:,:,:,:]
         # G=Gc
 
+        
+
+        (nt, nd, na, nf, _, _)=G.shape
+        if na!=self.MS.na:
+            log.print(ModColor.Str("Solution file and MS do not have the same number of antennas (%i vs %i)"%(na,self.MS.na)))
+            log.print(ModColor.Str("   Adapting solution array.."))
+            na2=self.MS.na
+            GOut=np.zeros((nt, nd, na2, nf, 2, 2),G.dtype)
+            GOut[...,0,0]=1
+            GOut[...,1,1]=1
+            for iAnt,StationName in enumerate(self.MS.StationNames):
+                indStationName=np.where(StationName==DicoSols["StationNames"])[0]
+                if indStationName.size==0:
+                    log.print("   %s not in solution file"%StationName)
+                    continue
+                jStationName=indStationName[0]
+                GOut[:,:,iAnt,...]=G[:,:,jStationName,...]
+            G=GOut
+            DicoSols["StationNames"]=self.MS.StationNames
         DicoSols["Jones"] = G
+        
         #print G[:,:,:,VisToJonesChanMapping,:,:]
 
         return DicoClusterDirs, DicoSols, VisToJonesChanMapping
@@ -1093,6 +1117,7 @@ class ClassJones():
         #     print rad2hmsdms(ra,Type="ra").replace(" ",":"),rad2hmsdms(dec,Type="dec").replace(" ",".")
 
         DicoBeam = self.EstimateBeam(beam_times, RAs, DECs)
+        DicoBeam["StationNames"]=self.MS.StationNames
         return DicoBeam
 
     def GiveVisToJonesChanMapping(self, FreqDomains):

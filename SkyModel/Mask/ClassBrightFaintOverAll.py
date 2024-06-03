@@ -65,6 +65,8 @@ class ClassBrightFaintOverAll():
         
         for iIsland,Island in enumerate(ListIslands):
             x,y=np.array(Island).T
+            This_xc=np.median(x)
+            This_yc=np.median(y)
             if x.size<5: continue
                 
             x0,x1=x.min()-10,x.max()+10
@@ -114,8 +116,13 @@ class ClassBrightFaintOverAll():
             indx,indy=np.where(np.sqrt(fx**2+fy**2)>0.25)
             fsa=np.abs(fs)
             S[iIsland]=np.sum(fsa[indx,indy])
-
-        
+            
+            dCenter_nx=np.abs(This_xc-nx//2)*self.CellRad[0]
+            dCenter_ny=np.abs(This_yc-nx//2)*self.CellRad[1]
+            dd=np.sqrt(dCenter_nx**2+dCenter_ny**2)*180/np.pi
+            if self.options.BrightMaxRadius>0 and dd>self.options.BrightMaxRadius:
+                S[iIsland]=0
+            
 
         # #########
         

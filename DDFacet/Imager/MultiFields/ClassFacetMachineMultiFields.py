@@ -287,6 +287,10 @@ class ClassFacetMachineMultiFields():
         elif isinstance(ListArray,np.ndarray):
             if not ListArray.shape[0]==self.NFields: stop
 
+        # if os.path.exists(ImageName):
+        #     os.system("rm -rf %s"%ImageName)
+        # os.system("mkdir -p %s"%ImageName)
+        
         for iFM,FM in enumerate(self.LFM):
             Array=ListArray[iFM]
             if Array.dtype.type is not np.float32:
@@ -297,7 +301,8 @@ class ClassFacetMachineMultiFields():
             ThisBeamCube=beamcube
             if beamcube is not None:
                 ThisBeamCube=beamcube[iFM]
-            FM.ToCasaImage(Array,Fits=Fits, ImageName="%s_Field%i"%(ImageName,iFM),
+            
+            FM.ToCasaImage(Array,Fits=Fits, ImageName="%s_Field%3.3i"%(ImageName,iFM),
                            beam=ThisBeam, beamcube=ThisBeamCube, Freqs=Freqs, Stokes=Stokes)
     def releaseGrids(self,*args,**kwargs):
         for iFM,FM in enumerate(self.LFM):
@@ -329,10 +334,20 @@ class ClassFacetMachineMultiFields():
     def FacetsToIm(self,*args,**kwargs):
         self.DicoImages=DictImages()
         for iFM,FM in enumerate(self.LFM):
+            if not FM.HasFourierTransformed:
+                FM.fourierTransformInBackground()
+                
+        for iFM,FM in enumerate(self.LFM):
+            if not FM.HasFourierTransformed:
+                FM.collectFourierTransformResults()
+                FM.HasFourierTransformed = True
+                
+        for iFM,FM in enumerate(self.LFM):
             self.DicoImages[iFM]=FM.FacetsToIm(*args,**kwargs)
             
         self.LJonesNorm = self.DicoImages[:,"JonesNorm"]
         self.LMeanJonesNorm=[]
+        
         for iFM in range(self.NFields):
             JonesNorm=self.LJonesNorm[iFM]
             nch,npol,nx,ny = JonesNorm.shape
@@ -382,7 +397,10 @@ class ClassFacetMachineMultiFields():
         for iFM,FM in enumerate(self.LFM):
             FM.releaseModelImage(*args,**kwargs)
             
-            
+    def collectModelGrids(self,*args,**kwargs):
+        for iFM,FM in enumerate(self.LFM):
+            FM.collectModelGrids(*args,**kwargs)
+
     def initCFInBackground(self, other_fm=None):
         ThisOtherFM=None
         for iFM,FM in enumerate(self.LFM):
@@ -413,6 +431,8 @@ class ClassFacetMachineMultiFields():
         for FM in self.LFM:
             FM.collectGriddingResults(*args,**kwargs)
 
+
+            
     def setNormImages(self,DicoDirty):
         self.JonesNorm=DictImages()
         self.MeanJonesNorm=DictImages()
