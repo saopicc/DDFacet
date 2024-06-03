@@ -1830,6 +1830,7 @@ class ClassFacetMachine():
         self._smooth_job_label=DATA["label"]
         JobName="%sStackBeam%sF"%(self._app_id,self._smooth_job_label)
         for iDir in range(self.AverageBeamMachine.NDir):
+            print("SF?SDFKDFGKDFGKDFGJK")
             APP.runJob("%s%d" % (JobName,iDir), 
                        self._SmoothAverageBeam_worker,
                        args=(DATA.readonly(), iDir))#,serial=True)
@@ -1923,7 +1924,8 @@ class ClassFacetMachine():
         if self.AverageBeamMachine is not None and \
            self.AverageBeamMachine.SmoothBeam is None and\
            self._smooth_job_label is not None:
-            JobName="StackBeam%sF"%self._smooth_job_label
+            #JobName="StackBeam%sF"%self._smooth_job_label
+            JobName="%sStackBeam%sF"%(self._app_id,self._smooth_job_label)
             APP.awaitJobResults(JobName+"*",
                                 progress=("Stack Beam %s%s" % (self._smooth_job_label,self.CounterName)))
 
