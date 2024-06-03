@@ -178,7 +178,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 log.print(ModColor.Str("Taking tessels directions from %s"%(GiveSolsFile(SolsFile)),col="green"))
             else:
                 iNMax=np.where(ListNDir==ListNDir.max())[0][0]
-                SRef = GiveSolsFile(self.GD["DDESolutions"]["DDSols"][iNMax])
+                SRef = np.load(GiveSolsFile(self.GD["DDESolutions"]["DDSols"][iNMax]))
                 NMax=ListNDir.max()
                 NDirLeft=np.unique(ListNDir).tolist()
                 if 1 in NDirLeft:
@@ -198,7 +198,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                         ra1,dec1=S["ClusterCat"]["ra"][iNode],S["ClusterCat"]["dec"][iNode]
                         d=AngDist(ra0,dec0,ra1,dec1)
                         dCut=1
-                        if d*180/np.pi*3600>dCut:
+                        if d.min()*180/np.pi*3600>dCut:
                             raise RuntimeError("Angular distance between nodes greater than %f arcsec"%dCut)
                 log.print(ModColor.Str("Ok either 1 or %i directions, and the rest are aligned"%NMax,col="green"))
                 SolsFile = self.GD["DDESolutions"]["DDSols"][iNMax]
