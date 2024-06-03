@@ -327,7 +327,7 @@ class ClassImagerDeconv():
             
         # tell VisServer to not load weights
         if self.do_predict_only and self.GD["CF"]["wmax"]!=0: # if wmax==0 the wmax of the data is not computed, and the CFs are not properly set
-            self.VS.IgnoreWeights()
+            self.VS.WM.IgnoreWeights()
 
     def InitCF(self):
         # and proceed with background tasks
