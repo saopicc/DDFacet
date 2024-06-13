@@ -714,7 +714,7 @@ class ClassDDEGridMachine():
 
         return ParamJonesList
 
-    def put(self, times, uvw, visIn, flag, A0A1, W=None,
+    def put(self, times, uvw, visIn, flag, A0A1, W=None,sgnW=None,
             PointingID=0, DoNormWeights=True, DicoJonesMatrices=None,
             freqs=None, DoPSF=0, ChanMapping=None, ResidueGrid=None, sparsification=None,ComputeMTilde=False):
         """
@@ -798,6 +798,9 @@ class ClassDDEGridMachine():
         uvw[:,1]=uvw[:,0]
         uvw[:,0]=v0
 
+        if sgnW is not None:
+            stop
+        
         self.CheckTypes(
             Grid=Grid,
             vis=vis,
