@@ -32,16 +32,16 @@ from pyrap.images import image
 import scipy.special
 import copy
 from DDFacet.Imager.ModModelMachine import ClassModModelMachine
+from DDFacet.Imager import ClassImageNoiseMachine
 
 from DDFacet.ToolsDir import ModFFTW
 
 class ClassImageNoiseMachine():
-    def __init__(self, GD, ExternalModelMachine=None, DegridFreqs=None, GridFreqs=None, MainCache=None,ParallelMode=True):
+    def __init__(self, *args, NFields=1, **kwargs):
+        
+        ClassImageNoiseMachine.ClassImageNoiseMachine(*args,**kwargs)
         self.GD = copy.deepcopy(GD)
-        self.ParallelMode=ParallelMode
-        from DDFacet.Imager.MultiFields.AppendSubFieldInfo import AppendSubFieldInfo
-        AppendSubFieldInfo(self)
-
+        
         self.MainCache=MainCache
         self.NoiseMap=None
         self.NoiseMapRestored=None
@@ -105,7 +105,7 @@ class ClassImageNoiseMachine():
 
 
             self.DeconvMachine = ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.MainCache,
-                                                                                     ParallelMode=self.ParallelMode,
+                                                                                     ParallelMode=True,
                                                                                      CacheFileName="HMP_Masking",
                                                                                      **self.MinorCycleConfig)
         elif self.GD["Deconv"]["Mode"] == "Hogbom":

@@ -189,8 +189,8 @@ class ClassJonesDomains():
         fmOut=np.mean(DicoOut["FreqDomains"],axis=1)
 
         ###########
-        _,nd0,_,_,_,_=DicoJ0["Jones"].shape
-        _,nd1,_,_,_,_=DicoJ1["Jones"].shape
+        _,nd0,na0,_,_,_=DicoJ0["Jones"].shape
+        _,nd1,na1,_,_,_=DicoJ1["Jones"].shape
         if nd0==1 and nd0!=nd1:
             DicoJ0["Jones"]=DicoJ0["Jones"]*np.ones((1,nd1,1,1,1,1))
         _,nd0,_,_,_,_=DicoJ0["Jones"].shape
@@ -202,7 +202,12 @@ class ClassJonesDomains():
         _,nd,na,_,_,_=DicoJ0["Jones"].shape
         nt=DicoOut["tm"].size
 
-
+        if na0==na1:
+            pass
+        elif na0!=na1:
+            log.print(ModColor.Str("  Antenna indices are different..."))
+            stop
+        
             
 
 
@@ -212,6 +217,7 @@ class ClassJonesDomains():
         DicoOut["Jones"][:,:,:,:,0,0]=1.
         DicoOut["Jones"][:,:,:,:,1,1]=1.
 
+        DicoOut["StationNames"]=DicoJ0["StationNames"]
         
         
 

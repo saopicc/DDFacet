@@ -65,6 +65,7 @@ def read_options():
     group.add_option('--BaseImageName',type="str",help="look at the code",default="")
     group.add_option('--SplitBrightFaint',type=int,help="look at the code",default=0)
     group.add_option('--SplitBrightFaintMethod',type=str,help="look at the code",default="Overall")
+    group.add_option('--BrightMaxRadius',type=float,help="look at the code",default=0)
     group.add_option('--ExtendedMedThres',type="float",help="Median threshold for picking up extended emission",default=0.1)
         
     
@@ -383,26 +384,33 @@ class ClassMakeMask():
                 if d<Radius and Cx and Cy:
                     self.ImMask[jpix,ipix]=0
         
-
-        #self.ImMask.fill(0)
+        
+        # self.ImMask.fill(0)
         print("  Including pixels", file=log)
         for iRegInclude in range(IncludeCat.shape[0]):
             rac,decc,Radius=IncludeCat.ra[iRegInclude],IncludeCat.dec[iRegInclude],IncludeCat.Radius[iRegInclude]
             RadiusPix=(1.1*Radius/self.incr_rad)
             freq,pol,_,_=self.CasaIm.toworld((0,0,0,0))
-
-            _,_,yc,xc=self.CasaIm.topixel((freq,pol,decc,rac))
+            try:
+                _,_,yc,xc=self.CasaIm.topixel((freq,pol,decc,rac))
+            except Exception as e:
+                print(str(e))
+                continue
+            
             
             xGrid,yGrid=np.mgrid[int(xc-RadiusPix):int(xc+RadiusPix)+1,int(yc-RadiusPix):int(yc+RadiusPix)+1]
             xGrid=xGrid.flatten().tolist()
             yGrid=yGrid.flatten().tolist()
-
+            
             for ipix,jpix in zip(xGrid,yGrid):
                 _,_,dec,ra=self.CasaIm.toworld((0,0,jpix,ipix))
+                
                 #d=np.sqrt((ra-rac)**2+(dec-decc)**2)
                 d=self.GiveAngDist(ra,dec,rac,decc)
                 #print ipix,jpix
-                if d<Radius: 
+                C0=((jpix>=0)&(jpix<self.ImMask.shape[0]))
+                C1=((ipix>=0)&(ipix<self.ImMask.shape[1]))
+                if d<Radius and C0 and C1: 
                     #print "ones",ipix,jpix
                     try:
                         self.ImMask[jpix,ipix]=1

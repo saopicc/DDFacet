@@ -27,6 +27,9 @@ class ClassInitSSDModelParallel():
         self.GD=GD
         self.InitMachine = ClassInitSSDModel(GD, NFreqBands, RefFreq, MainCache, IdSharedMem)
         self.NCPU=(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
+        from DDFacet.Imager.MultiFields.AppendSubFieldInfo import AppendSubFieldInfo
+        AppendSubFieldInfo(self)
+        
         APP.registerJobHandlers(self)
 
     def Init(self, DicoVariablePSF, GridFreqs, DegridFreqs):
@@ -72,8 +75,8 @@ class ClassInitSSDModelParallel():
         self.InitMachine.Reset()
 
     def giveDicoInitIndiv(self, ListIslands, ModelImage, DicoDirty, ListDoIsland=None):
-        DicoInitIndiv = shared_dict.create("DicoInitIsland")
-        ParmDict = shared_dict.create("InitSSDModelHMP")
+        DicoInitIndiv = shared_dict.create("DicoInitIsland%s"%self.StrField)
+        ParmDict = shared_dict.create("InitSSDModelHMP%s"%self.StrField)
         ParmDict["ModelImage"] = ModelImage
         ParmDict["GridFreqs"] = self.GridFreqs
         ParmDict["DegridFreqs"] = self.DegridFreqs
@@ -125,7 +128,7 @@ class ClassInitSSDModelParallel():
         print("Initialise islands (parallelised over islands)", file=log)
         if self.InitMachine.DeconvMachine.facetcache is None:
             print("HMP bases not initialized. Will re-initialize now.", file=log)
-        if not self.GD["GAClean"]["ParallelInitHMP"]:
+        if not self.GD["GAClean"]["ParallelInit"]:
           pBAR = ProgressBar(Title="  Init islands HMP")
           for iIsland,Island in enumerate(ListIslands):
             if not ListDoIsland or ListDoIsland[iIsland]:
@@ -143,7 +146,7 @@ class ClassInitSSDModelParallel():
           for iIsland,Island in enumerate(ListIslands):
             if not ListDoIsland or ListDoIsland[iIsland]:
                 subdict = DicoInitIndiv.addSubdict(iIsland)
-                APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
+                APP.runJob("InitIsland%s:%d" % (self.StrField,iIsland), self._initIsland_worker,
                            args=(subdict.writeonly(), 
                                  iIsland, 
                                  Island,
@@ -153,7 +156,7 @@ class ClassInitSSDModelParallel():
                                  self.InitMachine.DeconvMachine.facetcache.readonly() 
                                     if self.InitMachine.DeconvMachine.facetcache is not None else None,
                                  1))
-          APP.awaitJobResults("InitIsland:*", progress="Init islands HMP")
+          APP.awaitJobResults("InitIsland%s:*"%self.StrField, progress="Init islands HMP")
           DicoInitIndiv.reload()
         
         ParmDict.delete()

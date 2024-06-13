@@ -35,6 +35,8 @@ class ClassPSFServer():
     def __init__(self,GD=None):
         self.GD=GD
         self.blc=None
+        from DDFacet.Imager.MultiFields.AppendSubFieldInfo import AppendSubFieldInfo
+        AppendSubFieldInfo(self)
 
     def setDicoVariablePSF(self,DicoVariablePSF,RefFreq=None,NormalisePSF=False,quiet=False):
         # NFacets=len(DicoVariablePSF.keys())
@@ -58,6 +60,7 @@ class ClassPSFServer():
         self.CubeVariablePSF=DicoVariablePSF["CubeVariablePSF"]
         self.CubeMeanVariablePSF=DicoVariablePSF["CubeMeanVariablePSF"]
         self.NFacets,nch,npol,NPixMin_x,NPixMin_y=self.CubeVariablePSF.shape
+        # print("JFDUFH",self.iField,self.CubeVariablePSF.shape)
         self.ShapePSF=nch,npol,NPixMin_x,NPixMin_y
         self.NPSF=NPixMin_x,NPixMin_y
 
@@ -164,17 +167,17 @@ class ClassPSFServer():
 
 
         # print("===============")
-        # iSol0=self.DicoVariablePSF["Facets"][ClosestFacet0]["iSol"]
-        # iSol=self.DicoVariablePSF["Facets"][ClosestFacet]["iSol"]
-        # print("Poly [%i, %i] ->  iFacet=%i [iSol=%i]"%(xp,yp,ClosestFacet,iSol))
-        # print("Dist [%i, %i] ->  iFacet=%i [iSol=%i]"%(xp,yp,ClosestFacet0,iSol0))
+        # iDirJones0=self.DicoVariablePSF["Facets"][ClosestFacet0]["iDirJones"]
+        # iDirJones=self.DicoVariablePSF["Facets"][ClosestFacet]["iDirJones"]
+        # print("Poly [%i, %i] ->  iFacet=%i [iDirJones=%i]"%(xp,yp,ClosestFacet,iDirJones))
+        # print("Dist [%i, %i] ->  iFacet=%i [iDirJones=%i]"%(xp,yp,ClosestFacet0,iDirJones0))
 
         
         if ClosestFacet==-1:
             ClosestFacet=ClosestFacet0
         #ClosestFacet=ClosestFacet0
         
-        #print(ClosestFacet,iSol)
+        #print(ClosestFacet,iDirJones)
         return ClosestFacet
 
 

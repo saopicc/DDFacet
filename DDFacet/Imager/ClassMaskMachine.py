@@ -95,6 +95,10 @@ class ClassMaskMachine():
         if self.CurrentMask is not None:
             self.CurrentNegMask=self.giveOpposite(self.CurrentMask)
 
+    def setMask(self,Mask):
+        self.CurrentMask = Mask
+        self.CurrentNegMask=self.giveOpposite(self.CurrentMask)
+    
     def readExternalMaskFromFits(self):
         CleanMaskImage=self.GD["Mask"]["External"]
         if not CleanMaskImage: return

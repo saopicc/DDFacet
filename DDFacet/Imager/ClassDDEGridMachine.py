@@ -621,6 +621,8 @@ class ClassDDEGridMachine():
             lc=DicoClusterDirs["l"]
             mc=DicoClusterDirs["m"]
             sI=DicoClusterDirs["I"]
+            if np.count_nonzero(sI)==0:
+                sI=np.ones_like(sI) # when has done DoSimul.py
             d=np.sqrt((l0-lc)**2+(m0-mc)**2)
             idir_kMS=np.argmin(d)
             # print rad2hmsdms(DicoClusterDirs["ra"][idir_kMS],Type="ra"), rad2hmsdms(DicoClusterDirs["dec"][idir_kMS])

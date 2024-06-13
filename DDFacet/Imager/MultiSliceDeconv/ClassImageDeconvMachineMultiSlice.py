@@ -53,6 +53,8 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 class ClassImageDeconvMachine():
     def __init__(self,GD=None,ModelMachine=None,RefFreq=None,*args,**kw):
         self.GD=GD
+        
+        
         self.ModelMachine = ModelMachine
         self.RefFreq=RefFreq
         if self.ModelMachine.DicoModel["Type"]!="MultiSlice":

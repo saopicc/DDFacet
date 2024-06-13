@@ -39,13 +39,16 @@ class ClassInitSSDModelParallel():
     def __init__(self, GD, NFreqBands, RefFreq, NCPU, MainCache=None,IdSharedMem=""):
         self.GD = copy.deepcopy(GD)
         
+        from DDFacet.Imager.MultiFields.AppendSubFieldInfo import AppendSubFieldInfo
+        AppendSubFieldInfo(self)
+        
         self.GD["MultiSliceDeconv"]["PolyFitOrder"]=self.GD["SSD2"]["PolyFreqOrder"]
         self.MainCache=MainCache
         self.RefFreq=RefFreq
         self.NCPU = NCPU
         self.IdSharedMem=IdSharedMem
         self.NFreqBands=NFreqBands
-
+        
         self.InitMachine = ClassInitSSDModel(self.GD, NFreqBands, RefFreq, MainCache, IdSharedMem)
         self.NCPU=(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
         APP.registerJobHandlers(self)
@@ -90,27 +93,39 @@ class ClassInitSSDModelParallel():
         self.InitMachine.Reset()
 
     def giveDicoInitIndiv(self, ListIslands, ModelImage, DicoDirty, ListDoIsland=None):
-        DicoInitIndiv = shared_dict.create("DicoInitIsland")
-        ParmDict = shared_dict.create("InitSSDModelMultiSlice")
+        DicoInitIndiv = shared_dict.create("DicoInitIsland%s"%self.StrField)
+        ParmDict = shared_dict.create("InitSSDModelMultiSlice%s"%self.StrField)
         ParmDict["ModelImage"] = ModelImage
         ParmDict["GridFreqs"] = self.GridFreqs
         ParmDict["DegridFreqs"] = self.DegridFreqs
         
         print("Initialise islands (parallelised over islands)", file=log)
-        for iIsland,Island in enumerate(ListIslands):
-            if not ListDoIsland or ListDoIsland[iIsland]:
-                subdict = DicoInitIndiv.addSubdict(iIsland)
-                APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
-                           args=(subdict.writeonly(), 
-                                 iIsland, 
-                                 Island,
-                                 self.DicoVariablePSF.readonly(), 
-                                 DicoDirty.readonly(),
-                                 ParmDict.readonly(), 
-                                 1))
-        APP.awaitJobResults("InitIsland:*", progress="Init islands MultiSlice")
+        if self.GD["GAClean"]["ParallelInit"]:
+            for iIsland,Island in enumerate(ListIslands):
+                if not ListDoIsland or ListDoIsland[iIsland]:
+                    subdict = DicoInitIndiv.addSubdict(iIsland)
+                    APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
+                               args=(subdict.writeonly(), 
+                                     iIsland, 
+                                     Island,
+                                     self.DicoVariablePSF.readonly(), 
+                                     DicoDirty.readonly(),
+                                     ParmDict.readonly(), 
+                                     1))
+            APP.awaitJobResults("InitIsland:*", progress="Init islands MultiSlice")
+        else:
+            for iIsland,Island in enumerate(ListIslands):
+                if not ListDoIsland or ListDoIsland[iIsland]:
+                    subdict = DicoInitIndiv.addSubdict(iIsland)
+                    self._initIsland_worker(subdict, 
+                                            iIsland, 
+                                            Island,
+                                            self.DicoVariablePSF, 
+                                            DicoDirty,
+                                            ParmDict, 
+                                            1)
         DicoInitIndiv.reload()
-            
+    
         ParmDict.delete()
 
         return DicoInitIndiv
