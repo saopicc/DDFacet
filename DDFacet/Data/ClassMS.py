@@ -52,6 +52,7 @@ import time
 from astropy.time import Time
 from DDFacet.Other.progressbar import ProgressBar
 
+from DDFacet.Other import MPIManager
 #
 # try:
 #     import lofar.stationresponse as lsr
@@ -129,7 +130,14 @@ class ClassMS():
         # once.
         self._reset_cache = ResetCache
         self._chunk_caches = {}
-        self.maincache = CacheManager(MSName+".F%d.D%d.ddfcache"%(self.Field, self.DDID), reset=ResetCache, cachedir=self.GD["Cache"]["Dir"], nfswarn=True)
+        cachedir=self.GD["Cache"]["Dir"]
+        if MPIManager.useMPI:
+            if MPIManager.size > 1:
+                self.maincache = CacheManager(MSName+".rank_%d.F%d.D%d.ddfcache"%(MPIManager.rank, self.Field, self.DDID), reset=ResetCache, cachedir=cachedir, nfswarn=True)
+            else:
+                self.maincache = CacheManager(MSName+".F%d.D%d.ddfcache"%(self.Field, self.DDID), reset=ResetCache, cachedir=cachedir, nfswarn=True)
+        else:
+            self.maincache = CacheManager(MSName+".F%d.D%d.ddfcache"%(self.Field, self.DDID), reset=ResetCache, cachedir=cachedir, nfswarn=True)
 
         self.ReadMSInfo(first_ms=first_ms,DoPrint=DoPrint)
         self.LFlaggedStations=[]
@@ -1735,7 +1743,9 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
         regrp = "(([0-9]+)|([0-9]+)([~:])([0-9]+)|(\*))"   # regex matching N or N:M or N~M or *
         # match :F and :D suffixes, if present. Don't regexes make your brain melt
         terms = msspec.split("//")
-        msname = terms[0]
+        host = terms[0].split(':')[1:][0] if terms[0].split(':')[1:] else None
+        msname = terms[0].split(':')[0]
+        #msname = terms[0]
         ddid_match = [ re.match("D("+regrp+")$", x) for x in terms[1:] ]
         field_match = [ re.match("F("+regrp+")$", x) for x in terms[1:] ]
         col_match = [ re.match("(.*_DATA)$", x) for x in terms[1:]]
@@ -1793,6 +1803,39 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
             if col is not None:
                 print("%s: non-default column %s"%(mspath, col), file=log)
             # make output list
-            mslist += [ (mspath,d,f,col) for d in ddids for f in fields ]
+            mslist += [ (mspath,host,d,f,col) for d in ddids for f in fields ]
     print("%d MS section(s) selected" % len(mslist), file=log)
     return mslist
+
+
+
+def splitMSList(MSList):
+    #MSList = [('/workdir/MS_files/TestMPI/0000.MS', 'host1', 0, 0, None), ('/workdir/MS_files/TestMPI/0001.MS', None, 0, 0, None), ('/workdir/MS_files/TestMPI/0002.MS', 'monnier', 0, 0, None), ('/     workdir/MS_files/TestMPI/0003.MS', None, 0, 0, None), ('/workdir/MS_files/TestMPI/0004.MS', None, 0, 0, None), ('/workdir/MS_files/TestMPI/0005.MS', None, 0, 0, None), ('/workdir/MS_files/TestMPI/0006.   MS', 'monnier', 0, 0, None), ('/workdir/MS_files/TestMPI/0007.MS', None, 0, 0, None)]
+    hostname = os.uname()[1]
+    print(f"Hostname is {hostname}", file=log)
+    # filter msfile with host defined
+    mslist_with_host = list(filter(lambda x: x[1] == hostname, MSList))
+    mslist_without_host = list(filter(lambda x: x[1] == None, MSList))
+
+    if len(mslist_with_host)*len(mslist_without_host) > 0:
+        raise RuntimeError("You have not define a hostname for each MS File")
+
+    if len(mslist_with_host) > 0:
+        return mslist_with_host
+
+    nproc = MPIManager.size
+    rank = MPIManager.rank
+    #n = s % nproc + (rank>s/nproc)
+    N = len(mslist_without_host)
+    q = N // nproc
+    r = N % nproc
+    n = q + ( r > rank );
+    s = q * rank + min (r , rank );
+
+    local_list = mslist_without_host[s:s+n]
+    print(f"MSList is {local_list}", file=log)
+
+    if len(local_list) == 0:
+        raise RuntimeError("You have at least on MPI Process with no MS files")
+
+    return local_list

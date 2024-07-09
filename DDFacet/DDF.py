@@ -87,6 +87,8 @@ log = None
 import numpy as np
 import warnings
 
+from DDFacet.Other import MPIManager
+
 # # ##############################
 # # Catch numpy warning
 # np.seterr(all='raise')
@@ -312,6 +314,9 @@ def main(OP=None, messages=[]):
     elif "RestoreAndShift" == Mode:
         Imager.RestoreAndShift()
 
+    APP.terminate()
+    APP.shutdown()
+    Multiprocessing.cleanupShm()
     # # open default viewer, these options should match those in
     # # ClassDeconvMachine if changed:
     # viewer = DicoConfig["Output"]["DefaultImageViewer"]
@@ -464,7 +469,25 @@ def driver():
     retcode = report_error = 0
 
     try:
-        main(OP, messages)
+        if not MPIManager.useMPI:
+            main(OP, messages)
+        else: # UseMPI
+            from mpi4py import MPI
+            if OP.DicoConfig["Parallel"]["UseMPIPool"]:
+                import mpi4py.futures
+
+                with mpi4py.futures.MPIPoolExecutor() as mpi_executor:
+                    size_mpi = MPI.COMM_WORLD.Get_size()
+                    rank = MPI.COMM_WORLD.Get_rank()
+                    ddfs = []
+                    for n in range(1,size_mpi):
+                        ddfs.append(mpi_executor.submit(main, OP, messages))
+                    main()
+                    mpi4py.futures.wait(ddfs)
+            else: # classical MPI
+                size_mpi = MPI.COMM_WORLD.Get_size()
+                rank = MPI.COMM_WORLD.Get_rank()
+                main(OP, messages)
         print(ModColor.Str(
             "DDFacet ended successfully after %s" %
             T.timehms(), col="green"), file=log)

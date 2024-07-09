@@ -51,6 +51,8 @@ else:
     from DDFacet.cbuild.Gridder import _pyGridderSmearPols27 as _pyGridderSmearPols
 import copy
 
+from DDFacet.Other import MPIManager
+
 log = logger.getLogger("ClassVisServer")
 
 _cc = 299792458
@@ -151,13 +153,14 @@ class ClassVisServer():
 
         # max chunk shape accumulated here
         self._chunk_shape = [0, 0, 0]
+        self.MSList = ClassMS.splitMSList(self.MSList)
         CMS = ClassDaskMS.ClassDaskMS if self.GD["Data"]["Dask"] else ClassMS.ClassMS 
 
         for msspec in self.MSList:
             if not isinstance(msspec,str):
-                msname, ddid, field, column = msspec
+                msname, host, ddid, field, column = msspec
             else:
-                msname, ddid, field, column = msspec, self.DicoSelectOptions["DDID"], self.DicoSelectOptions["Field"], self.ColName
+                msname, host, ddid, field, column = msspec, self.DicoSelectOptions["DDID"], self.DicoSelectOptions["Field"], self.ColName
             MS = CMS(
                 msname,
                 Col=column or self.ColName,
@@ -183,6 +186,15 @@ class ClassVisServer():
                 self._chunk_shape = [max(a, b)
                                      for a, b in zip(self._chunk_shape, shape)]
 
+        if MPIManager.useMPI:
+            freqs = MPIManager.COMM_WORLD.allgather(global_freqs)
+            global_freqs = set()
+            for freq in freqs:
+                global_freqs.update(freq)
+                
+            min_freq_Data = MPIManager.COMM_WORLD.allreduce(min_freq_Data, MPIManager.MIN)
+            max_freq_Data = MPIManager.COMM_WORLD.allreduce(max_freq_Data, MPIManager.MAX)
+
         size = reduce(lambda x, y: x * y, self._chunk_shape)
         print("shape of data/flag buffer will be %s (%.2f Gel)" % (
             self._chunk_shape, size / float(2 ** 30)), file=log)
@@ -194,14 +206,18 @@ class ClassVisServer():
         self.obs_detail = self.ListMS[0].get_obs_details()
 
         # main cache is initialized from main cache of first MS
+        # CF DEBUG : Modifying cache name to be MPI rank dependent
         if ".txt" in self.GD["Data"]["MS"]:
             # main cache is initialized from main cache of the MSList
             from DDFacet.Other.CacheManager import CacheManager
-            self.maincache = self.cache = CacheManager("%s.ddfcache"%self.GD["Data"]["MS"], cachedir=self.GD["Cache"]["Dir"], reset=self.GD["Cache"]["Reset"])
+            if MPIManager.useMPI:
+                self.maincache = self.cache = CacheManager("%s.rank_%d.ddfcache"%(self.GD["Data"]["MS"], MPIManager.rank), cachedir=self.GD["Cache"]["Dir"], reset=self.GD["Cache"]["Reset"])
+            else:
+                self.maincache = self.cache = CacheManager("%s.ddfcache"%self.GD["Data"]["MS"], cachedir=self.GD["Cache"]["Dir"], reset=self.GD["Cache"]["Reset"])
+
         else:
             # main cache is initialized from main cache of first MS
             self.maincache = self.cache = self.ListMS[0].maincache
-
         print("Main caching directory is %s"%self.maincache.dirname, file=log)
 
 
@@ -737,10 +753,13 @@ class ClassVisServer():
     def CalcWeightsBackground(self):
         """Starts parallel jobs to load weights in the background"""
         self.VisWeights = None
-        if self.GD["Misc"]["ConserveMemory"]:
-            APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event)
+        if MPIManager.size > 1:
+            APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event, serial=True)
         else:
-            APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event)#,serial=True)
+            if self.GD["Misc"]["ConserveMemory"]:
+                APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event, serial=True)
+            else:
+                APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event)#,serial=True)
         # APP.awaitEvents(self._calcweights_event)
 
     def _sigtaper(self, msw, chanfreq, inner_cut, outer_cut, outer_taper_strength, inner_taper_strength): 
@@ -848,6 +867,11 @@ class ClassVisServer():
                     num_valid_chunks += 1
                     wmax = max(wmax, msw["wmax"])
                     self._uvmax = max(self._uvmax, msw["uvmax_wavelengths"])
+
+        if MPIManager.useMPI:
+            self._uvmax = MPIManager.COMM_WORLD.allreduce(self._uvmax, MPIManager.MAX)
+            wmax = MPIManager.COMM_WORLD.allreduce(wmax, MPIManager.MAX)
+
         # save wmax to cache
         cPickle.dump(wmax,open(wmax_path, "wb"))
         self.maincache.saveCache("wmax")
@@ -904,6 +928,9 @@ class ClassVisServer():
                     avgW = (grid1 ** 2).sum() / grid1.sum()
                     sSq = numeratorSqrt ** 2 / avgW
                     grid1[...] = 1 + grid1 * sSq
+
+        if MPIManager.useMPI:
+            self._weight_grid["grid"] = MPIManager.COMM_WORLD.allreduce(self._weight_grid["grid"], MPIManager.SUM)
 
         # launch jobs to finalize weights and save them to the cache
         for ims, ms in enumerate(self.ListMS):
@@ -1112,7 +1139,12 @@ class ClassVisServer():
                     uvmax_wavelengths = abs(uvw[~rowflags, :2]).max() * max_freq / _cc
                     self._uvmax = max(self._uvmax, uvmax_wavelengths)
                     wmax = max(wmax, abs(uvw[~rowflags, 2]).max())
+
+        if MPIManager.useMPI:
+            self._uvmax = MPIManager.COMM_WORLD.allreduce(self._uvmax, MPIManager.MAX)
+            wmax = MPIManager.COMM_WORLD.allreduce(wmax, MPIManager.MAX)
         
+        print("self._uvmax is %f"%self._uvmax, file=log)
         # setup uv-grid for non-natural weights
         if self.Weighting != "natural":
             self._weight_grid = shared_dict.create("VisWeights.Grid")
@@ -1171,6 +1203,9 @@ class ClassVisServer():
                                          ims, ichunk, ms.ChanFreq, cell,
                                          npix, npixx, nbands, xymax)
                                     
+        if MPIManager.useMPI:
+            self._weight_grid["grid"] = MPIManager.COMM_WORLD.allreduce(self._weight_grid["grid"], MPIManager.SUM)
+
         # save wmax to cache
         cPickle.dump(wmax, open(wmax_path, "wb"))
         self.maincache.saveCache("wmax")

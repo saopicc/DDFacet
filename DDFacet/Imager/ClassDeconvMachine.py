@@ -63,7 +63,10 @@ from DDFacet.Data import ClassStokes
 from DDFacet.Imager import ClassGainMachine
 
 from DDFacet.Data.PointingProvider import PointingProvider
+
+from DDFacet.Other import MPIManager
 from DDFacet.Other.CacheManager import CacheManager
+
 
 # from astropy import wcs
 # from astropy.io import fits
@@ -326,8 +329,8 @@ class ClassImagerDeconv():
             self.VS.IgnoreWeights()
 
         # all internal state initialized -- start the worker threads
-        APP.startWorkers()
         # and proceed with background tasks
+        APP.startWorkers()
         self.VS.CalcWeightsBackground()
         self.FacetMachine and self.FacetMachine.initCFInBackground()
         # FacetMachinePSF will skip CF init if they match those of FacetMachine
@@ -497,6 +500,13 @@ class ClassImagerDeconv():
 
 
     def _finalizeComputedPSF (self, FacetMachinePSF, cachepath=None):
+        self.FacetMachinePSF.collectGriddingResults()
+        if MPIManager.useMPI:
+            self.FacetMachinePSF.mpiGridReduce()
+            for iFacet in self.FacetMachinePSF.DicoImager.keys():
+                self.FacetMachinePSF.DicoImager[iFacet]["SumWeights"] = MPIManager.COMM_WORLD.allreduce(self.FacetMachinePSF.DicoImager[iFacet]["SumWeights"], MPIManager.SUM)
+                self.FacetMachinePSF.DicoImager[iFacet]["SumJones"] = MPIManager.COMM_WORLD.allreduce(self.FacetMachinePSF.DicoImager[iFacet]["SumJones"], MPIManager.SUM)
+
         self.DicoImagesPSF = FacetMachinePSF.FacetsToIm(NormJones=True)
         FacetMachinePSF.releaseGrids()
         self._psfmean, self._psfcube = self.DicoImagesPSF["MeanImage"], self.DicoImagesPSF["ImageCube"]  # this is only for the casa image saving
@@ -761,11 +771,17 @@ class ClassImagerDeconv():
                 # else do nothing
                 self.FacetMachine.finaliseSmoothBeam()
 
+                self.FacetMachine.collectGriddingResults()
+                if MPIManager.useMPI:
+                    self.FacetMachine.mpiGridReduce()
+                    for iFacet in self.FacetMachine.DicoImager.keys():
+                        self.FacetMachine.DicoImager[iFacet]["SumWeights"] = MPIManager.COMM_WORLD.allreduce(self.FacetMachine.DicoImager[iFacet]["SumWeights"], MPIManager.SUM)
+                        self.FacetMachine.DicoImager[iFacet]["SumJones"] = MPIManager.COMM_WORLD.allreduce(self.FacetMachine.DicoImager[iFacet]["SumJones"], MPIManager.SUM)
                 # stitch facets and release grids
                 self.DicoDirty = self.FacetMachine.FacetsToIm(NormJones=True)
                 self.FacetMachine.releaseGrids()
 
-                self.SaveDirtyProducts()
+                # self.SaveDirtyProducts()
 
                 # dump dirty to cache
                 if dirty_writecache:
@@ -1179,12 +1195,11 @@ class ClassImagerDeconv():
 
             # noise mask first (this may be RAM-hungry due to HMP inside, but ClassImageNoiseMachine.giveBrutalRestored()
             # eventually Reset()s its HMP machine, releasing memory)
-
             # we have to give the PSF to the image-noise machine since it may have to run an HMP deconvolution
             self.ImageNoiseMachine.setPSF(self.DicoImagesPSF)
             # now update the mask - it will eventually call for ImageNoiseMachine to compute a noise image
+            # May be done by all the mpi processes if we want to distribute SSD2 computation using MPI
             self.MaskMachine.updateMask(self.DicoDirty)
-            
             if self.MaskMachine.CurrentMask is not None:
                 if "k" in self._saveims:
                     self.FacetMachine.ToCasaImage(np.float32(self.MaskMachine.CurrentMask),
@@ -1222,6 +1237,32 @@ class ClassImagerDeconv():
             self.DeconvMachine.Update(self.DicoDirty)
 
             repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
+            # Broadcast metadata regarding the state of Deconvolution form the master MPI process
+            # to all the other MPI processes.
+            if MPIManager.useMPI:
+                continue_deconv                 = MPIManager.COMM_WORLD.bcast(continue_deconv, root=0)
+                update_model                    = MPIManager.COMM_WORLD.bcast(update_model, root=0)
+                self.HasDeconvolved             = MPIManager.COMM_WORLD.bcast(self.HasDeconvolved, root=0)
+                
+            if MPIManager.rank == 0:
+                    self.ModelMachine.ToFile(self.DicoModelName)
+            if MPIManager.useMPI:
+                DicoSMStacked                   = MPIManager.COMM_WORLD.bcast(self.ModelMachine.DicoSMStacked, root=0)
+
+                self.ModelMachine.FromDico(DicoSMStacked)
+
+            # ###
+            model_freqs = np.array([self.RefFreq],np.float64)
+            model_image = None
+            if MPIManager.rank == 0:
+                model_image = self.DeconvMachine.GiveModelImage(model_freqs)
+                if MPIManager.useMPI:
+                    model_image                   = MPIManager.COMM_WORLD.bcast(model_image, root=0)
+            else:
+                if MPIManager.useMPI:
+                    model_image                   = MPIManager.COMM_WORLD.bcast(None, root=0)
+
+            ModelImage = self.FacetMachine.setModelImage(model_image)
 
             if user_stopped:
                 print(ModColor.Str("user stop signal (SIGUSR1) received. This will be the last major cycle"))
@@ -1237,16 +1278,17 @@ class ClassImagerDeconv():
                 pass
 
 
+
+
             ###
-            self.ModelMachine.ToFile(self.DicoModelName)
-            # ###
-            model_freqs = np.array([self.RefFreq],np.float64)
-            ModelImage = self.FacetMachine.setModelImage(self.DeconvMachine.GiveModelImage(model_freqs))
+
+
             # write out model image, if asked to
             current_model_freqs = model_freqs
-            print("model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max()), file=log)
-            if "o" in self._saveims:
-                self.FacetMachine.ToCasaImage(ModelImage, ImageName="%s.model%2.2i" % (self.BaseName, iMajor),
+            if MPIManager.rank == 0:
+                print("model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max()), file=log)
+                if "o" in self._saveims:
+                    self.FacetMachine.ToCasaImage(ModelImage, ImageName="%s.model%2.2i" % (self.BaseName, iMajor),
                                               Fits=True, Freqs=current_model_freqs,
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             # stop
@@ -1280,7 +1322,6 @@ class ClassImagerDeconv():
             # recompute PSF in sparsification mode, or the first time we go from sparsified to full precision,
             # unless this is the last major cycle, in which case we never recompute the PSF
             do_psf = (sparsify or previous_sparsify) and continue_deconv
-
             if self.DicoDirty is not None:
                 self.DicoDirty.delete()
                 self.DicoDirty = None
@@ -1343,8 +1384,13 @@ class ClassImagerDeconv():
                 self.FacetMachine.applySparsification(DATA, sparsify)
                 ## redo model image if needed
                 model_freqs = DATA["FreqMappingDegrid"]
+
+                mod_image = None
+                bcast_model_image = None
                 if not np.array_equal(model_freqs, current_model_freqs):
-                    ModelImage = self.FacetMachine.setModelImage(self.DeconvMachine.GiveModelImage(model_freqs))
+                    mod_image = self.ModelMachine.GiveModelImage(model_freqs)
+                    ModelImage = self.FacetMachine.setModelImage(mod_image)
+
                     # write out model image, if asked to
                     current_model_freqs = model_freqs
                     print("model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max()), file=log)
@@ -1399,6 +1445,14 @@ class ClassImagerDeconv():
             # wait for gridding to finish
             self.FacetMachine.collectGriddingResults()
             self.VS.collectPutColumnResults()  # if these were going on
+
+            if MPIManager.useMPI:
+                self.FacetMachine.mpiGridReduce()
+                for iFacet in self.FacetMachine.DicoImager.keys():
+                    self.FacetMachine.DicoImager[iFacet]["SumWeights"] = MPIManager.COMM_WORLD.allreduce(self.FacetMachine.DicoImager[iFacet]["SumWeights"], MPIManager.SUM)
+                    self.FacetMachine.DicoImager[iFacet]["SumJones"] = MPIManager.COMM_WORLD.allreduce(self.FacetMachine.DicoImager[iFacet]["SumJones"], MPIManager.SUM)
+
+
             # release model image from memory
             ModelImage = None
             self.FacetMachine.releaseModelImage()
@@ -1426,10 +1480,11 @@ class ClassImagerDeconv():
                                               Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
             # write out current model, using final or intermediate name
-            if continue_deconv:
-                self.DeconvMachine.ToFile("%s.%2.2i.DicoModel" % (self.BaseName, iMajor) )
-            else:
-                self.DeconvMachine.ToFile(self.DicoModelName)
+            if MPIManager.rank == 0:
+                if continue_deconv:
+                    self.DeconvMachine.ToFile("%s.%2.2i.DicoModel" % (self.BaseName, iMajor) )
+                else:
+                    self.DeconvMachine.ToFile(self.DicoModelName)
 
 
             self.HasDeconvolved=True
@@ -1704,6 +1759,8 @@ class ClassImagerDeconv():
                     # LB - we don;t want to bail if we fall over in one of the bands
                     # fit_err = e # last error stored
 
+                if MPIManager.rank == 0:
+                    print("It %d , "%band, beam, gausspars, sidelobes)
                 if forced_beam is not None:
                     beam = f_beam
                     gausspars = f_gau
@@ -1771,6 +1828,7 @@ class ClassImagerDeconv():
         print("Running a Metropolis-Hastings MCMC on islands larger than %i pixels"%self.GD["SSDClean"]["RestoreMetroSwitch"], file=log)
         DeconvMachine.setDeconvMode(Mode="MetroClean")
         DeconvMachine.Update(self.DicoDirty)
+        
         repMinor, continue_deconv, update_model = DeconvMachine.Deconvolve()
         DeconvMachine.ToFile(self.DicoMetroModelName)
 

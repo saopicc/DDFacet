@@ -15,7 +15,7 @@ from DDFacet.compatibility import range
 from six import string_types
 import logging, logging.handlers, os, re, sys, multiprocessing
 from . import ModColor
-
+from . import MPIManager
 # dict of logger wrappers created by the application
 _loggers = {}
 
@@ -291,8 +291,12 @@ def getLogger(name, verbose=None, log_verbose=None, disable=False):
         The disable argument is no longer relevant
     """
     init("app")
+    # TODO only if mpi activated
+    if MPIManager.useMPI:
+        name = '[Rank %d] '%MPIManager.rank + name
     if name in _loggers:
         return _loggers[name]
+
 
     logger = logging.getLogger("{}.{}".format(_app_name, name))
     lw = _loggers[name] = LoggerWrapper(logger, verbose, log_verbose)

@@ -93,9 +93,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def FromDico(self,DicoSMStacked):
         self.DicoSMStacked=DicoSMStacked
-        self.RefFreq=self.DicoSMStacked.get("RefFreq", self.DicoSMStacked.get(b"RefFreq", None))
-        self.ListScales=self.DicoSMStacked.get("ListScales", self.DicoSMStacked.get(b"ListScales", None))
-        self.ModelShape=self.DicoSMStacked.get("ModelShape", self.DicoSMStacked.get(b"ModelShape", None))
+        self.RefFreq=self.DicoSMStacked.get("RefFreq", self.RefFreq)
+        self.ListScales=self.DicoSMStacked.get("ListScales", self.ListScales)
+        self.ModelShape=self.DicoSMStacked.get("ModelShape", self.ModelShape)
 
 
 
