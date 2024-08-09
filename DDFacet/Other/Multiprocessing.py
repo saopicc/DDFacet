@@ -85,7 +85,7 @@ def cleanupStaleShm ():
     uid = os.getuid()
     # list of all files in /dev/shm/ matching ddf.PID.* and belonging to us
     shmlist = [ ("/dev/shm/"+filename, re.match('(sem\.)?ddf\.([0-9]+)(\..*)?$',filename)) for filename in os.listdir("/dev/shm/")
-                if os.stat("/dev/shm/"+filename).st_uid == uid ]
+                if os.path.exists("dev/shm/"+filename) and os.stat("/dev/shm/"+filename).st_uid == uid ]
     # convert to list of filename,pid tuples
     shmlist = [ (filename, int(match.group(2))) for filename, match in shmlist if match ]
     # now check all PIDs to find dead ones
@@ -106,7 +106,10 @@ def cleanupStaleShm ():
         # rm -fr only works for a limited number of arguments (which the semaphore list can easily exceed)
         # so use os.unlink() to remove files, and rm -fr for directories
         for path in files:
-            os.unlink(path)
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
         os.system("rm -fr " + " ".join(dirs))
         # print "rm -fr " + " ".join(victims)
 
