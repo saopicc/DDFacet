@@ -209,11 +209,11 @@ class ClassImageNoiseMachine():
         # # debug
         # MaskImage=image("image_dirin_SSD_test.dirty.fits.mask.fits").getdata()
         # nch,npol,_,_=MaskImage.shape
-        # MaskArray=np.zeros(MaskImage.shape,np.bool8)
+        # MaskArray=np.zeros(MaskImage.shape,np.bool_)
         # for ch in range(nch):
         #     for pol in range(npol):
-        #         MaskArray[ch,pol,:,:]=np.bool8(MaskImage[ch,pol].T[::-1].copy())[:,:]
-        # self.DeconvMachine.setMask(np.bool8(1-MaskArray))
+        #         MaskArray[ch,pol,:,:]=np.bool_(MaskImage[ch,pol].T[::-1].copy())[:,:]
+        # self.DeconvMachine.setMask(np.bool_(1-MaskArray))
         # # #########################
 
         self.DeconvMachine.Update(self.DicoDirty,DoSetMask=False)

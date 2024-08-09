@@ -166,7 +166,7 @@ def testGrid():
 
     # uvw.fill(0)
     
-    flag = np.bool8(DATA["flags"])  # [row0:row1,:,:].copy()
+    flag = np.bool_(DATA["flags"])  # [row0:row1,:,:].copy()
     # ind=np.where(np.logical_not((A0==12)&(A1==14)))[0]
     # flag[ind,:,:]=1
     # flag.fill(0)
@@ -891,7 +891,7 @@ class ClassDDEGridMachine():
             if not(uvw.flags.c_contiguous):
                 raise NameError("uvw has to be contiguous")
         if not isinstance(flag, type(None)):
-            if not(flag.dtype == np.bool8):
+            if not(flag.dtype == np.bool_):
                 raise NameError('flag.dtype %s' % (str(flag.dtype)))
             if not(flag.flags.c_contiguous):
                 raise NameError("flag to be contiguous")
