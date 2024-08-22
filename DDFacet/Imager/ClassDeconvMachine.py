@@ -1976,7 +1976,8 @@ class ClassImagerDeconv():
 
         # do we have a non-trivial norm (i.e. DDE solutions or beam)?
         # @cyriltasse: maybe there's a quicker way to check?
-        havenorm = self.MeanJonesNorm is not None and (self.MeanJonesNorm != 1).any()
+        #havenorm = self.MeanJonesNorm is not None and (self.MeanJonesNorm != 1).any()
+        havenorm = False
 
         T = ClassTimeIt.ClassTimeIt()
         T.disable()
