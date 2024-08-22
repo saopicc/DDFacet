@@ -1475,9 +1475,10 @@ class ClassImagerDeconv():
             # if "SmoothMeanNormImage" in self.DicoDirty.keys():
             #     self.SmoothMeanNormImage=self.DicoDirty["SmoothMeanNormImage"]
 
-            if "e" in self._saveims:
-                self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.residual%2.2i"%(self.BaseName,iMajor),
-                                              Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            if MPIManager.rank == 0:
+                if "e" in self._saveims:
+                    self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.residual%2.2i"%(self.BaseName,iMajor),
+                                                Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
             # write out current model, using final or intermediate name
             if MPIManager.rank == 0:
