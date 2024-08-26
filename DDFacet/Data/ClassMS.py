@@ -1710,9 +1710,12 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
 
     MSName can be a single filename, or a list of filenames, or a *.txt file (in which case a list
     of filenames will be read from the text file).
+    
+    Each filename in the list can be suffixed with :hostname to select the host name where the filename
+    will be loaded.
 
     Furthermore, each filename in the list can contain wildcards (*?) to select multiple MSs, and
-    con be suffixed with //Dx and/or //Fy to select specific DATA_DESC_ID and FIELD_IDs in the MS. "x" and "y"
+    can be suffixed with //Dx and/or //Fy to select specific DATA_DESC_ID and FIELD_IDs in the MS. "x" and "y"
     can take the form of a single number, a Pythonic range (e.g. "0:16"), an inclusive range ("0~15");
     or "*" to select all. E.g. foo.MS//D*//F0:2 selects all DDIDs, and fields 0 and 1 from foo.MS.
     
@@ -1720,8 +1723,8 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
 
     The defaultField and defaultDDID arguments will be used for those MSs where //D or //F is not specified.
 
-    Ultimately, returns a list of (MSName, ddid, field) tuples, where MSName is a proper MS path, and ddid
-    and field are indices.
+    Ultimately, returns a list of (MSName, host, ddid, field) tuples, where MSName is a proper MS path,
+    host is either a string or None and ddid and field are indices.
     """
     if isinstance(MSName,list):
         print("multi-MS mode", file=log)
