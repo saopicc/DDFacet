@@ -1839,6 +1839,6 @@ def splitMSList(MSList):
     print(f"MSList is {local_list}", file=log)
 
     if len(local_list) == 0:
-        raise RuntimeError("You have at least on MPI Process with no MS files")
+        raise RuntimeError("You have at least one MPI Process with no MS files")
 
     return local_list
