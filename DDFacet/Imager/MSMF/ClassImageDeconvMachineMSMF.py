@@ -107,7 +107,7 @@ class ClassImageDeconvMachine():
         self.facetcache=None
         self._MaskArray=None
         self.MaskMachine=None
-        self.ParallelMode=False
+        self.ParallelMode=ParallelMode
         if self.ParallelMode:
             APP.registerJobHandlers(self)
 
