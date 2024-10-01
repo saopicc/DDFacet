@@ -621,8 +621,6 @@ class ClassDDEGridMachine():
             lc=DicoClusterDirs["l"]
             mc=DicoClusterDirs["m"]
             sI=DicoClusterDirs["I"]
-            if np.count_nonzero(sI)==0:
-                sI=np.ones_like(sI) # when has done DoSimul.py
             d=np.sqrt((l0-lc)**2+(m0-mc)**2)
             idir_kMS=np.argmin(d)
             # print rad2hmsdms(DicoClusterDirs["ra"][idir_kMS],Type="ra"), rad2hmsdms(DicoClusterDirs["dec"][idir_kMS])
@@ -716,7 +714,7 @@ class ClassDDEGridMachine():
 
         return ParamJonesList
 
-    def put(self, times, uvw, visIn, flag, A0A1, W=None,sgnW=None,
+    def put(self, times, uvw, visIn, flag, A0A1, W=None,
             PointingID=0, DoNormWeights=True, DicoJonesMatrices=None,
             freqs=None, DoPSF=0, ChanMapping=None, ResidueGrid=None, sparsification=None,ComputeMTilde=False):
         """
@@ -800,9 +798,6 @@ class ClassDDEGridMachine():
         uvw[:,1]=uvw[:,0]
         uvw[:,0]=v0
 
-        if sgnW is not None:
-            stop
-        
         self.CheckTypes(
             Grid=Grid,
             vis=vis,

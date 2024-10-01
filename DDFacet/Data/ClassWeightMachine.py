@@ -95,7 +95,7 @@ class ClassWeightMachine():
         path = self.VisWeights[iMS][iChunk]["cachepath"]
         if not os.path.getsize(path):
             return None
-        return np.load(open(path, "rb"))
+        return np.load(open(path, "rb")),np.load(open("%s.sgn.npy"%path, "rb"))
 
     def getMaxW(self):
         """Returns the max W value. Since this is estimated as part of weights computation, 
@@ -448,6 +448,11 @@ class ClassWeightMachine():
                 List_weight_col=[List_weight_col]
             weight.fill(1.)
 
+            
+            # To do REW in V, need to mupliply V by sgn(W) 
+            sgnweight = msw.addSharedArray("sgnweight", (nrows, ms.Nchan), np.int8)
+            sgnweight.fill(1)
+            
             for weight_col in List_weight_col:
                 if weight_col is not None:
                     print("reading weighting column %s"%weight_col, file=log)
@@ -461,19 +466,16 @@ class ClassWeightMachine():
                 elif weight_col == "None" or weight_col == None:
                     pass#weight.fill(1)
                 elif ".fits" in weight_col:
-                    aW_ft=np.abs(fits.getdata(weight_col))
-                    W_ft=aW_ft#(fits.getdata(weight_col))
-                    #log.print("%f"%np.max(W_ft))
                     Th=2
+                    if weight_col.split(".fits")[-1]!="":
+                        Th=float(weight_col.split(":")[-1])
+                        weight_col=":".join(weight_col.split(":")[:-1])
+                    W_ft=(fits.getdata(weight_col))
+                    aW_ft=np.abs(W_ft)
+                    sW_ft=np.sign(W_ft)
                     W_ft[aW_ft<Th]=0
-                    # # W_ft[aW_ft>Th]=-1
-                    # #W_ft[W_ft>-0.4]=0
-                    # #W_ft[np.abs(W_ft)<0.4]=0
-                    # W_ft[W_ft>-0.4]=0
-                    # #W_ft[W_ft>-2.45]=0
-                    # W_ft=np.abs(W_ft)
-                    # #W_ft[aW_ft>Th]=-1
-
+                    # M=(aW_ft>=Th)
+                    # W_ft[M]=1.#sW_ft[M]
                     
                     nf,nt=W_ft.shape
                     newrow = np.zeros((nf,1),np.float32)
@@ -498,9 +500,21 @@ class ClassWeightMachine():
                     
                     wsel=W_ft[iChan_g.ravel(),iTime_g.ravel()].reshape((nrows, ms.Nchan))
                     #log.print("nz %i"%np.count_nonzero(wsel))
-                    #print("JJHDSFSDJJFG",wsel.min(),wsel.max())
-                    #np.savez("Weights_test.npz",wsel=wsel,W_ft=W_ft,W_ft0=W_ft0)
-                    weight[...] *= wsel[...]
+
+                    sgnweight[wsel<0]=-1
+                    # # Unity non-zero weights
+                    # wsel[wsel!=0]=1
+                    
+                    # print("JJHDSFSDJJFG")
+                    # print("JJHDSFSDJJFG")
+                    # print("JJHDSFSDJJFG")
+                    # print("JJHDSFSDJJFG")
+                    # print(np.unique(wsel))
+                    # print(np.unique(sgnweight))
+                    # #print("save")
+                    # #np.savez("Weights_test.npz",wsel=wsel,W_ft=W_ft,W_ft0=W_ft0,sgnweight=sgnweight)
+                    
+                    weight[...] *= np.abs(wsel[...])
                 elif weight_col == "Lucky_kMS" and self.GD["DDESolutions"]["DDSols"]:
                     ID=row0
                     LSolsName=self.GD["DDESolutions"]["DDSols"]
@@ -520,8 +534,13 @@ class ClassWeightMachine():
                         #         os.makedirs(DirName)
                         #     FileName="%s/killMS.%s.Weights.%i.npy"%(DirName,SolsName,ID)
 
-                        CGiveSaveFileName=ClassGiveSolsFile.ClassGive_kMSFileName(GD=GD)
-                        FileName=CGiveSaveFileName.GiveFileName(Type="Weights",ROW0=ID)
+                        CGiveSaveFileName=ClassGiveSolsFile.ClassGive_kMSFileName(MSName=ms.MSName,
+                                                                                  GD=self.GD)
+                        FileName=CGiveSaveFileName.GiveFileName(SolsName=SolsName,
+                                                                Type="Weights",
+                                                                ROW0=ID)
+                        if "_smoothed" in FileName:
+                            FileName=FileName.replace("_smoothed","")
                         
                         log.print( "  loading weights from file: %s"%FileName)
                         if w is None: 
@@ -556,6 +575,7 @@ class ClassWeightMachine():
             nullweight = (weight==0).all()
             if nullweight:
                 msw.delete_item("weight")
+                msw.delete_item("sgnweight")
                 msw.delete_item("uv")
                 msw.delete_item("flags")
             else:
@@ -566,6 +586,7 @@ class ClassWeightMachine():
                 print(ModColor.Str("  "+line), file=log)
             msw["error"] = exc
             msw.delete_item("weight")
+            msw.delete_item("sgnweight")
             msw.delete_item("uv")
             msw.delete_item("flags")
 
@@ -694,6 +715,7 @@ class ClassWeightMachine():
             msw["error"] = exc
             os.unlink(msw["cachepath"])
             msw.delete_item("weight")
+            msw.delete_item("sgnweight")
             msw.delete_item("uv")
             msw.delete_item("flags")
 
@@ -715,7 +737,9 @@ class ClassWeightMachine():
     #                import pdb; pdb.set_trace()
 
                 np.save(msw["cachepath"], weight)
+                np.save("%s.sgn.npy"%msw["cachepath"], msw["sgnweight"])
                 msw.delete_item("weight")
+                msw.delete_item("sgnweight")
                 msw.delete_item("uv")
                 if "flags" in msw:
                     msw.delete_item("flags")

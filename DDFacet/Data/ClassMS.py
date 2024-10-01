@@ -51,6 +51,7 @@ import DDFacet.ToolsDir.ModRotate
 import time
 from astropy.time import Time
 from DDFacet.Other.progressbar import ProgressBar
+from math import copysign
 
 #
 # try:
@@ -1179,8 +1180,10 @@ class ClassMS():
                 SRa,SDec=self.ToRADEC
                 srah,sram,sras=SRa.split(":")
                 sdecd,sdecm,sdecs=SDec.split(":")
+                print(srah,sram,sras,sdecd,sdecm,sdecs)
                 ranew=(np.pi/180)*15.*(float(srah)+float(sram)/60.+float(sras)/3600.)
-                decnew=(np.pi/180)*np.sign(float(sdecd))*(abs(float(sdecd))+float(sdecm)/60.+float(sdecs)/3600.)
+                decnew=(np.pi/180)*copysign(1.0,float(sdecd))*(abs(float(sdecd))+float(sdecm)/60.+float(sdecs)/3600.)
+                
             # only enable rotation if coordinates actually change
             if ranew != rarad or decnew != decrad:
                 print(ModColor.Str("MS %s will be rephased to %s"%(self.MSName,which)), file=log)

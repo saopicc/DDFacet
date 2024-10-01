@@ -1112,7 +1112,7 @@ class ClassFacetMachine():
             #labelMax=LLabel[iGMax]
             #return (label==labelMax)
             return False
-        return self.DicoSumJonesNorm_FacetLabel[iFacet][label]<Th
+        return self.DicoSumJonesNorm_FacetLabel[iFacet].get(label,1)<Th
         
             
 
@@ -1830,11 +1830,11 @@ class ClassFacetMachine():
         self._smooth_job_label=DATA["label"]
         JobName="%sStackBeam%sF"%(self._app_id,self._smooth_job_label)
         for iDir in range(self.AverageBeamMachine.NDir):
-            print("SF?SDFKDFGKDFGKDFGJK")
+            #print("SF?SDFKDFGKDFGKDFGJK")
             APP.runJob("%s%d" % (JobName,iDir), 
                        self._SmoothAverageBeam_worker,
                        args=(DATA.readonly(), iDir))#,serial=True)
-
+            
 
     def finaliseSmoothBeam(self):
         # the FacetMachinePSF does not have an AverageBeamMachine

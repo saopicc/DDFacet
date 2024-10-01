@@ -567,9 +567,40 @@ class ClassVisServer():
         DATA["ROW1"] = ms.ROW1
 
         # get weights
-        weights = self.WM.GetVisWeights(iMS, iChunk)
+        weights,sgnweights = self.WM.GetVisWeights(iMS, iChunk)
         DATA["Weights"] = weights
-        
+
+        if -1 in sgnweights:
+            if not np.allclose(self.VisCorrelationLayout,np.array([ 9, 10, 11, 12], dtype=np.int32)): stop
+            sort_index=DATA["sort_index"]
+            nrow,nch,npol= DATA["data"].shape
+            d=DATA["data"].reshape((nrow*nch,npol))
+            sgn=sgnweights[sort_index].reshape((nrow*nch,1))
+            ind=np.where(sgn==-1)[0]
+            #print(DATA["data"].reshape((nrow*nch,npol))[ind[0]])
+
+            log.print("Taking the negative of %i visibilities..."%ind.size)
+            d0=d.copy()
+            XY=d[ind,1]
+            YX=d[ind,2]
+            XY1=YX.copy() # (-XY+YX)/2
+            YX1=XY.copy() # (XY-YX)/2
+            d[ind,1]=XY1[:]
+            d[ind,2]=YX1[:]
+            
+            # # DATA["data"][...]=DATA["data"][...]*sgnweights.reshape((nrow,nch,1))
+            # M=(1./np.sqrt(2))*np.array([[1,0,0,1],[1,0,0,-1],[0,1,1,0],[0,-1j,1j,0]],np.complex128)
+            # nn=ind[0]
+            # V0=d0[nn].reshape((2,2))
+            # V1=d[nn].reshape((2,2))
+            # # print("V0",np.dot(M,V0.reshape((-1,1))))
+            # # print("V1",np.dot(M,V1.reshape((-1,1))))
+            # # print(DATA["data"].reshape((nrow*nch,npol))[ind[0]])
+
+            
+            log.print(" ... done...")
+        # DATA["data"][...]=-DATA["data"][...]
+
         if self.GD["Weight"]["OutColName"] and self.GD["Output"]["Mode"]!="Predict":
             # When the MS doesn't have an IMAGING_WEIGHT column
             ColDesc={'valueType': 'float',

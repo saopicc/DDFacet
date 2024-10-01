@@ -377,7 +377,7 @@ class ClassImagerDeconv():
             self.FacetMachinePSF = ClassFacetMachine(self.VS, self.GD,
                                                      Precision=self.Precision, PolMode=self.PolMode,
                                                      DoPSF=True, Oversize=oversize,
-                                                     custom_id="FMPSF_%s")
+                                                     custom_id="FMPSF")
             self.FacetMachinePSF.appendMainField(ImageName="%s.psf" % self.BaseName, **MainFacetOptions)
             self.FacetMachinePSF.Init()
 
