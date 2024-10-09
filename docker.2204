@@ -72,7 +72,7 @@ RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-$GNUCOMPILER 100
     update-alternatives --install /usr/bin/x86_64-linux-gnu-gfortran x86_64-linux-gnu-gfortran /usr/bin/gfortran-$GNUCOMPILER 100
 
 ## All python dependencies go into venv
-ENV NUMPYVER 1.22.0
+ENV NUMPYVER 1.26.4
 
 WORKDIR /opt
 RUN virtualenv venv -p python${PYTHONVER}
@@ -233,7 +233,7 @@ ADD .gitmodules /opt/DDFacet/.gitmodules
 RUN cd /opt/DDFacet/ && git submodule update --init --recursive && cd /
 # Finally install DDFacet
 RUN rm -rf /opt/DDFacet/DDFacet/cbuild
-RUN . /opt/venv/bin/activate && python -m pip install --use-pep517 -U "/opt/DDFacet[dft-support,moresane-support,testing-requirements,fits-beam-support,kms-support,alternate-data-backends]"
+RUN . /opt/venv/bin/activate && python -m pip install --use-pep517 "/opt/DDFacet[dft-support,moresane-support,testing-requirements,fits-beam-support,kms-support,alternate-data-backends]"
 
 # test montblanc install
 WORKDIR /tmp
