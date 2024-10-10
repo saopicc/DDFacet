@@ -593,7 +593,7 @@ class ClassVisServer():
             print(ModColor.Str("This chunk is all flagged or has zero weight."), file=log)
             return
         
-        if DATA["sort_index"] is not None and isinstance(DATA["Weights"],np.array):
+        if DATA["sort_index"] is not None and isinstance(DATA["Weights"],np.ndarray):
             # a value of '1' is used as a flag by GetVisWeights, but we can't compare with 1 because the weights could be and generally will be an array...
             DATA["Weights"] = DATA["Weights"][DATA["sort_index"]]
 
