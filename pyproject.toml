@@ -1,6 +1,5 @@
 [build-system]
-requires = ['numpy>=1.15.1,<=1.26.4; python_version >="3.10" and python_version <"3.11"',
-	    'numpy>=1.15.1,<=1.26.4; python_version >="3.8" and python_version <"3.10"',
+requires = ['numpy>=1.15.1,<=1.22.0; python_version >="3.8" and python_version <"3.11"',
             'pybind11 >= 2.2.2',
             'cython<=0.29.30',
             'cmake',
@@ -16,8 +15,7 @@ readme = "README.rst"
 requires-python = ">=3.8,<3.11"
 dependencies = [
     "Cython >= 0.25.2, <= 0.29.30; python_version >= '3.8' and python_version < '3.11'", 
-    "numpy >= 1.15.1, <= 1.26.4; python_version >= '3.10' and python_version < '3.11'",
-    "numpy >= 1.15.1, <= 1.24.4; python_version >= '3.8' and python_version < '3.10'",
+    "numpy >= 1.15.1, <= 1.22.0; python_version >= '3.8' and python_version < '3.11'",
     "sharedarray >= 3.2.0, <= 3.2.4; python_version >= '3.10' and python_version < '3.11'",
     "sharedarray >= 3.2.0, <= 3.2.1; python_version >= '3.8' and python_version < '3.10'", 
     "Polygon3 >= 3.0.8,<=3.0.9.1; python_version >= '3.8' and python_version < '3.11'", 
@@ -79,7 +77,9 @@ classifiers = [
 "MyCasapy2bbs.py" = "SkyModel.__main__:mycasapy2bbs_main"
 
 [project.optional-dependencies]
-dft-support = ["montblanc >= 0.6.1, <= 0.7.3.2; python_version >= '3.8' and python_version < '3.11'"]
+dft-support = ["montblanc >= 0.6.1, <= 0.7.3.2; python_version >= '3.8' and python_version < '3.11'",
+               "tensorflow == 2.12.0; python_version >= '3.10' and python_version < '3.11'"
+              ]
 moresane-support = ["pymoresane >= 0.3.0; python_version >= '3.8' and python_version < '3.11'"]
 fits-beam-support = ["meqtrees-cattery <= 1.7.9; python_version >= '3.8' and python_version < '3.11'"]
 kms-support = ["bdsf > 1.8.15,<=1.10.1; python_version >= '3.8' and python_version < '3.11'"]
