@@ -233,7 +233,7 @@ ADD .gitmodules /opt/DDFacet/.gitmodules
 RUN cd /opt/DDFacet/ && git submodule update --init --recursive && cd /
 # Finally install DDFacet
 RUN rm -rf /opt/DDFacet/DDFacet/cbuild
-RUN . /opt/venv/bin/activate && python -m pip install -U "/opt/DDFacet[dft-support,moresane-support,testing-requirements,fits-beam-support,kms-support,alternate-data-backends]"
+RUN . /opt/venv/bin/activate && python -m pip install "/opt/DDFacet[dft-support,moresane-support,testing-requirements,fits-beam-support,kms-support,alternate-data-backends]"
 
 # test montblanc install
 WORKDIR /tmp
