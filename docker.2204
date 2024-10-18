@@ -233,7 +233,10 @@ ADD .gitmodules /opt/DDFacet/.gitmodules
 RUN cd /opt/DDFacet/ && git submodule update --init --recursive && cd /
 # Finally install DDFacet
 RUN rm -rf /opt/DDFacet/DDFacet/cbuild
-RUN . /opt/venv/bin/activate && python -m pip install --use-pep517 -U "/opt/DDFacet[dft-support,moresane-support,testing-requirements,fits-beam-support,kms-support,alternate-data-backends]"
+# workaround for pip build isolation bug pulling a higher version of tensorflow that is not ABI compatible
+RUN echo "tensorflow==2.12.0" > /opt/DDFacet/constraints.txt
+ENV PIP_CONSTRAINT /opt/DDFacet/constraints.txt
+RUN . /opt/venv/bin/activate && python -m pip install --use-pep517 "/opt/DDFacet[dft-support,moresane-support,testing-requirements,fits-beam-support,kms-support,alternate-data-backends]"
 
 # test montblanc install
 WORKDIR /tmp
