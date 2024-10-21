@@ -472,7 +472,14 @@ def driver():
         if not MPIManager.useMPI:
             main(OP, messages)
         else: # UseMPI
-            from mpi4py import MPI
+            try:
+                from mpi4py import MPI
+            except ImportError:
+                MPI = None
+                
+            if MPI is None:
+                raise RuntimeError("MPI requested but it is not installed. You can install this optional requirement using "
+                                   "pip install 'DDFacet[mpi-support]' when installing DDFacet.")
             if OP.DicoConfig["Parallel"]["UseMPIPool"]:
                 import mpi4py.futures
 
