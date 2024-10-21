@@ -14,6 +14,9 @@ except ModuleNotFoundError:
 try:
     from fasteners import InterProcessLock
 except ModuleNotFoundError:
+    if useMPI:
+        raise ModuleNotFoundError("fasterners package is missing. Install DDFacet using "
+                                  "pip install 'DDFacet[mpi-support]'")
     # define a dummy InterProcessLock
     class InterProcessLock(object):
         def __init__(self,
