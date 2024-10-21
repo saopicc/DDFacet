@@ -1144,7 +1144,6 @@ class ClassVisServer():
             self._uvmax = MPIManager.COMM_WORLD.allreduce(self._uvmax, MPIManager.MAX)
             wmax = MPIManager.COMM_WORLD.allreduce(wmax, MPIManager.MAX)
         
-        print("self._uvmax is %f"%self._uvmax, file=log)
         # setup uv-grid for non-natural weights
         if self.Weighting != "natural":
             self._weight_grid = shared_dict.create("VisWeights.Grid")
