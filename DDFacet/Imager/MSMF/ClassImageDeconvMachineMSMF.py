@@ -320,26 +320,23 @@ class ClassImageDeconvMachine():
                     self.DicoMSMachine[iFacet] = \
                         self._initMSM_facet(iFacet, self.facetcache[iFacet], None,
                                             self.SideLobeLevel, self.OffsetSideLobe, MSM0=MSM0, verbose=False)
-
-
-
-            if MPIManager.useMPI:
-                if MPIManager.COMM_WORLD.rank == 0:
-                    # write cache to disk, unless in a mode where we explicitly don't want it
-                    if facetcache is None and not valid and cache and not approx:
-                        try:
-                            #MyPickle.DicoNPToFile(facetcache,cachepath)
-                            #cPickle.dump(facetcache, open(cachepath, 'w'), 2)
-                            print("  saving HMP cache to %s"%cachepath, file=log)
-                            self.facetcache.save(cachepath)
-                            #self.maincache.saveCache("HMPMachine")
-                            self.maincache.saveCache(self.CacheFileName)
-                            self.PSFHasChanged=False
-                            print("  HMP init done", file=log)
-                        except:
-                            print(traceback.format_exc(), file=log)
-                            print(ModColor.Str(
-                                "WARNING: HMP cache could not be written, see error report above. Proceeding anyway."), file=log)
+            
+            if MPIManager.rank == 0:
+                # write cache to disk, unless in a mode where we explicitly don't want it
+                if facetcache is None and not valid and cache and not approx:
+                    try:
+                        #MyPickle.DicoNPToFile(facetcache,cachepath)
+                        #cPickle.dump(facetcache, open(cachepath, 'w'), 2)
+                        print("  saving HMP cache to %s"%cachepath, file=log)
+                        self.facetcache.save(cachepath)
+                        #self.maincache.saveCache("HMPMachine")
+                        self.maincache.saveCache(self.CacheFileName)
+                        self.PSFHasChanged=False
+                        print("  HMP init done", file=log)
+                    except:
+                        print(traceback.format_exc(), file=log)
+                        print(ModColor.Str(
+                            "WARNING: HMP cache could not be written, see error report above. Proceeding anyway."), file=log)
 
     def SetDirty(self, DicoDirty):#,DoSetMask=True):
         # if len(PSF.shape)==4:
