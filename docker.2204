@@ -72,7 +72,7 @@ RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-$GNUCOMPILER 100
     update-alternatives --install /usr/bin/x86_64-linux-gnu-gfortran x86_64-linux-gnu-gfortran /usr/bin/gfortran-$GNUCOMPILER 100
 
 ## All python dependencies go into venv
-ENV NUMPYVER 1.22.3
+ENV NUMPYVER 1.26.4
 
 WORKDIR /opt
 RUN virtualenv venv -p python${PYTHONVER}
@@ -234,7 +234,7 @@ RUN cd /opt/DDFacet/ && git submodule update --init --recursive && cd /
 # Finally install DDFacet
 RUN rm -rf /opt/DDFacet/DDFacet/cbuild
 # workaround for pip build isolation bug pulling a higher version of tensorflow that is not ABI compatible
-RUN echo "tensorflow==2.12.0" > /opt/DDFacet/constraints.txt
+RUN echo "tensorflow==2.15.0" > /opt/DDFacet/constraints.txt
 ENV PIP_CONSTRAINT /opt/DDFacet/constraints.txt
 RUN . /opt/venv/bin/activate && python -m pip install --use-pep517 "/opt/DDFacet[dft-support,moresane-support,testing-requirements,fits-beam-support,kms-support,alternate-data-backends]"
 
