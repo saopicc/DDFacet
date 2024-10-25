@@ -122,9 +122,9 @@ class TestLOFAR_J1329_p4729(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSI
         args = ['MakeCatalog.py',
                 '--RestoredIm={}'.format(restoredname)]
         cls.__run(args)
-        catname = '--SourceCat={}.pybdsm.srl.fits'.format(restoredname.replace(".fits", ""))
+        catname = '{}.pybdsm.srl.fits'.format(restoredname.replace(".fits", ""))
         if not os.path.isfile(catname):
-            catname = '--SourceCat={}.pybdsf.srl.fits'.format(restoredname.replace(".fits", ""))
+            catname = '{}.pybdsf.srl.fits'.format(restoredname.replace(".fits", ""))
         args = ['ClusterCat.py',
                 '--DoPlot=0',
                 '--NGen=100',
