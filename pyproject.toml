@@ -1,5 +1,6 @@
 [build-system]
-requires = ['numpy>=1.15.1,<=1.22.0; python_version >="3.8" and python_version <"3.11"',
+requires = ["numpy >= 1.15.1, <= 1.22.4; python_version >= '3.10' and python_version < '3.11'",
+            "numpy >= 1.15.1, <= 1.22.4; python_version >= '3.8' and python_version < '3.10'",
             'pybind11 >= 2.2.2',
             'cython<=0.29.30',
             'cmake',
@@ -15,7 +16,8 @@ readme = "README.rst"
 requires-python = ">=3.8,<3.11"
 dependencies = [
     "Cython >= 0.25.2, <= 0.29.30; python_version >= '3.8' and python_version < '3.11'", 
-    "numpy >= 1.15.1, <= 1.22.0; python_version >= '3.8' and python_version < '3.11'",
+    "numpy >= 1.15.1, <= 1.22.4; python_version >= '3.10' and python_version < '3.11'",
+    "numpy >= 1.15.1, <= 1.22.4; python_version >= '3.8' and python_version < '3.10'",
     "sharedarray >= 3.2.0, <= 3.2.4; python_version >= '3.10' and python_version < '3.11'",
     "sharedarray >= 3.2.0, <= 3.2.1; python_version >= '3.8' and python_version < '3.10'", 
     "Polygon3 >= 3.0.8,<=3.0.9.1; python_version >= '3.8' and python_version < '3.11'", 
@@ -82,9 +84,11 @@ dft-support = ["montblanc >= 0.6.1, <= 0.7.3.2; python_version >= '3.8' and pyth
               ]
 moresane-support = ["pymoresane >= 0.3.0; python_version >= '3.8' and python_version < '3.11'"]
 fits-beam-support = ["meqtrees-cattery <= 1.7.9; python_version >= '3.8' and python_version < '3.11'"]
-kms-support = ["bdsf > 1.8.15,<=1.10.1; python_version >= '3.8' and python_version < '3.11'"]
+kms-support = ["bdsf > 1.8.15,<=1.11.1; python_version >= '3.10' and python_version < '3.11'",
+	           "bdsf > 1.8.15,<=1.10.1; python_version >= '3.8' and python_version < '3.10'"]
+
 alternate-data-backends = ["dask-ms[xarray]<=0.2.20; python_version >= '3.8' and python_version < '3.11'",
-                             "xarray<=2023.12.0; python_version >= '3.8' and python_version < '3.11'"]
+                           "xarray<=2023.12.0; python_version >= '3.8' and python_version < '3.11'"]
 testing-requirements = ["nose >= 1.3.7; python_version >= '3' and python_version < '3.9'",
                         "pynose >= 1.4.8; python_version >= '3.9' and python_version < '3.11'",
                         "owlcat >= 1.7.5; python_version >= '3.8' and python_version < '3.11'"]
