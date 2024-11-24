@@ -296,7 +296,7 @@ class AsyncProcessPool (object):
             if parent_affinity not in self.inherited_affinity:
                 raise RuntimeError("Parent affinity requested (%d) is not in available list of cores" % parent_affinity)
             print(ModColor.Str("Fixing parent process to vthread %d" % self.parent_affinity, col="green"), file=log)
-            self._process.cpu_affinity([self.parent_affinity])
+            #self._process.cpu_affinity([self.parent_affinity])
 
         # if NCPU is 0, set to number of CPUs on system
         if not self.ncpu:
@@ -847,10 +847,12 @@ class AsyncProcessPool (object):
         _pyArrays.pySetOMPDynamicNumThreads(1)
         AsyncProcessPool.proc_id = proc_id
         logger.subprocess_id = proc_id
-        if self.affinity: # shouldn't mess with affinity if it was disabled
+        if affinity and self.affinity: # shouldn't mess with affinity if it was disabled
             if self.verbose:
                 print(ModColor.Str("setting worker pid %d affinity to %s"% (os.getpid(),str(affinity))), file=log)
             psutil.Process().cpu_affinity(affinity)
+            if self.verbose:
+                print(ModColor.Str("worker pid %d affinity is now %s"% (os.getpid(),str(psutil.Process().cpu_affinity()))), file=log)
         self._run_worker(worker_queue)
         if self.verbose:
             print(ModColor.Str("exiting worker pid %d"%os.getpid()), file=log)
