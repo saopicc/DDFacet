@@ -849,8 +849,8 @@ class AsyncProcessPool (object):
         logger.subprocess_id = proc_id
         if self.affinity: # shouldn't mess with affinity if it was disabled
             if self.verbose:
-                print(ModColor.Str("exiting worker pid %d"%os.getpid()), file=log)
-            psutils.Process().cpu_affinity(affinity)
+                print(ModColor.Str("setting worker pid %d affinity to %d"% (os.getpid(),affinity), file=log)
+            psutil.Process().cpu_affinity(affinity)
         self._run_worker(worker_queue)
         if self.verbose:
             print(ModColor.Str("exiting worker pid %d"%os.getpid()), file=log)
