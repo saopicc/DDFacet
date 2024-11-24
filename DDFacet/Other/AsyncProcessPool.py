@@ -210,13 +210,13 @@ class AsyncProcessPool (object):
                 self.ncpu = ncpu or self.available_cores
                 maxcpu = self.ncpu
                 self.affinity = self.inherited_affinity[:self.ncpu]
-                self.parent_affinity = self.inherited_affinity[0]
+                parent_affinity = self.inherited_affinity[0]
             else:
                 # Assume we have all of the machine available
                 self.cpustep = abs(self.affinity) or 1
                 maxcpu = self._cpucount // self.cpustep
                 self.ncpu = ncpu or maxcpu
-                self.parent_affinity = parent_affinity
+            self.parent_affinity = parent_affinity
         elif isinstance(self.affinity, list):
             if any(map(lambda x: x < 0, self.affinity)):
                 raise RuntimeError("Affinities must be list of positive numbers")
@@ -463,7 +463,7 @@ class AsyncProcessPool (object):
                     proc_id = "comp%02d" % i
                     self._compute_workers.append(
                         multiprocessing.Process(name=proc_id, target=self._start_worker,
-                                                args=(self, proc_id, [core] if self.affinity else None, self._compute_queue,
+                                                args=(self, proc_id, [core], self._compute_queue,
                                                       self.pause_on_start)))
                 for i, queue in enumerate(self._io_queues):
                     proc_id = "io%02d" % i
@@ -849,7 +849,7 @@ class AsyncProcessPool (object):
         logger.subprocess_id = proc_id
         if self.affinity: # shouldn't mess with affinity if it was disabled
             if self.verbose:
-                print(ModColor.Str("setting worker pid %d affinity to %d"% (os.getpid(),affinity)), file=log)
+                print(ModColor.Str("setting worker pid %d affinity to %s"% (os.getpid(),str(affinity))), file=log)
             psutil.Process().cpu_affinity(affinity)
         self._run_worker(worker_queue)
         if self.verbose:
