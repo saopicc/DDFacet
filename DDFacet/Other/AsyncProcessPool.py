@@ -166,6 +166,11 @@ class AsyncProcessPool (object):
         self._events = {}
         self._results_map = {}
         self._job_counters = JobCounterPool()
+        # record these on first call
+        self._cpucount = psutil.cpu_count()
+        self._process = psutil.Process()
+        self.inherited_affinity = self._process.cpu_affinity()
+        self.available_cores = len(self.inherited_affinity)
 
     def __del__(self):
         self.shutdown()
@@ -185,27 +190,43 @@ class AsyncProcessPool (object):
         Returns:
 
         """
+        # Take 0 to disable affinity
+        if affinity == 0:
+            print(ModColor.Str("Affinity 0 requested, interpreting as disable"),file=log)
+            affinity = None
+
         self.affinity = affinity
         self.verbose = verbose
 
         self.pause_on_start = pause_on_start
 
         if isinstance(self.affinity, int):
-            self.cpustep = abs(self.affinity) or 1
-            maxcpu = psutil.cpu_count() // self.cpustep
-            self.ncpu = ncpu or maxcpu
-            self.parent_affinity = parent_affinity
+            # check whether we are in an environment (e.g. Slurm) where affinity is
+            # already set. If we are, ignore arguments and DTRT
+            if self.available_cores < self._cpucount:
+                print(ModColor.Str("Warning: inherited affinity is for %d CPUs out of %d only" % (self.available_cores,self._cpucount)), file=log)
+                if ncpu and ncpu>self.available_cores:
+                    raise RuntimeError("NCPU requested is %d but only %d threads are available" % (ncpu,self.available_cores))
+                self.ncpu = ncpu or self.available_cores
+                maxcpu = self.ncpu
+                self.affinity = self.inherited_affinity[:self.ncpu]
+                self.parent_affinity = self.inherited_affinity[0]
+            else:
+                # Assume we have all of the machine available
+                self.cpustep = abs(self.affinity) or 1
+                maxcpu = self._cpucount // self.cpustep
+                self.ncpu = ncpu or maxcpu
+                self.parent_affinity = parent_affinity
         elif isinstance(self.affinity, list):
             if any(map(lambda x: x < 0, self.affinity)):
                 raise RuntimeError("Affinities must be list of positive numbers")
-            if psutil.cpu_count() < max(self.affinity):
-                raise RuntimeError("There are %d virtual threads on this system. Some elements of the affinity map are "
-                                   "higher than this. Check parset." % psutil.cpu_count())
-            self.ncpu = ncpu or len(self.affinity)
-            if self.ncpu != len(self.affinity):
-                print(ModColor.Str("Warning: NCPU does not match affinity list length. Falling back to "
-                                          "NCPU=%d" % len(self.affinity)), file=log)
-            self.ncpu = self.ncpu if self.ncpu == len(self.affinity) else len(self.affinity)
+            if set(self.affinity)<=set(self.inherited_affinity):
+                if self.ncpu != len(self.affinity):
+                    print(ModColor.Str("Warning: NCPU does not match affinity list length. Falling back to "
+                                       "NCPU=%d" % len(self.affinity)), file=log)
+                self.ncpu=len(self.affinity)
+            else:
+                raise RuntimeError("Requested affinity %s is not a subset of available affinity %s" % (str(self.affinity),str(self.inherited_affinity)))
             maxcpu = max(self.affinity) + 1  # zero indexed list
             self.parent_affinity = parent_affinity
         elif isinstance(self.affinity, str) and str(self.affinity) == "enable_ht":
@@ -260,11 +281,11 @@ class AsyncProcessPool (object):
                 self.parent_affinity = 0 # none unused (HT is probably disabled BIOS level)
             else:
                 self.parent_affinity = unused[0] # grab the first unused vthread
-        elif isinstance(self.affinity, str) and str(self.affinity) == "disable":
+        elif self.affinity is None or isinstance(self.affinity, str) and str(self.affinity) == "disable":
             self.affinity = None
             self.parent_affinity = None
             self.cpustep = 1
-            maxcpu = psutil.cpu_count()
+            maxcpu = len(self.inherited_affinity)
             self.ncpu = ncpu or maxcpu
         else:
             raise RuntimeError("Invalid option for Parallel.Affinity. Expected cpu step (int), list, "
@@ -272,8 +293,10 @@ class AsyncProcessPool (object):
         if self.parent_affinity is None:
             print("Parent and I/O affinities not specified, leaving unset", file=log)
         else:
+            if parent_affinity not in self.inherited_affinity:
+                raise RuntimeError("Parent affinity requested (%d) is not in available list of cores" % parent_affinity)
             print(ModColor.Str("Fixing parent process to vthread %d" % self.parent_affinity, col="green"), file=log)
-            psutil.Process().cpu_affinity(range(self.ncpu) if not self.parent_affinity else [self.parent_affinity])
+            self._process.cpu_affinity([self.parent_affinity])
 
         # if NCPU is 0, set to number of CPUs on system
         if not self.ncpu:
@@ -440,7 +463,7 @@ class AsyncProcessPool (object):
                     proc_id = "comp%02d" % i
                     self._compute_workers.append(
                         multiprocessing.Process(name=proc_id, target=self._start_worker,
-                                                args=(self, proc_id, [core], self._compute_queue,
+                                                args=(self, proc_id, [core] if self.affinity else None, self._compute_queue,
                                                       self.pause_on_start)))
                 for i, queue in enumerate(self._io_queues):
                     proc_id = "io%02d" % i
@@ -803,13 +826,13 @@ class AsyncProcessPool (object):
             print("shutdown complete", file=log)
 
     @staticmethod
-    def _start_worker (object, proc_id, affinity, worker_queue, pause_on_start=False):
+    def _start_worker (self, proc_id, affinity, worker_queue, pause_on_start=False):
         """
-            Helper method for worker process startup. ets up affinity, and calls _run_worker method on
-            object with the specified work queue.
+            Helper method for worker process startup. sets up affinity, and calls _run_worker method on
+            self with the specified work queue.
 
         Args:
-            object:
+            self:
             proc_id:
             affinity:
             work_queue:
@@ -824,10 +847,12 @@ class AsyncProcessPool (object):
         _pyArrays.pySetOMPDynamicNumThreads(1)
         AsyncProcessPool.proc_id = proc_id
         logger.subprocess_id = proc_id
-        if affinity:
-            psutil.Process().cpu_affinity(affinity)
-        object._run_worker(worker_queue)
-        if object.verbose:
+        if self.affinity: # shouldn't mess with affinity if it was disabled
+            if self.verbose:
+                print(ModColor.Str("exiting worker pid %d"%os.getpid()), file=log)
+            psutils.Process().cpu_affinity(affinity)
+        self._run_worker(worker_queue)
+        if self.verbose:
             print(ModColor.Str("exiting worker pid %d"%os.getpid()), file=log)
 
 
@@ -931,7 +956,7 @@ def _init_default():
     global APP
     if APP is None:
         APP = AsyncProcessPool()
-        APP.init(psutil.cpu_count(), affinity=0, num_io_processes=1, verbose=0)
+        APP.init(len(APP.inherited_affinity), affinity=0, num_io_processes=1, verbose=0)
 
 _init_default()
 
