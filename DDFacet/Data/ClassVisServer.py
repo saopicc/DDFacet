@@ -34,6 +34,7 @@ import math, os, traceback
 
 from DDFacet.Data import ClassMS
 from DDFacet.Data import ClassWeightMachine
+from DDFacet.Data import ClassMS, ClassDaskMS
 
 from DDFacet.Data.ClassStokes import ClassStokes
 from DDFacet.Other import ModColor
@@ -143,13 +144,14 @@ class ClassVisServer():
 
         # max chunk shape accumulated here
         self._chunk_shape = [0, 0, 0]
+        CMS = ClassDaskMS.ClassDaskMS if self.GD["Data"]["Dask"] else ClassMS.ClassMS 
 
         for iMS,msspec in enumerate(self.MSList):
             if not isinstance(msspec,str):
                 msname, ddid, field, column = msspec
             else:
                 msname, ddid, field, column = msspec, self.DicoSelectOptions["DDID"], self.DicoSelectOptions["Field"], self.ColName
-            MS = ClassMS.ClassMS(
+            MS = CMS(
                 msname,
                 Col=column or self.ColName,
                 SubCol=self.SubColName,
@@ -169,8 +171,8 @@ class ClassVisServer():
             max_freq_Data = max(max_freq_Data, (MS.ChanFreq+MS.ChanWidth/2).max())
 
             # accumulate largest chunk shape
-            for row0, row1 in MS.getChunkRow0Row1():
-                shape = (row1-row0, len(MS.ChanFreq), MS.Ncorr)
+            for nrow in MS.getPerChunkRowCounts():
+                shape = (nrow, len(MS.ChanFreq), MS.Ncorr)
                 self._chunk_shape = [max(a, b)
                                      for a, b in zip(self._chunk_shape, shape)]
 
@@ -426,13 +428,13 @@ class ClassVisServer():
     def visPutColumnHandler (self, DATA, field, column, likecol):
         iMS, iChunk = DATA["iMS"], DATA["iChunk"]
         ms = self.ListMS[iMS]
-        row0, row1 = ms.getChunkRow0Row1()[iChunk]
         if ms.ToRADEC is not None:
             ms.Rotate(DATA,RotateType=["vis"],Sense="ToPhaseCenter",DataFieldName=field)
             
 
-        ms.PutVisColumn(column, DATA[field], row0, row1, likecol=likecol, sort_index=DATA["sort_index"],
-                        flags=DATA["flags"])
+        #ms.PutVisColumn(column, DATA[field], row0, row1, likecol=likecol, sort_index=DATA["sort_index"],
+        #                flags=DATA["flags"])
+        ms.PutVisColumn(column, DATA[field], iChunk, likecol=likecol, sort_index=DATA["sort_index"])
 
     def collectPutColumnResults(self):
         if self._put_vis_column_job_id:
@@ -627,7 +629,7 @@ class ClassVisServer():
             print(ModColor.Str("This chunk is all flagged or has zero weight."), file=log)
             return
         
-        if DATA["sort_index"] is not None and DATA["Weights"] is not 1:
+        if DATA["sort_index"] is not None: # and DATA["Weights"] is not 1: # OMS 2023/12 they're not "1" ever and this seems a bug
             DATA["Weights"] = DATA["Weights"][DATA["sort_index"]]
 
         self.computeBDAInBackground(dictname, ms, DATA,
