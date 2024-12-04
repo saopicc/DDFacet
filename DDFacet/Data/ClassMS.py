@@ -1705,6 +1705,9 @@ class ClassMS():
         
         # now read the weights
         weights = None
+        # To do REW in V, need to mupliply V by sgn(W) 
+        sgnweight = np.ones((nrows, self.Nchan), np.int8)
+
 
         for weight_col in weightcols:
             if weight_col == "WEIGHT_SPECTRUM":
@@ -1716,20 +1719,79 @@ class ClassMS():
                 w = w.mean(axis=2)
             elif weight_col == "None" or weight_col == None:
                 w = None
+            elif ".fits" in weight_col:
+                Th=2
+                if weight_col.split(".fits")[-1]!="":
+                    Th=float(weight_col.split(":")[-1])
+                    weight_col=":".join(weight_col.split(":")[:-1])
+                W_ft=(fits.getdata(weight_col))
+                aW_ft=np.abs(W_ft)
+                sW_ft=np.sign(W_ft)
+                W_ft[aW_ft<Th]=0
+                # M=(aW_ft>=Th)
+                # W_ft[M]=1.#sW_ft[M]
+                
+                nf,nt=W_ft.shape
+                newrow = np.zeros((nf,1),np.float32)
+                W_ft0=W_ft.copy()
+                W_ft = np.hstack([W_ft, newrow])
+                h=fits.getheader(weight_col)
+                t0=h['OBS-STAR']
+                dt=h['CDELT1']
+                df=h['CDELT2']*1e6
+                fMin=float(h['FRQ-MIN'])
+                fMax=float(h['FRQ-MAX'])
+                t0 = astropyTime(t0, format='isot').mjd * 3600. * 24.# + (dt/2.)
+                times = tab.getcol("TIME", row0, nrows)
+                msfreqs = ms.ChanFreq
+
+                iChan=np.int64(np.round((ms.ChanFreq.ravel()-fMin)/df))
+                iTime=np.int64(np.round((times-t0)/dt))
+                
+                iTime_g,iChan_g=np.meshgrid(iTime,iChan)
+                iTime_g=iTime_g.T
+                iChan_g=iChan_g.T
+                
+                wsel=W_ft[iChan_g.ravel(),iTime_g.ravel()].reshape((nrows, self.Nchan))
+                #log.print("nz %i"%np.count_nonzero(wsel))
+
+                sgnweight[wsel<0]=-1
+                # # Unity non-zero weights
+                # wsel[wsel!=0]=1
+                
+                # print("JJHDSFSDJJFG")
+                # print("JJHDSFSDJJFG")
+                # print("JJHDSFSDJJFG")
+                # print("JJHDSFSDJJFG")
+                # print(np.unique(wsel))
+                # print(np.unique(sgnweight))
+                # #print("save")
+                # #np.savez("Weights_test.npz",wsel=wsel,W_ft=W_ft,W_ft0=W_ft0,sgnweight=sgnweight)
+                
+                weight[...] *= np.abs(wsel[...])
             elif weight_col == "Lucky_kMS" and self.GD["DDESolutions"]["DDSols"]:
-                ID = self._chunk_r0r1[ichunk][0]
-                SolsName=self.GD["DDESolutions"]["DDSols"]
+                ID=row0
+                LSolsName=self.GD["DDESolutions"]["DDSols"]
                 SolsDir=self.GD["DDESolutions"]["SolsDir"]
-                if SolsDir is None:
-                    FileName="%skillMS.%s.Weights.%i.npy"%(reformat.reformat(self.MSName),SolsName,ID)
-                else:
-                    _MSName=reformat.reformat(self.MSName).split("/")[-2]
-                    DirName=os.path.abspath("%s%s"%(reformat.reformat(SolsDir),_MSName))
-                    if not os.path.isdir(DirName):
-                        os.makedirs(DirName)
-                    FileName="%s/killMS.%s.Weights.%i.npy"%(DirName,SolsName,ID)
-                log.print( "  loading weights from file: %s"%FileName)
-                w = np.load(FileName)
+                w=None
+                if isinstance(LSolsName,str):
+                    LSolsName=[LSolsName]
+                for SolsName in LSolsName:
+
+                    CGiveSaveFileName=ClassGiveSolsFile.ClassGive_kMSFileName(MSName=ms.MSName,
+                                                                              GD=self.GD)
+                    FileName=CGiveSaveFileName.GiveFileName(SolsName=SolsName,
+                                                            Type="Weights",
+                                                            ROW0=ID)
+                    if "_smoothed" in FileName:
+                        FileName=FileName.replace("_smoothed","")
+                    
+                    log.print( "  loading weights from file: %s"%FileName)
+                    if w is None: 
+                        w=np.load(FileName)
+                    else:
+                        w*=np.load(FileName)
+                    weight[...] *= w
             elif weight_col.endswith(".npy"):
                 log.print("  loading weights from file: %s"%weight_col)
                 w = np.load(weight_col)[slice(self._chunk_r0r1[ichunk]), :]

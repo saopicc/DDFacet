@@ -858,10 +858,14 @@ class ClassDDEGridMachine():
         #     # np.savez("DDEGM.DoPSF_%i.%3.3i.new.npz"%(DoPSF,self.IDFacet),**D)
 
 
-            
+        SinglePSF=self.GD["Facets"]["SinglePSF"]
+        DoPSF=int(DoPSF)
+        
         if False: # # self.GD["Comp"]["GridMode"] == 0:  # really deprecated for now
             raise RuntimeError("Deprecated flag. Please use BDA gridder")
         elif self.GD["RIME"]["BackwardMode"] == "BDA-grid":
+            if SinglePSF and DoPSF:
+                DoPSF=2
             OptimisationInfos = [
                 self.JonesType,
                 ChanEquidistant,

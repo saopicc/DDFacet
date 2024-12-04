@@ -82,7 +82,7 @@ namespace DDF {
 		    const py::array_t<bool, py::array::c_style>& flags,
 		    const py::array_t<float, py::array::c_style>& weights,
 		    py::array_t<double, py::array::c_style>& sumwt,
-		    bool dopsf,
+		    int dopsf,
 		    const py::list& Lcfs,
 		    const py::list& LcfsConj,
 		    const py::array_t<double, py::array::c_style>& WInfos,
@@ -120,7 +120,7 @@ namespace DDF {
     #define callgridder(stokesgrid, nVisPol) \
       {\
             gridder::gridder<readcorr, mulaccum, stokesgrid, gridtype>(np_grid, vis, uvw, flags, weights, sumwt,\
-                                                                       bool(dopsf), Lcfs, LcfsConj, WInfos, increment,\
+                                                                       int(dopsf), Lcfs, LcfsConj, WInfos, increment,\
                                                                        freqs, Lmaps, LJones, SmearMapping, Sparsification,\
                                                                        LOptimisation,LSmearing,np_ChanMapping, expstokes); \
             done=true;\

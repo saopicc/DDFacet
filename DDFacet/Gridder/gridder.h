@@ -83,7 +83,7 @@ namespace DDF {
 		const py::array_t<bool, py::array::c_style>& flags,
 		const py::array_t<float, py::array::c_style>& weights,
 		py::array_t<double, py::array::c_style>& sumwt,
-		bool dopsf,
+		int psf_mode,
 		const py::list& Lcfs,
 		const py::list& LcfsConj,
 		const py::array_t<double, py::array::c_style>& Winfos,
@@ -108,6 +108,21 @@ namespace DDF {
       const double n0=sqrt(1-l0*l0-m0*m0)-1;
 //      const int facet = int(ptrFacetInfos[4]);
 
+      bool dopsf=0;
+      bool doSinglePsf=0;
+      if (psf_mode == 0) {
+	dopsf = 0;
+	doSinglePsf = 0;
+      } else if (psf_mode == 1) {
+	dopsf = 1;
+	doSinglePsf = 0;
+      } else if (psf_mode == 2) {
+	dopsf = 1;
+	doSinglePsf = 1;
+      }
+      //cout<<psf_mode<<dopsf<<doSinglePsf<<endl;
+      
+	
       /* Get size of grid. */
       const double *ptrWinfo = Winfos.data(0);
       const double WaveRefWave = ptrWinfo[0];
@@ -250,7 +265,16 @@ namespace DDF {
 
 	    //cout<<JS.WeightVaryJJ<<endl;
 	    const double FWeight = imgWtPtr[0]*JS.WeightVaryJJ;
+	    if(doSinglePsf){
+	      dcmplx corr2 = Corrcalc.getCorr(Pfreqs, visChan, angle);
+	      //cout<<"1 "<<std::real(corr)<<std::imag(corr)<<endl;
+	      //corr*=std::conj(corr2);
+	      corr*=(corr2);
+	      //cout<<"2 "<<std::real(corr)<<std::imag(corr)<<endl;
+	      
+	    };
 	    const dcmplx Weight   = FWeight*corr;
+	    
 	    const double FWeightDecorr = FWeight*DeCorrFactor*DeCorrFactor;
 	    ThisSumSqWeights += FWeightDecorr;
 	    ThisSumSqWeightsChan[visChan] += FWeightDecorr;

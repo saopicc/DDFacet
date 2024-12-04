@@ -117,7 +117,7 @@ class ClassWeightMachine():
             self.VisWeights = shared_dict.attach("VisWeights")
             # check for errors
             for iMS, MS in enumerate(self.ListMS):
-                for ichunk in range(len(MS.getChunkRow0Row1())):
+                for ichunk in range(MS.numChunks()):
                     msw = self.VisWeights[iMS][ichunk]
                     if "error" in msw:
                         print(ModColor.Str("error computing weights for %s"%MS.MSName), file=log)
@@ -215,9 +215,9 @@ class ClassWeightMachine():
         have_all_weights = wmax_valid and uvmax_valid
         for iMS, MS in enumerate(self.ListMS):
             msweights = self._weight_dict.addSubdict(iMS)
-            for ichunk, (row0, row1) in enumerate(MS.getChunkRow0Row1()):
+            for ichunk in range(len(MS.getPerChunkRowCounts())):
                 msw = msweights.addSubdict(ichunk)
-                path, valid = MS.getChunkCache(row0, row1).checkCache("ImagingWeights%s.npy"%StrField, cache_keys, reset=(self.GD["Cache"]["Weight"]=="reset"))
+                path, valid = MS.getChunkCache(ichunk).checkCache("ImagingWeights%s.npy"%StrField, cache_keys, reset=(self.GD["Cache"]["Weight"]=="reset"))
                 have_all_weights = have_all_weights and valid
                 msw["cachepath"] = path
                 if valid:
@@ -230,7 +230,7 @@ class ClassWeightMachine():
         # spawn parallel jobs to load weights
         for ims,ms in enumerate(self.ListMS):
             msweights = self._weight_dict[ims]
-            for ichunk in range(len(ms.getChunkRow0Row1())):
+            for ichunk in range(len(ms.getPerChunkRowCounts())):
                 msw = msweights[ichunk]
                 APP.runJob("LoadWeights:%d:%d%s"%(ims,ichunk,StrField), self._loadWeights_handler,
                            args=(msw.writeonly(), ims, ichunk, self._ignore_vis_weights),
@@ -243,7 +243,7 @@ class ClassWeightMachine():
         # now work out weight grid sizes, etc.
         for ims, ms in enumerate(self.ListMS):
             msweights = self._weight_dict[ims]
-            for ichunk in range(len(ms.getChunkRow0Row1())):
+            for ichunk in range(len(ms.getPerChunkRowCounts())):
                 msw = msweights[ichunk]
                 if "error" in msw:
                     raise msw["error"]
@@ -299,7 +299,7 @@ class ClassWeightMachine():
             AvailableGB= psutil.virtual_memory().available/1024**3
             NJobs=0
             for ims, ms in enumerate(self.ListMS):
-                for ichunk in range(len(ms.getChunkRow0Row1())):
+                for ichunk in range(len(ms.getPerChunkRowCounts())):
                     if "weight" in self._weight_dict[ims][ichunk]:
                         NJobs+=1
             NGrids=np.min([int(AvailableGB/GridSizeGB),NJobs])
@@ -326,7 +326,7 @@ class ClassWeightMachine():
             # now run parallel jobs to accumulate weights
             iGrid=0
             for ims, ms in enumerate(self.ListMS):
-                for ichunk in range(len(ms.getChunkRow0Row1())):
+                for ichunk in range(len(ms.getPerChunkRowCounts())):
                     if "weight" in self._weight_dict[ims][ichunk]:
                         APP.runJob("AccumWeights:%d:%d%s" % (ims, ichunk,StrField), self._accumulateWeights_handler,
                                    args=(self._weight_grid.readonly(),
@@ -353,7 +353,7 @@ class ClassWeightMachine():
 
         # launch jobs to finalize weights and save them to the cache
         for ims, ms in enumerate(self.ListMS):
-            for ichunk in range(len(ms.getChunkRow0Row1())):
+            for ichunk in range(len(ms.getPerChunkRowCounts())):
                 self._CalcSigmoidTaper(ims, ms, ichunk)
                 APP.runJob("FinalizeWeights:%d:%d%s" % (ims, ichunk,StrField), self._finalizeWeights_handler,
                            args=(self._weight_grid.readonly(),
@@ -367,13 +367,13 @@ class ClassWeightMachine():
         # check for errors
         self._weight_dict.reload()
         for ims, ms in enumerate(self.ListMS):
-            for ichunk, (row0, row1) in enumerate(ms.getChunkRow0Row1()):
+            for ichunk in range(len(ms.getPerChunkRowCounts())):
                 if not self._weight_dict[ims][ichunk].get("success"):
                     raise RuntimeError("weight computation has failed, see error messages above")
         # mark cache as valid
         for ims, ms in enumerate(self.ListMS):
-            for ichunk, (row0, row1) in enumerate(ms.getChunkRow0Row1()):
-                ms.getChunkCache(row0, row1).saveCache("ImagingWeights%s.npy"%StrField)
+            for ichunk in range(len(ms.getPerChunkRowCounts())):
+                ms.getChunkCache(ichunk).saveCache("ImagingWeights%s.npy"%StrField)
 
     def _loadWeights_handler(self, msw, ims, ichunk, wmax_only=False):
         """If wmax_only is True, then don't actually read or compute weighs -- only read UVWs
@@ -383,10 +383,59 @@ class ClassWeightMachine():
         try:
             
             ms = self.ListMS[ims]
+            List_weight_col = self.GD["Weight"]["ColName"]
+            if not isinstance(List_weight_col,list):
+                List_weight_col=[List_weight_col]
+            uvw, flags, rowflags, weights = ms.readWeights(ichunk, uvw_only=wmax_only, weightcols=List_weight_col)
+            # skip empty or fully flagged chunks
+            if uvw is None:
+                msw["wmax"] = 0
+                msw["uvmax_wavelengths"] = 0
+                return
             msname = "%s chunk %d"%(ms.MSName, ichunk)
-            row0, row1 = ms.getChunkRow0Row1()[ichunk]
             msfreqs = ms.ChanFreq
-            nrows = row1 - row0
+            # max of |u|, |v| in wavelengths
+            uv = uvw[:, :2]
+            uvmax_wavelengths = abs(uv[~rowflags,:]).max() * msfreqs.max() / _cc
+            # adjust max uv (in wavelengths) and max w
+            msw["wmax"] = abs(uvw[~rowflags,2]).max()
+            msw["uvmax_wavelengths"] = uvmax_wavelengths
+            del uvw
+            if wmax_only:
+                return
+            msw["uv"] = uv
+            msw["flags"] = rowflags
+
+
+
+            
+            # now read the weights
+            weight = msw.addSharedArray("weight", flags.shape, np.float32)
+            weight[...] = weights
+            weight[flags] = 0
+            
+            sgnweight = msw.addSharedArray("sgnweight", flags.shape[0:2], np.int8)
+            sgnweight.fill(1)
+            
+            # check for null weights
+            nullweight = (weight==0).all()
+            if nullweight:
+                msw.delete_item("sgnweight")
+                msw.delete_item("weight")
+                msw.delete_item("uv")
+                msw.delete_item("flags")
+            else:
+                msw["bandmap"] = self.DicoMSChanMapping[ims]
+        except Exception as exc:
+            print(ModColor.Str("Error loading weights from %s:"%msname), file=log)
+            for line in traceback.format_exc().split("\n"):
+                print(ModColor.Str("  "+line), file=log)
+            msw["error"] = exc
+            msw.delete_item("weight")
+            msw.delete_item("uv")
+            msw.delete_item("flags")
+            msw.delete_item("sgnweight")
+            
             chanslice = ms.ChanSlice
             if not nrows:
     #            print>> log, "  0 rows: empty chunk"
@@ -395,6 +444,8 @@ class ClassWeightMachine():
     #        print>>log,"  %d.%d reading %s UVW" % (ims+1, ichunk+1, ms.MSName)
             uvw = tab.getcol("UVW", row0, nrows)
             flags = np.empty((nrows, len(ms.ChanFreq), len(ms.CorrelationIds)), bool)
+
+            
             # print>>log,(ms.cs_tlc,ms.cs_brc,ms.cs_inc,flags.shape)
     #        print>>log,"  reading FLAG"
             tab.getcolslicenp("FLAG", flags, ms.cs_tlc, ms.cs_brc, ms.cs_inc, row0, nrows)
@@ -413,182 +464,11 @@ class ClassWeightMachine():
             #flags = flags.any(axis=2)
             #rowflags = flags.all(axis=1)
             
-            if ms._reverse_channel_order:
-                flags = flags[:,::-1,:]
-            flags = flags.max(axis=2)
-            valid = ~flags
 
 
 
             
-            # if all channels are flagged, flag whole row. Shape of flags becomes nrow
-            rowflags = flags.min(axis=1)
-            # if everything is flagged, skip this entry
-            if rowflags.all():
-    #            print>> log, "  all flagged: marking as null"
-                msw["wmax"] = 0
-                msw["uvmax_wavelengths"] = 0
-                return
-            # max of |u|, |v| in wavelengths
-            uv = uvw[:, :2]
-            uvmax_wavelengths = abs(uv[~rowflags,:]).max() * msfreqs.max() / _cc
-            # adjust max uv (in wavelengths) and max w
-            msw["wmax"] = abs(uvw[~rowflags,2]).max()
-            msw["uvmax_wavelengths"] = uvmax_wavelengths
-            del uvw
-            if wmax_only:
-                return
-            msw["uv"] = uv
-            msw["flags"] = rowflags
             
-            # now read the weights
-            weight = msw.addSharedArray("weight", (nrows, ms.Nchan), np.float32)
-            List_weight_col = self.GD["Weight"]["ColName"]
-            if not isinstance(List_weight_col,list):
-                List_weight_col=[List_weight_col]
-            weight.fill(1.)
-
-            
-            # To do REW in V, need to mupliply V by sgn(W) 
-            sgnweight = msw.addSharedArray("sgnweight", (nrows, ms.Nchan), np.int8)
-            sgnweight.fill(1)
-            
-            for weight_col in List_weight_col:
-                if weight_col is not None:
-                    print("reading weighting column %s"%weight_col, file=log)
-                if weight_col == "WEIGHT_SPECTRUM":
-                    w = tab.getcol(weight_col, row0, nrows)[:, chanslice]
-        #            print>> log, "  reading column %s for the weights, shape is %s" % (weight_col, w.shape)
-                    if ms._reverse_channel_order:
-                        w = w[:, ::-1, :]
-                    # take mean weight across correlations and apply this to all
-                    weight[...] *= w.mean(axis=2)
-                elif weight_col == "None" or weight_col == None:
-                    pass#weight.fill(1)
-                elif ".fits" in weight_col:
-                    Th=2
-                    if weight_col.split(".fits")[-1]!="":
-                        Th=float(weight_col.split(":")[-1])
-                        weight_col=":".join(weight_col.split(":")[:-1])
-                    W_ft=(fits.getdata(weight_col))
-                    aW_ft=np.abs(W_ft)
-                    sW_ft=np.sign(W_ft)
-                    W_ft[aW_ft<Th]=0
-                    # M=(aW_ft>=Th)
-                    # W_ft[M]=1.#sW_ft[M]
-                    
-                    nf,nt=W_ft.shape
-                    newrow = np.zeros((nf,1),np.float32)
-                    W_ft0=W_ft.copy()
-                    W_ft = np.hstack([W_ft, newrow])
-                    h=fits.getheader(weight_col)
-                    t0=h['OBS-STAR']
-                    dt=h['CDELT1']
-                    df=h['CDELT2']*1e6
-                    fMin=float(h['FRQ-MIN'])
-                    fMax=float(h['FRQ-MAX'])
-                    t0 = astropyTime(t0, format='isot').mjd * 3600. * 24.# + (dt/2.)
-                    times = tab.getcol("TIME", row0, nrows)
-                    msfreqs = ms.ChanFreq
-
-                    iChan=np.int64(np.round((ms.ChanFreq.ravel()-fMin)/df))
-                    iTime=np.int64(np.round((times-t0)/dt))
-                    
-                    iTime_g,iChan_g=np.meshgrid(iTime,iChan)
-                    iTime_g=iTime_g.T
-                    iChan_g=iChan_g.T
-                    
-                    wsel=W_ft[iChan_g.ravel(),iTime_g.ravel()].reshape((nrows, ms.Nchan))
-                    #log.print("nz %i"%np.count_nonzero(wsel))
-
-                    sgnweight[wsel<0]=-1
-                    # # Unity non-zero weights
-                    # wsel[wsel!=0]=1
-                    
-                    # print("JJHDSFSDJJFG")
-                    # print("JJHDSFSDJJFG")
-                    # print("JJHDSFSDJJFG")
-                    # print("JJHDSFSDJJFG")
-                    # print(np.unique(wsel))
-                    # print(np.unique(sgnweight))
-                    # #print("save")
-                    # #np.savez("Weights_test.npz",wsel=wsel,W_ft=W_ft,W_ft0=W_ft0,sgnweight=sgnweight)
-                    
-                    weight[...] *= np.abs(wsel[...])
-                elif weight_col == "Lucky_kMS" and self.GD["DDESolutions"]["DDSols"]:
-                    ID=row0
-                    LSolsName=self.GD["DDESolutions"]["DDSols"]
-                    SolsDir=self.GD["DDESolutions"]["SolsDir"]
-                    w=None
-                    if isinstance(LSolsName,str):
-                        LSolsName=[LSolsName]
-                    for SolsName in LSolsName:
-                        
-                        # print("SolsName",SolsName)
-                        # if SolsDir is None:
-                        #     FileName="%skillMS.%s.Weights.%i.npy"%(reformat.reformat(ms.MSName),SolsName,ID)
-                        # else:
-                        #     _MSName=reformat.reformat(ms.MSName).split("/")[-2]
-                        #     DirName=os.path.abspath("%s%s"%(reformat.reformat(SolsDir),_MSName))
-                        #     if not os.path.isdir(DirName):
-                        #         os.makedirs(DirName)
-                        #     FileName="%s/killMS.%s.Weights.%i.npy"%(DirName,SolsName,ID)
-
-                        CGiveSaveFileName=ClassGiveSolsFile.ClassGive_kMSFileName(MSName=ms.MSName,
-                                                                                  GD=self.GD)
-                        FileName=CGiveSaveFileName.GiveFileName(SolsName=SolsName,
-                                                                Type="Weights",
-                                                                ROW0=ID)
-                        if "_smoothed" in FileName:
-                            FileName=FileName.replace("_smoothed","")
-                        
-                        log.print( "  loading weights from file: %s"%FileName)
-                        if w is None: 
-                            w=np.load(FileName)
-                        else:
-                            w*=np.load(FileName)
-                        weight[...] *= w
-                elif ".npy" in weight_col:
-                    ID=row0
-                    FileName=weight_col
-                    log.print( "  loading weights from file: %s"%FileName)
-                    w=np.load(FileName)
-                    weight[...] *= w[row0:row0+nrows,...]
-                elif weight_col == "WEIGHT":
-                    w = tab.getcol(weight_col, row0, nrows)
-        #            print>> log, "  reading column %s for the weights, shape is %s, will expand frequency axis" % (weight_col, w.shape)
-                    # take mean weight across correlations, and expand to have frequency axis
-                    weight[...] *= w.mean(axis=1)[:, np.newaxis]
-                else:
-                    # in all other cases (i.e. IMAGING_WEIGHT) assume a column
-                    # of shape NRow,NFreq to begin with, check for this:
-                    w = tab.getcol(weight_col, row0, nrows)[:, chanslice]
-        #            print>> log, "  reading column %s for the weights, shape is %s" % (weight_col, w.shape)
-                    if w.shape != valid.shape:
-                        raise TypeError("weights column expected to have shape of %s" %
-                            (valid.shape,))
-                    weight[...] *= w
-                # end for wieghcol loop
-            
-            # flagged points get zero weight
-            weight *= valid
-            nullweight = (weight==0).all()
-            if nullweight:
-                msw.delete_item("weight")
-                msw.delete_item("sgnweight")
-                msw.delete_item("uv")
-                msw.delete_item("flags")
-            else:
-                msw["bandmap"] = self.DicoMSChanMapping[ims]
-        except Exception as exc:
-            print(ModColor.Str("Error loading weights from %s:"%msname), file=log)
-            for line in traceback.format_exc().split("\n"):
-                print(ModColor.Str("  "+line), file=log)
-            msw["error"] = exc
-            msw.delete_item("weight")
-            msw.delete_item("sgnweight")
-            msw.delete_item("uv")
-            msw.delete_item("flags")
 
     def _uv_to_index_Cheap(self, ims, uv, weights, freqsAll, cell, npix, npixx, nbands, xymax):
         """Helper method: converts UV coordinates to indices into a UV-grid"""

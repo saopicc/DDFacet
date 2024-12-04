@@ -508,6 +508,9 @@ class ClassImagerDeconv():
     def _finalizeComputedPSF (self, FacetMachinePSF, cachepath=None):
         self.DicoImagesPSF = FacetMachinePSF.FacetsToIm(NormJones=True)
         FacetMachinePSF.releaseGrids()
+        
+        stop
+        
         self._psfmean, self._psfcube = self.DicoImagesPSF["MeanImage"], self.DicoImagesPSF["ImageCube"]  # this is only for the casa image saving
         self.DicoImagesPSF["DicoImager"]=copy.deepcopy((self.FacetMachinePSF.DicoImager or self.FacetMachine.DicoImager))
         self.HasFittedPSFBeam = False
