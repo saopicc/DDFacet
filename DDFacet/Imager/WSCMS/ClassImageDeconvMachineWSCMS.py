@@ -386,6 +386,9 @@ class ClassImageDeconvMachine():
         for scale in self.ModelMachine.ScaleMachine.forbidden_scales:
             self.ModelMachine.ScaleMachine.retired_scales.append(scale)
             scales_stalled[scale] = 1
+
+
+            
         try:
             while self._niter <= self.MaxMinorIter:
                 # Check if diverging
@@ -421,6 +424,13 @@ class ClassImageDeconvMachine():
                 # compute the new mean image from the weighted sum of over frequency
                 self._MeanDirty = np.sum(self._Dirty * self.WeightsChansImages, axis=0, keepdims=True)
 
+                import pylab
+                pylab.clf()
+                pylab.imshow(self._MeanDirty[0,0],interpolation="nearest")
+                pylab.draw()
+                pylab.show(block=False)
+                pylab.pause(0.1)
+                
                 ThisRMS = np.std(self._MeanDirty * ~self.MaskArray)
 
                 # check for and retire scales that cause stalls
@@ -445,6 +455,7 @@ class ClassImageDeconvMachine():
                 # update counter
                 self._niter += niter
 
+                print("    [iter=%i] peak residual %.8g, rms = %.8g, scale = %i" % (self._niter, ThisFlux, TrackRMS, iScale), file=log)
                 if iScale != self.LastScale:
                     print("    [iter=%i] peak residual %.8g, rms = %.8g, scale = %i" % (self._niter, ThisFlux, TrackRMS, iScale), file=log)
                     self.LastScale = iScale

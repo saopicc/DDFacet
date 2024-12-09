@@ -129,6 +129,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 self.NCPU = multiprocessing.cpu_count()
         else:
              self.NCPU = NCPU
+             
         self.DoAbs = self.GD["Deconv"]["AllowNegative"]
         self.ScaleMachine = ClassScaleMachine.ClassScaleMachine(GD=self.GD, NCPU=self.NCPU, MaskArray=MaskArray)
         self.ScaleMachine.Init(PSFServer, self.FreqMachine, cachepath=cachepath, MaxBaseline=MaxBaseline)

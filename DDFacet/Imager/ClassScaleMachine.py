@@ -179,7 +179,7 @@ class ClassScaleMachine(object):
             print(" - Scale %i, bias factor=%f, psfpeak=%f, gain=%f, kernel peak=%f" % \
                                (self.alphas[i], self.bias[i], self.ConvPSFmeanMax,
                                 self.gains[key], self.kernels[i].max()), file=log)
-        
+
         # these are permanent
         self.forbidden_scales = []
         # these get reset at the start of every major cycle
@@ -279,22 +279,33 @@ class ClassScaleMachine(object):
             cell_size_rad_y = cell_y * np.pi / (180 * 3600)
             FWHM0_pix_x = np.sqrt(2) * min_beam/cell_size_rad_x  # sqrt(2) is fiddle factor which gives approx same scales as wsclean
             FWHM0_pix_y = np.sqrt(2) * min_beam/cell_size_rad_y  # sqrt(2) is fiddle factor which gives approx same scales as wsclean
-            alpha0 = np.ceil(np.mean([FWHM0_pix_x,FWHM0_pix_y]) / 0.45)
-            if alpha0 % 2:
-                alpha0 += 1
-            alphas = [alpha0, 4*alpha0]
-            i = 1
-            while alphas[i] < MaxScale:  # hardcoded for now
-                alphas.append(1.5*alphas[i])
-                i += 1
+            # alpha0 = np.ceil(np.mean([FWHM0_pix_x,FWHM0_pix_y]) / 0.45)
+            # if alpha0 % 2:
+            #     alpha0 += 1
+            # alphas = [alpha0, 4*alpha0]
+            # i = 1
+            # while alphas[i] < MaxScale:  # hardcoded for now
+            #     alphas.append(1.5*alphas[i])
+            #     i += 1
+
+            alpha1=np.ceil(np.min([FWHM0_pix_x,FWHM0_pix_y]) / 0.45)
+                
+            alphas=[0,alpha1]
+            while True:
+                ThisScale=2*alphas[-1]
+                if ThisScale > MaxScale: break
+                alphas.append(ThisScale)
+                
             self.alphas = np.asarray(alphas[0:-1])
             self.Nscales = self.alphas.size
+
         else:
             print("Using user defined scales", file=log)
             self.alphas = np.asarray(self.GD["WSCMS"]["Scales"], dtype=float)
             self.Nscales = self.alphas.size
 
         for i in range(self.Nscales):
+            if i==0: continue
             if self.alphas[i] % 2 == 0:
                 self.alphas[i] += 1
 
@@ -342,7 +353,6 @@ class ClassScaleMachine(object):
     def set_bias(self):
         # get scale bias factor
         self.beta = self.GD["WSCMS"]["MultiScaleBias"]
-
         # set scale bias according to Offringa definition implemented i.t.o. inverse bias
         self.bias = np.ones(self.Nscales, dtype=np.float64)
         for scale in range(1, self.Nscales):
@@ -359,21 +369,21 @@ class ClassScaleMachine(object):
         self.volumes = np.zeros(self.Nscales, dtype=np.float64)
         self.kernels = np.empty(self.Nscales, dtype=object)
         for i in range(self.Nscales):
-            self.sigmas[i] = 3.0 * self.alphas[i] / 16.0
-
-            # support of Gaussian components in pixels
-            half_alpha = self.alphas[i] / 2.0
-
-            # set grid of x, y coordinates
-            x, y = np.mgrid[-half_alpha:half_alpha:self.alphas[i] * 1j, -half_alpha:half_alpha:self.alphas[i] * 1j]
-
-            # evaluate scale kernel
-            self.kernels[i] = np.exp(-(x ** 2 + y ** 2) / (2 * self.sigmas[i] ** 2))
-
+            
+            nx=int(self.alphas[i])
+            if nx==0:
+                self.kernels[i] = np.ones((1,1),np.float32)
+            else:
+                # support of Gaussian components in pixels
+                half_alpha = self.alphas[i] / 2.0
+                # set grid of x, y coordinates
+                x, y = np.mgrid[-half_alpha:half_alpha:self.alphas[i] * 1j, -half_alpha:half_alpha:self.alphas[i] * 1j]
+                # evaluate scale kernel
+                self.sigmas[i] = 3.0 * self.alphas[i] / 16.0
+                sigx=self.sigmas[i]
+                self.kernels[i] = np.exp(-(x ** 2 + y ** 2) / (2 * sigx**2))
             self.extents[i] = self.alphas[i]
-
             self.volumes[i] = np.sum(self.kernels[i])
-
             self.kernels[i] /= self.volumes[i]
 
     def give_gain(self, iFacet, iScale):
