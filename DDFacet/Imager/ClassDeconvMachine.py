@@ -508,11 +508,12 @@ class ClassImagerDeconv():
     def _finalizeComputedPSF (self, FacetMachinePSF, cachepath=None):
         self.DicoImagesPSF = FacetMachinePSF.FacetsToIm(NormJones=True)
         FacetMachinePSF.releaseGrids()
-        
-        stop
-        
-        self._psfmean, self._psfcube = self.DicoImagesPSF["MeanImage"], self.DicoImagesPSF["ImageCube"]  # this is only for the casa image saving
         self.DicoImagesPSF["DicoImager"]=copy.deepcopy((self.FacetMachinePSF.DicoImager or self.FacetMachine.DicoImager))
+        if self.GD["Facets"]["SinglePSF"]:
+            self.DicoImagesPSF = FacetMachinePSF.toSingleFacet()
+            
+        self._psfmean, self._psfcube = self.DicoImagesPSF["MeanImage"], self.DicoImagesPSF["ImageCube"]  # this is only for the casa image saving
+        
         self.HasFittedPSFBeam = False
         self.fit_stat = self.FitPSF()
         if cachepath:
@@ -1729,6 +1730,7 @@ class ClassImagerDeconv():
                 forced_beam=[forced_beam[0],forced_beam[0],0]
             f_beam=(forced_beam[0]/3600.0,forced_beam[1]/3600.0,forced_beam[2])
             f_gau=(np.deg2rad(f_beam[0])/FWHMFact,np.deg2rad(f_beam[1])/FWHMFact,np.deg2rad(f_beam[2]))
+            
         PSF = self.DicoImagesPSF["CubeVariablePSF"][self.FacetMachinePSF.iCentralFacet]
         meanPSF = self.DicoImagesPSF["CubeMeanVariablePSF"][self.FacetMachinePSF.iCentralFacet]
 

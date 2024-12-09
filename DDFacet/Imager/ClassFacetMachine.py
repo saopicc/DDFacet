@@ -1390,6 +1390,12 @@ class ClassFacetMachine():
             # print>>log,"copying dictPSF"
             # DicoImages.reload()
             self._psf_dict = DicoImages
+
+
+
+
+
+            
             return DicoImages
 
         # else build Dirty (residual) image
@@ -1419,6 +1425,95 @@ class ClassFacetMachine():
             DicoImages["FacetNorm"] = FacetNorm  # grid-correcting map
             DicoImages["JonesNorm"] = JonesNorm
             return DicoImages
+
+    def toSingleFacet(self):
+        log.print("Convert FacetMachine to single facet-like...")
+        DicoImages=self._psf_dict
+        nch, npol, nx, ny=DicoImages["ImageCube"].shape
+        iCentralFacet=DicoImages["CentralFacet"]
+
+        DD={}
+        for key in list(DicoImages["Facets"][iCentralFacet].keys()): DD[key]=DicoImages["Facets"][iCentralFacet][key]
+        
+        for iFacet in list(DicoImages["Facets"].keys()):
+            DicoImages["Facets"].delete_item(iFacet)
+
+        
+        DicoImages["Facets"].addSubdict(0)
+        DicoImages["Facets"][0]=DD
+
+        DD={}
+        for key in list(DicoImages["DicoImager"][iCentralFacet].keys()):
+            DD[key]=DicoImages["DicoImager"][iCentralFacet][key]
+
+
+        DD["Polygon"] = self.CornersImageTot
+        l,m=self.CornersImageTot.T
+        l0,l1=l.min(),l.max()
+        m0,m1=m.min(),m.max()
+        
+        DD['lmDiam']=(l1-l0,m1-m0)
+        DD['lmDiamPadded']=DD['lmDiam']
+        DD['RadiusFacet']=DD['lmDiam']
+        DD['RadiusFacetPadded']=DD['lmDiam']
+        DD['lmExtent']=DD['lmExtentPadded']=(l0,l1,m0,m1)
+        DD['NpixFacet']=DD['NpixFacetPadded']=(nx,ny)
+        DD['DicoConfigGM']=None
+        DD['IDFacet']=0
+        
+        DicoImages.delete_item("DicoImager")
+        DicoImages.addSubdict("DicoImager")
+        DicoImages["DicoImager"].addSubdict(0)
+        DicoImages["DicoImager"][0]=DD
+
+        DicoImages.delete_item("CubeVariablePSF")
+        DicoImages.addSharedArray("CubeVariablePSF",(1, nch, npol, nx, ny), np.float32)
+        DicoImages["CubeVariablePSF"][0,:]=DicoImages["ImageCube"][:]
+        
+        DicoImages.delete_item("CubeMeanVariablePSF")
+        DicoImages.addSharedArray("CubeMeanVariablePSF",(1,1, npol, nx, ny), np.float32)
+        DicoImages["CubeMeanVariablePSF"][0,:]=DicoImages["MeanImage"][:]
+        
+        # pdb> p DicoImages["PeakNormed_CubeVariablePSF"].shape
+        # (25, 2, 1, 809, 809)
+        # ipdb> p DicoImages["PeakNormed_CubeMeanVariablePSF"].shape
+        # (25, 1, 1, 809, 809)
+
+        
+        DicoImages.delete_item("PeakNormed_CubeVariablePSF")
+        DicoImages.addSharedArray("PeakNormed_CubeVariablePSF",(1, nch, npol, nx, ny), np.float32)
+        DicoImages["PeakNormed_CubeVariablePSF"][0,...]=DicoImages["ImageCube"][:]
+
+        DicoImages.delete_item("PeakNormed_CubeMeanVariablePSF")
+        DicoImages.addSharedArray("PeakNormed_CubeMeanVariablePSF",(1, 1, npol, nx, ny), np.float32)
+        DicoImages["PeakNormed_CubeMeanVariablePSF"][0,...]=DicoImages["MeanImage"][:]
+
+        DicoImages.delete_item("MeanFacetPSF")
+        DicoImages.addSharedArray("MeanFacetPSF",(1, npol, nx, ny), np.float32)
+        DicoImages["MeanFacetPSF"][:]=DicoImages["MeanImage"][:]
+        
+        DicoImages["MeanJonesBand"]=DicoImages["MeanJonesBand"][iCentralFacet:iCentralFacet+1]
+
+
+        LSumJonesChan=[]
+        
+        for iMS in range(self.VS.nMS):
+            SumJonesChan=DicoImages["SumJonesChan"][iMS].copy()
+            SumJonesChan=SumJonesChan[iCentralFacet:iCentralFacet+1,:,:]
+            LSumJonesChan.append(SumJonesChan)
+            
+        
+        DicoImages.delete_item("SumJonesChan")
+        ListSumJonesChan = DicoImages.addSubdict("SumJonesChan")
+        for iMS in range(self.VS.nMS):
+            nVisChan = self.VS.ListMS[iMS].ChanFreq.size
+            ThisMSSumJonesChan = ListSumJonesChan.addSharedArray(iMS, (1, 2, nVisChan), np.float64)
+            ThisMSSumJonesChan[:]=LSumJonesChan[iMS]
+
+        DicoImages["CentralFacet"]=0
+        self.iCentralFacet=0
+        
+        return DicoImages
 
     def getNormDict(self): return self._norm_dict
 

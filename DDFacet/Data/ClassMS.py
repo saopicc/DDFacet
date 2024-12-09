@@ -1376,7 +1376,7 @@ class ClassMS():
 
     #def PutVisColumn(self, colname, vis, row0, row1, likecol="DATA", sort_index=None, ColDesc=None,
     #                 flags=None):
-    def PutVisColumn(self, colname, vis, ichunk, likecol="DATA", sort_index=None, ColDesc=None):
+    def PutVisColumn(self, colname, vis, ichunk, likecol="DATA", sort_index=None, ColDesc=None, flags=None):
         self.AddCol(colname,
                     LikeCol=likecol,
                     quiet=True,
