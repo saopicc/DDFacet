@@ -176,9 +176,9 @@ class ClassScaleMachine(object):
         for i in range(self.Nscales):
             self.set_gains(self.CentralFacetID, i)
             key = 'S' + str(i) + 'F' + str(self.CentralFacetID)
-            print(" - Scale %i, bias factor=%f, psfpeak=%f, gain=%f, kernel peak=%f" % \
-                               (self.alphas[i], self.bias[i], self.ConvPSFmeanMax,
-                                self.gains[key], self.kernels[i].max()), file=log)
+            print(" - Scale#%i Support=%i pix, bias factor=%f, psfpeak=%f, gain=%f, kernel peak=%f, kernel volume=%f" % \
+                  (i,self.alphas[i], self.bias[i], self.ConvPSFmeanMax,
+                   self.gains[key], self.kernels[i].max(), self.volumes[i]), file=log)
 
         # these are permanent
         self.forbidden_scales = []
@@ -356,7 +356,8 @@ class ClassScaleMachine(object):
         # set scale bias according to Offringa definition implemented i.t.o. inverse bias
         self.bias = np.ones(self.Nscales, dtype=np.float64)
         for scale in range(1, self.Nscales):
-            self.bias[scale] = self.beta**(-1.0 - np.log2(self.alphas[scale]/self.alphas[1]))
+            #self.bias[scale] = self.beta**(-1.0 - np.log2(self.alphas[scale]/self.alphas[1]))
+            self.bias[scale] = self.beta**(1.0 + np.log2(self.alphas[scale]/self.alphas[1]))
 
 
     def set_kernels(self):
@@ -381,10 +382,11 @@ class ClassScaleMachine(object):
                 # evaluate scale kernel
                 self.sigmas[i] = 3.0 * self.alphas[i] / 16.0
                 sigx=self.sigmas[i]
-                self.kernels[i] = np.exp(-(x ** 2 + y ** 2) / (2 * sigx**2))
+                self.kernels[i] = (1./(2.*np.pi*sigx**2))*np.exp(-(x ** 2 + y ** 2) / (2 * sigx**2))
             self.extents[i] = self.alphas[i]
             self.volumes[i] = np.sum(self.kernels[i])
             self.kernels[i] /= self.volumes[i]
+            
 
     def give_gain(self, iFacet, iScale):
         """
@@ -467,43 +469,102 @@ class ClassScaleMachine(object):
         # convolve mean dirty with each scale in parallel
         Ix = slice(self.Npad_x, self.NpixPadded_x - self.Npad_x)
         Iy = slice(self.Npad_y, self.NpixPadded_y - self.Npad_y)
+        
+        #####################
         self.FTMachine.xhatim[...] = iFs(np.pad(MeanDirty[0:1], ((0, 0),(0,0),(self.Npad_x, self.Npad_x),(self.Npad_y, self.Npad_y)),mode='constant'), axes=(2, 3))
         self.FTMachine.FFTim()
         self.FTMachine.Shat[...] = self.FTMachine.xhatim
-        kernels = self.GaussianSymmetricFT(self.sigmas[:, None, None, None], mode='Image')
+        kernels = self.GaussianSymmetricFT(self.sigmas[:, None, None, None], mode='Image') #/ self.volumes.reshape((-1,1,1,1))
         self.FTMachine.Shat *= iFs(kernels, axes=(2, 3))
         self.FTMachine.iSFFT()
         ConvMeanDirtys = np.ascontiguousarray(Fs(self.FTMachine.Shat.real, axes=(2, 3))[:, :, Ix, Iy])
-
         # reset the zero scale
         # LB - for scale 0 we might want to do scale selection based
         # on the convolved image instead of MeanDirty
         ConvMeanDirtys[0:1] = MeanDirty.copy()
+        #####################
+        
+        # #####################
+        # # usinf fftpack
+        # ConvMeanDirtys2=[MeanDirty[0].copy()]
+        # import scipy.signal
+        # for iScale in range(1,self.Nscales):
+        #     k=self.kernels[iScale]
+        #     Ic=scipy.signal.fftconvolve(MeanDirty[0,0], k, mode='same')
+        #     nx,ny=Ic.shape
+        #     ConvMeanDirtys2.append(Ic.reshape((1,nx,ny)))
+            
+        # ConvMeanDirtys2=np.float32(ConvMeanDirtys2).reshape((self.Nscales,1,nx,ny))
+        # import pylab
+        # pylab.clf()
+        # ax=pylab.subplot(1,2,1)
+        # pylab.imshow(ConvMeanDirtys[4,0],interpolation="nearest")
+        # pylab.subplot(1,2,2,sharex=ax,sharey=ax)
+        # pylab.imshow(ConvMeanDirtys2[4,0],interpolation="nearest")
+        # pylab.draw()
+        # pylab.show()
+        # pylab.pause(0.1)
+        # #####################
+        
+        # import pylab
+        # pylab.clf()
+        # nx,ny=2,3
+        # ax=pylab.subplot(2,3,1)
+        # for iSc in range(6):
+        #     if iSc!=0: pylab.subplot(2,3,iSc+1,sharex=ax,sharey=ax)
+        #     pylab.imshow(ConvMeanDirtys[iSc,0],interpolation="nearest")
+        # pylab.draw()
+        # pylab.show()
+        # pylab.pause(0.1)
 
+        # import pylab
+        # pylab.clf()
+        # ax=pylab.subplot(1,2,1)
+        # nx=kernels.shape[-1]
+        # pylab.imshow(kernels[5,0],interpolation="nearest",extent=(-nx/2,nx/2,-nx/2,nx/2))
+        # pylab.subplot(1,2,2,sharex=ax,sharey=ax)
+        # nx=self.kernels[5].shape[-1]
+        # pylab.imshow(self.kernels[5],interpolation="nearest",extent=(-nx/2,nx/2,-nx/2,nx/2))
+        # pylab.draw()
+        # pylab.show()
+        # pylab.pause(0.1)
+
+        
         # initialise to zero so we always trigger the
         # if statement below at least once
         BiasedMaxVal = 0.0
         # find most relevant scale
+        pAlpha=np.zeros((self.Nscales,),float)
+        Lxy=[]
+        LMax=[]
         for iScale in range(self.Nscales):
-            if iScale not in self.retired_scales:
-                # get mask for scale (once auto-masking kicks in we use that instead of external mask)
-                if self.AppendMaskComponents or not self.GD["WSCMS"]["AutoMask"]:
-                    ScaleMask = self.MaskArray
-                else:
-                    ScaleMask = self.ScaleMaskArray[str(iScale)]
+            if iScale in self.retired_scales: continue
+            # get mask for scale (once auto-masking kicks in we use that instead of external mask)
+            if self.AppendMaskComponents or not self.GD["WSCMS"]["AutoMask"]:
+                ScaleMask = self.MaskArray
+            else:
+                ScaleMask = self.ScaleMaskArray[str(iScale)]
 
-                xtmp, ytmp, ConvMaxDirty = NpParallel.A_whereMax(ConvMeanDirtys[iScale:iScale+1],
-                                                                 NCPU=self.NCPU, DoAbs=self.DoAbs,
-                                                                 Mask=ScaleMask)
+            xtmp, ytmp, ConvMaxDirty = NpParallel.A_whereMax(ConvMeanDirtys[iScale:iScale+1],
+                                                             NCPU=self.NCPU, DoAbs=self.DoAbs,
+                                                             Mask=ScaleMask)
+            pAlpha[iScale]=ConvMaxDirty * self.bias[iScale]
+            Lxy.append([xtmp, ytmp])
+            LMax.append(ConvMaxDirty)
 
-                if ConvMaxDirty * self.bias[iScale] >= BiasedMaxVal:
-                    x = xtmp
-                    y = ytmp
-                    BiasedMaxVal = ConvMaxDirty * self.bias[iScale]
-                    MaxDirty = ConvMaxDirty
-                    CurrentDirty = ConvMeanDirtys[iScale:iScale+1]
-                    CurrentScale = iScale
-                    CurrentMask = ScaleMask
+        # print(pAlpha)
+        iScale=np.argmax(pAlpha)
+        x,y=Lxy[iScale]
+        ConvMaxDirty=LMax[iScale]
+        x = xtmp
+        y = ytmp
+        BiasedMaxVal = ConvMaxDirty * self.bias[iScale]
+        MaxDirty = ConvMaxDirty
+        CurrentDirty = ConvMeanDirtys[iScale:iScale+1]
+        CurrentScale = iScale
+        CurrentMask = ScaleMask
+
+        
         if BiasedMaxVal == 0:
             print("No scale has been selected. This should never happen. Bug!")
             print("Forbidden scales = ", self.forbidden_scales)

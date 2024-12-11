@@ -41,6 +41,7 @@ from DDFacet.Imager.ClassPSFServer import ClassPSFServer
 from DDFacet.Imager import ClassGainMachine  # Currently required by model machine but fixed to static mode
 from DDFacet.Imager.ClassMaskMachine import ClassMaskMachine
 from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
+from . import ClassWSCMS_MinorLoop
 # from DDFacet.Other.AsyncProcessPool import APP
 # from DDFacet.ToolsDir.ModFFTW import FFTW_Scale_Manager  # usage just to register job handlers but has no effect atm
 
@@ -148,10 +149,6 @@ class ClassImageDeconvMachine():
         self.SetPSF(kwargs["PSFVar"])
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
 
-        self.ModelMachine.setPSFServer(self.PSFServer)
-        self.ModelMachine.setFreqMachine(self.Freqs, self.Freqs_degrid,
-                                         weights=kwargs["PSFVar"]["WeightChansImages"], PSFServer=self.PSFServer)
-
         from africanus.constants import c as lightspeed
         minlambda = lightspeed/self.Freqs.min()
         # LB - note MaskArray might be modified by ScaleMachine if GD{"WSCMS"]["AutoMask"] is True
@@ -163,9 +160,19 @@ class ClassImageDeconvMachine():
             if self.MaskArray.shape != (1, 1, self.Npix_x, self.Npix_y):
                 raise ValueError("Mask is incorrect shape. Expected %s but got %s" % ((1,1,self.Npix_x, self.Npix_y), self.MaskArray.shape))
 
-        self.ModelMachine.setScaleMachine(self.PSFServer, NCPU=self.NCPU, MaskArray=self.MaskArray,
-                                          cachepath=cachepath, MaxBaseline=kwargs["MaxBaseline"] / minlambda)
 
+        self.ModelMachine.setFreqMachine(self.Freqs, self.Freqs_degrid,
+                                         weights=kwargs["PSFVar"]["WeightChansImages"], PSFServer=self.PSFServer)
+
+        # MinorLoopMachine
+
+        
+        self.MLM=ClassWSCMS_MinorLoop.ClassWSCMS_MinorLoop(self.GD)
+        self.MLM.setModelMachine(self.ModelMachine)
+        self.MLM.setPSFServer(self.PSFServer)
+        self.MLM.setScaleMachine(self.PSFServer, NCPU=self.NCPU, MaskArray=self.MaskArray,
+                                 cachepath=cachepath, MaxBaseline=kwargs["MaxBaseline"] / minlambda)
+        self.ScaleMachine=self.MLM.ScaleMachine
 
     def Reset(self):
         pass
@@ -380,11 +387,11 @@ class ClassImageDeconvMachine():
         diverged_count = 0
         stalled = False
         scale_stall_count = {}
-        scales_stalled = np.zeros(self.ModelMachine.ScaleMachine.Nscales, dtype=bool)
+        scales_stalled = np.zeros(self.ScaleMachine.Nscales, dtype=bool)
         # reset retired scales at the start of each major cycle
-        self.ModelMachine.ScaleMachine.retired_scales = []
-        for scale in self.ModelMachine.ScaleMachine.forbidden_scales:
-            self.ModelMachine.ScaleMachine.retired_scales.append(scale)
+        self.ScaleMachine.retired_scales = []
+        for scale in self.ScaleMachine.forbidden_scales:
+            self.ScaleMachine.retired_scales.append(scale)
             scales_stalled[scale] = 1
 
 
@@ -418,18 +425,18 @@ class ClassImageDeconvMachine():
                 # Find the relevant scale and do sub-minor loop. Note that the dirty cube is updated during the
                 # sub-minor loop by subtracting the once convolved PSF's as components are added to the model.
                 # The model is updated by adding components to the ModelMachine dictionary.
-                niter, iScale = self.ModelMachine.do_minor_loop(self._Dirty, self._MeanDirty, self._JonesNorm,
-                                                                self.WeightsChansImages, ThisFlux, StopFlux, RMS)
+                niter, iScale = self.MLM.do_minor_loop(self._Dirty, self._MeanDirty, self._JonesNorm,
+                                                       self.WeightsChansImages, ThisFlux, StopFlux, RMS)
 
                 # compute the new mean image from the weighted sum of over frequency
                 self._MeanDirty = np.sum(self._Dirty * self.WeightsChansImages, axis=0, keepdims=True)
 
-                import pylab
-                pylab.clf()
-                pylab.imshow(self._MeanDirty[0,0],interpolation="nearest")
-                pylab.draw()
-                pylab.show(block=False)
-                pylab.pause(0.1)
+                # import pylab
+                # pylab.clf()
+                # pylab.imshow(self._MeanDirty[0,0],interpolation="nearest")
+                # pylab.draw()
+                # pylab.show(block=False)
+                # pylab.pause(0.1)
                 
                 ThisRMS = np.std(self._MeanDirty * ~self.MaskArray)
 
@@ -439,7 +446,7 @@ class ClassImageDeconvMachine():
                     scale_stall_count[iScale] += 1
                     # retire scale if it causes a stall more than x number of times
                     if scale_stall_count[iScale] > 5:
-                        self.ModelMachine.ScaleMachine.retired_scales.append(iScale)
+                        self.ScaleMachine.retired_scales.append(iScale)
                         scales_stalled[iScale] = 1
                         print("Retired scale %i because it was stalling." % iScale, file=log)
                     # if all scales have stalled then we trigger a new major cycle

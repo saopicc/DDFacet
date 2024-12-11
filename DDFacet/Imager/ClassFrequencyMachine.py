@@ -30,7 +30,7 @@ import warnings
 warnings.simplefilter('ignore', np.RankWarning)
 from scipy.optimize import curve_fit, fmin_l_bfgs_b
 from DDFacet.Other import logger
-from DDFacet.Imager.ClassScaleMachine import Store
+from DDFacet.Imager.WSCMS.ClassScaleMachine import Store
 log = logger.getLogger("ClassFreqMachine")
 
 class ClassFrequencyMachine(object):
