@@ -36,7 +36,10 @@ iFs = np.fft.ifftshift
 
 from glob import glob
 import pylru
-
+import pylab
+from DDFacet.Array import ModLinAlg
+import scipy.signal
+        
 # we should probably move this to CacheManager or something
 class Store(object):
     """
@@ -162,7 +165,8 @@ class ClassScaleMachine(object):
 
         # get the Gaussian pars, volume factors and FWHMs corresponding to dictionary functions
         self.set_kernels()
-
+        self.setHessian()
+        
         # initialise Scale dependent masks (everything masked initially)
         self.ScaleMaskArray = {}
         if self.GD["WSCMS"]["AutoMask"]:
@@ -176,14 +180,32 @@ class ClassScaleMachine(object):
         for i in range(self.Nscales):
             self.set_gains(self.CentralFacetID, i)
             key = 'S' + str(i) + 'F' + str(self.CentralFacetID)
-            print(" - Scale#%i Support=%i pix, bias factor=%f, psfpeak=%f, gain=%f, kernel peak=%f, kernel volume=%f" % \
+            print(" - Scale#%i Support=%i pix, bias factor=%f, psfpeak=%f, gain=%f, kernel peak=%f, kernel volume=%f, kernel sigma=%f" % \
                   (i,self.alphas[i], self.bias[i], self.ConvPSFmeanMax,
-                   self.gains[key], self.kernels[i].max(), self.volumes[i]), file=log)
+                   self.gains[key], self.kernels[i].max(), self.volumes[i],self.sigmas[i]), file=log)
 
         # these are permanent
         self.forbidden_scales = []
         # these get reset at the start of every major cycle
         self.retired_scales = []
+
+    def setHessian(self):
+        # [0.24471474, 0.24395338, 0.24211173, 0.2353953, 0.21285239, 0.15733312]
+        self.DicoH={}
+        for iFacet in range(self.PSFServer.NFacets):
+            self.PSFServer.setFacet(iFacet)
+            PSF, PSFmean = self.PSFServer.GivePSF()
+            H=np.zeros((self.Nscales,self.Nscales),np.float32)
+            for iScale in range(self.Nscales):
+                k=self.kernels[iScale]
+                for jScale in range(self.Nscales):
+                    m=self.kernels[jScale]#/self.kernels[iScale].max()
+                    mc=scipy.signal.fftconvolve(PSFmean[0,0], m, mode='same')
+                    mcc=scipy.signal.fftconvolve(mc, k, mode='same')
+                    H[iScale,jScale]=mcc.max()
+            self.DicoH[iFacet]=H
+            
+        
 
     def set_coordinates(self):
         # get pixel coordinates for unpadded image
@@ -382,12 +404,14 @@ class ClassScaleMachine(object):
                 # evaluate scale kernel
                 self.sigmas[i] = 3.0 * self.alphas[i] / 16.0
                 sigx=self.sigmas[i]
-                self.kernels[i] = (1./(2.*np.pi*sigx**2))*np.exp(-(x ** 2 + y ** 2) / (2 * sigx**2))
+                self.kernels[i] = np.exp(-(x ** 2 + y ** 2) / (2 * sigx**2))
             self.extents[i] = self.alphas[i]
             self.volumes[i] = np.sum(self.kernels[i])
             self.kernels[i] /= self.volumes[i]
-            
 
+        self.H=1./(self.volumes.reshape((-1,1))*self.volumes.reshape((1,-1)))
+        
+        
     def give_gain(self, iFacet, iScale):
         """
         Returns gain for facet and scale and add it to the gains dict if it doesn't exist yet. 
@@ -474,7 +498,7 @@ class ClassScaleMachine(object):
         self.FTMachine.xhatim[...] = iFs(np.pad(MeanDirty[0:1], ((0, 0),(0,0),(self.Npad_x, self.Npad_x),(self.Npad_y, self.Npad_y)),mode='constant'), axes=(2, 3))
         self.FTMachine.FFTim()
         self.FTMachine.Shat[...] = self.FTMachine.xhatim
-        kernels = self.GaussianSymmetricFT(self.sigmas[:, None, None, None], mode='Image') #/ self.volumes.reshape((-1,1,1,1))
+        kernels = self.GaussianSymmetricFT(self.sigmas[:, None, None, None], mode='Image')# * self.volumes.reshape((-1,1,1,1))
         self.FTMachine.Shat *= iFs(kernels, axes=(2, 3))
         self.FTMachine.iSFFT()
         ConvMeanDirtys = np.ascontiguousarray(Fs(self.FTMachine.Shat.real, axes=(2, 3))[:, :, Ix, Iy])
@@ -493,9 +517,9 @@ class ClassScaleMachine(object):
         #     Ic=scipy.signal.fftconvolve(MeanDirty[0,0], k, mode='same')
         #     nx,ny=Ic.shape
         #     ConvMeanDirtys2.append(Ic.reshape((1,nx,ny)))
-            
         # ConvMeanDirtys2=np.float32(ConvMeanDirtys2).reshape((self.Nscales,1,nx,ny))
-        # import pylab
+        # ConvMeanDirtys=ConvMeanDirtys2
+        
         # pylab.clf()
         # ax=pylab.subplot(1,2,1)
         # pylab.imshow(ConvMeanDirtys[4,0],interpolation="nearest")
@@ -504,19 +528,20 @@ class ClassScaleMachine(object):
         # pylab.draw()
         # pylab.show()
         # pylab.pause(0.1)
-        # #####################
         
-        # import pylab
-        # pylab.clf()
-        # nx,ny=2,3
-        # ax=pylab.subplot(2,3,1)
-        # for iSc in range(6):
-        #     if iSc!=0: pylab.subplot(2,3,iSc+1,sharex=ax,sharey=ax)
-        #     pylab.imshow(ConvMeanDirtys[iSc,0],interpolation="nearest")
-        # pylab.draw()
-        # pylab.show()
-        # pylab.pause(0.1)
-
+        
+        # Plot the mean Dirty convolved by the K_alpha
+        import pylab
+        pylab.clf()
+        nx,ny=2,3
+        ax=pylab.subplot(2,3,1)
+        for iSc in range(6):
+            if iSc!=0: pylab.subplot(2,3,iSc+1,sharex=ax,sharey=ax)
+            pylab.imshow(ConvMeanDirtys[iSc,0],interpolation="nearest")
+        pylab.draw()
+        pylab.show(block=False)
+        pylab.pause(0.1)
+        # ###################
         # import pylab
         # pylab.clf()
         # ax=pylab.subplot(1,2,1)
@@ -552,7 +577,7 @@ class ClassScaleMachine(object):
             Lxy.append([xtmp, ytmp])
             LMax.append(ConvMaxDirty)
 
-        # print(pAlpha)
+        print(pAlpha)
         iScale=np.argmax(pAlpha)
         x,y=Lxy[iScale]
         ConvMaxDirty=LMax[iScale]
@@ -564,6 +589,22 @@ class ClassScaleMachine(object):
         CurrentScale = iScale
         CurrentMask = ScaleMask
 
+
+        self.Hinv=ModLinAlg.invSVD(self.H)
+        ss=np.dot(self.Hinv,np.array(LMax).reshape((-1,1)))
+
+        
+        pylab.clf()
+        for i in range(self.Nscales):
+            pylab.plot(self.DicoH[0][i,:])
+        pylab.plot(LMax,ls="--")
+        pylab.show()
+
+        print(self.DicoH[0][-1,:])
+        print(LMax)
+        f=LMax[0]/self.DicoH[0][-1,0]
+        print(f,1/f)
+        stop
         
         if BiasedMaxVal == 0:
             print("No scale has been selected. This should never happen. Bug!")
