@@ -530,18 +530,19 @@ class ClassScaleMachine(object):
         # pylab.pause(0.1)
         
         
-        # Plot the mean Dirty convolved by the K_alpha
-        import pylab
-        pylab.clf()
-        nx,ny=2,3
-        ax=pylab.subplot(2,3,1)
-        for iSc in range(6):
-            if iSc!=0: pylab.subplot(2,3,iSc+1,sharex=ax,sharey=ax)
-            pylab.imshow(ConvMeanDirtys[iSc,0],interpolation="nearest")
-        pylab.draw()
-        pylab.show(block=False)
-        pylab.pause(0.1)
-        # ###################
+        # # Plot the mean Dirty convolved by the K_alpha
+        # import pylab
+        # pylab.clf()
+        # nx,ny=2,3
+        # ax=pylab.subplot(2,3,1)
+        # for iSc in range(6):
+        #     if iSc!=0: pylab.subplot(2,3,iSc+1,sharex=ax,sharey=ax)
+        #     pylab.imshow(ConvMeanDirtys[iSc,0],interpolation="nearest")
+        # pylab.draw()
+        # pylab.show(block=False)
+        # pylab.pause(0.1)
+        # # ###################
+        
         # import pylab
         # pylab.clf()
         # ax=pylab.subplot(1,2,1)
@@ -561,7 +562,11 @@ class ClassScaleMachine(object):
         # find most relevant scale
         pAlpha=np.zeros((self.Nscales,),float)
         Lxy=[]
-        LMax=[]
+        LPeak=np.zeros((self.Nscales,),float)
+        LScaleDptPeak=[]
+        
+        # pylab.figure("HCurve")
+        # pylab.clf()
         for iScale in range(self.Nscales):
             if iScale in self.retired_scales: continue
             # get mask for scale (once auto-masking kicks in we use that instead of external mask)
@@ -573,14 +578,43 @@ class ClassScaleMachine(object):
             xtmp, ytmp, ConvMaxDirty = NpParallel.A_whereMax(ConvMeanDirtys[iScale:iScale+1],
                                                              NCPU=self.NCPU, DoAbs=self.DoAbs,
                                                              Mask=ScaleMask)
+
+            ScaleDptPeak=ConvMeanDirtys[:,0,xtmp, ytmp]
+            
+            LScaleDptPeak.append(ScaleDptPeak.copy())
             pAlpha[iScale]=ConvMaxDirty * self.bias[iScale]
             Lxy.append([xtmp, ytmp])
-            LMax.append(ConvMaxDirty)
+            LPeak[iScale]=ConvMaxDirty
 
-        print(pAlpha)
+            
+        #     pylab.subplot(2,3,iScale+1)
+        #     pylab.plot(ScaleDptPeak,ls="--")
+        #     for ii in range(self.Nscales):
+        #         pylab.plot(self.DicoH[0][ii,:])
+        # pylab.draw()
+        # pylab.show()
+
+        # pylab.figure("HCurve")
+        # pylab.clf()
+        
+            
         iScale=np.argmax(pAlpha)
+        # print(pAlpha)
+
+        Chi2=np.zeros((self.Nscales,),float)
+        for iScale in range(self.Nscales):
+            ss=ScaleDptPeak
+            x,y=Lxy[iScale]
+            iFacet=self.PSFServer.giveFacetID2(x,y)
+            mm=self.DicoH[iFacet][iScale,:].copy()
+            mm*=ss[0]/mm[0]
+            Chi2[iScale]=np.sum((ss-mm)**2)
+            
+        iScale=np.argmin(Chi2)
+        
+            
         x,y=Lxy[iScale]
-        ConvMaxDirty=LMax[iScale]
+        ConvMaxDirty=LPeak[iScale]
         x = xtmp
         y = ytmp
         BiasedMaxVal = ConvMaxDirty * self.bias[iScale]
@@ -590,21 +624,15 @@ class ClassScaleMachine(object):
         CurrentMask = ScaleMask
 
 
-        self.Hinv=ModLinAlg.invSVD(self.H)
-        ss=np.dot(self.Hinv,np.array(LMax).reshape((-1,1)))
-
+        # self.Hinv=ModLinAlg.invSVD(self.H)
+        # ss=np.dot(self.Hinv,np.array(LMax).reshape((-1,1)))
         
-        pylab.clf()
-        for i in range(self.Nscales):
-            pylab.plot(self.DicoH[0][i,:])
-        pylab.plot(LMax,ls="--")
-        pylab.show()
 
-        print(self.DicoH[0][-1,:])
-        print(LMax)
-        f=LMax[0]/self.DicoH[0][-1,0]
-        print(f,1/f)
-        stop
+        # print(self.DicoH[0][-1,:])
+        # print(LMax)
+        # f=LMax[0]/self.DicoH[0][-1,0]
+        # print(f,1/f)
+        # stop
         
         if BiasedMaxVal == 0:
             print("No scale has been selected. This should never happen. Bug!")
