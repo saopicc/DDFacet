@@ -499,7 +499,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         # determine most relevant scale (note AbsConvMaxDirty given as absolute value)
         xscale, yscale, AbsConvMaxDirty, CurrentDirty, iScale, CurrentMask = self.ScaleMachine.do_scale_convolve(meanDirty)
-
+        print(xscale, yscale, AbsConvMaxDirty, CurrentDirty, iScale, CurrentMask)
+        stop
+        
         # set PSF at current location
         self.PSFServer.setLocation(xscale, yscale)
 
