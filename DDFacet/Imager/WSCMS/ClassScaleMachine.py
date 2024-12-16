@@ -680,7 +680,8 @@ class ClassScaleMachine(object):
             pAlpha[iScale]=ConvMaxDirty * self.bias[iScale]
             Lxy[iScale] = [xtmp, ytmp]
             LPeak[iScale]=ConvMaxDirty
-
+            del(ConvMaxDirty,xtmp, ytmp)
+            
         # pAlpha[IsNonMonotonous==1]=0
         if np.all(pAlpha==0):
             iScaleMax=0
