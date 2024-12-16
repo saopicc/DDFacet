@@ -420,8 +420,8 @@ class ClassScaleMachine(object):
         # set scale bias according to Offringa definition implemented i.t.o. inverse bias
         self.bias = np.ones(self.Nscales, dtype=np.float64)
         for scale in range(1, self.Nscales):
-            #self.bias[scale] = self.beta**(-1.0 - np.log2(self.alphas[scale]/self.alphas[1]))
-            self.bias[scale] = self.beta**(1.0 + np.log2(self.alphas[scale]/self.alphas[1]))
+            self.bias[scale] = self.beta**(-1.0 - np.log2(self.alphas[scale]/self.alphas[1]))
+            #self.bias[scale] = self.beta**(1.0 + np.log2(self.alphas[scale]/self.alphas[1]))
 
 
     def set_kernels(self):
