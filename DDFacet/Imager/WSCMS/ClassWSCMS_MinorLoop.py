@@ -87,9 +87,12 @@ class ClassWSCMS_MinorLoop():
                 self.NCPU = multiprocessing.cpu_count()
         else:
              self.NCPU = NCPU
-             
+
+        self.MaskArray=MaskArray.copy()
         self.DoAbs = self.GD["Deconv"]["AllowNegative"]
-        self.ScaleMachine = ClassScaleMachine.ClassScaleMachine(GD=self.GD, NCPU=self.NCPU, MaskArray=MaskArray)
+        self.ScaleMachine = ClassScaleMachine.ClassScaleMachine(GD=self.GD, NCPU=self.NCPU,
+                                                                MaskArray=self.MaskArray)
+
         self.ScaleMachine.Init(PSFServer, self.FreqMachine, cachepath=cachepath, MaxBaseline=MaxBaseline)
         self.NpixPSF_x,self.NpixPSF_y = self.ScaleMachine.NpixPSF
         self.halfNpixPSF_x = self.NpixPSF_x//2
@@ -211,7 +214,7 @@ class ClassWSCMS_MinorLoop():
                     self.ScaleMachine.dilate_scale_masks()
 
                     # save all masks
-                    savestr = self.GD["Output"]["Images"]
+                    savestr = self.GD["Output"]["Images"]+self.GD["Output"]["Also"]
                     if savestr.lower() == 'all' or 'k' in list(savestr):
                         self.FacetMachine.ToCasaImage(np.float32(self.ScaleMachine.MaskArray),
                                                       ImageName="%s.GlobalMask" % (self.BaseName),

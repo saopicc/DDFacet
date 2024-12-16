@@ -34,7 +34,7 @@ from scipy.integrate import cumtrapz
 import numexpr
 from DDFacet.Other import logger
 from DDFacet.Other import ModColor
-log=logger.getLogger("ClassImageDeconvMachine")
+log=logger.getLogger("ImageDeconvMachineWSCMS")
 from DDFacet.Array import NpParallel
 from DDFacet.Other import ClassTimeIt
 from pyrap.images import image
@@ -324,7 +324,8 @@ class ClassImageDeconvMachine():
 
         # Find position and intensity of first peak
         x, y, MaxDirty = NpParallel.A_whereMax(self._MeanDirty, NCPU=self.NCPU,
-                                               DoAbs=self.GD["Deconv"]["AllowNegative"], Mask=self.MaskArray)
+                                               DoAbs=self.GD["Deconv"]["AllowNegative"],
+                                               Mask=self.MaskArray)
 
 
         # Get peak factor stopping criterion
