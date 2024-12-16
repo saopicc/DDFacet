@@ -279,26 +279,27 @@ class ClassScaleMachine(object):
             cell_size_rad_y = cell_y * np.pi / (180 * 3600)
             FWHM0_pix_x = np.sqrt(2) * min_beam/cell_size_rad_x  # sqrt(2) is fiddle factor which gives approx same scales as wsclean
             FWHM0_pix_y = np.sqrt(2) * min_beam/cell_size_rad_y  # sqrt(2) is fiddle factor which gives approx same scales as wsclean
-            # alpha0 = np.ceil(np.mean([FWHM0_pix_x,FWHM0_pix_y]) / 0.45)
-            # if alpha0 % 2:
-            #     alpha0 += 1
-            # alphas = [alpha0, 4*alpha0]
-            # i = 1
-            # while alphas[i] < MaxScale:  # hardcoded for now
-            #     alphas.append(1.5*alphas[i])
-            #     i += 1
+            alpha0 = np.ceil(np.mean([FWHM0_pix_x,FWHM0_pix_y]) / 0.45)
+            if alpha0 % 2:
+                alpha0 += 1
+            alphas = [alpha0, 4*alpha0]
+            i = 1
+            while alphas[i] < MaxScale:  # hardcoded for now
+                alphas.append(1.5*alphas[i])
+                i += 1
 
-            alpha1=np.ceil(np.min([FWHM0_pix_x,FWHM0_pix_y]) / 0.45)
-                
-            alphas=[0,alpha1]
-            while True:
-                ThisScale=2*alphas[-1]
-                if ThisScale > MaxScale: break
-                alphas.append(ThisScale)
+            # alpha1=np.ceil(np.min([FWHM0_pix_x,FWHM0_pix_y]) / 0.45)
+            # alphas=[0,alpha1]
+            # while True:
+            #     ThisScale=2*alphas[-1]
+            #     if ThisScale > MaxScale: break
+            #     alphas.append(ThisScale)
                 
             self.alphas = np.asarray(alphas[0:-1])
             self.Nscales = self.alphas.size
 
+
+            
         else:
             print("Using user defined scales", file=log)
             self.alphas = np.asarray(self.GD["WSCMS"]["Scales"], dtype=float)
