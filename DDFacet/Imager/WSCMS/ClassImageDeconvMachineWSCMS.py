@@ -424,12 +424,12 @@ class ClassImageDeconvMachine():
                 # compute the new mean image from the weighted sum of over frequency
                 self._MeanDirty = np.sum(self._Dirty * self.WeightsChansImages, axis=0, keepdims=True)
 
-                import pylab
-                pylab.clf()
-                pylab.imshow(self._MeanDirty[0,0],interpolation="nearest")
-                pylab.draw()
-                pylab.show(block=False)
-                pylab.pause(0.1)
+                # import pylab
+                # pylab.clf()
+                # pylab.imshow(self._MeanDirty[0,0],interpolation="nearest")
+                # pylab.draw()
+                # pylab.show(block=False)
+                # pylab.pause(0.1)
                 
                 ThisRMS = np.std(self._MeanDirty * ~self.MaskArray)
 
