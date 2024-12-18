@@ -387,8 +387,6 @@ class ClassWeightMachine():
             if not isinstance(List_weight_col,list):
                 List_weight_col=[List_weight_col]
             uvw, flags, rowflags, weights, sgnweights = ms.readWeights(ichunk, uvw_only=wmax_only, weightcols=List_weight_col)
-            np.savez("SingleFacet_%i%i.npz"%(ims, ichunk),uv=uv,flags=flags,rowflags=rowflags,weights=weights)
-            stop
             
             # skip empty or fully flagged chunks
             if uvw is None:
@@ -423,6 +421,8 @@ class ClassWeightMachine():
             sgnweight[...] = sgnweights
             sgnweight[flags] = 0
             
+            np.savez("SingleFacet_%i%i.npz"%(ims, ichunk),uv=uv,flags=flags,rowflags=rowflags,weight=weight,weights=weights)
+            stop
             
             # check for null weights
             nullweight = (weight==0).all()
