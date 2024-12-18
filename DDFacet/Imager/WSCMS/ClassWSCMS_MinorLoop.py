@@ -265,7 +265,7 @@ class ClassWSCMS_MinorLoop():
         k = 0
         print("GFLDFLJ",AbsConvMaxDirty, Threshold, k, self.ScaleMachine.NSubMinorIter)
         while AbsConvMaxDirty > Threshold and k < self.ScaleMachine.NSubMinorIter:
-            print("LSFLJSDLSDKFLSKLSDKLSDFKLSDFK")
+            print("   ************")
             # get JonesNorm
             JN = JonesNorm[:, 0, xscale, yscale]
 
@@ -288,6 +288,7 @@ class ClassWSCMS_MinorLoop():
             # append component to dico
             self.ModelMachine.AppendComponentToDictStacked((xscale, yscale), self.Coeffs, self.CurrentScale, self.CurrentGain)
             # Subtract fitted component from residual cube
+            print("self.ConvPSF",self.ConvPSF.shape,self.ConvPSF.reshape((3,-1)).max(axis=1))
             self.SubStep(xscale, yscale, self.ConvPSF * Fpol[:, None, None, None] * self.CurrentGain, Dirty.view())
             # subtract component from convolved dirty image
             A = substep(A, self.Conv2PSFmean[0, 0], float(ConvMaxDirty * self.CurrentGain), Ip, Iq, pq, (self.NpixPSF_x,self.NpixPSF_y))
@@ -317,6 +318,7 @@ class ClassWSCMS_MinorLoop():
 
             # Update counters
             k += 1
-            print("GFLDFLJ",AbsConvMaxDirty, Threshold, k, self.ScaleMachine.NSubMinorIter)
+            print("GFLDFLJ AbsConvMaxDirty,ConvMaxDirty, Threshold, k, self.ScaleMachine.NSubMinorIter,Fpol,pq",AbsConvMaxDirty,ConvMaxDirty, Threshold, k, self.ScaleMachine.NSubMinorIter,Fpol,pq)
+            stop
 
         return k, iScale
