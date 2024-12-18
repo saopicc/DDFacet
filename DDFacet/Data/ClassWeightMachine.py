@@ -412,7 +412,7 @@ class ClassWeightMachine():
             
             # now read the weights
             weight = msw.addSharedArray("weight", flags.shape, np.float32)
-            weights.fill(1)
+            weight.fill(1)
             weight[...] = weights
             weight[flags] = 0
             
@@ -421,8 +421,8 @@ class ClassWeightMachine():
             sgnweight[...] = sgnweights
             sgnweight[flags] = 0
             
-            np.savez("SingleFacet_%i%i.npz"%(ims, ichunk),uv=uv,flags=flags,rowflags=rowflags,weight=weight,weights=weights)
-            stop
+            # np.savez("SingleFacet_%i%i.npz"%(ims, ichunk),uv=uv,flags=flags,rowflags=rowflags,weight=weight,weights=weights)
+            # stop
             
             # check for null weights
             nullweight = (weight==0).all()
