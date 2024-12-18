@@ -433,6 +433,7 @@ class ClassImageDeconvMachine():
                 # compute the new mean image from the weighted sum of over frequency
                 self._MeanDirty = np.sum(self._Dirty * self.WeightsChansImages, axis=0, keepdims=True)
 
+                # import pylab
                 # pylab.figure("Resid")
                 # pylab.clf()
                 # pylab.imshow(self._MeanDirty[0,0],interpolation="nearest")

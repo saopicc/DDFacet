@@ -1688,8 +1688,18 @@ class ClassMS():
             return None, None, None, None
         tab = self.GiveMainTable()
         uvw = tab.getcol("UVW", row0, nrows) 
-        flags = tab.getcol("FLAG", row0, nrows)
-        flags = flags[:,self.ChanSlice,:]
+        #flags = tab.getcol("FLAG", row0, nrows)
+        #flags = flags[:,self.ChanSlice,:]
+
+        flags = np.empty((nrows, len(self.ChanFreq), len(self.CorrelationIds)), bool)
+        tab.getcolslicenp("FLAG", flags, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nrows)
+        d0, d1 = self.GD["Selection"]["UVRangeKm"]
+        d0 = d0**2*1e6
+        d1 = d1**2*1e6
+        duv = (uvw[:,:2]**2).sum(1)  # u^2+v^2... and we already squared d0 and d1
+        flags[(duv < d0) | (duv > d1),:,:] = True
+
+        
         if self._reverse_channel_order:
             flags = flags[:,::-1,:]
         flags = flags.max(axis=2)
@@ -1707,8 +1717,8 @@ class ClassMS():
         weights = None
         # To do REW in V, need to mupliply V by sgn(W) 
         sgnweight = np.ones((nrows, self.Nchan), np.int8)
-
-
+        
+        #np.save("SinglePSF.ReadW.npz",
         for weight_col in weightcols:
             if weight_col == "WEIGHT_SPECTRUM":
                 w = tab.getcol(weight_col, row0, nrows)[:, self.ChanSlice]
@@ -1818,7 +1828,7 @@ class ClassMS():
             elif w is not None:
                 weights *= w
 
-        return uvw, flags, rowflags, weights
+        return uvw, flags, rowflags, weights, sgnweight
 
 
 
