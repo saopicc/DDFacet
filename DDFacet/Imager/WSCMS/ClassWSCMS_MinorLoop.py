@@ -56,6 +56,7 @@ class ClassWSCMS_MinorLoop():
 
     def __init__(self,GD):
         self.GD=GD
+        self.NCall_to_do_scale_convolve=0
         
     def setPSFServer(self, PSFServer):
         self.PSFServer = PSFServer
@@ -228,6 +229,10 @@ class ClassWSCMS_MinorLoop():
         # determine most relevant scale (note AbsConvMaxDirty given as absolute value)
         xscale, yscale, AbsConvMaxDirty, CurrentDirty, iScale, CurrentMask = self.ScaleMachine.do_scale_convolve(meanDirty)
         
+        print(xscale, yscale, AbsConvMaxDirty, iScale)
+        self.NCall_to_do_scale_convolve+=1
+        if self.NCall_to_do_scale_convolve==10: stop
+
         # set PSF at current location
         self.PSFServer.setLocation(xscale, yscale)
 
