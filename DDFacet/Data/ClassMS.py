@@ -1828,7 +1828,7 @@ class ClassMS():
             elif w is not None:
                 weights *= w
 
-        return uvw, flags, rowflags, weights
+        return uvw, flags, rowflags, weights, sgnweight
 
 
 
