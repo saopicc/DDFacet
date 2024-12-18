@@ -231,7 +231,7 @@ class ClassWSCMS_MinorLoop():
         
         print(xscale, yscale, AbsConvMaxDirty, iScale)
         self.NCall_to_do_scale_convolve+=1
-        if self.NCall_to_do_scale_convolve==10: stop
+        if self.NCall_to_do_scale_convolve==2: stop
 
         # set PSF at current location
         self.PSFServer.setLocation(xscale, yscale)
@@ -263,7 +263,9 @@ class ClassWSCMS_MinorLoop():
 
         # run subminor loop
         k = 0
+        print("GFLDFLJ",AbsConvMaxDirty, Threshold, k, self.ScaleMachine.NSubMinorIter)
         while AbsConvMaxDirty > Threshold and k < self.ScaleMachine.NSubMinorIter:
+            print("LSFLJSDLSDKFLSKLSDKLSDFKLSDFK")
             # get JonesNorm
             JN = JonesNorm[:, 0, xscale, yscale]
 
@@ -278,7 +280,8 @@ class ClassWSCMS_MinorLoop():
 
             # Fit frequency axis to get coeffs (coeffs correspond to intrinsic flux)
             self.Coeffs = self.FreqMachine.Fit(Fpol, JN, WeightsChansImages.squeeze())
-
+            print("Fpol,self.Coeffs",Fpol,self.Coeffs)
+            
             # Overwrite with polynoimial fit (Fpol is apparent flux)
             Fpol = self.FreqMachine.Eval(self.Coeffs)
 
@@ -314,5 +317,6 @@ class ClassWSCMS_MinorLoop():
 
             # Update counters
             k += 1
+            print("GFLDFLJ",AbsConvMaxDirty, Threshold, k, self.ScaleMachine.NSubMinorIter)
 
         return k, iScale
