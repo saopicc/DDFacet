@@ -159,7 +159,7 @@ class ClassWSCMS_MinorLoop():
                 self.ConvPSF = self.ScaleMachine.ConvPSFs[key]
                 self.Conv2PSFmean = self.ScaleMachine.Conv2PSFmean[key]
                 print("iScale2,self.ConvPSF.max(),self.Conv2PSFmean.max()",iScale,self.ConvPSF.max(),self.Conv2PSFmean.max())
-                print("SM",self.ScaleMachine.sigmas,self.ScaleMachine.Conv2PSFNormFactor)
+                print("SM",self.ScaleMachine.sigmas,self.ScaleMachine.alphas,self.ScaleMachine.Conv2PSFNormFactor)
                 # This normalisation for Fpol is required so that we don't see jumps between minor cycles.
                 # Basically, since the PSF is normalised by this factor the components also need to be normalised
                 # by the same factor for the subtraction in the sub-minor cycle to be the same as the subtraction
