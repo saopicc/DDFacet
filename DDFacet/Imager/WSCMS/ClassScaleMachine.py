@@ -335,7 +335,7 @@ class ClassScaleMachine(object):
                 
             self.alphas = np.asarray(alphas[0:-1])
             self.Nscales = self.alphas.size
-
+            print("self.MaxBaseline",self.MaxBaseline,self.alphas)
 
             
         else:

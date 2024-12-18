@@ -465,7 +465,6 @@ class ClassImageDeconvMachine():
                 # update counter
                 self._niter += niter
 
-                print("    [iter=%i] peak residual %.8g, rms = %.8g, scale = %i" % (self._niter, ThisFlux, TrackRMS, iScale), file=log)
                 if iScale != self.LastScale:
                     print("    [iter=%i] peak residual %.8g, rms = %.8g, scale = %i" % (self._niter, ThisFlux, TrackRMS, iScale), file=log)
                     self.LastScale = iScale
