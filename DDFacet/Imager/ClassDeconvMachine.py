@@ -307,6 +307,7 @@ class ClassImagerDeconv():
                 from DDFacet.Imager.WSCMS import ClassImageDeconvMachineWSCMS
                 self.DeconvMachine = ClassImageDeconvMachineWSCMS.ClassImageDeconvMachine(MainCache=self.VS.maincache,
                                                                                           **MinorCycleConfig)
+                self.DeconvMachine.setMaxMajorIter(self.NMajor)
                 print("Using WSCMS algorithm", file=log)
             else:
                 raise NotImplementedError("Unknown --Deconvolution-Mode setting '%s'" % self.GD["Deconv"]["Mode"])

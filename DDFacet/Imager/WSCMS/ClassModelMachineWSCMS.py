@@ -228,8 +228,19 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                         ScaleModel[:, 0, x, y] += interp
 
             ModelImage += ScaleModel
+        Mask=self.DicoSMStacked.get("Mask",None)
+        if Mask is not None:
+            Mask=Mask[0]
+            for iCh in range(nchan):
+                ModelImage[iCh].flat[Mask.flat[:]==1]=0
         return ModelImage
-
+    
+    def updateMask(self,Mask):
+        Mask0=self.DicoSMStacked.get("Mask",None)
+        if Mask0 is not None:
+            Mask=~(~Mask0 | ~Mask)
+        self.DicoSMStacked["Mask"]=Mask
+    
     def GiveSpectralIndexMap(self, GaussPars=[(1, 1, 0)], ResidCube=None,
                              GiveComponents=False, ChannelWeights=None):
 

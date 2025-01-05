@@ -20,7 +20,7 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 from DDFacet.Imager import ClassFrequencyMachine
 from . import ClassScaleMachine
 import numba
-
+from DDFacet.Other import ClassTimeIt
 # from DDFacet.Other.AsyncProcessPool import APP
 # from DDFacet.ToolsDir.ModFFTW import FFTW_Scale_Manager  # usage just to register job handlers but has no effect atm
 
@@ -54,9 +54,11 @@ def substep(A, psf, sol, Ip, Iq, pq, npixpsf):
 
 class ClassWSCMS_MinorLoop():
 
-    def __init__(self,GD):
+    def __init__(self,BaseName=None,GD=None):
         self.GD=GD
+        self.BaseName=BaseName
         self.NCall_to_do_scale_convolve=0
+        self.DoAbs = int(self.GD["Deconv"]["AllowNegative"])
         
     def setPSFServer(self, PSFServer):
         self.PSFServer = PSFServer
@@ -78,6 +80,9 @@ class ClassWSCMS_MinorLoop():
         self.ModelMachine=ModelMachine
         self.FreqMachine=self.ModelMachine.FreqMachine
         
+    def setFacetMachine(self,FacetMachine):
+        self.FacetMachine=FacetMachine
+        
     def setScaleMachine(self, PSFServer, NCPU=None, MaskArray=None, cachepath=None, MaxBaseline=None):
         # if self.GD["WSCMS"]["MultiScale"]:
         if NCPU is None:
@@ -90,9 +95,10 @@ class ClassWSCMS_MinorLoop():
              self.NCPU = NCPU
 
         self.MaskArray=MaskArray.copy()
-        self.DoAbs = self.GD["Deconv"]["AllowNegative"]
-        self.ScaleMachine = ClassScaleMachine.ClassScaleMachine(GD=self.GD, NCPU=self.NCPU,
-                                                                MaskArray=self.MaskArray)
+        self.ScaleMachine = ClassScaleMachine.ClassScaleMachine(GD=self.GD,
+                                                                NCPU=self.NCPU,
+                                                                MaskArray=self.MaskArray,
+                                                                ModelMachine=self.ModelMachine)
 
         self.ScaleMachine.Init(PSFServer, self.FreqMachine, cachepath=cachepath, MaxBaseline=MaxBaseline)
         self.NpixPSF_x,self.NpixPSF_y = self.ScaleMachine.NpixPSF
@@ -112,6 +118,10 @@ class ClassWSCMS_MinorLoop():
             self.ModelMachine.DicoSMStacked["Scale_Info"][iScale]["sigma"] = self.ScaleMachine.sigmas[iScale]
             self.ModelMachine.DicoSMStacked["Scale_Info"][iScale]["kernel"] = self.ScaleMachine.kernels[iScale]
             self.ModelMachine.DicoSMStacked["Scale_Info"][iScale]["extent"] = self.ScaleMachine.extents[iScale]
+
+
+        self.set_AbsMode(self.DoAbs)
+
             
     def SubStep(self, xc, yc, LocalSM, Residual):
         """
@@ -151,23 +161,28 @@ class ClassWSCMS_MinorLoop():
                 PSF, PSFmean = self.PSFServer.GivePSF()
                 self.ConvPSF = PSF
                 self.Conv2PSFmean = PSFmean
-                print("iScale ,self.ConvPSF.max(),self.Conv2PSFmean.max()",iScale,self.ConvPSF.max(),self.Conv2PSFmean.max())
 
                 # delta scale is not cleaned with the ConvPSF so these should all be unity
                 self.FpolNormFactor = 1.0
             else:
                 self.ConvPSF = self.ScaleMachine.ConvPSFs[key]
                 self.Conv2PSFmean = self.ScaleMachine.Conv2PSFmean[key]
-                print("iScale2,self.ConvPSF.max(),self.Conv2PSFmean.max()",iScale,self.ConvPSF.max(),self.Conv2PSFmean.max())
-                print("SM",self.ScaleMachine.sigmas,self.ScaleMachine.alphas,self.ScaleMachine.Conv2PSFNormFactor)
                 # This normalisation for Fpol is required so that we don't see jumps between minor cycles.
                 # Basically, since the PSF is normalised by this factor the components also need to be normalised
                 # by the same factor for the subtraction in the sub-minor cycle to be the same as the subtraction
                 # in the minor and major cycles.
                 self.FpolNormFactor = self.ScaleMachine.Conv2PSFNormFactor
 
-
-    def do_minor_loop(self, Dirty, meanDirty, JonesNorm, WeightsChansImages, MaxDirty, Stopping_flux=None, RMS=None):
+    def set_AbsMode(self,DoAbs):
+        # Dirty way to change AbsMode in the algorithm along the major cycles   
+        self.DoAbs=DoAbs
+        self.ScaleMachine.DoAbs=DoAbs
+        if self.DoAbs:
+            self.opABS=np.abs
+        else:
+            self.opABS=(lambda x: x)
+                
+    def do_minor_loop(self, Dirty, meanDirty, JonesNorm, WeightsChansImages, MaxDirty, Stopping_flux=None, RMS=None, ForceAutoMasking=False):
         """
         Runs the sub-minor loop at a specific scale
         :param Dirty: dirty cube
@@ -185,13 +200,17 @@ class ClassWSCMS_MinorLoop():
         dirty cube using the PSF once convolved with the scale kernel. The actual MeanDirty image is only updated
         once we drop back into the minor loop by computing the weighted sum over channels.
         """
+
+        T=ClassTimeIt.ClassTimeIt("MinorLoop")
+        # T.disable()
+        
         # Select scale mask and check if auto-masking has kicked in
         if self.GD["WSCMS"]["AutoMask"]:
             if self.GD["WSCMS"]["AutoMaskThreshold"] is not None:
                 MaskThreshold = self.GD["WSCMS"]["AutoMaskThreshold"]
             else:
                 MaskThreshold = self.GD["WSCMS"]["AutoMaskRMSFactor"] * RMS
-            if MaxDirty <= MaskThreshold:
+            if (MaxDirty <= MaskThreshold) or ForceAutoMasking:
                 # This should only happen once
                 if self.ScaleMachine.AppendMaskComponents:
                     print("Starting auto-masking at a threshold of %f" % MaskThreshold, file=log)
@@ -216,6 +235,9 @@ class ClassWSCMS_MinorLoop():
                     # dilate all masks
                     self.ScaleMachine.dilate_scale_masks()
 
+                    # # Disable abs mode
+                    # self.set_AbsMode(False)
+                    
                     # save all masks
                     savestr = self.GD["Output"]["Images"]+self.GD["Output"]["Also"]
                     if savestr.lower() == 'all' or 'k' in list(savestr):
@@ -227,21 +249,28 @@ class ClassWSCMS_MinorLoop():
                             self.FacetMachine.ToCasaImage(np.float32(ScaleMask),
                                                           ImageName="%s.ScaleMask%i" % (self.BaseName, i),
                                                           Fits=True)
-
+            T.timeit("init Auto Mask")    
         # determine most relevant scale (note AbsConvMaxDirty given as absolute value)
         xscale, yscale, AbsConvMaxDirty, CurrentDirty, iScale, CurrentMask = self.ScaleMachine.do_scale_convolve(meanDirty)
+        T.timeit("find Scale")    
+            
+        if AbsConvMaxDirty==0:
+            log.print("Peak is zero...")
+            return None,None
+        # self.ModelMachine.updateMask(CurrentMask)
         
-        print(xscale, yscale, AbsConvMaxDirty, iScale)
         self.NCall_to_do_scale_convolve+=1
-        if self.NCall_to_do_scale_convolve==2: stop
+        #if self.NCall_to_do_scale_convolve==2: stop
 
         # set PSF at current location
         self.PSFServer.setLocation(xscale, yscale)
+        T.timeit("set_location")    
 
         # set convolved PSFs for scale and facet if either has changed
         # the once convolved PSF cubes used to subtract from the dirty cube are stored in self.ConvPSF
         # the twice convolved PSF used to subtract from the mean convolved dirty is held in self.Conv2PSFmean
         self.set_ConvPSF(self.PSFServer.iFacet, iScale)
+        T.timeit("set_ConvPSF")    
 
         # set stopping threshold.
         Threshold = self.ScaleMachine.PeakFactor * AbsConvMaxDirty
@@ -250,14 +279,15 @@ class ClassWSCMS_MinorLoop():
 
         # get the set A (in which we do peak finding)
         # assumes mask is 0 where we should do peak finding (same as Cyril's convention)
-        absdirty = np.where(CurrentMask.squeeze(), 0.0, np.abs(CurrentDirty.squeeze()))
+        absdirty = np.where(CurrentMask.squeeze(), 0.0, self.opABS(CurrentDirty.squeeze()))
         I = np.argwhere(absdirty > Threshold)
         Ip = I[:, 0]
         Iq = I[:, 1]
         A = CurrentDirty[0, 0, Ip, Iq]
-        absA = np.abs(A)
+        absA = self.opABS(A)
         try:
-            pq = int(np.argwhere(absA == AbsConvMaxDirty))
+            #pq = int(np.argwhere(absA == AbsConvMaxDirty))
+            pq = int(np.where(absA == AbsConvMaxDirty)[0][0])
         except:
             raise RuntimeError("Somehow Threshold > CurrentDirty.max()? This is a bug!")
         ConvMaxDirty = A[pq]
@@ -265,37 +295,48 @@ class ClassWSCMS_MinorLoop():
 
         # run subminor loop
         k = 0
-        print("GFLDFLJ",AbsConvMaxDirty, Threshold, k, self.ScaleMachine.NSubMinorIter)
+        T.timeit("restinit")    
+        T2=ClassTimeIt.ClassTimeIt("    MinorLoop.SubMinor")
+        #T2.disable()
+        
         while AbsConvMaxDirty > Threshold and k < self.ScaleMachine.NSubMinorIter:
-            print("   ************")
+            T2.timeit("  ===== ")    
+            
             # get JonesNorm
             JN = JonesNorm[:, 0, xscale, yscale]
 
             # set facet location
             self.PSFServer.setLocation(xscale, yscale)
+            T2.timeit("  set_location")    
 
             # set PSF and gain
             self.set_ConvPSF(self.PSFServer.iFacet, iScale)
+            T2.timeit("  set_ConvPSF")    
 
             # JonesNorm is corrected for in FreqMachine so we just need to pass in the apparent
             Fpol = Dirty[:, 0, xscale, yscale].copy()
+            # log.print("Position %i %i %i"%(iScale, xscale, yscale))
 
             # Fit frequency axis to get coeffs (coeffs correspond to intrinsic flux)
             self.Coeffs = self.FreqMachine.Fit(Fpol, JN, WeightsChansImages.squeeze())
-            print("Fpol,self.Coeffs",Fpol,self.Coeffs)
+            T2.timeit("  fit")    
             
             # Overwrite with polynoimial fit (Fpol is apparent flux)
             Fpol = self.FreqMachine.Eval(self.Coeffs)
+            T2.timeit("  eval")    
 
             # append component to dico
             self.ModelMachine.AppendComponentToDictStacked((xscale, yscale), self.Coeffs, self.CurrentScale, self.CurrentGain)
+            T2.timeit("  append")    
+            
             # Subtract fitted component from residual cube
-            print("self.ConvPSF",self.ConvPSF.shape,self.ConvPSF.reshape((3,-1)).max(axis=1))
-            print("A.max(),Dirty.max()",A.max(),Dirty.reshape((3,-1)).max(axis=1),self.CurrentGain)
-            self.SubStep(xscale, yscale, self.ConvPSF * Fpol[:, None, None, None] * self.CurrentGain, Dirty.view())
+            FluxScaledPSF=self.ConvPSF * Fpol[:, None, None, None] * self.CurrentGain
+            T2.timeit("  FluxScaledPSF")    
+            self.SubStep(xscale, yscale, FluxScaledPSF, Dirty.view())
+            T2.timeit("  SubStep")    
             # subtract component from convolved dirty image
             A = substep(A, self.Conv2PSFmean[0, 0], float(ConvMaxDirty * self.CurrentGain), Ip, Iq, pq, (self.NpixPSF_x,self.NpixPSF_y))
-            print("A, self.Conv2PSFmean[0, 0], float(ConvMaxDirty * self.CurrentGain), Ip, Iq, pq, (self.NpixPSF_x,self.NpixPSF_y)",Dirty.reshape((3,-1)).max(axis=1),A.max(), self.Conv2PSFmean[0, 0].max(), float(ConvMaxDirty * self.CurrentGain), Ip, Iq, pq, (self.NpixPSF_x,self.NpixPSF_y))
+            T2.timeit("  substep")    
             
             # update scale dependent mask
             if self.ScaleMachine.AppendMaskComponents:
@@ -305,9 +346,10 @@ class ClassWSCMS_MinorLoop():
                 # If auto-masking has kicked in we keep track of where new components are being added
                 # so we can check convergence in the minor cycle
                 self.ScaleMachine.MaskArray[0, 0, xscale, yscale] = 0
+            T2.timeit("  update scale mask")    
 
             # find new peak
-            absA = np.abs(A)
+            absA = self.opABS(A)
             AbsConvMaxDirty = absA.max()
             # TODO - How does this happen? It seems sometimes we have two components with the same max flux
             try:
@@ -315,6 +357,7 @@ class ClassWSCMS_MinorLoop():
             except:
                 pq = int(np.argwhere(absA == AbsConvMaxDirty)[0])
             ConvMaxDirty = A[pq]
+            T2.timeit("  pq")    
 
             # get location of component in residual frame
             xscale = Ip[pq]
@@ -322,7 +365,8 @@ class ClassWSCMS_MinorLoop():
 
             # Update counters
             k += 1
-            print("GFLDFLJ AbsConvMaxDirty,ConvMaxDirty, Threshold, k, self.ScaleMachine.NSubMinorIter,Fpol,pq",AbsConvMaxDirty,ConvMaxDirty, Threshold, k, self.ScaleMachine.NSubMinorIter,Fpol,pq)
-            stop
+            T2.timeit("  rest")    
+        T.timeit("SubMinor (iScale= %i, loops= %i)"%(iScale,k))    
+
 
         return k, iScale

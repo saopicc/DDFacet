@@ -32,6 +32,7 @@ from DDFacet.Array import NpParallel
 from DDFacet.ToolsDir.ModFFTW import FFTW_Manager
 import os
 import scipy.stats
+from DDFacet.Other import ClassTimeIt
 
 Fs = np.fft.fftshift
 iFs = np.fft.ifftshift
@@ -45,6 +46,7 @@ import scipy.signal
 
 
 DOPLOT=True
+DOPLOT=False
 
 def GiveNXNYPanels(Ns,ratio=800/500):
     nx=int(round(np.sqrt(Ns/ratio)))
@@ -82,7 +84,7 @@ class Store(object):
         np.save(self.cache_dir + str(key) + '.npy', value)
 
 class ClassScaleMachine(object):
-    def __init__(self, GD=None, NCPU=0, MaskArray=None):
+    def __init__(self, GD=None, NCPU=0, MaskArray=None, ModelMachine=None):
         self.GD = GD
         #self.GD["Facets"]["Padding"] = 1.2  # shouldn't need anything bigger than this for the minor cycle
         self.DoAbs = int(self.GD["Deconv"]["AllowNegative"])
@@ -94,8 +96,7 @@ class ClassScaleMachine(object):
             import multiprocessing
             NCPU = multiprocessing.cpu_count()
         self.NCPU = NCPU
-        self.DoAbs = self.GD["Deconv"]["AllowNegative"]
-            
+        self.ModelMachine=ModelMachine
         self.iIter=0
         
     def Init(self, PSFServer, FreqMachine, cachepath=None, MaxBaseline=None):
@@ -205,6 +206,7 @@ class ClassScaleMachine(object):
         # these get reset at the start of every major cycle
         self.retired_scales = []
 
+        
     def setHessian(self):
         # [0.24471474, 0.24395338, 0.24211173, 0.2353953, 0.21285239, 0.15733312]
         self.DicoH={}
@@ -320,8 +322,8 @@ class ClassScaleMachine(object):
             alpha0 = np.ceil(np.mean([FWHM0_pix_x,FWHM0_pix_y]) / 0.45)
             if alpha0 % 2:
                 alpha0 += 1
-            alphas = [alpha0, 4*alpha0]
-            i = 1
+            alphas = [0,alpha0, 4*alpha0]
+            i = len(alphas)-1
             while alphas[i] < MaxScale:  # hardcoded for now
                 alphas.append(1.5*alphas[i])
                 i += 1
@@ -335,16 +337,13 @@ class ClassScaleMachine(object):
                 
             self.alphas = np.asarray(alphas[0:-1])
             self.Nscales = self.alphas.size
-            print("self.MaxBaseline",self.MaxBaseline,self.alphas)
-
-            
         else:
             print("Using user defined scales", file=log)
             self.alphas = np.asarray(self.GD["WSCMS"]["Scales"], dtype=float)
             self.Nscales = self.alphas.size
 
         for i in range(self.Nscales):
-            if i==0: continue
+            if self.alphas[i]==0: continue
             if self.alphas[i] % 2 == 0:
                 self.alphas[i] += 1
 
@@ -420,9 +419,11 @@ class ClassScaleMachine(object):
         self.beta = self.GD["WSCMS"]["MultiScaleBias"]
         # set scale bias according to Offringa definition implemented i.t.o. inverse bias
         self.bias = np.ones(self.Nscales, dtype=np.float64)
+        beam_size_in_pixels=4
+        first_auto_scale_size = beam_size_in_pixels * 2.0
         for scale in range(1, self.Nscales):
-            self.bias[scale] = self.beta**(-1.0 - np.log2(self.alphas[scale]/self.alphas[1]))
-            #self.bias[scale] = self.beta**(1.0 + np.log2(self.alphas[scale]/self.alphas[1]))
+            self.bias[scale] = self.beta**(-np.log2(self.alphas[scale]/first_auto_scale_size))
+            #self.bias[scale] = self.beta**(-1.0 - np.log2(self.alphas[scale]/self.alphas[1]))
 
 
     def set_kernels(self):
@@ -533,54 +534,35 @@ class ClassScaleMachine(object):
             self.gains[key] = gamma
 
     def do_scale_convolve(self, MeanDirty):
+        T=ClassTimeIt.ClassTimeIt("    do_scale_convolve")
+        # T.disable()
         # convolve mean dirty with each scale in parallel
         Ix = slice(self.Npad_x, self.NpixPadded_x - self.Npad_x)
         Iy = slice(self.Npad_y, self.NpixPadded_y - self.Npad_y)
         
         #####################
         self.FTMachine.xhatim[...] = iFs(np.pad(MeanDirty[0:1], ((0, 0),(0,0),(self.Npad_x, self.Npad_x),(self.Npad_y, self.Npad_y)),mode='constant'), axes=(2, 3))
+        T.timeit("  fft: copy")
         self.FTMachine.FFTim()
+        T.timeit("  fft: fft_dirty")
         self.FTMachine.Shat[...] = self.FTMachine.xhatim
+        T.timeit("  fft: copy2")
         kernels = self.GaussianSymmetricFT(self.sigmas[:, None, None, None], mode='Image')# * self.volumes.reshape((-1,1,1,1))
+        T.timeit("  fft: get kernel")
         self.FTMachine.Shat *= iFs(kernels, axes=(2, 3))
+        T.timeit("  fft: multiply")
         self.FTMachine.iSFFT()
+        T.timeit("  fft: ifft")
         ConvMeanDirtys = np.ascontiguousarray(Fs(self.FTMachine.Shat.real, axes=(2, 3))[:, :, Ix, Iy])
+        T.timeit("  fft: ascontiguousarray")
         # reset the zero scale
         # LB - for scale 0 we might want to do scale selection based
         # on the convolved image instead of MeanDirty
         ConvMeanDirtys[0:1] = MeanDirty.copy()
+        T.timeit("  fft: copy3")
         #####################
-        # np.savez("ConvMeanDirtys.npy",ConvMeanDirtys=ConvMeanDirtys,H=self.DicoH[0])
+        # np.savez("ConvMeanDirtys.npz",ConvMeanDirtys=ConvMeanDirtys,H=self.DicoH[0])
         # stop
-        # MyScaleMask=np.zeros(ConvMeanDirtys.shape,bool)
-        # _,_,nx,ny=MyScaleMask.shape
-        # Nr=10000
-        # # ind=np.int64(np.random.rand(Nr)*nx*ny)
-        # # for iScale in range(self.Nscales):
-        # #     std=scipy.stats.median_abs_deviation(ConvMeanDirtys[iScale].flat[ind],axis=None,scale="normal")
-        # #     MyScaleMask[iScale]=(ConvMeanDirtys>5*std)
-        # #     for jScale in range(iScale):
-        # #         MyScaleMask[iScale].flat[MyScaleMask[iScale]]=0
-
-        # C=ConvMeanDirtys.reshape((1,self.Nscales,nx*ny))
-        # M=( self.H.reshape((-1,1))*np.ones((1,nx*ny)) ).reshape((self.Nscales,self.Nscales,nx*ny))
-        # M*=C[:,:,:]/M[0,:,:]
-        # Chi2=np.sum((C-M)**2,axis=0)
-        # iScaleMask=np.argmin(Chi2,axis=0).reshape((nx,ny))
-        # for iScale in range(self.Nscales):
-        #     MyScaleMask[iScale,0][iScaleMask]=1
-        
-        # pylab.clf()
-        # for iScale in range(self.Nscales):
-        #     ax=pylab.subplot(1,2,1)
-        #     pylab.imshow(ConvMeanDirtys[iScale,0],interpolation="nearest")
-        #     pylab.subplot(1,2,2,sharex=ax,sharey=ax)
-        #     pylab.imshow(MyScaleMask[iScale,0],interpolation="nearest")
-        #     pylab.draw()
-        #     pylab.show()
-        # pylab.pause(0.1)
-        
-        
         # #####################
         # # usinf fftpack
         # ConvMeanDirtys2=[MeanDirty[0].copy()]
@@ -592,7 +574,6 @@ class ClassScaleMachine(object):
         #     ConvMeanDirtys2.append(Ic.reshape((1,nx,ny)))
         # ConvMeanDirtys2=np.float32(ConvMeanDirtys2).reshape((self.Nscales,1,nx,ny))
         # ConvMeanDirtys=ConvMeanDirtys2
-        
         # pylab.clf()
         # ax=pylab.subplot(1,2,1)
         # pylab.imshow(ConvMeanDirtys[4,0],interpolation="nearest")
@@ -601,32 +582,8 @@ class ClassScaleMachine(object):
         # pylab.draw()
         # pylab.show()
         # pylab.pause(0.1)
-        
-        
-        # # Plot the mean Dirty convolved by the K_alpha
-        # pylab.figure("DirtyScales")
-        # pylab.clf()
-        # nx,ny=2,3
-        # ax=pylab.subplot(2,3,1)
-        # for iSc in range(6):
-        #     if iSc!=0: pylab.subplot(2,3,iSc+1,sharex=ax,sharey=ax)
-        #     pylab.imshow(ConvMeanDirtys[iSc,0],interpolation="nearest")
-        # pylab.draw()
-        # pylab.show(block=False)
-        # pylab.pause(0.1)
         # # ###################
-        
-        # import pylab
-        # pylab.clf()
-        # ax=pylab.subplot(1,2,1)
-        # nx=kernels.shape[-1]
-        # pylab.imshow(kernels[5,0],interpolation="nearest",extent=(-nx/2,nx/2,-nx/2,nx/2))
-        # pylab.subplot(1,2,2,sharex=ax,sharey=ax)
-        # nx=self.kernels[5].shape[-1]
-        # pylab.imshow(self.kernels[5],interpolation="nearest",extent=(-nx/2,nx/2,-nx/2,nx/2))
-        # pylab.draw()
-        # pylab.show()
-        # pylab.pause(0.1)
+        # T.timeit("Convolve")
 
         
         # initialise to zero so we always trigger the
@@ -642,6 +599,7 @@ class ClassScaleMachine(object):
         # pylab.figure("HCurve")
         # pylab.clf()
         IsNonMonotonous=np.ones((self.Nscales,),bool)
+        DicoMask={}
         for iScale in range(self.Nscales):
             if iScale in self.retired_scales:
                 LIsRetired[iScale]=1
@@ -651,21 +609,10 @@ class ClassScaleMachine(object):
                 ScaleMask = self.MaskArray
             else:
                 ScaleMask = self.ScaleMaskArray[str(iScale)]
-                stop
+
 
                 
-            # ScaleMask=~(~ScaleMask & MyScaleMask)
             
-            # pylab.figure("Mask")
-            # pylab.clf()
-            # ax=pylab.subplot(1,3,1)
-            # pylab.imshow(self.ExternalMaskArray[0,0],interpolation="nearest")
-            # pylab.subplot(1,3,2,sharex=ax,sharey=ax)
-            # pylab.imshow(ScaleMask[0,0],interpolation="nearest")
-            # pylab.subplot(1,3,2,sharex=ax,sharey=ax)
-            # pylab.imshow(MyScaleMask[iScale:iScale+1,0],interpolation="nearest")
-            # pylab.draw()
-            # pylab.show()
             
             xtmp, ytmp, ConvMaxDirty = NpParallel.A_whereMax(ConvMeanDirtys[iScale:iScale+1],
                                                              NCPU=self.NCPU, DoAbs=self.DoAbs,
@@ -676,20 +623,22 @@ class ClassScaleMachine(object):
             
             if np.argmax(ScaleDptPeak)!=0:
                 LIsZerothScale[iScale]=1
-                
+            DicoMask[iScale]=ScaleMask
+            
             LScaleDptPeak[iScale]=ScaleDptPeak
             pAlpha[iScale]=ConvMaxDirty * self.bias[iScale]
             Lxy[iScale] = [xtmp, ytmp]
             LPeak[iScale]=ConvMaxDirty
             del(ConvMaxDirty,xtmp, ytmp)
-            
-        # pAlpha[IsNonMonotonous==1]=0
+        T.timeit("Loop over scales")
+
+        
         if np.all(pAlpha==0):
             iScaleMax=0
         else:
             iScaleMax=np.argmax(pAlpha)#LPeak)
 
-
+        
         iScale=iScaleMax
         
         xc,yc=Lxy[iScaleMax]
@@ -697,26 +646,7 @@ class ClassScaleMachine(object):
         ScaleDptPeak2=ConvMeanDirtys[:,0,xc,yc]
         ScaleDptPeak[LIsRetired==1]=0
         iFacet=self.PSFServer.giveFacetID2(xc,yc)
-
-        # ######################
-        # Chi2=np.zeros((self.Nscales,),float)
-        # for iScale in self.retired_scales:
-        #     Chi2[iScale]=1e10
-        # ss=ScaleDptPeak
-        # x,y=xc,yc # Lxy[iScale]
-        # FirstScaleAlwaysLower=True
-        # Lmm=[]
-        # for iScale in range(self.Nscales):
-        #     if iScale in self.retired_scales: continue
-        #     mm=self.DicoH[iFacet][iScale,:].copy()
-        #     mm*=ss[0]/mm[0]
-        #     ind=np.where(ss!=0)[0]
-        #     Chi2[iScale]=np.sum((ss[ind]-mm[ind])**2)
-        #     Lmm.append((ind,mm,ScaleDptPeak))
-        #     if iScale==1 and ss[1]!=0 and ss[1]>mm[1]:
-        #         FirstScaleAlwaysLower=False
-                
-        #######################
+        
         if DOPLOT:
             ax=self.DicoAx["Resid"][0]
             dx=50
@@ -741,47 +671,29 @@ class ClassScaleMachine(object):
             pylab.draw()
             self.fig.savefig("FIG/ScaleMachine_%4.4i.png"%self.iIter)
         
-        # Chi2[LIsRetired==1]=1e10
+        # print("=============")
+        # print("Chosen scale=%i"%iScale)
+        # print("pAlpha",pAlpha)
+        # print("LPeak",LPeak)
+        # print("ScaleDptPeak",ScaleDptPeak)
+        # print("LIsRetired",LIsRetired)
+        # print("IsNonMonotonous",IsNonMonotonous)
         
-        # iScale=np.argmin(Chi2)
-        # if (np.argmax(ScaleDptPeak)!=0):
-        #     print("Non monotonously decreasing!")
-        #     iScale=0
-        # if FirstScaleAlwaysLower:
-        #     print("First Scale always higher!")
-        #     iScale=0
-            
-        print("Chosen scale=%i"%iScale)
-        print("pAlpha",pAlpha)
-        print("LPeak",LPeak)
-        print("ScaleDptPeak",ScaleDptPeak)
-        print("LIsRetired",LIsRetired)
-        print("IsNonMonotonous",IsNonMonotonous)
-        print("=============")
         x,y=Lxy[iScale]
         ConvMaxDirty=LPeak[iScale]
-        # x = xtmp
-        # y = ytmp
         BiasedMaxVal = ConvMaxDirty * self.bias[iScale]
         MaxDirty = ConvMaxDirty
         CurrentDirty = ConvMeanDirtys[iScale:iScale+1]
         CurrentScale = iScale
-        CurrentMask = ScaleMask
-        
+        CurrentMask = DicoMask.get(iScale,None)
 
         # self.Hinv=ModLinAlg.invSVD(self.H)
         # ss=np.dot(self.Hinv,np.array(LMax).reshape((-1,1)))
-        
-
-        # print(self.DicoH[0][-1,:])
-        # print(LMax)
-        # f=LMax[0]/self.DicoH[0][-1,0]
-        # print(f,1/f)
         # stop
         
         if BiasedMaxVal == 0:
-            print("No scale has been selected. This should never happen. Bug!")
-            print("Forbidden scales = ", self.forbidden_scales)
-            stop
+            log.print("Maximum is found to be zero - No scale has been selected!")
+            
         self.iIter+=1
+        T.timeit("FindMax")
         return x, y, MaxDirty, CurrentDirty, CurrentScale, CurrentMask

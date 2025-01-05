@@ -160,7 +160,7 @@ class ClassPSFServer():
             if inPoly(iFacet,l,m):
                 ClosestFacet=iFacet
                 #break
-            
+
             if d<dmin:
                 dmin=d
                 ClosestFacet0=iFacet

@@ -103,6 +103,7 @@ class ClassImageDeconvMachine():
             self.ModelMachine = ModelMachine
         self.GainMachine = self.ModelMachine.GainMachine
         self._niter = 0
+        self._CurrentMajorIter=0
 
         # cache options
         self.maincache = MainCache
@@ -149,7 +150,10 @@ class ClassImageDeconvMachine():
         self.Freqs_degrid = np.asarray(AllDegridFreqs).flatten()
         self.SetPSF(kwargs["PSFVar"])
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
-
+        if not self.Freqs.size>=2*self.GD["WSCMS"]["NumFreqBasisFuncs"]:
+            log.print(ModColor.Str("You should set NumFreqBasisFuncs >= 2 x NBand"))
+            
+        
         from africanus.constants import c as lightspeed
         minlambda = lightspeed/self.Freqs.min()
         # LB - note MaskArray might be modified by ScaleMachine if GD{"WSCMS"]["AutoMask"] is True
@@ -168,12 +172,13 @@ class ClassImageDeconvMachine():
         # MinorLoopMachine
 
         
-        self.MLM=ClassWSCMS_MinorLoop.ClassWSCMS_MinorLoop(self.GD)
+        self.MLM=ClassWSCMS_MinorLoop.ClassWSCMS_MinorLoop(BaseName=BaseName,GD=self.GD)
         self.MLM.setModelMachine(self.ModelMachine)
         self.MLM.setPSFServer(self.PSFServer)
         self.MLM.setScaleMachine(self.PSFServer, NCPU=self.NCPU, MaskArray=self.MaskArray,
                                  cachepath=cachepath, MaxBaseline=kwargs["MaxBaseline"] / minlambda)
         self.ScaleMachine=self.MLM.ScaleMachine
+        self.MLM.setFacetMachine(self.FacetMachine)
 
     def Reset(self):
         pass
@@ -348,6 +353,9 @@ class ClassImageDeconvMachine():
 
         return StopFlux, MaxDirty, RMS
 
+    def setMaxMajorIter(self,MaxMajorIter):
+        self.MaxMajorIter=MaxMajorIter
+
     def Deconvolve(self):
         """
         Runs minor cycle over image channel 'ch'.
@@ -362,6 +370,7 @@ class ClassImageDeconvMachine():
         exit_msg = ""
         continue_deconvolution = False
         update_model = False
+        self._CurrentMajorIter+=1
 
         # These options should probably be moved into MinorCycleConfig in parset
         print("  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter, self.MaxMinorIter,
@@ -427,9 +436,20 @@ class ClassImageDeconvMachine():
                 # Find the relevant scale and do sub-minor loop. Note that the dirty cube is updated during the
                 # sub-minor loop by subtracting the once convolved PSF's as components are added to the model.
                 # The model is updated by adding components to the ModelMachine dictionary.
-                niter, iScale = self.MLM.do_minor_loop(self._Dirty, self._MeanDirty, self._JonesNorm,
-                                                       self.WeightsChansImages, ThisFlux, StopFlux, RMS)
 
+                # Cyril added this to enable the negative peak search at the automasking at
+                # the last major cycle, and the negative peak at the last-1 
+                ForceAutoMasking=(self._CurrentMajorIter==self.MaxMajorIter)
+                
+                # DoAbs=(self._CurrentMajorIter>=self.MaxMajorIter-1)
+                # self.MLM.set_AbsMode(DoAbs)
+                
+                niter, iScale = self.MLM.do_minor_loop(self._Dirty, self._MeanDirty, self._JonesNorm,
+                                                       self.WeightsChansImages, ThisFlux, StopFlux, RMS, ForceAutoMasking)
+                if iScale==None:
+                    stalled = True
+                    continue
+                
                 # compute the new mean image from the weighted sum of over frequency
                 self._MeanDirty = np.sum(self._Dirty * self.WeightsChansImages, axis=0, keepdims=True)
 
@@ -458,7 +478,7 @@ class ClassImageDeconvMachine():
                 TrackRMS = ThisRMS.copy()
 
                 # find peak
-                x, y, ThisFlux = NpParallel.A_whereMax(self._MeanDirty, NCPU=self.NCPU,
+                _, _, ThisFlux = NpParallel.A_whereMax(self._MeanDirty, NCPU=self.NCPU,
                                                        DoAbs=self.GD["Deconv"]["AllowNegative"],
                                                        Mask=self.MaskArray)
 
