@@ -1291,6 +1291,11 @@ class ClassImagerDeconv():
                 self.FacetMachine.ToCasaImage(ModelImage, ImageName="%s.model%2.2i" % (self.BaseName, iMajor),
                                               Fits=True, Freqs=current_model_freqs,
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                _,_,nx,ny=ModelImage.shape
+                MeanModelImage=np.mean(ModelImage,axis=0).reshape((1,1,nx,ny))
+                self.FacetMachine.ToCasaImage(MeanModelImage, ImageName="%s.mean_model%2.2i" % (self.BaseName, iMajor),
+                                              Fits=True, Freqs=np.array([np.mean(current_model_freqs)]),
+                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             # stop
             # ###
 

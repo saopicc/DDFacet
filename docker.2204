@@ -1,8 +1,8 @@
-FROM ubuntu:focal-20220105
+FROM ubuntu:22.04
 
 #Package dependencies
 COPY apt.sources.list /etc/apt/sources.list
-RUN sed -i 's/bionic/focal/g' /etc/apt/sources.list
+RUN sed -i 's/bionic/jammy/g' /etc/apt/sources.list
 
 #Setup environment
 ENV DDFACET_TEST_DATA_DIR /test_data
@@ -12,8 +12,8 @@ ENV DDFACET_TEST_OUTPUT_DIR /test_output
 RUN echo "*        -   memlock     unlimited" > /etc/security/limits.conf
 ENV DEBIAN_FRONTEND noninteractive
 ENV DEBIAN_PRIORITY critical
-ENV GNUCOMPILER 10
-ENV PYTHONVER 3.8
+ENV GNUCOMPILER 11
+ENV PYTHONVER 3.10
 ENV DEB_SETUP_DEPENDENCIES \
     dpkg-dev \
     g++-$GNUCOMPILER \
@@ -52,6 +52,7 @@ ENV DEB_DEPENCENDIES \
     bison \
     libbison-dev \
     libqdbm-dev \
+    libgsl-dev \
     # Reference image generation dependencies
     make
 
@@ -113,7 +114,6 @@ RUN mkdir -p /usr/share/casacore/data/
 WORKDIR /usr/share/casacore/data/
 RUN rsync -avz rsync://casa-rsync.nrao.edu/casa-data .
 
-RUN apt-get install -y libgsl-dev
 #####################################################################
 ## BUILD CASACORE AND CASAREST FROM SOURCE
 #####################################################################
@@ -153,19 +153,19 @@ RUN cd /opt && \
 ## BUILD MAKEMS FROM SOURCE AND TEST
 #####################################################################
 WORKDIR /opt
-RUN wget https://github.com/ska-sa/makems/archive/v1.5.4.tar.gz && \
-    tar xvf v1.5.4.tar.gz && \
-    rm v1.5.4.tar.gz && \
-    mkdir -p /opt/makems-1.5.4/LOFAR/build/gnu_opt && \
-    cd /opt/makems-1.5.4/LOFAR/build/gnu_opt && \
-    cmake -DCMAKE_MODULE_PATH:PATH=/opt/makems-1.5.4/LOFAR/CMake \
+RUN wget https://github.com/ska-sa/makems/archive/v1.5.5.tar.gz && \
+    tar xvf v1.5.5.tar.gz && \
+    rm v1.5.5.tar.gz && \
+    mkdir -p /opt/makems-1.5.5/LOFAR/build/gnu_opt && \
+    cd /opt/makems-1.5.5/LOFAR/build/gnu_opt && \
+    cmake -DCMAKE_MODULE_PATH:PATH=/opt/makems-1.5.5/LOFAR/CMake \
           -DUSE_LOG4CPLUS=OFF -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_INSTALL_PREFIX=/usr ../.. && \
     make -j 16 && \
     make install && \
-    cd /opt/makems-1.5.4/test && \
+    cd /opt/makems-1.5.5/test && \
     makems WSRT_makems.cfg && \
-    rm -r /opt/makems-1.5.4
+    rm -r /opt/makems-1.5.5
 
 #####################################################################
 ## BUILD MEQTREES FROM SOURCE AND TEST
@@ -175,10 +175,10 @@ WORKDIR /opt
 WORKDIR /opt
 
 RUN . /opt/venv/bin/activate && python -m pip install purr owlcat kittens meqtrees-cattery astro-tigger-lsm "numpy==${NUMPYVER}" && \
-    wget https://github.com/ska-sa/meqtrees-timba/archive/refs/tags/v1.8.3.tar.gz && \
-    tar zxvf v1.8.3.tar.gz && \
-    rm v1.8.3.tar.gz && \
-    cd meqtrees-timba-1.8.3 && \
+    wget https://github.com/ska-sa/meqtrees-timba/archive/refs/tags/v1.10.tar.gz && \
+    tar zxvf v1.10.tar.gz && \
+    rm v1.10.tar.gz && \
+    cd meqtrees-timba-1.10 && \
     mkdir build && \
     cd build && \
     cmake -DCMAKE_INSTALL_PREFIX=/usr \
@@ -189,24 +189,24 @@ RUN . /opt/venv/bin/activate && python -m pip install purr owlcat kittens meqtre
     make -j4 && \
     make install && \
     ldconfig && \
-    rm -r /opt/meqtrees-timba-1.8.3 && \
+    rm -r /opt/meqtrees-timba-1.10 && \
     cd /opt && \
-    wget https://github.com/ska-sa/pyxis/archive/v1.7.4.3.tar.gz && \
-    tar zxvf v1.7.4.3.tar.gz && \
-    rm v1.7.4.3.tar.gz && \
-    python -m pip install /opt/pyxis-1.7.4.3 nose "numpy==${NUMPYVER}" && \
-    cd /opt/pyxis-1.7.4.3/Pyxis/recipes/meqtrees-batch-test && \
-    python -m "nose" && \
-    rm -r /opt/pyxis-1.7.4.3
+    wget https://github.com/ska-sa/pyxis/archive/v1.7.5.tar.gz && \
+    tar zxvf v1.7.5.tar.gz && \
+    rm v1.7.5.tar.gz && \
+    python -m pip install /opt/pyxis-1.7.5 pynose "numpy==${NUMPYVER}" && \
+    cd /opt/pyxis-1.7.5/Pyxis/recipes/meqtrees-batch-test && \
+    pynose && \
+    rm -r /opt/pyxis-1.7.5
 
 #####################################################################
 ## BUILD LOFAR FROM SOURCE
 #####################################################################
 WORKDIR /opt
-RUN wget https://github.com/bennahugo/LOFARBeam/archive/refs/tags/DDF_KMS_20.04.tar.gz && \
-    tar zxvf DDF_KMS_20.04.tar.gz && \
-    rm DDF_KMS_20.04.tar.gz && \
-    cd LOFARBeam-DDF_KMS_20.04 && \
+RUN wget https://github.com/bennahugo/LOFARBeam/archive/refs/tags/DDF_KMS_22.04.tar.gz && \
+    tar zxvf DDF_KMS_22.04.tar.gz && \
+    rm DDF_KMS_22.04.tar.gz && \
+    cd LOFARBeam-DDF_KMS_22.04 && \
     mkdir -p build/gnucxx11_opt && \
     cd build/gnucxx11_opt && \
     cmake -DCMAKE_INSTALL_PREFIX=/usr \
@@ -215,7 +215,7 @@ RUN wget https://github.com/bennahugo/LOFARBeam/archive/refs/tags/DDF_KMS_20.04.
     make -j4 && \
     make install && \
     . /opt/venv/bin/activate && python -c "import lofar.stationresponse as lsr" && \
-    rm -r /opt/LOFARBeam-DDF_KMS_20.04
+    rm -r /opt/LOFARBeam-DDF_KMS_22.04
 
 #####################################################################
 ## BUILD DDF FROM SOURCE
@@ -233,12 +233,15 @@ ADD .gitmodules /opt/DDFacet/.gitmodules
 RUN cd /opt/DDFacet/ && git submodule update --init --recursive && cd /
 # Finally install DDFacet
 RUN rm -rf /opt/DDFacet/DDFacet/cbuild
-RUN . /opt/venv/bin/activate && python -m pip install "/opt/DDFacet[dft-support,moresane-support,testing-requirements,fits-beam-support,kms-support,alternate-data-backends]"
+# workaround for pip build isolation bug pulling a higher version of tensorflow that is not ABI compatible
+RUN echo "tensorflow==2.12.0" > /opt/DDFacet/constraints.txt
+ENV PIP_CONSTRAINT /opt/DDFacet/constraints.txt
+RUN . /opt/venv/bin/activate && python -m pip install --use-pep517 "/opt/DDFacet[dft-support,moresane-support,testing-requirements,fits-beam-support,kms-support,alternate-data-backends]"
 
 # test montblanc install
 WORKDIR /tmp
 RUN . /opt/venv/bin/activate && python -c "import montblanc"
-RUN . /opt/venv/bin/activate && python -m nose /opt/venv/lib/python${PYTHONVER}/site-packages/montblanc/impl/rime/tensorflow/rime_ops/test*
+RUN . /opt/venv/bin/activate && pynose /opt/venv/lib/python${PYTHONVER}/site-packages/montblanc/impl/rime/tensorflow/rime_ops/test*
 
 # ensure bdsf backend still works
 RUN . /opt/venv/bin/activate && python -c "import bdsf"

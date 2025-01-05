@@ -333,7 +333,8 @@ class ClassWSCMS_MinorLoop():
             FluxScaledPSF=self.ConvPSF * Fpol[:, None, None, None] * self.CurrentGain
             T2.timeit("  FluxScaledPSF")    
             self.SubStep(xscale, yscale, FluxScaledPSF, Dirty.view())
-            T2.timeit("  SubStep")    
+            T2.timeit("  SubStep")
+            
             # subtract component from convolved dirty image
             A = substep(A, self.Conv2PSFmean[0, 0], float(ConvMaxDirty * self.CurrentGain), Ip, Iq, pq, (self.NpixPSF_x,self.NpixPSF_y))
             T2.timeit("  substep")    
@@ -347,7 +348,7 @@ class ClassWSCMS_MinorLoop():
                 # so we can check convergence in the minor cycle
                 self.ScaleMachine.MaskArray[0, 0, xscale, yscale] = 0
             T2.timeit("  update scale mask")    
-
+            
             # find new peak
             absA = self.opABS(A)
             AbsConvMaxDirty = absA.max()

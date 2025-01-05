@@ -21,4 +21,8 @@ list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/cmake")
 #Ensure __init__.py is added to out-of-source build directory
 execute_process(COMMAND touch __init__.py
 		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+#when doing a non-editable installation this need to be installed
+install(FILES __init__.py DESTINATION DDFacet/cbuild)
+# need to make it a package if it is a non-editable install
+#install(SCRIPT __init__.py LIBRARY DESTINATION DDFacet/cbuild)
 add_subdirectory(Gridder)

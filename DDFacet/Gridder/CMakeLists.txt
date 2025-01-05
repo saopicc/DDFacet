@@ -4,7 +4,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 option(ENABLE_NATIVE_TUNING "Enables support for optimized code generation (-march=native)" ON)
 option(ENABLE_FAST_MATH "Enables -fast-math option (breaks IEEE754 callbacks)" ON)
-option(ENABLE_PYTHON_2 "Enables support for Python 2.7" ON)
+option(ENABLE_PYTHON_2 "Enables support for Python 2.7" OFF)
 option(ENABLE_PYTHON_3 "Enables support for Python 3.x" ON)
 
 if (${ENABLE_NATIVE_TUNING})
@@ -90,6 +90,13 @@ function(build_be PYVER)
   add_library(_pyGridderSmearPols${PYVER} GridderSmearPols.cc Semaphores.cc JonesServer.cc DecorrelationHelper.cc)
   set_target_properties(_pyGridderSmearPols${PYVER} PROPERTIES PREFIX "") #remove "lib" prefix from library (PEP8 compliance)
   target_link_libraries(_pyGridderSmearPols${PYVER} ${RT_LIBRARIES} ${PYTHON_LIBRARY})
+
+  # set install path
+  install(TARGETS _pyArrays${PYVER} LIBRARY DESTINATION DDFacet/cbuild/Gridder)
+  install(TARGETS _pyGridderSmearPols${PYVER} LIBRARY DESTINATION DDFacet/cbuild/Gridder)
+  
+  # install the init.py
+  install(FILES __init__.py DESTINATION DDFacet/cbuild/Gridder)
   add_subdirectory(old_c_gridder)
 endfunction(build_be)
 

@@ -565,9 +565,11 @@ def main(options=None):
 
 
 
-
+def driver():
+    OP=read_options()
+    main(OP)
 
 if __name__=="__main__":
-    OP=read_options()
-
-    main(OP)
+    # do not place any other code here --- cannot be called as a package entrypoint otherwise, see:
+    # https://packaging.python.org/en/latest/specifications/entry-points/
+    driver()

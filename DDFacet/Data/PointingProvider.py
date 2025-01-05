@@ -109,13 +109,13 @@ class PointingProvider(object):
         if self.sols_filename == "" or not self.sols_filename:
             print("Initializing pointing solutions to 0.0, 0.0 for stations %s" % ",".join(set(self._raw_offsets["#ANT"])), file=log)
         else:
-            print("Pointing solutions span %s to %s UTC" % (mjd2utc(self._raw_offsets.min()["TIME"]),
-                                                                  mjd2utc(self._raw_offsets.max()["TIME"])), file=log)
+            print("Pointing solutions span %s to %s UTC" % (mjd2utc(self._raw_offsets["TIME"].min()),
+                                                                  mjd2utc(self._raw_offsets["TIME"].max())), file=log)
             print("Pointing solutions contain solutions for stations %s" % ",".join(set(self._raw_offsets["#ANT"])), file=log)
         for a in set(self._raw_offsets["#ANT"]):
             self._interp_offsets[a] = {c: {} for c in self._ptcorr_labels}
-            self._min_time_ant[a] = self._raw_offsets.where(self._raw_offsets["#ANT"] == a).min()["TIME"]
-            self._max_time_ant[a] = self._raw_offsets.where(self._raw_offsets["#ANT"] == a).max()["TIME"]
+            self._min_time_ant[a] = self._raw_offsets.where(self._raw_offsets["#ANT"] == a)["TIME"].min()
+            self._max_time_ant[a] = self._raw_offsets.where(self._raw_offsets["#ANT"] == a)["TIME"].max()
 
             for f in ["XX", "YY"] if self._feed_type == "linear" else ["RR", "LL"]:
                 sel = self._raw_offsets.where(np.logical_and(self._raw_offsets["#ANT"] == a,
@@ -133,8 +133,8 @@ class PointingProvider(object):
                                                              fill_value=(sel_sorted["DEC_ERR(deg)"].iloc[0], sel_sorted["DEC_ERR(deg)"].iloc[-1]))
                 
                 print("Station %s feed %s has interquartile pointing spread of (%.2f, %.2f) deg in RA and (%.2f, %.2f) deg in DECL" % \
-                     (a, f, sel.quantile(.25)["RA_ERR(deg)"], sel.quantile(.75)["RA_ERR(deg)"], 
-                      sel.quantile(.25)["DEC_ERR(deg)"], sel.quantile(.75)["DEC_ERR(deg)"]), file=log)
+                     (a, f, sel["RA_ERR(deg)"].quantile(.25), sel["RA_ERR(deg)"].quantile(.75), 
+                      sel["DEC_ERR(deg)"].quantile(.25), sel["DEC_ERR(deg)"].quantile(.75)), file=log)
     
     @property
     def sols_filename(self):

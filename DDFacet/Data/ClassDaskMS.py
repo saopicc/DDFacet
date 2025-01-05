@@ -345,7 +345,7 @@ class ClassDaskMS(ClassMS):
                     np.save(datapath, visdata)
                     self.cache.saveCache("Data.npy")
         # create flag array (if flagbuf is not None, array uses memory of buffer)
-        flags = DATA.addSharedArray("flags", shape=datashape, dtype=np.bool)
+        flags = DATA.addSharedArray("flags", shape=datashape, dtype=np.bool8)
         # check cache for flags
         if use_cache:
             flagpath, flagvalid = self.cache.checkCache("Flags.npy", dict(time=self._start_time), ignore_key=(use_cache=="force"))
@@ -477,6 +477,7 @@ class ClassDaskMS(ClassMS):
                     weights[...] = w
                 else:
                     weights *= w
+                continue
             else:
                 # in all other cases (i.e. IMAGING_WEIGHT) assume a column
                 # of shape NRow,NFreq to begin with, check for this:
