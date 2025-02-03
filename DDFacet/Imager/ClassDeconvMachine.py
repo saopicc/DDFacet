@@ -808,7 +808,7 @@ class ClassImagerDeconv():
 
         ## we get here whether we recomputed dirty/psf or not
         # finalize other PSF initialization
-        if psf:
+        if psf and MPIManager.rank == 0:
             self._fitAndSavePSF(self.FacetMachinePSF)
 
         return self.DicoDirty["MeanImage"]
@@ -1547,7 +1547,8 @@ class ClassImagerDeconv():
         # self.Restore()
 
         if self.HasDeconvolved:
-            self.Restore()
+            if MPIManager.rank == 0:
+                self.Restore()
 
             # Last major cycle may output residues other than Stokes I
             # Since the current residue images are for Stokes I only
@@ -1976,8 +1977,8 @@ class ClassImagerDeconv():
 
         # do we have a non-trivial norm (i.e. DDE solutions or beam)?
         # @cyriltasse: maybe there's a quicker way to check?
-        #havenorm = self.MeanJonesNorm is not None and (self.MeanJonesNorm != 1).any()
-        havenorm = False
+        havenorm = self.MeanJonesNorm is not None and (self.MeanJonesNorm != 1).any()
+        #havenorm = False
 
         T = ClassTimeIt.ClassTimeIt()
         T.disable()
