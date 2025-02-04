@@ -41,13 +41,15 @@ fi
 echo "Fixing files in folder $dirname"
 [ ! -d $dirname ] && echo "Directory '$dirname' does not exist" && exit 1
 
-replaceall="numpy.bool np.bool numpy.float np.float numpy.int np.int numpy.complex np.complex numpy.object np.object numpy.str np.str numpy.long np.long numpy.unicode np.unicode"
+replaceall="numpy.bool np.bool np.bool8 numpy.float np.float numpy.int np.int numpy.complex np.complex numpy.object np.object numpy.str np.str numpy.long np.long numpy.unicode np.unicode"
 
 
 function npreplacevalue() {
 	local nprep
 	if [[ "$1" = "np.bool" || "$1" = "numpy.bool" ]]; then
 		local nprep=bool
+	elif [[ "$1" = "np.bool8" || "$1" = "numpy.bool8" ]]; then
+ 		local nprep=np.bool_
 	elif [[ "$1" = "np.int" || "$1" = "numpy.int" ]]; then
  		local nprep=int
 	elif [[ "$1" = "np.float" || "$1" = "numpy.float" ]]; then

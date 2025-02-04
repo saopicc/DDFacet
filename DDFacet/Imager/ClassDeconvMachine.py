@@ -63,7 +63,10 @@ from DDFacet.Data import ClassStokes
 from DDFacet.Imager import ClassGainMachine
 
 from DDFacet.Data.PointingProvider import PointingProvider
+
+from DDFacet.Other import MPIManager
 from DDFacet.Other.CacheManager import CacheManager
+
 
 # from astropy import wcs
 # from astropy.io import fits
@@ -331,9 +334,11 @@ class ClassImagerDeconv():
             self.VS.WM.IgnoreWeights()
 
     def InitCF(self):
+        # all internal state initialized -- start the worker threads
         # and proceed with background tasks
         if self.FacetMachine is not None:
             self.FacetMachine.initCFInBackground()
+
         # FacetMachinePSF will skip CF init if they match those of FacetMachine
         if self.FacetMachinePSF is not None:
             self.FacetMachinePSF.initCFInBackground(other_fm=self.FacetMachine)
@@ -507,6 +512,13 @@ class ClassImagerDeconv():
 
 
     def _finalizeComputedPSF (self, FacetMachinePSF, cachepath=None):
+        self.FacetMachinePSF.collectGriddingResults()
+        if MPIManager.useMPI:
+            self.FacetMachinePSF.mpiGridReduce()
+            for iFacet in self.FacetMachinePSF.DicoImager.keys():
+                self.FacetMachinePSF.DicoImager[iFacet]["SumWeights"] = MPIManager.COMM_WORLD.allreduce(self.FacetMachinePSF.DicoImager[iFacet]["SumWeights"], MPIManager.SUM)
+                self.FacetMachinePSF.DicoImager[iFacet]["SumJones"] = MPIManager.COMM_WORLD.allreduce(self.FacetMachinePSF.DicoImager[iFacet]["SumJones"], MPIManager.SUM)
+
         self.DicoImagesPSF = FacetMachinePSF.FacetsToIm(NormJones=True)
         FacetMachinePSF.releaseGrids()
         self.DicoImagesPSF["DicoImager"]=copy.deepcopy((self.FacetMachinePSF.DicoImager or self.FacetMachine.DicoImager))
@@ -802,6 +814,12 @@ class ClassImagerDeconv():
                 # else do nothing
                 self.FacetMachine.finaliseSmoothBeam()
 
+                self.FacetMachine.collectGriddingResults()
+                if MPIManager.useMPI:
+                    self.FacetMachine.mpiGridReduce()
+                    for iFacet in self.FacetMachine.DicoImager.keys():
+                        self.FacetMachine.DicoImager[iFacet]["SumWeights"] = MPIManager.COMM_WORLD.allreduce(self.FacetMachine.DicoImager[iFacet]["SumWeights"], MPIManager.SUM)
+                        self.FacetMachine.DicoImager[iFacet]["SumJones"] = MPIManager.COMM_WORLD.allreduce(self.FacetMachine.DicoImager[iFacet]["SumJones"], MPIManager.SUM)
                 # stitch facets and release grids
                 self.DicoDirty = self.FacetMachine.FacetsToIm(NormJones=True)
                 self.FacetMachine.releaseGrids()
@@ -833,64 +851,64 @@ class ClassImagerDeconv():
 
         ## we get here whether we recomputed dirty/psf or not
         # finalize other PSF initialization
-        if psf:
+        if psf and MPIManager.rank == 0:
             self._fitAndSavePSF(self.FacetMachinePSF)
 
         return self.DicoDirty["MeanImage"]
 
     def SaveDirtyProducts(self):
+        if MPIManager.rank == 0: #only if master node or not MPI
+            if "d" in self._saveims:
+                self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty"%self.BaseName,Fits=True,
+                                            Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            if "d" in self._savecubes:
+                self.FacetMachine.ToCasaImage(self.DicoDirty["ImageCube"],ImageName="%s.cube.dirty"%self.BaseName,
+                                            Fits=True,Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
-        if "d" in self._saveims:
-            self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty"%self.BaseName,Fits=True,
-                                          Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-        if "d" in self._savecubes:
-            self.FacetMachine.ToCasaImage(self.DicoDirty["ImageCube"],ImageName="%s.cube.dirty"%self.BaseName,
-                                          Fits=True,Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            if "n" in self._saveims:
+                FacetNormReShape = self.FacetMachine.getNormDict()["FacetNormReShape"]
+                self.FacetMachine.ToCasaImage(FacetNormReShape,
+                                            ImageName="%s.NormFacets"%self.BaseName,
+                                            Fits=True)
 
-        if "n" in self._saveims:
-            FacetNormReShape = self.FacetMachine.getNormDict()["FacetNormReShape"]
-            self.FacetMachine.ToCasaImage(FacetNormReShape,
-                                          ImageName="%s.NormFacets"%self.BaseName,
-                                          Fits=True)
+            if self.DicoDirty["JonesNorm"] is not None:
+                NormImage=self.DicoDirty["JonesNorm"]
 
-        if self.DicoDirty["JonesNorm"] is not None:
-            NormImage=self.DicoDirty["JonesNorm"]
+                if self.DoSmoothBeam and self.FacetMachine.SmoothJonesNorm is not None:
+                    NormImage=self.FacetMachine.SmoothJonesNorm
 
-            if self.DoSmoothBeam and self.FacetMachine.SmoothJonesNorm is not None:
-                NormImage=self.FacetMachine.SmoothJonesNorm
+                DirtyCorr = self.DicoDirty["ImageCube"]/np.sqrt(NormImage)
 
-            DirtyCorr = self.DicoDirty["ImageCube"]/np.sqrt(NormImage)
+                nch,npol,nx,ny = DirtyCorr.shape
+                if "D" in self._saveims:
+                    MeanCorr = np.mean(DirtyCorr, axis=0).reshape((1, npol, nx, ny))
+                    self.FacetMachine.ToCasaImage(MeanCorr,ImageName="%s.dirty.corr"%self.BaseName,Fits=True,
+                                                    Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                if "D" in self._savecubes:
+                    self.FacetMachine.ToCasaImage(DirtyCorr,ImageName="%s.cube.dirty.corr"%self.BaseName,
+                                                Fits=True,Freqs=self.VS.FreqBandCenters,
+                                                Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
-            nch,npol,nx,ny = DirtyCorr.shape
-            if "D" in self._saveims:
-                MeanCorr = np.mean(DirtyCorr, axis=0).reshape((1, npol, nx, ny))
-                self.FacetMachine.ToCasaImage(MeanCorr,ImageName="%s.dirty.corr"%self.BaseName,Fits=True,
-                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-            if "D" in self._savecubes:
-                self.FacetMachine.ToCasaImage(DirtyCorr,ImageName="%s.cube.dirty.corr"%self.BaseName,
-                                              Fits=True,Freqs=self.VS.FreqBandCenters,
-                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                self.JonesNorm = self.DicoDirty["JonesNorm"]
+                self.MeanJonesNorm = np.mean(self.JonesNorm,axis=0).reshape((1,npol,nx,ny))
 
-            self.JonesNorm = self.DicoDirty["JonesNorm"]
-            self.MeanJonesNorm = np.mean(self.JonesNorm,axis=0).reshape((1,npol,nx,ny))
-
-            if self.DoSmoothBeam and self.FacetMachine.SmoothJonesNorm is not None:
-                self.FacetMachine.ToCasaImage(self.FacetMachine.MeanSmoothJonesNorm,ImageName="%s.MeanSmoothNorm"%self.BaseName,Fits=True,
-                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-                self.FacetMachine.ToCasaImage(self.FacetMachine.SmoothJonesNorm,ImageName="%s.SmoothNorm"%self.BaseName,Fits=True,
-                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts(),
-                                              Freqs=self.VS.FreqBandCenters)
+                if self.DoSmoothBeam and self.FacetMachine.SmoothJonesNorm is not None:
+                    self.FacetMachine.ToCasaImage(self.FacetMachine.MeanSmoothJonesNorm,ImageName="%s.MeanSmoothNorm"%self.BaseName,Fits=True,
+                                                Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                    self.FacetMachine.ToCasaImage(self.FacetMachine.SmoothJonesNorm,ImageName="%s.SmoothNorm"%self.BaseName,Fits=True,
+                                                Stokes=self.VS.StokesConverter.RequiredStokesProducts(),
+                                                Freqs=self.VS.FreqBandCenters)
 
 
-            if "N" in self._saveims:
-                self.FacetMachine.ToCasaImage(self.MeanJonesNorm,ImageName="%s.Norm"%self.BaseName,Fits=True,
-                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-            if "N" in self._savecubes:
-                self.FacetMachine.ToCasaImage(self.JonesNorm, ImageName="%s.cube.Norm" % self.BaseName,
-                                              Fits=True, Freqs=self.VS.FreqBandCenters,
-                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-        else:
-            self.MeanJonesNorm = None
+                if "N" in self._saveims:
+                    self.FacetMachine.ToCasaImage(self.MeanJonesNorm,ImageName="%s.Norm"%self.BaseName,Fits=True,
+                                                Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                if "N" in self._savecubes:
+                    self.FacetMachine.ToCasaImage(self.JonesNorm, ImageName="%s.cube.Norm" % self.BaseName,
+                                                Fits=True, Freqs=self.VS.FreqBandCenters,
+                                                Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            else:
+                self.MeanJonesNorm = None
 
     def _init_pointing_sols(self):
         """ Initialize pointing solutions provider """
@@ -965,7 +983,7 @@ class ClassImagerDeconv():
         CleanMaskImageName=self.GD["Mask"]["External"]
         # if CleanMaskImageName is not None and CleanMaskImageName is not "":
         #     print>>log,ModColor.Str("Will use mask image %s for the predict"%CleanMaskImageName)
-        #     CleanMaskImage = np.bool8(ClassCasaImage.FileToArray(CleanMaskImageName,True))
+        #     CleanMaskImage = np.bool_(ClassCasaImage.FileToArray(CleanMaskImageName,True))
 
 
         modelfile = self.GD["Predict"]["FromImage"]
@@ -1220,12 +1238,11 @@ class ClassImagerDeconv():
 
             # noise mask first (this may be RAM-hungry due to HMP inside, but ClassImageNoiseMachine.giveBrutalRestored()
             # eventually Reset()s its HMP machine, releasing memory)
-
             # we have to give the PSF to the image-noise machine since it may have to run an HMP deconvolution
             self.ImageNoiseMachine.setPSF(self.DicoImagesPSF)
             # now update the mask - it will eventually call for ImageNoiseMachine to compute a noise image
+            # May be done by all the mpi processes if we want to distribute SSD2 computation using MPI
             self.MaskMachine.updateMask(self.DicoDirty)
-            
             if self.MaskMachine.CurrentMask is not None:
                 if "k" in self._saveims:
                     self.FacetMachine.ToCasaImage(np.float32(self.MaskMachine.CurrentMask),
@@ -1263,6 +1280,32 @@ class ClassImagerDeconv():
             self.DeconvMachine.Update(self.DicoDirty)
 
             repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
+            # Broadcast metadata regarding the state of Deconvolution form the master MPI process
+            # to all the other MPI processes.
+            if MPIManager.useMPI:
+                continue_deconv                 = MPIManager.COMM_WORLD.bcast(continue_deconv, root=0)
+                update_model                    = MPIManager.COMM_WORLD.bcast(update_model, root=0)
+                self.HasDeconvolved             = MPIManager.COMM_WORLD.bcast(self.HasDeconvolved, root=0)
+                
+            if MPIManager.rank == 0:
+                    self.ModelMachine.ToFile(self.DicoModelName)
+            if MPIManager.useMPI:
+                DicoSMStacked                   = MPIManager.COMM_WORLD.bcast(self.ModelMachine.DicoSMStacked, root=0)
+
+                self.ModelMachine.FromDico(DicoSMStacked)
+
+            # ###
+            model_freqs = np.array([self.RefFreq],np.float64)
+            model_image = None
+            if MPIManager.rank == 0:
+                model_image = self.DeconvMachine.GiveModelImage(model_freqs)
+                if MPIManager.useMPI:
+                    model_image                   = MPIManager.COMM_WORLD.bcast(model_image, root=0)
+            else:
+                if MPIManager.useMPI:
+                    model_image                   = MPIManager.COMM_WORLD.bcast(None, root=0)
+
+            ModelImage = self.FacetMachine.setModelImage(model_image)
 
             # self.FacetMachine.ToCasaImage(self.DeconvMachine.iIslandImage,ImageName="%s.labelFacet%2.2i"%(self.BaseName,iMajor),Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             if user_stopped:
@@ -1279,16 +1322,17 @@ class ClassImagerDeconv():
                 pass
 
 
+
+
             ###
-            self.ModelMachine.ToFile(self.DicoModelName)
-            # ###
-            model_freqs = np.array([self.RefFreq],np.float64)
-            ModelImage = self.FacetMachine.setModelImage(self.DeconvMachine.GiveModelImage(model_freqs))
+
+
             # write out model image, if asked to
             current_model_freqs = model_freqs
-            print("model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max()), file=log)
-            if "o" in self._saveims:
-                self.FacetMachine.ToCasaImage(ModelImage, ImageName="%s.model%2.2i" % (self.BaseName, iMajor),
+            if MPIManager.rank == 0:
+                print("model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max()), file=log)
+                if "o" in self._saveims:
+                    self.FacetMachine.ToCasaImage(ModelImage, ImageName="%s.model%2.2i" % (self.BaseName, iMajor),
                                               Fits=True, Freqs=current_model_freqs,
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
                 _,_,nx,ny=ModelImage.shape
@@ -1327,7 +1371,6 @@ class ClassImagerDeconv():
             # recompute PSF in sparsification mode, or the first time we go from sparsified to full precision,
             # unless this is the last major cycle, in which case we never recompute the PSF
             do_psf = (sparsify or previous_sparsify) and continue_deconv
-
             if self.DicoDirty is not None:
                 self.DicoDirty.delete()
                 self.DicoDirty = None
@@ -1390,8 +1433,13 @@ class ClassImagerDeconv():
                 self.FacetMachine.applySparsification(DATA, sparsify)
                 ## redo model image if needed
                 model_freqs = DATA["FreqMappingDegrid"]
+
+                mod_image = None
+                bcast_model_image = None
                 if not np.array_equal(model_freqs, current_model_freqs):
-                    ModelImage = self.FacetMachine.setModelImage(self.DeconvMachine.GiveModelImage(model_freqs))
+                    mod_image = self.ModelMachine.GiveModelImage(model_freqs)
+                    ModelImage = self.FacetMachine.setModelImage(mod_image)
+
                     # write out model image, if asked to
                     current_model_freqs = model_freqs
                     print("model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max()), file=log)
@@ -1446,6 +1494,14 @@ class ClassImagerDeconv():
             # wait for gridding to finish
             self.FacetMachine.collectGriddingResults()
             self.VS.collectPutColumnResults()  # if these were going on
+
+            if MPIManager.useMPI:
+                self.FacetMachine.mpiGridReduce()
+                for iFacet in self.FacetMachine.DicoImager.keys():
+                    self.FacetMachine.DicoImager[iFacet]["SumWeights"] = MPIManager.COMM_WORLD.allreduce(self.FacetMachine.DicoImager[iFacet]["SumWeights"], MPIManager.SUM)
+                    self.FacetMachine.DicoImager[iFacet]["SumJones"] = MPIManager.COMM_WORLD.allreduce(self.FacetMachine.DicoImager[iFacet]["SumJones"], MPIManager.SUM)
+
+
             # release model image from memory
             ModelImage = None
             self.FacetMachine.releaseModelImage()
@@ -1468,15 +1524,17 @@ class ClassImagerDeconv():
             # if "SmoothMeanNormImage" in self.DicoDirty.keys():
             #     self.SmoothMeanNormImage=self.DicoDirty["SmoothMeanNormImage"]
 
-            if "e" in self._saveims:
-                self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.residual%2.2i"%(self.BaseName,iMajor),
-                                              Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            if MPIManager.rank == 0:
+                if "e" in self._saveims:
+                    self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.residual%2.2i"%(self.BaseName,iMajor),
+                                                Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
             # write out current model, using final or intermediate name
-            if continue_deconv:
-                self.DeconvMachine.ToFile("%s.%2.2i.DicoModel" % (self.BaseName, iMajor) )
-            else:
-                self.DeconvMachine.ToFile(self.DicoModelName)
+            if MPIManager.rank == 0:
+                if continue_deconv:
+                    self.DeconvMachine.ToFile("%s.%2.2i.DicoModel" % (self.BaseName, iMajor) )
+                else:
+                    self.DeconvMachine.ToFile(self.DicoModelName)
 
 
             self.HasDeconvolved=True
@@ -1538,7 +1596,8 @@ class ClassImagerDeconv():
         # self.Restore()
 
         if self.HasDeconvolved:
-            self.Restore()
+            if MPIManager.rank == 0:
+                self.Restore()
 
             # Last major cycle may output residues other than Stokes I
             # Since the current residue images are for Stokes I only
@@ -1772,6 +1831,8 @@ class ClassImagerDeconv():
                     # LB - we don;t want to bail if we fall over in one of the bands
                     # fit_err = e # last error stored
 
+                if MPIManager.rank == 0:
+                    print("It %d , "%band, beam, gausspars, sidelobes)
                 if forced_beam is not None:
                     beam = f_beam
                     gausspars = f_gau
@@ -1839,6 +1900,7 @@ class ClassImagerDeconv():
         print("Running a Metropolis-Hastings MCMC on islands larger than %i pixels"%self.GD["SSDClean"]["RestoreMetroSwitch"], file=log)
         DeconvMachine.setDeconvMode(Mode="MetroClean")
         DeconvMachine.Update(self.DicoDirty)
+        
         repMinor, continue_deconv, update_model = DeconvMachine.Deconvolve()
         DeconvMachine.ToFile(self.DicoMetroModelName)
 
@@ -1986,6 +2048,7 @@ class ClassImagerDeconv():
         # do we have a non-trivial norm (i.e. DDE solutions or beam)?
         # @cyriltasse: maybe there's a quicker way to check?
         havenorm = self.MeanJonesNorm is not None and (self.MeanJonesNorm != 1).any()
+        #havenorm = False
 
         T = ClassTimeIt.ClassTimeIt()
         T.disable()

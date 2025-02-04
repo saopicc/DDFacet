@@ -136,12 +136,15 @@ class ClassWeightMachine():
     def CalcWeightsBackground(self,iField=None):
         """Starts parallel jobs to load weights in the background"""
         self.VisWeights = None
-        if self.GD["Misc"]["ConserveMemory"]:
-            #APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event)
-            APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event, args=(iField,) ,serial=SERIAL)
+        if MPIManager.size > 1:
+            APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event, serial=True)
         else:
-            APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event, args=(iField,) ,serial=SERIAL)
-        # APP.awaitEvents(self._calcweights_event)
+            if self.GD["Misc"]["ConserveMemory"]:
+                #APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event)
+                APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event, args=(iField,) ,serial=SERIAL)
+            else:
+                APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event, args=(iField,) ,serial=SERIAL)
+            # APP.awaitEvents(self._calcweights_event)
 
     def _sigtaper(self, msw, chanfreq, inner_cut, outer_cut, outer_taper_strength, inner_taper_strength): 
         u = msw["uv"][:, 0]
@@ -251,6 +254,12 @@ class ClassWeightMachine():
                     num_valid_chunks += 1
                     wmax = max(wmax, msw["wmax"])
                     self._uvmax = max(self._uvmax, msw["uvmax_wavelengths"])
+
+        if MPIManager.useMPI:
+            self._uvmax = MPIManager.COMM_WORLD.allreduce(self._uvmax, MPIManager.MAX)
+            wmax = MPIManager.COMM_WORLD.allreduce(wmax, MPIManager.MAX)
+
+                    
         # save wmax to cache
         cPickle.dump(wmax,open(wmax_path, "wb"))
         self.maincache.saveCache("wmax")
@@ -351,6 +360,9 @@ class ClassWeightMachine():
                     sSq = numeratorSqrt ** 2 / avgW
                     grid1[...] = 1 + grid1 * sSq
 
+        if MPIManager.useMPI:
+            self._weight_grid["grid"] = MPIManager.COMM_WORLD.allreduce(self._weight_grid["grid"], MPIManager.SUM)
+            
         # launch jobs to finalize weights and save them to the cache
         for ims, ms in enumerate(self.ListMS):
             for ichunk in range(len(ms.getPerChunkRowCounts())):
@@ -719,6 +731,10 @@ class ClassWeightMachine():
                     wmax = max(wmax, abs(uvw[~rowflags, 2]).max())
                     
 
+        if MPIManager.useMPI:
+            self._uvmax = MPIManager.COMM_WORLD.allreduce(self._uvmax, MPIManager.MAX)
+            wmax = MPIManager.COMM_WORLD.allreduce(wmax, MPIManager.MAX)
+            
         # setup uv-grid for non-natural weights
         if self.Weighting != "natural":
             self._weight_grid = shared_dict.create("VisWeights.Grid")
@@ -782,6 +798,9 @@ class ClassWeightMachine():
                                                     npix, npixx, nbands, xymax)
                     #np.savez("msw.new.npz",**msw)
                                     
+        if MPIManager.useMPI:
+            self._weight_grid["grid"] = MPIManager.COMM_WORLD.allreduce(self._weight_grid["grid"], MPIManager.SUM)
+            
         # save wmax to cache
         cPickle.dump(wmax, open(wmax_path, "wb"))
         self.maincache.saveCache("wmax")

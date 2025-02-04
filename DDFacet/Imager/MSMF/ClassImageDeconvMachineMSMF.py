@@ -44,6 +44,7 @@ from DDFacet.Other import MyPickle
 from DDFacet.Other.AsyncProcessPool import APP
 from DDFacet.Array import shared_dict
 
+from DDFacet.Other import MPIManager
 # # if not running under a profiler, declare a do-nothing @profile decorator
 # if "profile" not in globals():
 #     profile = lambda x:x
@@ -152,7 +153,7 @@ class ClassImageDeconvMachine():
 
     def updateMask(self,Mask):
         nx,ny=Mask.shape
-        self._MaskArray = np.zeros((1,1,nx,ny),np.bool8)
+        self._MaskArray = np.zeros((1,1,nx,ny),np.bool_)
         self._MaskArray[0,0,:,:]=Mask[:,:]
 
     def setMaskMachine(self,MaskMachine):
@@ -329,22 +330,23 @@ class ClassImageDeconvMachine():
                     self.DicoMSMachine[iFacet] = \
                         self._initMSM_facet(iFacet, self.facetcache[iFacet], None,
                                             self.SideLobeLevel, self.OffsetSideLobe, MSM0=MSM0, verbose=False)
-
-            # write cache to disk, unless in a mode where we explicitly don't want it
-            if facetcache is None and not valid and cache and not approx:
-                try:
-                    #MyPickle.DicoNPToFile(facetcache,cachepath)
-                    #cPickle.dump(facetcache, open(cachepath, 'w'), 2)
-                    print("  saving HMP cache to %s"%cachepath, file=log)
-                    self.facetcache.save(cachepath)
-                    #self.maincache.saveCache("HMPMachine")
-                    self.maincache.saveCache(self.CacheFileName)
-                    self.PSFHasChanged=False
-                    print("  HMP init done", file=log)
-                except:
-                    print(traceback.format_exc(), file=log)
-                    print(ModColor.Str(
-                         "WARNING: HMP cache could not be written, see error report above. Proceeding anyway."), file=log)
+            
+            if MPIManager.rank == 0:
+                # write cache to disk, unless in a mode where we explicitly don't want it
+                if facetcache is None and not valid and cache and not approx:
+                    try:
+                        #MyPickle.DicoNPToFile(facetcache,cachepath)
+                        #cPickle.dump(facetcache, open(cachepath, 'w'), 2)
+                        print("  saving HMP cache to %s"%cachepath, file=log)
+                        self.facetcache.save(cachepath)
+                        #self.maincache.saveCache("HMPMachine")
+                        self.maincache.saveCache(self.CacheFileName)
+                        self.PSFHasChanged=False
+                        print("  HMP init done", file=log)
+                    except:
+                        print(traceback.format_exc(), file=log)
+                        print(ModColor.Str(
+                            "WARNING: HMP cache could not be written, see error report above. Proceeding anyway."), file=log)
 
     def SetDirty(self, DicoDirty):#,DoSetMask=True):
         # if len(PSF.shape)==4:
@@ -413,7 +415,7 @@ class ClassImageDeconvMachine():
 
         # if DoSetMask:
         #     if self._MaskArray is None:
-        #         self._MaskArray=np.zeros(self._MeanDirty.shape,dtype=np.bool8)
+        #         self._MaskArray=np.zeros(self._MeanDirty.shape,dtype=np.bool_)
         #     else:
         #         maskshape = (1,1,NDirty,NDirty)
         #         # check for mask shape
@@ -429,7 +431,7 @@ class ClassImageDeconvMachine():
         #                     return slice(None), slice(None)
         #             sx1, sx2 = match_shapes(NDirty, nx) 
         #             sy1, sy2 = match_shapes(NDirty, ny) 
-        #             self._MaskArray = np.zeros(maskshape, dtype=np.bool8)
+        #             self._MaskArray = np.zeros(maskshape, dtype=np.bool_)
         #             self._MaskArray[0,0,sx1,sy1] = ma0[0,0,sx2,sy2]
         #             print>>log,ModColor.Str("WARNING: reshaping mask image from %dx%d to %dx%d"%(nx, ny, NDirty, NDirty))
         #             print>>log,ModColor.Str("Are you sure you supplied the correct cleaning mask?")

@@ -58,6 +58,8 @@ from astropy.io import fits
 from astropy.time import Time as astropyTime
 from SkyModel.Sky import ModVoronoi
 
+from DDFacet.Other import MPIManager
+
 log = logger.getLogger("ClassVisServer")
 
 _cc = 299792458
@@ -144,13 +146,14 @@ class ClassVisServer():
 
         # max chunk shape accumulated here
         self._chunk_shape = [0, 0, 0]
+        self.MSList = ClassMS.splitMSList(self.MSList)
         CMS = ClassDaskMS.ClassDaskMS if self.GD["Data"]["Dask"] else ClassMS.ClassMS 
 
         for iMS,msspec in enumerate(self.MSList):
             if not isinstance(msspec,str):
-                msname, ddid, field, column = msspec
+                msname, host, ddid, field, column = msspec
             else:
-                msname, ddid, field, column = msspec, self.DicoSelectOptions["DDID"], self.DicoSelectOptions["Field"], self.ColName
+                msname, host, ddid, field, column = msspec, self.DicoSelectOptions["DDID"], self.DicoSelectOptions["Field"], self.ColName
             MS = CMS(
                 msname,
                 Col=column or self.ColName,
@@ -176,6 +179,15 @@ class ClassVisServer():
                 self._chunk_shape = [max(a, b)
                                      for a, b in zip(self._chunk_shape, shape)]
 
+        if MPIManager.useMPI:
+            freqs = MPIManager.COMM_WORLD.allgather(global_freqs)
+            global_freqs = set()
+            for freq in freqs:
+                global_freqs.update(freq)
+                
+            min_freq_Data = MPIManager.COMM_WORLD.allreduce(min_freq_Data, MPIManager.MIN)
+            max_freq_Data = MPIManager.COMM_WORLD.allreduce(max_freq_Data, MPIManager.MAX)
+
         size = reduce(lambda x, y: x * y, self._chunk_shape)
         print("shape of data/flag buffer will be %s (%.2f Gel)" % (
             self._chunk_shape, size / float(2 ** 30)), file=log)
@@ -187,14 +199,18 @@ class ClassVisServer():
         self.obs_detail = self.ListMS[0].get_obs_details()
 
         # main cache is initialized from main cache of first MS
+        # CF DEBUG : Modifying cache name to be MPI rank dependent
         if ".txt" in self.GD["Data"]["MS"]:
             # main cache is initialized from main cache of the MSList
             from DDFacet.Other.CacheManager import CacheManager
-            self.maincache = self.cache = CacheManager("%s.ddfcache"%self.GD["Data"]["MS"], cachedir=self.GD["Cache"]["Dir"], reset=self.GD["Cache"]["Reset"])
+            if MPIManager.useMPI:
+                self.maincache = self.cache = CacheManager("%s.rank_%d.ddfcache"%(self.GD["Data"]["MS"], MPIManager.rank), cachedir=self.GD["Cache"]["Dir"], reset=self.GD["Cache"]["Reset"])
+            else:
+                self.maincache = self.cache = CacheManager("%s.ddfcache"%self.GD["Data"]["MS"], cachedir=self.GD["Cache"]["Dir"], reset=self.GD["Cache"]["Reset"])
+
         else:
             # main cache is initialized from main cache of first MS
             self.maincache = self.cache = self.ListMS[0].maincache
-
         print("Main caching directory is %s"%self.maincache.dirname, file=log)
 
 

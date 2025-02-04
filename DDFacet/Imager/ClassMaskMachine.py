@@ -113,18 +113,18 @@ class ClassMaskMachine():
                 raise RuntimeError("External Mask must be 4 dimensional: RA x DEC x STOKES x CHAN")
             
         nch,npol,nx,ny=MaskImage.shape
-        MaskArray=np.zeros((nch,npol,ny,nx),np.bool8)
-        
+        MaskArray=np.zeros((nch,npol,ny,nx),np.bool_)
+
         for ch in range(nch):
             for pol in range(npol):
-                MaskArray[ch,pol,:,:]=np.bool8(MaskImage[ch,pol].T[::-1].copy())[:,:]
+                MaskArray[ch,pol,:,:]=np.bool_(MaskImage[ch,pol].T[::-1].copy())[:,:]
         self.ExternalMask=MaskArray
 
     def joinExternalMask(self,Mask):
         self.ExternalMask=OR(self.ExternalMask,Mask)
 
     def giveOpposite(self,Mask):
-        return np.bool8(1-Mask)
+        return np.bool_(1-Mask)
 
 
     def AdaptMaskShape(self):

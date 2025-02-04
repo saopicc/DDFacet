@@ -160,7 +160,8 @@ class ClassImageDeconvMachine():
         # so we should avoid keeping it as None
         self.Nchan, self.Npol, self.Npix_x, self.Npix_y = self.DicoVariablePSF["OutImShape"]
         if self.MaskArray is None:
-            self.MaskArray = np.zeros([1, 1, self.Npix_x, self.Npix_y], dtype=np.bool8)
+            self.MaskArray = np.zeros([1, 1, self.Npix_x, self.Npix_y], dtype=np.bool_)
+
         else:  # Make sure mask is correct shape
             if self.MaskArray.shape != (1, 1, self.Npix_x, self.Npix_y):
                 raise ValueError("Mask is incorrect shape. Expected %s but got %s" % ((1,1,self.Npix_x, self.Npix_y), self.MaskArray.shape))
@@ -189,10 +190,10 @@ class ClassImageDeconvMachine():
             print("Applying external mask", file=log)
             MaskArray=self.MaskMachine.ExternalMask
             nch,npol,_,_=MaskArray.shape
-            self.MaskArray=np.zeros(MaskArray.shape,np.bool8)
+            self.MaskArray=np.zeros(MaskArray.shape,np.bool_)
             for ch in range(nch):
                 for pol in range(npol):
-                    self.MaskArray[ch,pol,:,:]=np.bool8(1-MaskArray[ch,pol].copy())[:,:]
+                    self.MaskArray[ch,pol,:,:]=np.bool_(1-MaskArray[ch,pol].copy())[:,:]
             self.MaskArray = np.ascontiguousarray(self.MaskArray)
 
 

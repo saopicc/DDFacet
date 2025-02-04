@@ -118,7 +118,7 @@ class RegToNp():
 
         Cat=np.zeros((len(regs),),dtype=[("ra",np.float32),("dec",np.float32),
                                     ("I",np.float32),("Radius",np.float32),
-                                    ("Type","<S200"),("Exclude",np.bool8),
+                                    ("Type","<S200"),("Exclude",np.bool_),
                                     ("dx",np.float32),("dy",np.float32),
                                     ("ra1",np.float32),("dec1",np.float32),
                                          ("Cluster",np.int16),("ID",np.int16),

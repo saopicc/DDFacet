@@ -53,6 +53,7 @@ from astropy.time import Time
 from DDFacet.Other.progressbar import ProgressBar
 from math import copysign
 
+from DDFacet.Other import MPIManager
 #
 # try:
 #     import lofar.stationresponse as lsr
@@ -132,11 +133,18 @@ class ClassMS():
         # once.
         self._reset_cache = ResetCache
         self._chunk_caches = {}
-        cachedir="."
+        
         if self.GD is not None: cachedir=self.GD["Cache"]["Dir"]
         # CT: add iMS because it can happen that two MSs are different but have the same name (in a different parent directory)
         # and in that case the cache manager gets confused, loading cache for MSs are indeed different
-        self.maincache = CacheManager(MSName+".N%i.F%d.D%d.ddfcache"%(self.iMS,self.Field, self.DDID), reset=ResetCache, cachedir=cachedir, nfswarn=True)
+        if MPIManager.useMPI:
+            if MPIManager.size > 1:
+                self.maincache = CacheManager(MSName+".rank_%d.N%i.F%d.D%d.ddfcache"%(MPIManager.rank, self.iMS, self.Field, self.DDID), reset=ResetCache, cachedir=cachedir, nfswarn=True)
+            else:
+                self.maincache = CacheManager(MSName+".N%i.F%d.D%d.ddfcache"%(self.iMS, self.Field, self.DDID), reset=ResetCache, cachedir=cachedir, nfswarn=True)
+        else:
+            self.maincache = CacheManager(MSName+".N%i.F%d.D%d.ddfcache"%(self.iMS, self.Field, self.DDID), reset=ResetCache, cachedir=cachedir, nfswarn=True)
+
 
         self.ReadMSInfo(first_ms=first_ms,DoPrint=DoPrint)
         self.LFlaggedStations=[]
@@ -1893,9 +1901,12 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
 
     MSName can be a single filename, or a list of filenames, or a *.txt file (in which case a list
     of filenames will be read from the text file).
+    
+    Each filename in the list can be suffixed with :hostname to select the host name where the filename
+    will be loaded.
 
     Furthermore, each filename in the list can contain wildcards (*?) to select multiple MSs, and
-    con be suffixed with //Dx and/or //Fy to select specific DATA_DESC_ID and FIELD_IDs in the MS. "x" and "y"
+    can be suffixed with //Dx and/or //Fy to select specific DATA_DESC_ID and FIELD_IDs in the MS. "x" and "y"
     can take the form of a single number, a Pythonic range (e.g. "0:16"), an inclusive range ("0~15");
     or "*" to select all. E.g. foo.MS//D*//F0:2 selects all DDIDs, and fields 0 and 1 from foo.MS.
     
@@ -1903,8 +1914,8 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
 
     The defaultField and defaultDDID arguments will be used for those MSs where //D or //F is not specified.
 
-    Ultimately, returns a list of (MSName, ddid, field) tuples, where MSName is a proper MS path, and ddid
-    and field are indices.
+    Ultimately, returns a list of (MSName, host, ddid, field) tuples, where MSName is a proper MS path,
+    host is either a string or None and ddid and field are indices.
     """
     if isinstance(MSName,list):
         print("multi-MS mode", file=log)
@@ -1926,7 +1937,9 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
         regrp = "(([0-9]+)|([0-9]+)([~:])([0-9]+)|(\*))"   # regex matching N or N:M or N~M or *
         # match :F and :D suffixes, if present. Don't regexes make your brain melt
         terms = msspec.split("//")
-        msname = terms[0]
+        host = terms[0].split(':')[1:][0] if terms[0].split(':')[1:] else None
+        msname = terms[0].split(':')[0]
+        #msname = terms[0]
         ddid_match = [ re.match("D("+regrp+")$", x) for x in terms[1:] ]
         field_match = [ re.match("F("+regrp+")$", x) for x in terms[1:] ]
         col_match = [ re.match("(.*_DATA)$", x) for x in terms[1:]]
@@ -1984,6 +1997,39 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
             if col is not None:
                 print("%s: non-default column %s"%(mspath, col), file=log)
             # make output list
-            mslist += [ (mspath,d,f,col) for d in ddids for f in fields ]
+            mslist += [ (mspath,host,d,f,col) for d in ddids for f in fields ]
     print("%d MS section(s) selected" % len(mslist), file=log)
     return mslist
+
+
+
+def splitMSList(MSList):
+    #MSList = [('/workdir/MS_files/TestMPI/0000.MS', 'host1', 0, 0, None), ('/workdir/MS_files/TestMPI/0001.MS', None, 0, 0, None), ('/workdir/MS_files/TestMPI/0002.MS', 'monnier', 0, 0, None), ('/     workdir/MS_files/TestMPI/0003.MS', None, 0, 0, None), ('/workdir/MS_files/TestMPI/0004.MS', None, 0, 0, None), ('/workdir/MS_files/TestMPI/0005.MS', None, 0, 0, None), ('/workdir/MS_files/TestMPI/0006.   MS', 'monnier', 0, 0, None), ('/workdir/MS_files/TestMPI/0007.MS', None, 0, 0, None)]
+    hostname = os.uname()[1]
+    print(f"Hostname is {hostname}", file=log)
+    # filter msfile with host defined
+    mslist_with_host = list(filter(lambda x: x[1] == hostname, MSList))
+    mslist_without_host = list(filter(lambda x: x[1] == None, MSList))
+
+    if len(mslist_with_host)*len(mslist_without_host) > 0:
+        raise RuntimeError("You have not define a hostname for each MS File")
+
+    if len(mslist_with_host) > 0:
+        return mslist_with_host
+
+    nproc = MPIManager.size
+    rank = MPIManager.rank
+    #n = s % nproc + (rank>s/nproc)
+    N = len(mslist_without_host)
+    q = N // nproc
+    r = N % nproc
+    n = q + ( r > rank );
+    s = q * rank + min (r , rank );
+
+    local_list = mslist_without_host[s:s+n]
+    print(f"MSList is {local_list}", file=log)
+
+    if len(local_list) == 0:
+        raise RuntimeError("You have at least one MPI Process with no MS files")
+
+    return local_list

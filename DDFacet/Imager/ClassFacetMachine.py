@@ -69,6 +69,8 @@ from DDFacet.Array import ModLinAlg
 from astropy.coordinates import SkyCoord
 import astropy.units as u
 
+from DDFacet.Other import MPIManager
+
 class ClassFacetMachine():
     """
     This class contains all information about facets and projections.
@@ -967,12 +969,14 @@ class ClassFacetMachine():
     def ToCasaImage(self, ImageIn, Fits=True, ImageName=None,
                     beam=None, beamcube=None, Freqs=None, Stokes=["I"]):
 
-        if Freqs is None:
-            # if we have a reference frequency, use it
-            try:
-                Freqs=np.array([self.VS.RefFreq])
-            except:
-                pass
+        # If using MPI, only the master node is allowed to save images
+        if MPIManager.rank == 0:
+            if Freqs is None:
+                # if we have a reference frequency, use it
+                try:
+                    Freqs=np.array([self.VS.RefFreq])
+                except:
+                    pass
         self.setCasaImage(ImageName=ImageName, Shape=ImageIn.shape,
                           Freqs=Freqs, Stokes=Stokes)
 
@@ -1355,21 +1359,62 @@ class ClassFacetMachine():
 
             HasNoBeam = ((self.GD["Beam"]["Model"] is None) or (self.GD["Beam"]["Model"]==""))
             HasNoDDESolutions = ((self.GD["DDESolutions"]["DDSols"] is None) or (self.GD["DDESolutions"]["DDSols"]==""))
-            
-            for iMS in range(self.VS.nMS):
-                nVisChan = self.VS.ListMS[iMS].ChanFreq.size
-                ThisMSSumJonesChan = ListSumJonesChan.addSharedArray(iMS, (len(facets), 2, nVisChan), np.float64)
-                for iFacet in facets:
-                    sumjones = self.DicoImager[iFacet]["SumJonesChan"][iMS]
 
-                    if HasNoBeam and HasNoDDESolutions:
-                        sumjones[sumjones == 0] = 1.
-                    if np.all(sumjones==0):
-                        log.print(ModColor.Str("MS #%i facet #%i has zero SumJonesChan for all channels"%(iMS,iFacet)))
-                    ThisMSSumJonesChan[iFacet,:] = sumjones[:]
+            DicoImages["ChanMappingGrid"] = {} #self.VS.DicoMSChanMapping
+            DicoImages["ChanMappingGridChan"] = {} #self.VS.DicoMSChanMappingChan
 
-            DicoImages["ChanMappingGrid"] = self.VS.DicoMSChanMapping
-            DicoImages["ChanMappingGridChan"] = self.VS.DicoMSChanMappingChan
+            # need to reduce SumJonesChan[MS][facets,2,nVisChan]
+            if MPIManager.useMPI:
+                _nMSs = MPIManager.COMM_WORLD.allgather(self.VS.nMS)
+                _nMS = sum(_nMSs)
+                root = 0
+                _nlocalnMS = _nMSs[root]
+                for iMS in range(_nMS):
+                    if iMS >= _nlocalnMS:
+                        root += 1
+                        _nlocalnMS += _nMSs[root]
+
+                    iMS_local = iMS - _nlocalnMS + _nMSs[root]
+
+                    if root != MPIManager.COMM_WORLD.rank:
+                        nVisChan = MPIManager.COMM_WORLD.bcast(None, root=root)
+                        DicoImages["ChanMappingGrid"][iMS] = MPIManager.COMM_WORLD.bcast(None, root=root)
+                        DicoImages["ChanMappingGridChan"][iMS] = MPIManager.COMM_WORLD.bcast(None, root=root)
+                        ThisMSSumJonesChan = ListSumJonesChan.addSharedArray(iMS, (len(facets), 2, nVisChan), np.float64)
+
+                        for iFacet in facets:
+                            ThisMSSumJonesChan[iFacet,:] = MPIManager.COMM_WORLD.bcast(None, root=root)
+                    else:
+                        nVisChan = self.VS.ListMS[iMS_local].ChanFreq.size
+                        MPIManager.COMM_WORLD.bcast(nVisChan, root=root)
+                        DicoImages["ChanMappingGrid"][iMS] = MPIManager.COMM_WORLD.bcast(self.VS.DicoMSChanMapping[iMS_local], root=root)
+                        DicoImages["ChanMappingGridChan"][iMS] = MPIManager.COMM_WORLD.bcast(self.VS.DicoMSChanMappingChan[iMS_local], root=root)
+
+                        ThisMSSumJonesChan = ListSumJonesChan.addSharedArray(iMS, (len(facets), 2, nVisChan), np.float64)
+                        for iFacet in facets:
+                            sumjones = self.DicoImager[iFacet]["SumJonesChan"][iMS_local]
+
+                            if HasNoBeam and HasNoDDESolutions:
+                                sumjones[sumjones == 0] = 1.
+                            if np.all(sumjones==0):
+                                log.print(ModColor.Str("MS #%i facet #%i has zero SumJonesChan for all channels"%(iMS,iFacet)))
+                            ThisMSSumJonesChan[iFacet,:] = sumjones[:]
+                            MPIManager.COMM_WORLD.bcast(ThisMSSumJonesChan[iFacet,:], root=root)
+            else: # useMPI = False
+                for iMS in range(self.VS.nMS):
+                    nVisChan = self.VS.ListMS[iMS].ChanFreq.size
+                    ThisMSSumJonesChan = ListSumJonesChan.addSharedArray(iMS, (len(facets), 2, nVisChan), np.float64)
+                    for iFacet in facets:
+                        sumjones = self.DicoImager[iFacet]["SumJonesChan"][iMS]
+
+                        if HasNoBeam and HasNoDDESolutions:
+                            sumjones[sumjones == 0] = 1.
+                        if np.all(sumjones==0):
+                            log.print(ModColor.Str("MS #%i facet #%i has zero SumJonesChan for all channels"%(iMS,iFacet)))
+                        ThisMSSumJonesChan[iFacet,:] = sumjones[:]
+
+                DicoImages["ChanMappingGrid"] = self.VS.DicoMSChanMapping
+                DicoImages["ChanMappingGridChan"] = self.VS.DicoMSChanMappingChan
 
             DicoImages["ImageCube"] = self.FacetsToIm_Channel("PSF")
             if self.VS.MultiFreqMode:
@@ -1626,8 +1671,7 @@ class ClassFacetMachine():
         NFacets=len(self.DicoImager.keys())
         pBAR.render(0, NFacets)
 
-        numexpr.set_num_threads(self.GD["Parallel"]["NCPU"])  # done in DDF.py
-
+        #numexpr.set_num_threads(self.GD["Parallel"]["NCPU"])  # done in DDF.py
         for iFacet in self.DicoImager.keys():
 
             SPhe = self._CF[iFacet]["Sphe"]
@@ -2023,7 +2067,18 @@ class ClassFacetMachine():
             APP.awaitJobResults(JobName+"*",
                                 progress=("Stack Beam %s%s" % (self._smooth_job_label,self.CounterName)))
 
+                
         return True
+    
+    def mpiGridReduce(self):
+        """
+        Per-Facet reduction (sum) of the uv-grid.
+        """
+        # Iterate over all facets
+        if MPIManager.useMPI:
+            for iFacet in self._facet_grids:
+                self._facet_grids[iFacet][::] = MPIManager.COMM_WORLD.allreduce(self._facet_grids[iFacet], MPIManager.SUM)
+
 
     def _fft_worker(self, iFacet, cf_dict, griddict, MTilde):
         """

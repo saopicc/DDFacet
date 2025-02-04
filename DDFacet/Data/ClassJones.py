@@ -608,8 +608,8 @@ class ClassJones():
         DicoSols["StationNames"] = DicoSolsFile["StationNames"]
 
         if "MaskedSols" in DicoSolsFile.keys():
-            m0=np.bool8(DicoSolsFile["MaskedSols"][0,:,0,0,0,0])
-            m=np.bool8(1-DicoSolsFile["MaskedSols"][0,:,0,0,0,0])
+            m0=np.bool_(DicoSolsFile["MaskedSols"][0,:,0,0,0,0])
+            m=np.bool_(1-DicoSolsFile["MaskedSols"][0,:,0,0,0,0])
             # GSel=Sols.G[:,m,:,:,:,:]
             GSel=Sols.G
             GSel[:,m0,:,:,0,0]=1

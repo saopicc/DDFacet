@@ -301,13 +301,13 @@ class ClassInitSSDModel():
         # ModelImage[:,:,N0//2-2,N0//2-1]=10
         # self.setSSDModelImage(ModelImage)
 
-        # Mask=np.zeros((nx,ny),np.bool8)
+        # Mask=np.zeros((nx,ny),np.bool_)
         # Mask[x,y]=1
         # self.SubMask=Mask
 
 
         x,y=ArrayPixParms.T
-        Mask=np.zeros(self.DicoSubDirty["ImageCube"].shape[-2::],np.bool8)
+        Mask=np.zeros(self.DicoSubDirty["ImageCube"].shape[-2::],np.bool_)
         Mask[x,y]=1
         self.SubMask=Mask
 
