@@ -122,14 +122,16 @@ class TestLOFAR_J1329_p4729(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSI
         args = ['MakeCatalog.py',
                 '--RestoredIm={}'.format(restoredname)]
         cls.__run(args)
-
+        catname = '{}.pybdsm.srl.fits'.format(restoredname.replace(".fits", ""))
+        if not os.path.isfile(catname):
+            catname = '{}.pybdsf.srl.fits'.format(restoredname.replace(".fits", ""))
         args = ['ClusterCat.py',
                 '--DoPlot=0',
                 '--NGen=100',
                 '--NCPU=56',
                 '--NCluster=6',
                 '--FluxMin=0.0001',
-                '--SourceCat={}.pybdsm.srl.fits'.format(restoredname.replace(".fits", ""))]
+                '--SourceCat={}'.format(catname)]
         cls.__run(args)
 
         # steps needed for manual cluster

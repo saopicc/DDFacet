@@ -71,11 +71,12 @@ class MakeCatalog():
         self.RunBDSM(self.RestoredIm)
         
     def RunBDSM(self,filename,rmsmean_map_filename=None,WriteNoise=True,Ratio=None):
-        CatName=filename[:-5]+".pybdsm.gaul.fits"
-        if os.path.isfile(CatName):
-            print(ModColor.Str("File %s exists"%CatName,col="green"), file=log)
-            print(ModColor.Str("   Skipping...",col="green"), file=log)
-            return
+        CatName=[filename[:-5]+".pybdsm.gaul.fits", filename[:-5]+".pybdsf.gaul.fits"]
+        for f in CatName:
+            if os.path.isfile(f):
+                print(ModColor.Str("File %s exists"%f,col="green"), file=log)
+                print(ModColor.Str("   Skipping...",col="green"), file=log)
+                return
 
         rmsmean_map_filename=[]
         if self.rmsmean_map:

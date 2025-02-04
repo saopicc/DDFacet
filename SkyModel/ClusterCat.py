@@ -26,11 +26,11 @@ from SkyModel import MakeCatalog
 
 import os
 
-def test():
-    CIM=ClusterImage("image_dirin_SSD_m.app.restored.fits")
-    CIM.setCatName("image_dirin_SSD_m.app.restored.pybdsm.srl.fits")
-    #CIM.GroupSources()
-    CIM.Cluster()
+# def test():
+#     CIM=ClusterImage("image_dirin_SSD_m.app.restored.fits")
+#     CIM.setCatName("image_dirin_SSD_m.app.restored.pybdsf.srl.fits")
+#     #CIM.GroupSources()
+#     CIM.Cluster()
 
 def angDist(a0,a1,d0,d1):
     s=np.sin
