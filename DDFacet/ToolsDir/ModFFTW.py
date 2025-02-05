@@ -799,6 +799,7 @@ def learnFFTWWisdom(npix_x,npix_y,dtype):
         b = pyfftw.interfaces.numpy_fft.ifft2(a, overwrite_input=True, threads=1)
 
 
+
 def GiveConvolvingGaussian(shape, CellSizeRad, GaussPars_ch, Normalise=False):
     """
     Computes padded Gaussian convolution kernel,for use in _convolveSingleGaussianFFTW

@@ -292,7 +292,7 @@ def getLogger(name, verbose=None, log_verbose=None, disable=False):
     """
     init("app")
     # TODO only if mpi activated
-    if MPIManager.useMPI:
+    if MPIManager.size>1:
         name = '[Rank %d] '%MPIManager.rank + name
     if name in _loggers:
         return _loggers[name]

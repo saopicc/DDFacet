@@ -1689,6 +1689,10 @@ class ClassMS():
         row0, row1 = self._chunk_r0r1[ichunk]
         return self.GiveMainTable().getcol("UVW", row0, row1 - row0)
 
+
+    def getChunkRow0Row1(self):
+        return self._chunk_r0r1
+    
     def readWeights(self, ichunk, weightcols: List[str], uvw_only=False):
         row0, row1 = self._chunk_r0r1[ichunk]
         nrows = row1 - row0

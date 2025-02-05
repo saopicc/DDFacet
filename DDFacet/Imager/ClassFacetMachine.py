@@ -776,18 +776,21 @@ class ClassFacetMachine():
         HasTouchedWisdomFile = False
         T=ClassTimeIt.ClassTimeIt("setWisdom")
         T.disable()
-        for iFacet in sorted(list(self.DicoImager.keys())):
-            NPixPadded_x,NPixPadded_y=self.DicoImager[iFacet]["NpixFacetPadded"]
-            if self.GD["RIME"]["Precision"]=="S":
-                TypeKey=(NPixPadded_x,NPixPadded_y,np.complex64)
-            elif self.GD["RIME"]["Precision"]=="D":
-                TypeKey=(NPixPadded_x,NPixPadded_y,np.complex128)
+        try:
+            for iFacet in sorted(list(self.DicoImager.keys())):
+                NPixPadded_x,NPixPadded_y=self.DicoImager[iFacet]["NpixFacetPadded"]
+                if self.GD["RIME"]["Precision"]=="S":
+                    TypeKey=(NPixPadded_x,NPixPadded_y,np.complex64)
+                elif self.GD["RIME"]["Precision"]=="D":
+                    TypeKey=(NPixPadded_x,NPixPadded_y,np.complex128)
+                if TypeKey not in WisdomTypes:
+                    HasTouchedWisdomFile = True
+                    ModFFTW.learnFFTWWisdom(*TypeKey)
+                    WisdomTypes.append(TypeKey)
 
-            if TypeKey not in WisdomTypes:
-                HasTouchedWisdomFile = True
-                ModFFTW.learnFFTWWisdom(*TypeKey)
-                WisdomTypes.append(TypeKey)
-
+        except:
+            raise RuntimeError("Maybe remove your .fft_wisdom file?")
+        
         NOut_x,NOut_y = self.OutImShape[-2:]
         TypeKey=(NOut_x,NOut_y,np.float32)
         if TypeKey not in WisdomTypes:
@@ -987,7 +990,7 @@ class ClassFacetMachine():
                 self.CasaImage.setBeam(beam, beamcube=beamcube)
             self.CasaImage.ToFits()
         else:
-            raise RunTimeError('Fits = False not supported')
+            raise RuntimeError('Fits = False not supported')
         self.CasaImage.close()
         self.CasaImage = None
 

@@ -1279,10 +1279,15 @@ class ClassImagerDeconv():
 
             self.DeconvMachine.Update(self.DicoDirty)
 
-            repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
+
+            repMinor, continue_deconv, update_model = None, None, None
+            if MPIManager.rank == 0:
+                repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
+                
             # Broadcast metadata regarding the state of Deconvolution form the master MPI process
             # to all the other MPI processes.
             if MPIManager.useMPI:
+                repMinor                        = MPIManager.COMM_WORLD.bcast(repMinor, root=0)
                 continue_deconv                 = MPIManager.COMM_WORLD.bcast(continue_deconv, root=0)
                 update_model                    = MPIManager.COMM_WORLD.bcast(update_model, root=0)
                 self.HasDeconvolved             = MPIManager.COMM_WORLD.bcast(self.HasDeconvolved, root=0)

@@ -34,6 +34,7 @@ from DDFacet.Other import ClassGiveSolsFile
 import psutil
 from astropy.io import fits
 from astropy.time import Time as astropyTime
+from DDFacet.Other import MPIManager
 
 log = logger.getLogger("ClassWeightMachine")
 
@@ -136,7 +137,7 @@ class ClassWeightMachine():
     def CalcWeightsBackground(self,iField=None):
         """Starts parallel jobs to load weights in the background"""
         self.VisWeights = None
-        if MPIManager.size > 1:
+        if True:#MPIManager.size > 1:
             APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event, serial=True)
         else:
             if self.GD["Misc"]["ConserveMemory"]:
@@ -682,11 +683,12 @@ class ClassWeightMachine():
             self._weight_dict["uvmax"] = cPickle.load(open(uvmax_path, "rb"))
         # check cache first
         have_all_weights = wmax_valid and uvmax_valid
+
         for iMS, MS in enumerate(self.ListMS):
             msweights = self._weight_dict.addSubdict(iMS)
-            for ichunk, (row0, row1) in enumerate(MS.getChunkRow0Row1()):
+            for ichunk in range(len(MS.getPerChunkRowCounts())):
                 msw = msweights.addSubdict(ichunk)
-                path, valid = MS.getChunkCache(row0, row1).checkCache("ImagingWeights.npy", cache_keys)
+                path, valid = MS.getChunkCache(ichunk).checkCache("ImagingWeights.npy", cache_keys)
                 have_all_weights = have_all_weights and valid
                 msw["cachepath"] = path
                 if valid:
@@ -702,7 +704,7 @@ class ClassWeightMachine():
         for ims, ms in enumerate(self.ListMS):
             ms = self.ListMS[ims]
             max_freq = ms.ChanFreq.max()
-            for ichunk in range(len(ms.getChunkRow0Row1())):
+            for ichunk in range(len(ms.getPerChunkRowCounts())):
                 print("scanning UVWs %d.%d" % (ims, ichunk), file=log)
                 row0, row1 = ms.getChunkRow0Row1()[ichunk]
                 nrows = row1 - row0
@@ -772,7 +774,7 @@ class ClassWeightMachine():
         # scan through MSs one by one
         for ims, ms in enumerate(self.ListMS):
             msweights = self._weight_dict[ims]
-            for ichunk in range(len(ms.getChunkRow0Row1())):
+            for ichunk in range(len(ms.getPerChunkRowCounts())):
                 msw = msweights[ichunk]
                 print("loading weights %d.%d"%(ims, ichunk), file=log)
                 self._loadWeights_handler(msw, ims, ichunk, self._ignore_vis_weights)
@@ -831,7 +833,7 @@ class ClassWeightMachine():
             # rescan through MSs one by one to re-adjust the weights
             for ims, ms in enumerate(self.ListMS):
                 msweights = self._weight_dict[ims]
-                for ichunk in range(len(ms.getChunkRow0Row1())):
+                for ichunk in range(len(ms.getPerChunkRowCounts())):
                     msw = msweights[ichunk]
                     if msw["null"]:
                         print("skipping weights %d.%d (null)" % (ims, ichunk), file=log)
@@ -849,7 +851,7 @@ class ClassWeightMachine():
         # free memory
         for ims, ms in enumerate(self.ListMS):
             msweights = self._weight_dict[ims]
-            for ichunk in range(len(ms.getChunkRow0Row1())):
+            for ichunk in range(len(ms.getPerChunkRowCounts())):
                 msw = msweights[ichunk]
                 # delete to save memory
                 if self.Weighting != "natural":
@@ -858,7 +860,8 @@ class ClassWeightMachine():
                             msw.delete_item(field)
 
         # mark caches as valid
+        StrField=""
         for ims, ms in enumerate(self.ListMS):
-            for ichunk, (row0, row1) in enumerate(ms.getChunkRow0Row1()):
-                ms.getChunkCache(row0, row1).saveCache("ImagingWeights.npy")
+            for ichunk in range(len(ms.getPerChunkRowCounts())):
+                ms.getChunkCache(ichunk).saveCache("ImagingWeights%s.npy"%StrField)
         
