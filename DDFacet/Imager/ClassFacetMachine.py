@@ -980,6 +980,11 @@ class ClassFacetMachine():
                     Freqs=np.array([self.VS.RefFreq])
                 except:
                     pass
+
+        try:
+            print(ImageIn.shape)
+        except:
+            stop
         self.setCasaImage(ImageName=ImageName, Shape=ImageIn.shape,
                           Freqs=Freqs, Stokes=Stokes)
 

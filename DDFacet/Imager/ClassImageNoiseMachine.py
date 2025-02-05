@@ -120,6 +120,12 @@ class ClassImageNoiseMachine():
                                                                                       ParallelMode=True,
                                                                                       CacheFileName="HMP_Masking",
                                                                                       **self.MinorCycleConfig)
+        elif self.GD["Deconv"]["Mode"] == "WSCMS2":
+            from DDFacet.Imager.WSCMS2 import ClassImageDeconvMachineWSCMS
+            self.DeconvMachine = ClassImageDeconvMachineWSCMS.ClassImageDeconvMachine(MainCache=self.MainCache,
+                                                                                      ParallelMode=True,
+                                                                                      CacheFileName="HMP_Masking",
+                                                                                      **self.MinorCycleConfig)
         else:
             raise NotImplementedError("Mode %s not compatible with automasking" % self.GD["Deconv"]["Mode"])
 

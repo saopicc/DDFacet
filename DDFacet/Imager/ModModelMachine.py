@@ -51,6 +51,7 @@ class ClassModModelMachine():
         self.MORSANEMM = None
         self.HOGBOMMM = None
         self.WSCMSMM = None
+        self.WSCMS2MM = None
         self.MultiField=MultiField
         
     def GiveInitialisedMMFromFile(self,FileName):
@@ -155,5 +156,13 @@ class ClassModModelMachine():
             else:
                 print("WSCMS model machine already initialised", file=log)
             return self.WSCMSMM
+        elif Mode == "WSCMS2":
+            if self.WSCMS2MM is None or self.MultiField:
+                print("Initialising WSCMS2 model machine", file=log)
+                from DDFacet.Imager.WSCMS2 import ClassModelMachineWSCMS
+                self.WSCMS2MM = ClassModelMachineWSCMS.ClassModelMachine(self.GD)#,GainMachine=ClassGainMachine.get_instance())
+            else:
+                print("WSCMS2 model machine already initialised", file=log)
+            return self.WSCMS2MM
         else:
             raise NotImplementedError("Unknown model type '%s'"%Mode)

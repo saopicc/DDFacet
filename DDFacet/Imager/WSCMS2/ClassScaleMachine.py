@@ -535,7 +535,7 @@ class ClassScaleMachine(object):
 
     def do_scale_convolve(self, MeanDirty):
         T=ClassTimeIt.ClassTimeIt("    do_scale_convolve")
-        # T.disable()
+        T.disable()
         # convolve mean dirty with each scale in parallel
         Ix = slice(self.Npad_x, self.NpixPadded_x - self.Npad_x)
         Iy = slice(self.Npad_y, self.NpixPadded_y - self.Npad_y)

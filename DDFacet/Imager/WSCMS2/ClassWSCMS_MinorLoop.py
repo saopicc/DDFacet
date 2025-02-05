@@ -202,7 +202,7 @@ class ClassWSCMS_MinorLoop():
         """
 
         T=ClassTimeIt.ClassTimeIt("MinorLoop")
-        # T.disable()
+        T.disable()
         
         # Select scale mask and check if auto-masking has kicked in
         if self.GD["WSCMS"]["AutoMask"]:
@@ -297,7 +297,7 @@ class ClassWSCMS_MinorLoop():
         k = 0
         T.timeit("restinit")    
         T2=ClassTimeIt.ClassTimeIt("    MinorLoop.SubMinor")
-        #T2.disable()
+        T2.disable()
         
         while AbsConvMaxDirty > Threshold and k < self.ScaleMachine.NSubMinorIter:
             T2.timeit("  ===== ")    

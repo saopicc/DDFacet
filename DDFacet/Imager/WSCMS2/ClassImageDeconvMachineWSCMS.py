@@ -34,7 +34,7 @@ from scipy.integrate import cumtrapz
 import numexpr
 from DDFacet.Other import logger
 from DDFacet.Other import ModColor
-log=logger.getLogger("ImageDeconvMachineWSCMS")
+log=logger.getLogger("ImageDeconvMachineWSCMS2")
 from DDFacet.Array import NpParallel
 from DDFacet.Other import ClassTimeIt
 from pyrap.images import image
@@ -80,7 +80,7 @@ class ClassImageDeconvMachine():
                  ImagePolDescriptor=["I"],
                  ModelMachine=None,
                  MainCache=None,
-                 CacheFileName='WSCMS',
+                 CacheFileName='WSCMS2',
                  **kw    # absorb any unknown keywords arguments here
                  ):
         self.SearchMaxAbs = SearchMaxAbs
@@ -97,7 +97,7 @@ class ClassImageDeconvMachine():
         self.PeakFactor = PeakFactor
         if ModelMachine is None:
             # raise RuntimeError("You need to supply ImageDeconvMachine with a instantiated ModelMachine")
-            from DDFacet.Imager.WSCMS import ClassModelMachineWSCMS as ClassModelMachine
+            from DDFacet.Imager.WSCMS2 import ClassModelMachineWSCMS as ClassModelMachine
             self.ModelMachine = ClassModelMachine.ClassModelMachine(self.GD, GainMachine=ClassGainMachine.get_instance())
         else:
             self.ModelMachine = ModelMachine
@@ -131,12 +131,12 @@ class ClassImageDeconvMachine():
             [(section, self.GD[section]) for section in (
                 "Data", "Beam", "Selection", "Freq",
                 "Image", "Facets", "Weight", "RIME",
-                "Comp", "CF", "WSCMS")])
+                "Comp", "CF", "WSCMS2")])
 
         cachepath, valid = self.maincache.checkCache(self.CacheFileName, cachehash, directory=True,
                                                      reset=cache or self.PSFHasChanged)
         # export the hash
-        self.maincache.saveCache(name='WSCMS')
+        self.maincache.saveCache(name='WSCMS2')
 
         # required to save intermediate images
         self.FacetMachine = FacetMachine

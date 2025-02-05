@@ -42,7 +42,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def __init__(self,*args,**kwargs):
         ClassModelMachinebase.ClassModelMachine.__init__(self, *args, **kwargs)
         self.DicoSMStacked={}
-        self.DicoSMStacked["Type"]="WSCMS"
+        self.DicoSMStacked["Type"]="WSCMS2"
 
     def setRefFreq(self, RefFreq, Force=False):
         if self.RefFreq is not None and not Force:
@@ -103,7 +103,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         if self.GD is None:
             print("Warning - you are haven't initialised GD before writing to the DicoModel")
         D["GD"] = self.GD
-        D["Type"] = "WSCMS"
+        D["Type"] = "WSCMS2"
         D["ModelShape"] = self.ModelShape
         MyPickle.Save(D, FileName)
 
@@ -245,7 +245,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                              GiveComponents=False, ChannelWeights=None):
 
         # convert to radians
-        ex, ey, pa = GaussPars
+        ex, ey, pa = GaussPars,
         ex *= np.pi/180/np.sqrt(2)/2
         ey *= np.pi/180/np.sqrt(2)/2
         epar = (ex + ey)/2.0
