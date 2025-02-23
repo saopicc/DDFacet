@@ -275,7 +275,7 @@ class ClassCompareFITSImage(unittest.TestCase):
             compfname = cls._outputDir + cls.__name__ + ".run." + ref_id + ".fits"
             difffname = cls._outputDir + cls.__name__ + ".diff." + ref_id + ".fits"
             args = ["fitstool.py", "-f", "--diff", "--output", difffname, fname, compfname]
-            print(args)
+            #print(args)
             subprocess.check_call(args, env=os.environ.copy())
 
     @classmethod

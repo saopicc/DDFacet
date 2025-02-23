@@ -137,7 +137,7 @@ class ClassWeightMachine():
     def CalcWeightsBackground(self,iField=None):
         """Starts parallel jobs to load weights in the background"""
         self.VisWeights = None
-        if True:#MPIManager.size > 1:
+        if MPIManager.size > 1:
             APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event, serial=True)
         else:
             if self.GD["Misc"]["ConserveMemory"]:

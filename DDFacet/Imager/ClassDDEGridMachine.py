@@ -478,6 +478,7 @@ class ClassDDEGridMachine():
         # if neither is set, then machine is being constructed for ffts only
         if cf_dict or compute_cf:
             self.InitCF(cf_dict, compute_cf, wmax)
+            
         T.timeit("5")
 
         self.reinitGrid()
@@ -756,6 +757,8 @@ class ClassDDEGridMachine():
             
         if ChanMapping is None:
             ChanMapping = np.zeros((visIn.shape[1],), np.int64)
+
+            
         self.ChanMappingGrid = ChanMapping
 
 

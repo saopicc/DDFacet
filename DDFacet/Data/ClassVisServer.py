@@ -634,8 +634,7 @@ class ClassVisServer():
             
             ms.PutVisColumn(self.GD["Weight"]["OutColName"],
                             DATA["Weights"],
-                            DATA["ROW0"],
-                            DATA["ROW1"],
+                            iChunk,
                             likecol="IMAGING_WEIGHT",
                             ColDesc=ColDesc,
                             sort_index=DATA["sort_index"])

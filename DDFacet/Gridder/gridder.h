@@ -203,7 +203,7 @@ namespace DDF {
 	const int *Row = StartRow+2;
 	/* advance pointer to next blocklist */
 	StartRow += NRowBlocks[iBlock];
-
+	
 
 	if (sparsificationFlag && !sparsificationFlag[iBlock])
 	  continue;

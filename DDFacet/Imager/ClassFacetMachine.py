@@ -981,10 +981,11 @@ class ClassFacetMachine():
                 except:
                     pass
 
-        try:
-            print(ImageIn.shape)
-        except:
-            stop
+        # try:
+        #     print(ImageIn.shape)
+        # except:
+        #     stop
+            
         self.setCasaImage(ImageName=ImageName, Shape=ImageIn.shape,
                           Freqs=Freqs, Stokes=Stokes)
 

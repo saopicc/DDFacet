@@ -2537,7 +2537,7 @@ class ClassImagerDeconv():
         im=image("lala2.nocompDeg3.model.fits")
         testImageIn=im.getdata()
         nchan,npol,_,_=testImageIn.shape
-        print(testImageIn.shape)
+        #print(testImageIn.shape)
         testImage=np.zeros_like(testImageIn)
         for ch in range(nchan):
             for pol in range(npol):

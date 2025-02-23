@@ -178,8 +178,8 @@ class RegToNp():
                 Cat.color[iCat]=color
                 Cat.marker[iCat]=marker
             else:
-                stop
                 log.print("%s not interpreted!!!!"%type(reg))
+                stop
             Cat.Exclude[iCat] = exclude
             
         Cat=(Cat[Cat.ra!=0]).copy()
