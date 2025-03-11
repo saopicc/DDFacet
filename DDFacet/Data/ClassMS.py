@@ -29,7 +29,7 @@ import pyrap.measures as pm
 import pyrap.quanta as qa
 from astropy.time import Time
 from pyrap.tables import table
-from datetime import datetime as dt
+from datetime import datetime
 from typing import List
 import ephem
 import numpy as np
@@ -44,6 +44,7 @@ from DDFacet.Other.CacheManager import CacheManager
 from DDFacet.Array import NpShared
 from DDFacet.Data import sidereal
 from DDFacet.Array import PrintRecArray
+from astropy.time import Time as astropyTime
 
 import datetime
 import DDFacet.ToolsDir.ModRotate
@@ -1221,7 +1222,7 @@ class ClassMS():
             T.timeit("UVRangeKm")
 
         if self.DicoSelectOptions["TimeRange"]:
-            st0, st1 = list(map(lambda x: dt.utcfromtimestamp(qa.quantity(x).to_unix_time()),
+            st0, st1 = list(map(lambda x: datetime.utcfromtimestamp(qa.quantity(x).to_unix_time()),
                                 self.DicoSelectOptions["TimeRange"]))
             print("  imaging only uv data in time range [{}~{}] UTC".format(st0, st1), file=log)
             st0, st1 = list(map(lambda x: qa.quantity(x).to_unix_time(),
@@ -1763,7 +1764,7 @@ class ClassMS():
                 df=h['CDELT2']*1e6
                 fMin=float(h['FRQ-MIN'])
                 fMax=float(h['FRQ-MAX'])
-                t0 = astropyTime(t0, format='isot').mjd * 3600. * 24.# + (dt/2.)
+                t0 = astropyTime(t0, format='isot').mjd * 3600. * 24. # + (dt/2.)
                 times = tab.getcol("TIME", row0, nrows)
                 msfreqs = ms.ChanFreq
 

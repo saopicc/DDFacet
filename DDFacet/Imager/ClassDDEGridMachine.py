@@ -760,8 +760,8 @@ class ClassDDEGridMachine():
 
             
         self.ChanMappingGrid = ChanMapping
-
-
+        
+        
         
         Grid = ResidueGrid
 
