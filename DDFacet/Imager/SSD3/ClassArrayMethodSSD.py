@@ -28,6 +28,9 @@ from DDFacet.Imager.SSD3.ClassParamMachine import ClassParamMachine
 from DDFacet.ToolsDir.GeneDist import ClassDistMachine
 from DDFacet.Imager.SSD3 import ClassMutate
 
+SERIAL=True
+#SERIAL=False
+
 class ClassArrayMethodSSD():
     def __init__(self,Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,GD=None,
                  PixVariance=1.e-2,IslandBestIndiv=None,WeightFreqBands=None,iFacet=0,
@@ -69,7 +72,8 @@ class ClassArrayMethodSSD():
             self.ConvMode="FFT"
 
         self.ConvMachine=ClassConvMachine.ClassConvMachine(PSF,ListPixParms,ListPixData,self.ConvMode)
-        
+        self.T=ClassTimeIt.ClassTimeIt("_SingleIslandStuff #%i"%self.iIsland)
+        self.T.disable()
         
         
         self.GD=GD
@@ -331,46 +335,31 @@ class ClassArrayMethodSSD():
 
 
 
-    # def InitWorkers(self):
-    #     Parallel=self.ParallelFitness
-    #     if not(Parallel):
-    #         NCPU=1
-    #     else:
-    #         NCPU=self.NCPU
-    #     self.NCPU=NCPU
-    #     work_queue = multiprocessing.Queue()
-    #     result_queue = multiprocessing.Queue()
-    #     workerlist=[]
-    #     #print "start"
-    #     for ii in range(NCPU):
-    #         W=WorkerFitness(work_queue,
-    #                         result_queue,
-    #                         island_dict=self._island_dict,
-    #                         iIsland=self.iIsland,
-    #                         ListPixParms=self.ListPixParms,
-    #                         ListPixData=self.ListPixData,
-    #                         PSF=self.PSF,
-    #                         GD=self.GD,
-    #                         PauseOnStart=False,
-    #                         PM=self.PM,
-    #                         PixVariance=self.PixVariance,
-    #                         EstimatedStdFromResid=self.EstimatedStdFromResid,
-    #                         MaxFunc=self.MaxFunc,
-    #                         WeightMaxFunc=self.WeightMaxFunc,
-    #                         DirtyArray=self.DirtyArray,
-    #                         ConvMode=self.ConvMode,
-    #                         StopWhenQueueEmpty=not(Parallel),
-    #                         BestChi2=self.BestChi2,
-    #                         DicoData=self.DicoData)
-    #         workerlist.append(W)
-    #     self.work_queue=work_queue
-    #     self.result_queue=result_queue
-    #     self.workerlist=workerlist
-    #     if self.ParallelFitness:
-    #         for ii in range(NCPU):
-    #             #print "launch parallel", ii
-    #             workerlist[ii].start()
+    def InitWorkers(self):
+        Parallel=self.ParallelFitness
+        if not(Parallel):
+            NCPU=1
+        else:
+            NCPU=self.NCPU
+        self.T.reinit()
+        import DDFacet.Other.AsyncProcessPool
+        logger.setSilent(["AsyncProcessPool"])
+        self.pid=str(multiprocessing.current_process())
+        self.APP=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_GA_SingleIsland_%s"%self.iIsland,
+                                                         ncpu=self.GD["Parallel"]["NCPU"],
+                                                         affinity=self.GD["Parallel"]["Affinity"],
+                                                         parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
+                                                         verbose=self.GD["Debug"]["APPVerbose"],
+                                                         pause_on_start=self.GD["Debug"]["PauseWorkers"])
+        self.T.timeit("APP")
+        self.APP.registerJobHandlers(self)
+        self.T.timeit("Register")
+        self.APP.startWorkers()
+        self.T.timeit("StartWorker")
 
+    def KillWorkers(self):
+        self.APP.shutdown()
+        del(self.APP)
 
     #####
     def giveDistanceIndiv(self,pop):
@@ -403,74 +392,32 @@ class ClassArrayMethodSSD():
 
     def GiveFitnessPop(self,pop):
 
-        work_queue=self.work_queue
-        result_queue=self.result_queue
-        workerlist=self.workerlist
-        Parallel=self.ParallelFitness
-        DicoFitnesses={}
-        DicoChi2={}
-        NJobs = len(pop)
-        NCPU=self.NCPU
-        #self.giveDistanceIndiv(pop)
-        #print "OK"
         self._fill_pop_array(pop)
         for iIndividual,individual in enumerate(pop):
-            work_queue.put({"iIndividual":iIndividual,
-                            "BestChi2":self.BestChi2,
-                            "EntropyMinMax":self.EntropyMinMax,
-                            "OperationType":"Fitness"})
-
+            DicoJob={"iIndividual":iIndividual,
+                     "BestChi2":self.BestChi2,
+                     "EntropyMinMax":self.EntropyMinMax,
+                     "OperationType":"Fitness"}
+            self.APP.runJob("getFitness.Isl_%i.Indiv_%i"%(self.iIsland,iIndividual),
+                            self._runOperation,
+                            args=(DicoJob,), serial=SERIAL)
+        LDicoResults=self.APP.awaitJobResults("getFitness.Isl_%i.Indiv_*"%(self.iIsland),
+                                              progress=None,
+                                              #progress="Fitness #%i"%self.iIsland,
+                                              )
         
-        if not Parallel:
-            for ii in range(NCPU):
-                workerlist[ii].run()  # just run until all work is completed
-
-        # for ii in range(NCPU):
-        #     print "launch parallel", ii
-        #     workerlist[ii].start()
-
-
-        iResult=0
-
-        while iResult < NJobs:
-            DicoResult=None
-            #print work_queue.qsize(),result_queue.qsize()
-            if result_queue.qsize()!=0:
-                try:
-                    DicoResult=result_queue.get_nowait()
-                except Exception as e:
-                    #print "Exception: %s"%(str(e))
-                    pass
-                
-
-            if DicoResult==None:
-                time.sleep(.1)
-                continue            
-
-            # try:
-            #     DicoResult = result_queue.get(True, 5)
-            # except:
-            #     time.sleep(0.1)
-            #     continue
-
-            if DicoResult["Success"]:
-                iIndividual=DicoResult["iIndividual"]
-                iResult += 1
-                DicoFitnesses[iIndividual]=DicoResult["fitness"]
-                DicoChi2[iIndividual]=DicoResult["Chi2"]
-            NDone = iResult
-
-        # for ii in range(NCPU):
-        #     workerlist[ii].shutdown()
-        #     workerlist[ii].terminate()
-        #     workerlist[ii].join()
-
         fitnesses=[]
         Chi2=[]
+        DicoFitnesses={}
+        DicoChi2={}
+        for DicoResults in LDicoResults:
+            iIndividual=DicoResults["iIndividual"]
+            DicoFitnesses[iIndividual]=DicoResults["fitness"]
+            DicoChi2[iIndividual]=DicoResults["Chi2"]
         for iIndividual in range(len(pop)):
             fitnesses.append(DicoFitnesses[iIndividual])
             Chi2.append(DicoChi2[iIndividual])
-        #print "finished"
+
 
         self.BestChi2=np.min(Chi2)
 
@@ -481,140 +428,45 @@ class ClassArrayMethodSSD():
         if St==0: St=1e-10
         MaxEntropy=-St*np.log(St/self.NPixListParms)
         MinEntropy=-St*np.log(St)
-        self.EntropyMinMax=MinEntropy,MaxEntropy
         
-        #print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-        #print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-        #print "Best chi2 %f"%self.BestChi2
-        # print "=============================="
-        # print fitnesses
-        # print Chi2
-        # print "=============================="
+        self.EntropyMinMax=MinEntropy,MaxEntropy
+
         return fitnesses,Chi2
 
     def mutatePop(self,pop,mutpb,MutConfig):
 
-        work_queue=self.work_queue
-        result_queue=self.result_queue
-        workerlist=self.workerlist
-        Parallel=self.ParallelFitness
-        DicoFitnesses={}
-        DicoChi2={}
-        NCPU=self.NCPU
-        NJobs = 0
         pop_array = self._island_dict["Population"]
+        LJob=[]
+        
         for iIndividual,individual in enumerate(pop):
             if random.random() < mutpb:
-                NJobs+=1
                 pop_array[iIndividual,...] = individual
-                work_queue.put({"iIndividual":iIndividual,
-                                "mutConfig":MutConfig,
-                                "OperationType":"Mutate"})
+                DicoJob={"iIndividual":iIndividual,
+                         "mutConfig":MutConfig,
+                         "OperationType":"Mutate"}
+                LJob.append(DicoJob)
 
+        for DicoJob in LJob:
+            iIndividual=DicoJob["iIndividual"]
+            self.APP.runJob("doMutate.Isl_%i.Indiv_%i"%(self.iIsland,iIndividual),
+                            self._runOperation,
+                            args=(DicoJob,), serial=SERIAL)
+        LDicoResults=self.APP.awaitJobResults("doMutate.Isl_%i.Indiv_*"%(self.iIsland),
+                                              #progress="Mutate #%i"%self.iIsland,
+                                              progress=None,
+                                              )
 
-        
-        if not Parallel:
-            for ii in range(NCPU):
-                workerlist[ii].run()  # just run until all work is completed
-
-        # for ii in range(NCPU):
-        #     print "launch parallel", ii
-        #     workerlist[ii].start()
-
-
-        iResult=0
-
-        while iResult < NJobs:
-            DicoResult=None
-            #print work_queue.qsize(),result_queue.qsize()
-            if result_queue.qsize()!=0:
-                try:
-                    DicoResult=result_queue.get_nowait()
-                except Exception as e:
-                    #print "Exception: %s"%(str(e))
-                    pass
-                
-
-            if DicoResult==None:
-                time.sleep(.1)
-                continue            
-
-            # try:
-            #     DicoResult = result_queue.get(True, 5)
-            # except:
-            #     time.sleep(0.1)
-            #     continue
-
-            if DicoResult["Success"]:
-                iIndividual=DicoResult["iIndividual"]
-                iResult += 1
+        for DicoResults in LDicoResults:
+            if DicoResults["Success"]:
+                iIndividual=DicoResults["iIndividual"]
                 mutant = pop_array[iIndividual]
                 pop[iIndividual][:] = mutant[:]
-            NDone = iResult
+            else:
+                stop
 
         return pop
 
 
-    def GiveMetroChains(self,pop,NSteps=1000):
-
-        work_queue=self.work_queue
-        result_queue=self.result_queue
-        workerlist=self.workerlist
-        Parallel=self.ParallelFitness
-        DicoFitnesses={}
-        DicoChi2={}
-        NJobs = len(pop)
-        NCPU=self.NCPU
-
-        self._chain_dict.delete()
-
-        self._fill_pop_array(pop)
-        for iIndividual,individual in enumerate(pop):
-            work_queue.put({"iIndividual":iIndividual,
-                            "BestChi2":self.BestChi2,
-                            "OperationType":"Metropolis",
-                            "NSteps":NSteps})
-
-        
-        if not Parallel:
-            for ii in range(NCPU):
-                workerlist[ii].run()  # just run until all work is completed
-
-        # for ii in range(NCPU):
-        #     print "launch parallel", ii
-        #     workerlist[ii].start()
-
-
-        iResult=0
-        DicoChains = {}
-        while iResult < NJobs:
-            DicoResult=None
-            #print work_queue.qsize(),result_queue.qsize()
-            if result_queue.qsize()!=0:
-                try:
-                    DicoResult=result_queue.get_nowait()
-                except Exception as e:
-                    #print "Exception: %s"%(str(e))
-                    pass
-                
-
-            if DicoResult==None:
-                time.sleep(.1)
-                continue            
-
-            # try:
-            #     DicoResult = result_queue.get(True, 5)
-            # except:
-            #     time.sleep(0.1)
-            #     continue
-
-            if DicoResult["Success"]:
-                iIndividual=DicoResult["iIndividual"]
-                iResult += 1
-                # result already in _chain_dict
-        self._chain_dict.reload()
-
-        return self._chain_dict
 
     
     def mutGaussian(self,*args,**kwargs):
@@ -776,47 +628,47 @@ class ClassArrayMethodSSD():
     # ##########################################################
     # ##########################################################
 
-    def _WorkerFitness(self,
-                       island_dict=None,
-                       iIsland=None,
-                       ListPixParms=None,
-                       ListPixData=None,
-                       GD=None,
-                       PSF=None,
-                       PauseOnStart=False,
-                       PM=None,
-                       PixVariance=1e-2,
-                       EstimatedStdFromResid=0,
-                       MaxFunc=None,
-                       WeightMaxFunc=None,
-                       DirtyArray=None,
-                       ConvMode=None,
-                       StopWhenQueueEmpty=False,
-                       BestChi2=1.,
-                       DicoData=None):
-        self.T=ClassTimeIt.ClassTimeIt("WorkerFitness")
-        self.T.disable()
-        self._island_dict = island_dict
-        self._chain_dict = island_dict["Chains"]
-        self.GD=GD
-        self.PM=PM
-        self.EstimatedStdFromResid=EstimatedStdFromResid
-        self.ListPixParms=ListPixParms
-        self.ListPixData=ListPixData
-        self.iIsland=iIsland
-        self.PSF = PSF
-        self.PixVariance=PixVariance
-        self.ConvMachine=ClassConvMachine.ClassConvMachine(self.PSF,self.ListPixParms,self.ListPixData,ConvMode)
-        self.ConvMachine.setParamMachine(self.PM)
-        self.DicoData=DicoData
-        self.MutMachine=ClassMutate.ClassMutate(self.PM)
-        self.MutMachine.setData(DicoData)
-        self.MaxFunc=MaxFunc
-        self.WeightMaxFunc=WeightMaxFunc
-        self.DirtyArray=DirtyArray
-        self.T.timeit("init")
-        self.StopWhenQueueEmpty=StopWhenQueueEmpty
-        self.BestChi2=BestChi2
+    # def _WorkerFitness(self,
+    #                    island_dict=None,
+    #                    iIsland=None,
+    #                    ListPixParms=None,
+    #                    ListPixData=None,
+    #                    GD=None,
+    #                    PSF=None,
+    #                    PauseOnStart=False,
+    #                    PM=None,
+    #                    PixVariance=1e-2,
+    #                    EstimatedStdFromResid=0,
+    #                    MaxFunc=None,
+    #                    WeightMaxFunc=None,
+    #                    DirtyArray=None,
+    #                    ConvMode=None,
+    #                    StopWhenQueueEmpty=False,
+    #                    BestChi2=1.,
+    #                    DicoData=None):
+    #     self.T=ClassTimeIt.ClassTimeIt("WorkerFitness")
+    #     self.T.disable()
+    #     self._island_dict = island_dict
+    #     self._chain_dict = island_dict["Chains"]
+    #     self.GD=GD
+    #     self.PM=PM
+    #     self.EstimatedStdFromResid=EstimatedStdFromResid
+    #     self.ListPixParms=ListPixParms
+    #     self.ListPixData=ListPixData
+    #     self.iIsland=iIsland
+    #     self.PSF = PSF
+    #     self.PixVariance=PixVariance
+    #     self.ConvMachine=ClassConvMachine.ClassConvMachine(self.PSF,self.ListPixParms,self.ListPixData,ConvMode)
+    #     self.ConvMachine.setParamMachine(self.PM)
+    #     self.DicoData=DicoData
+    #     self.MutMachine=ClassMutate.ClassMutate(self.PM)
+    #     self.MutMachine.setData(DicoData)
+    #     self.MaxFunc=MaxFunc
+    #     self.WeightMaxFunc=WeightMaxFunc
+    #     self.DirtyArray=DirtyArray
+    #     self.T.timeit("init")
+    #     self.StopWhenQueueEmpty=StopWhenQueueEmpty
+    #     self.BestChi2=BestChi2
 
 
 
@@ -834,15 +686,14 @@ class ClassArrayMethodSSD():
     def _runOperation(self,DicoJob):
         if DicoJob["OperationType"]=="Fitness":
             #print "FitNess"
-            self._GiveFitnessWorker(DicoJob)
+            return self._GiveFitnessWorker(DicoJob)
         elif DicoJob["OperationType"]=="Metropolis":
-            self._runMetroSingleChainWorker(DicoJob)
+            return self._runMetroSingleChainWorker(DicoJob)
         elif DicoJob["OperationType"]=="Mutate":
             #print "Mutate"
-            self._runSingleMutation(DicoJob)
+            return self._runSingleMutation(DicoJob)
 
     def _runSingleMutation(self,DicoJob):
-        pid=str(multiprocessing.current_process())
         self.T.reinit()
         iIndividual=DicoJob["iIndividual"]
 
@@ -881,7 +732,7 @@ class ClassArrayMethodSSD():
                     "iIndividual": iIndividual,
                     "fitness":fitness,
                     "Chi2":Chi2}
-        self.T.timeit("done job: %s"%pid)
+        self.T.timeit("done job")
         return DicoResult
 
 

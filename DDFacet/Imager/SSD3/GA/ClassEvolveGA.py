@@ -4,6 +4,8 @@ from __future__ import division
 from __future__ import print_function
 from DDFacet.compatibility import range
 
+from DDFacet.Other import ClassTimeIt
+
 from deap import base
 from deap import creator
 from deap import tools
@@ -13,7 +15,11 @@ import numpy as np
 import random
 import psutil
 from DDFacet.Imager.SSD3 import ClassArrayMethodSSD
+#from DDFacet.Imager.SSD3 import ClassImageArrayMethodSSD
 from DDFacet.Array import shared_dict
+from DDFacet.Imager.SSD3 import ClassImageDeconvMachineSSD
+import DDFacet.Other.AsyncProcessPool
+from SkyModel.PSourceExtract import ClassIncreaseIsland
 
 def FilterIslandsPix(ListIn,Npix_x,Npix_y):
     ListOut=[]
@@ -24,11 +30,125 @@ def FilterIslandsPix(ListIn,Npix_x,Npix_y):
             ListOut.append([x,y])
     return ListOut
 
+SERIAL=True
+SERIAL=False
 
 class ClassEvolveGA():
+    def __init__(self,ImageDeconvMachine):
+        self.__dict__ = ImageDeconvMachine.__dict__
+        self.ImageDeconvMachine=ImageDeconvMachine
+        
+        self.APP=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_GA",
+                                                         ncpu=self.GD["Parallel"]["NCPU"],
+                                                         affinity=self.GD["Parallel"]["Affinity"],
+                                                         parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
+                                                         verbose=self.GD["Debug"]["APPVerbose"],
+                                                         pause_on_start=self.GD["Debug"]["PauseWorkers"])
+        self.APP.registerJobHandlers(self)
+        self.APP.startWorkers()
+        print("LKLKFLSKFD")
+        
+    def runGA_AllIslands(self):
+        APP=self.APP
+        
+        T=ClassTimeIt.ClassTimeIt("runGA_AllIslands")
+        for iIsland,Island in enumerate(self.ListIslands):
+            IslandBestIndiv=self.ModelMachine.GiveIndividual(self.ListIslands[iIsland])
+            self.APP.runJob("runGA.%i"%(iIsland),
+                             self._runGA,
+                             args=(self.ListIslands,iIsland,IslandBestIndiv,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs), serial=SERIAL)
+        LDicoResults=self.APP.awaitJobResults("runGA.*", progress="Genetic Alg.")
+        T.timeit("runGA")
+        stop
+        allIslandModelDict  = shared_dict.attach("DeconvListIslands%s"%self.StrField)
+        allIslandModelDict.reload()
+        for iRes,DicoResult in enumerate(LDicoResults):
+            iIsland=DicoResult["iIsland"]
+            ThisIslandModelDict = allIslandModelDict[iIsland]
+            ThisIslandModelDict.reload()
+            self.ModelMachine.AppendIsland(self.ListIslands[iIsland], ThisIslandModelDict["Model"].copy())
+            if DicoResult["HasError"]:
+                self.ErrorModelMachine.AppendIsland(ListIslands[iIsland], ThisIslandModelDict["sModel"].copy())
+        
+    def _runGA(self,ListIslands,iIsland,IslandBestIndiv,DicoDirty_path,GridFreqs,DegridFreqs):
+        NIslands=len(ListIslands)
+        if NIslands==0: return
+        T=ClassTimeIt.ClassTimeIt("  ----  _runGA #%i"%iIsland)
+        # T.disable()
+        self.ImageDeconvMachine._updateWorkerInternals(DicoDirty_path,GridFreqs,DegridFreqs)
+        T.timeit("updateWorkerInternals")
+        
+        ListInitIslands=None
+        ThisPixList=ListIslands[iIsland]
+        allIslandModelDict  = shared_dict.attach("DeconvListIslands%s"%self.StrField)
+        ThisIslandModelDict = allIslandModelDict.addSubdict(iIsland)
+        ThisIslandModelDict["Island"] = np.array(ThisPixList)
+
+        XY=np.array(ThisPixList,dtype=np.float32)
+        xm,ym=np.mean(np.float32(XY),axis=0).astype(int)
+        T.timeit("xm,ym")
+        nchan,npol,_,_=self._Dirty.shape
+        JonesNorm=(self.DicoDirty["JonesNorm"][:,:,xm,ym]).reshape((nchan,npol,1,1))
+        W=self.DicoDirty["WeightChansImages"]
+        JonesNorm=np.sum(JonesNorm*W.reshape((nchan,1,1,1)),axis=0).reshape((1,npol,1,1))
+        T.timeit("JonesNorm")
+        
+        
+        FacetID=self.PSFServer.giveFacetID2(xm,ym)
+        T.timeit("FacetID")
+
+        ThisIslandModelDict["BestIndiv"] = IslandBestIndiv
+        
+        # ListOrder=[iIsland,FacetID,JonesNorm.flat[0],self.RMS**2,island_dict.path,iIslandInit]
+        # ##############################################
+        # self.MultiFreqMode=MultiFreqMode
+        self.FreqsInfo=self.PSFServer.DicoMappingDesc
+        # self._Dirty = Dirty
+        self.CubeVariablePSF = self.DicoVariablePSF["CubeVariablePSF"]
+        
+        ThisPixList = ThisIslandModelDict["Island"].tolist()
+        IslandBestIndiv = ThisIslandModelDict["BestIndiv"]
+
+        PSF=self.CubeVariablePSF[FacetID]
+        NGen=self.GD["GAClean"]["NMaxGen"]
+        NIndiv=self.GD["GAClean"]["NSourceKin"]
+
+        ListPixParms=ThisPixList
+        ListPixData=ThisPixList
+        dx=self.GD["SSDClean"]["NEnlargeData"]
+        if dx>0:
+            IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
+            ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=dx)
+
+
+        ParmDict = shared_dict.attach("ParmDict%s"%self.StrField) # ParmDict
+        PixVariance=ParmDict["RMS"]**2
+        
+        CEv=ClassEvolveGA_SingleIsland(self._Dirty,
+                                       PSF,
+                                       self.FreqsInfo,
+                                       ListPixParms=ListPixParms,
+                                       ListPixData=ListPixData,
+                                       iFacet=FacetID,PixVariance=PixVariance,
+                                       IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
+                                       GD=self.GD,
+                                       iIsland=iIsland,
+                                       island_dict=ThisIslandModelDict,
+                                       ParallelFitness=False)
+        Model=CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
+        
+        ThisIslandModelDict["Model"] = np.array(Model)
+        
+        del(CEv)
+        return {"Success":True,"iIsland":iIsland,"HasError":False}
+    
+
+class ClassEvolveGA_SingleIsland():
     def __init__(self,Dirty,PSF,FreqsInfo,ListPixData=None,ListPixParms=None,IslandBestIndiv=None,GD=None,
                  WeightFreqBands=None,PixVariance=1e-2,iFacet=0,iIsland=None,island_dict=None,
                  ParallelFitness=False):
+
+                 
         if GD["Misc"]["RandomSeed"] is not None:
             random.seed(int(GD["Misc"]["RandomSeed"]))
             np.random.seed(int(GD["Misc"]["RandomSeed"]))
@@ -64,10 +184,11 @@ class ClassEvolveGA():
                                                                          ParallelFitness=ParallelFitness,
                                                                          NCPU=NCPU)
 
-        self.setDEAP()
         
 
     def setDEAP(self):
+        T=ClassTimeIt.ClassTimeIt("   SET DEAP")
+        # T.disable()
         if "FitnessMax" not in dir(creator):
             creator.create("FitnessMax", base.Fitness, weights=self.ArrayMethodsMachine.WeightsEA)
         if "Individual" not in dir(creator):
@@ -84,14 +205,18 @@ class ClassEvolveGA():
         toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.2, p0=0.5, pMove=0.2, pScale=0.2, pOffset=0.2)
         toolbox.register("select", tools.selTournament, tournsize=3)
         self.toolbox=toolbox
+        T.timeit("set DEAP")
 
     def main(self,NGen=1000,NIndiv=100,DoPlot=True):
+        T=ClassTimeIt.ClassTimeIt("   GA: Main")
+        T.disable()
+        self.setDEAP()
         toolbox=self.toolbox
         self.pop = toolbox.population(n=NIndiv)
         self.hof = tools.HallOfFame(1, similar=numpy.array_equal)
         for indiv in self.pop:
             indiv.fill(0)
-            
+        T.timeit("Init")
         # #########################################################
         def GiveListPolyArrayMP(N,iTypeInit=None):
             return [GivePolyArrayMP(iTypeInit=iTypeInit) for iIndiv in range(N)]
@@ -146,6 +271,7 @@ class ClassEvolveGA():
                 self.ArrayMethodsMachine.PM.ReinitPop(self.pop,GiveListPolyArrayMP_LinComb(len(self.pop)),PutNoise=False)
                 self.ArrayMethodsMachine.KillWorkers()
                 return self.pop[0]
+            T.timeit("N=0")
 
 
             PutNoise=True#False
@@ -153,6 +279,7 @@ class ClassEvolveGA():
                 #print("NEW")
                 ListPolyModelArrayMP=GiveListPolyArrayMP_LinComb(len(self.pop))
                 self.ArrayMethodsMachine.PM.ReinitPop(self.pop,ListPolyModelArrayMP,PutNoise=PutNoise)
+                T.timeit("New")
             else:
                 #print("MIX")
                 NIndiv=len(self.pop)//10
@@ -169,6 +296,7 @@ class ClassEvolveGA():
                 pop0=self.pop[NIndiv//2::]
                 
                 BestIndiv=self.IslandBestIndiv.copy()
+                T.timeit("Mix: split")
                 
                 # self.ArrayMethodsMachine.PM.ReinitPop(pop0,SModelArray)
 
@@ -189,13 +317,16 @@ class ClassEvolveGA():
                     PolyModelArray=np.zeros((self.ArrayMethodsMachine.PM.NOrderPoly,self.ArrayMethodsMachine.PM.NPixListParms),np.float32)
                     for iOrder in range(self.ArrayMethodsMachine.PM.NOrderPoly):
                         PolyModelArray[iOrder]=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"Poly%i"%iOrder)
+                    T.timeit("Mix: build PolyModelArray")
 
                         
                 GSigModel=None
                 if "GSig" in self.ArrayMethodsMachine.PM.SolveParam:
                     GSigModel=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"GSig")
+                    T.timeit("Mix: GSigModel")
 
                 self.ArrayMethodsMachine.PM.ReinitPop(pop1,[PolyModelArray]*len(pop1),GSigModel=GSigModel,PutNoise=PutNoise)
+                T.timeit("Mix: ReinitPop pop1")
                 pop1[0].flat[:]=BestIndiv.flat[:]
                 
                 ##################"
@@ -203,32 +334,16 @@ class ClassEvolveGA():
                 
                 # half of the pop with the MP model
                 self.ArrayMethodsMachine.PM.ReinitPop(pop0,GiveListPolyArrayMP_LinComb( len(pop0) ),PutNoise=PutNoise)
-
-                # NTypeInit=len(self.DicoDicoInitIndiv.keys())
-                # for iTypeInit in range(NTypeInit):
-                #     pop0a=pop0[iTypeInit:iTypeInit+1]
-                #     self.ArrayMethodsMachine.PM.ReinitPop(pop0a,GiveListPolyArrayMP( len(pop0a) , iTypeInit=iTypeInit),PutNoise=False)
-                
-                    
-                # _,Chi20=self.ArrayMethodsMachine.GiveFitnessPop(pop0)
-                # _,Chi21=self.ArrayMethodsMachine.GiveFitnessPop(pop1)
-                # print
-                # print Chi20
-                # print Chi21
-                # stop
+                T.timeit("Mix: ReinitPop pop0")
 
 
 
                 self.pop=pop1+pop0
-                #print(self.pop)
-                #stop
-        #print
 
-
+        T.timeit("Init pop")
 
         _=self.ArrayMethodsMachine.GiveFitnessPop(self.pop)
-
-
+        T.timeit("Init Givefitness")
 
         self.pop, log= algorithms.eaSimple(self.pop, toolbox, cxpb=0.3, mutpb=0.5, ngen=NGen, 
                                            halloffame=self.hof, 
@@ -237,44 +352,11 @@ class ClassEvolveGA():
                                            ArrayMethodsMachine=self.ArrayMethodsMachine,
                                            DoPlot=DoPlot,
                                            MutConfig=self.MutConfig)
+        T.timeit("eaSimple")
 
         self.ArrayMethodsMachine.KillWorkers()
 
-        # #:param mu: The number of individuals to select for the next generation.
-        # #:param lambda\_: The number of children to produce at each generation.
-        # #:param cxpb: The probability that an offspring is produced by crossover.
-        # #:param mutpb: The probability that an offspring is produced by mutation.
-
-        # mu=70
-        # lambda_=50
-        # cxpb=0.3
-        # mutpb=0.5
-        # ngen=1000
-
-        # self.pop, log= algorithms.eaMuPlusLambda(self.pop, toolbox, mu, lambda_, cxpb, mutpb, ngen,
-        #                               stats=None, halloffame=None, verbose=__debug__,
-        #                               ArrayMethodsMachine=self.ArrayMethodsMachine)
-
         V = tools.selBest(self.pop, 1)[0]
 
-        #print "Best indiv end"
-        #self.ArrayMethodsMachine.PM.PrintIndiv(V)
-        
-        # V.fill(0)
-        # S=self.ArrayMethodsMachine.PM.ArrayToSubArray(V,"S")
-        # G=self.ArrayMethodsMachine.PM.ArrayToSubArray(V,"GSig")
-        
-        # S[0]=1.
-        # #S[1]=2.
-        # G[0]=1.
-        # #G[1]=2.
-
-        # MA=self.ArrayMethodsMachine.PM.GiveModelArray(V)
-
-        # # print "Sum best indiv",MA.sum(axis=1)
-        # # print "Size indiv",V.size
-        # # print "indiv",V
-        # # print self.ArrayMethodsMachine.ListPixData
-        # # print MA[0,:]
 
         return V

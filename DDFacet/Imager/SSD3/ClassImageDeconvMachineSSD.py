@@ -48,6 +48,8 @@ from DDFacet.Other.AsyncProcessPool import APP
 logger.setSilent("ClassArrayMethodSSD")
 logger.setSilent("ClassIsland")
 
+DO_INIT=False
+SERIAL=True
 
 class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
@@ -161,6 +163,8 @@ class ClassImageDeconvMachine():
 
         if len(self.ListInitMachine)>1 and GD["GAClean"]["NMaxGen"]==0:
             stop
+
+        self.APP=APP
         self._init_machine_initialized = False
 
     def setMaxMajorIter(self,MaxMajorIter):
@@ -488,28 +492,15 @@ class ClassImageDeconvMachine():
         for iIsland,Island in enumerate(self.ListIslands):
             APP.runJob("initIsland.%i"%(iIsland),
                        self._initIsland,
-                       args=(self.ListIslands,iIsland,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs))# ,serial=True)
+                       args=(self.ListIslands,iIsland,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs), serial=SERIAL)
         LDicoResults=APP.awaitJobResults("initIsland.*", progress="Init Islands")
         
         if self.GD["Misc"]["ConserveMemory"]:
             self._reset_InitMachine()
-
-        for iIsland,Island in enumerate(self.ListIslands):
-            IslandBestIndiv=self.ModelMachine.GiveIndividual(self.ListIslands[iIsland])
-            APP.runJob("runGA.%i"%(iIsland),
-                       self._runGA,
-                       args=(self.ListIslands,iIsland,IslandBestIndiv,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs))# ,serial=True)
-        LDicoResults=APP.awaitJobResults("runGA.*", progress="Genetic Alg.")
-
-        allIslandModelDict.reload()
-        for iRes,DicoResult in enumerate(LDicoResults):
-            iIsland=DicoResult["iIsland"]
-            ThisIslandModelDict = allIslandModelDict[iIsland]
-            ThisIslandModelDict.reload()
-            self.ModelMachine.AppendIsland(self.ListIslands[iIsland], ThisIslandModelDict["Model"].copy())
-            if DicoResult["HasError"]:
-                self.ErrorModelMachine.AppendIsland(ListIslands[iIsland], ThisIslandModelDict["sModel"].copy())
-                
+            
+        self.GAMachine=ClassEvolveGA(self)
+        self.GAMachine.runGA_AllIslands()
+        
         allIslandModelDict.delete()
         self.DicoDicoInitIndiv.delete()
         
@@ -542,7 +533,7 @@ class ClassImageDeconvMachine():
         dx,dy=x.max()-x.min(),y.max()-y.min()
         dd=np.max([dx,dy])+1
         DoIslandsInit = (dd>=self.GD["GAClean"]["MinSizeInit"])
-        #if not DoIslandsInit: return
+        if not DoIslandsInit or not DO_INIT: return
         
         self._updateWorkerInternals(DicoDirty_path,GridFreqs,DegridFreqs)
         
@@ -565,82 +556,6 @@ class ClassImageDeconvMachine():
         
 
 
-    def _runGA(self,ListIslands,iIsland,IslandBestIndiv,DicoDirty_path,GridFreqs,DegridFreqs):
-        
-        NIslands=len(ListIslands)
-        if NIslands==0: return
-        self._updateWorkerInternals(DicoDirty_path,GridFreqs,DegridFreqs)
-        T=ClassTimeIt.ClassTimeIt("    ")
-        T.disable()
-        
-        ListInitIslands=None
-        
-        ThisPixList=ListIslands[iIsland]
-        
-        allIslandModelDict  = shared_dict.attach("DeconvListIslands%s"%self.StrField)
-        
-        ThisIslandModelDict = allIslandModelDict.addSubdict(iIsland)
-            
-        ThisIslandModelDict["Island"] = np.array(ThisPixList)
-
-        XY=np.array(ThisPixList,dtype=np.float32)
-        xm,ym=np.mean(np.float32(XY),axis=0).astype(int)
-        T.timeit("xm,ym")
-        nchan,npol,_,_=self._Dirty.shape
-        JonesNorm=(self.DicoDirty["JonesNorm"][:,:,xm,ym]).reshape((nchan,npol,1,1))
-        W=self.DicoDirty["WeightChansImages"]
-        JonesNorm=np.sum(JonesNorm*W.reshape((nchan,1,1,1)),axis=0).reshape((1,npol,1,1))
-        T.timeit("JonesNorm")
-        
-        
-        FacetID=self.PSFServer.giveFacetID2(xm,ym)
-        T.timeit("FacetID")
-
-        ThisIslandModelDict["BestIndiv"] = IslandBestIndiv
-        
-
-        
-        # ListOrder=[iIsland,FacetID,JonesNorm.flat[0],self.RMS**2,island_dict.path,iIslandInit]
-        # ##############################################
-        # self.MultiFreqMode=MultiFreqMode
-        self.FreqsInfo=self.PSFServer.DicoMappingDesc
-        # self._Dirty = Dirty
-        self.CubeVariablePSF = self.DicoVariablePSF["CubeVariablePSF"]
-        
-        ThisPixList = ThisIslandModelDict["Island"].tolist()
-        IslandBestIndiv = ThisIslandModelDict["BestIndiv"]
-
-        PSF=self.CubeVariablePSF[FacetID]
-        NGen=self.GD["GAClean"]["NMaxGen"]
-        NIndiv=self.GD["GAClean"]["NSourceKin"]
-
-        ListPixParms=ThisPixList
-        ListPixData=ThisPixList
-        dx=self.GD["SSDClean"]["NEnlargeData"]
-        if dx>0:
-            IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
-            ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=dx)
-
-
-        ParmDict = shared_dict.attach("ParmDict%s"%self.StrField) # ParmDict
-        PixVariance=ParmDict["RMS"]**2
-        
-        CEv=ClassEvolveGA(self._Dirty,
-                          PSF,
-                          self.FreqsInfo,
-                          ListPixParms=ListPixParms,
-                          ListPixData=ListPixData,
-                          iFacet=FacetID,PixVariance=PixVariance,
-                          IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
-                          GD=self.GD,
-                          iIsland=iIsland,
-                          island_dict=ThisIslandModelDict,
-                          ParallelFitness=False)
-        Model=CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
-        ThisIslandModelDict["Model"] = np.array(Model)
-        del(CEv)
-        return {"Success":True,"iIsland":iIsland,"HasError":False}
-        # ##############################################
 
 
         
