@@ -149,6 +149,11 @@ class ClassImageDeconvMachine():
         
     def __del__ (self):
         if shared_dict is not None and type(self.facetcache) is shared_dict.SharedDict:
+            print("FJDKJDFKJKJGSLDFKFGJFGLSDFGKJ DELETE %s"%self.facetcache.path)
+            print("FJDKJDFKJKJGSLDFKFGJFGLSDFGKJ DELETE %s"%self.facetcache.path)
+            print("FJDKJDFKJKJGSLDFKFGJFGLSDFGKJ DELETE %s"%self.facetcache.path)
+            print("FJDKJDFKJKJGSLDFKFGJFGLSDFGKJ DELETE %s"%self.facetcache.path)
+            print("FJDKJDFKJKJGSLDFKFGJFGLSDFGKJ DELETE %s"%self.facetcache.path)
             self.facetcache.delete()
 
     def updateMask(self,Mask):

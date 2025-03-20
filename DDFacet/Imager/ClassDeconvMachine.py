@@ -294,6 +294,20 @@ class ClassImagerDeconv():
                 print("Using SSD2 with %s Minor Cycle algorithm"%self.GD["SSDClean"]["IslandDeconvMode"], file=log)
                 if self.NMajor>3:
                     print(ModColor.Str("  Your number of major iterations (%i) seem too high for SSD2, we advice using a maximum of 3..."%self.NMajor), file=log)
+            elif self.GD["Deconv"]["Mode"]=="SSD3":
+                if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
+                    raise NotImplementedError("Multi-polarization is not supported in SSD")
+                from DDFacet.Imager.SSD3 import ClassImageDeconvMachineSSD
+                self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(MainCache=self.VS.maincache,
+                                                                                      MinorCycleConfig=MinorCycleConfig,
+                                                                                      **MinorCycleConfig)
+                self.DeconvMachine.setMaxMajorIter(self.NMajor)
+                print("Using SSD3 with %s Minor Cycle algorithm"%self.GD["SSDClean"]["IslandDeconvMode"], file=log)
+                if self.NMajor>3:
+                    print(ModColor.Str("  Your number of major iterations (%i) seem too high for SSD3, we advice using a maximum of 3..."%self.NMajor), file=log)
+                
+                APP.registerJobHandlers(self.DeconvMachine)
+                
             elif self.GD["Deconv"]["Mode"] == "Hogbom":
                 from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
                 self.DeconvMachine=ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(**MinorCycleConfig)
@@ -332,7 +346,8 @@ class ClassImagerDeconv():
             self.FacetMachine.setAverageBeamMachine(AverageBeamMachine)
             if self.StokesFacetMachine:
                 self.StokesFacetMachine.setAverageBeamMachine(AverageBeamMachine)
-                
+        
+        
         APP.startWorkers()
         self.VS.CalcWeightsBackground()
         self.InitCF()
@@ -1285,6 +1300,7 @@ class ClassImagerDeconv():
                 APP.restartWorkers()
                 restart_time = time.time()
 
+            self.DicoDirty["iMajorCycle"]=iMajor
             self.DeconvMachine.Update(self.DicoDirty)
 
 
