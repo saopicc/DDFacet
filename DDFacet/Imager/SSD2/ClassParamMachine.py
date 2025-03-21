@@ -129,7 +129,8 @@ class ClassParamMachine():
 
     #    def ReinitPop(self,pop,SModelArray,AlphaModel=None,GSigModel=None,PutNoise=True):
     def ReinitPop(self,pop,ListPolyModelArray,GSigModel=None,PutNoise=True):
-        
+        T=ClassTimeIt.ClassTimeIt("ReinitPop")
+        T.disable()
         
         for Type in self.SolveParam:
             
@@ -152,7 +153,7 @@ class ClassParamMachine():
                 elif DicoSigma["Type"]=="PeakFlux":
                     SigVal=DicoSigma["Value"]*np.max(np.abs(SModelArray))
 
-
+                T.timeit("SigVal")
                 
                 SubArray=self.ArrayToSubArray(indiv,Type=Type)
                 if Type=="Poly0":
@@ -166,6 +167,7 @@ class ClassParamMachine():
                         #SubArray[:]+=np.random.randn(SModelArray.size)*SigVal*(SubArray[:]!=0.) # will not put noise in zero-valued pixels
                         
                         SubArray[:]+=np.random.randn(SModelArray.size)*SigVal*S # will not put noise in zero-valued pixels
+                    T.timeit("Poly0")
                         
                 elif "Poly" in Type:
                     iOrder=int(Type[4:])
@@ -181,6 +183,7 @@ class ClassParamMachine():
                     SubArray[:]=AlphaModel[:]
                     if (i_indiv!=0) and PutNoise: 
                         SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
+                    T.timeit("Poly")
 
                 # elif Type=="Poly1":
                 #     if AlphaModel is None:

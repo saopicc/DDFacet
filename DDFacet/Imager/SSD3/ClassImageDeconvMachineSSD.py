@@ -50,6 +50,7 @@ logger.setSilent("ClassIsland")
 
 DO_INIT=False
 SERIAL=True
+SERIAL=False
 
 class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
@@ -497,9 +498,13 @@ class ClassImageDeconvMachine():
         
         if self.GD["Misc"]["ConserveMemory"]:
             self._reset_InitMachine()
-            
+
+        
+        logger.setSilent(["AsyncProcessPool"])
         self.GAMachine=ClassEvolveGA(self)
         self.GAMachine.runGA_AllIslands()
+        del(self.GAMachine)
+        logger.setLoud(["AsyncProcessPool"])
         
         allIslandModelDict.delete()
         self.DicoDicoInitIndiv.delete()

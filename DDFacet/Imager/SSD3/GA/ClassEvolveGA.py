@@ -5,6 +5,7 @@ from __future__ import print_function
 from DDFacet.compatibility import range
 
 from DDFacet.Other import ClassTimeIt
+from DDFacet.Other.ClassTimeIt import ClassTimeIt as CTI 
 
 from deap import base
 from deap import creator
@@ -46,12 +47,13 @@ class ClassEvolveGA():
                                                          pause_on_start=self.GD["Debug"]["PauseWorkers"])
         self.APP.registerJobHandlers(self)
         self.APP.startWorkers()
-        print("LKLKFLSKFD")
+        #print("LKLKFLSKFD")
         
     def runGA_AllIslands(self):
         APP=self.APP
         
         T=ClassTimeIt.ClassTimeIt("runGA_AllIslands")
+        T.disable()
         for iIsland,Island in enumerate(self.ListIslands):
             IslandBestIndiv=self.ModelMachine.GiveIndividual(self.ListIslands[iIsland])
             self.APP.runJob("runGA.%i"%(iIsland),
@@ -59,7 +61,7 @@ class ClassEvolveGA():
                              args=(self.ListIslands,iIsland,IslandBestIndiv,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs), serial=SERIAL)
         LDicoResults=self.APP.awaitJobResults("runGA.*", progress="Genetic Alg.")
         T.timeit("runGA")
-        stop
+
         allIslandModelDict  = shared_dict.attach("DeconvListIslands%s"%self.StrField)
         allIslandModelDict.reload()
         for iRes,DicoResult in enumerate(LDicoResults):
@@ -69,12 +71,14 @@ class ClassEvolveGA():
             self.ModelMachine.AppendIsland(self.ListIslands[iIsland], ThisIslandModelDict["Model"].copy())
             if DicoResult["HasError"]:
                 self.ErrorModelMachine.AppendIsland(ListIslands[iIsland], ThisIslandModelDict["sModel"].copy())
+        self.APP.shutdown()
+        del(self.APP)
         
     def _runGA(self,ListIslands,iIsland,IslandBestIndiv,DicoDirty_path,GridFreqs,DegridFreqs):
         NIslands=len(ListIslands)
         if NIslands==0: return
         T=ClassTimeIt.ClassTimeIt("  ----  _runGA #%i"%iIsland)
-        # T.disable()
+        T.disable()
         self.ImageDeconvMachine._updateWorkerInternals(DicoDirty_path,GridFreqs,DegridFreqs)
         T.timeit("updateWorkerInternals")
         
@@ -188,7 +192,7 @@ class ClassEvolveGA_SingleIsland():
 
     def setDEAP(self):
         T=ClassTimeIt.ClassTimeIt("   SET DEAP")
-        # T.disable()
+        T.disable()
         if "FitnessMax" not in dir(creator):
             creator.create("FitnessMax", base.Fitness, weights=self.ArrayMethodsMachine.WeightsEA)
         if "Individual" not in dir(creator):
@@ -218,12 +222,28 @@ class ClassEvolveGA_SingleIsland():
             indiv.fill(0)
         T.timeit("Init")
         # #########################################################
+        self.DicoDicoInitIndiv  = shared_dict.attach("DicoDicoInitIndiv")
+        self.DicoDicoInitIndiv.reload()
+        NTypeInitAllIslands=len(self.DicoDicoInitIndiv.keys())
+        LModel=[]
+        NTypeInit=0
+        for iTypeInit in range(NTypeInitAllIslands):
+            DModels=self.DicoDicoInitIndiv.get(iTypeInit)
+            Model=DModels.get(self.iIsland,None)
+            #print(Model)
+            if Model is not None: NTypeInit+=1
+        # eirther has no model init (islands too small) or has all of them (no crash)
+        if NTypeInit!=0 and NTypeInit!=NTypeInitAllIslands: stop
+
+        
         def GiveListPolyArrayMP(N,iTypeInit=None):
             return [GivePolyArrayMP(iTypeInit=iTypeInit) for iIndiv in range(N)]
                 
         def GivePolyArrayMP(iTypeInit=None):
+            T=CTI("GivePolyArrayMP")
+            T.disable()
+
             
-            NTypeInit=len(self.DicoDicoInitIndiv.keys())
             
             if iTypeInit is None:
                 iTypeInit=int(np.random.rand(1)[0]*NTypeInit)
@@ -232,39 +252,48 @@ class ClassEvolveGA_SingleIsland():
             DicoInitIndiv=self.DicoDicoInitIndiv.get(iTypeInit,None)
             if DicoInitIndiv is not None:
                 DicoModelMP=DicoInitIndiv.get(self.iIsland,None)
-            
+            T.timeit("Init")
+
             if DicoModelMP is not None:
                 PolyModelArrayMP=DicoModelMP
+                T.timeit("get")
             else:
                 SModelArrayMP,_=self.ArrayMethodsMachine.DeconvCLEAN()
                 AModelArrayMP=np.zeros_like(SModelArrayMP)
                 PolyModelArrayMP=np.zeros((self.ArrayMethodsMachine.PM.NOrderPoly,self.ArrayMethodsMachine.PM.NPixListParms),np.float32)
                 PolyModelArrayMP[0,:]=SModelArrayMP
+                T.timeit("CLEAN")
             return PolyModelArrayMP
 
         def GiveListPolyArrayMP_LinComb(N):
+            T.reinit()
             L=[GivePolyArrayMP_LinComb() for iIndiv in range(N)]
-            NTypeInit=len(self.DicoDicoInitIndiv.keys())
+            T.timeit("GiveListPolyArrayMP_LinComb: L")
             for iTypeInit in range(NTypeInit):
                 L[iTypeInit]=GivePolyArrayMP(iTypeInit=iTypeInit)
+            T.timeit("GiveListPolyArrayMP_LinComb: for")
             return L
         
         def GivePolyArrayMP_LinComb():
-            NTypeInit=len(self.DicoDicoInitIndiv.keys())
+            T=CTI("GivePolyArrayMP_LinComb")
+            T.disable()
             LInit=[]
             Nrand=np.max([1,NTypeInit])
             w=np.random.rand(Nrand)
             w/=np.sum(w)
+            T.timeit("Init")
             #print(w)
             PolyModelArrayMP=w[0]*GivePolyArrayMP(iTypeInit=0)
+            T.timeit("Init1")
+            # print("Nrand=",Nrand)
             for iTypeInit in range(1,Nrand):
                 PolyModelArrayMP+=w[iTypeInit]*GivePolyArrayMP(iTypeInit=iTypeInit)
+            T.timeit("Init2")
+            # stop
             return PolyModelArrayMP
         # #########################################################
 
             
-        self.DicoDicoInitIndiv  = shared_dict.attach("DicoDicoInitIndiv")
-        self.DicoDicoInitIndiv.reload()
         
         if self.IslandBestIndiv is not None:
             if NGen==0:
@@ -278,6 +307,7 @@ class ClassEvolveGA_SingleIsland():
             if np.max(np.abs(self.IslandBestIndiv))==0:
                 #print("NEW")
                 ListPolyModelArrayMP=GiveListPolyArrayMP_LinComb(len(self.pop))
+                T.timeit("New0")
                 self.ArrayMethodsMachine.PM.ReinitPop(self.pop,ListPolyModelArrayMP,PutNoise=PutNoise)
                 T.timeit("New")
             else:
@@ -353,7 +383,8 @@ class ClassEvolveGA_SingleIsland():
                                            DoPlot=DoPlot,
                                            MutConfig=self.MutConfig)
         T.timeit("eaSimple")
-
+        #print(self.pop[0])
+        #stop
         self.ArrayMethodsMachine.KillWorkers()
 
         V = tools.selBest(self.pop, 1)[0]

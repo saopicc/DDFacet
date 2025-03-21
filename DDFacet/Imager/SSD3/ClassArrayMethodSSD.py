@@ -29,7 +29,7 @@ from DDFacet.ToolsDir.GeneDist import ClassDistMachine
 from DDFacet.Imager.SSD3 import ClassMutate
 
 SERIAL=True
-#SERIAL=False
+SERIAL=False
 
 class ClassArrayMethodSSD():
     def __init__(self,Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,GD=None,
@@ -333,17 +333,9 @@ class ClassArrayMethodSSD():
     def setBestIndiv(self,BestIndiv):
         self.BestContinuousFitNess=BestIndiv.ContinuousFitNess
 
-
-
     def InitWorkers(self):
-        Parallel=self.ParallelFitness
-        if not(Parallel):
-            NCPU=1
-        else:
-            NCPU=self.NCPU
         self.T.reinit()
         import DDFacet.Other.AsyncProcessPool
-        logger.setSilent(["AsyncProcessPool"])
         self.pid=str(multiprocessing.current_process())
         self.APP=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_GA_SingleIsland_%s"%self.iIsland,
                                                          ncpu=self.GD["Parallel"]["NCPU"],
