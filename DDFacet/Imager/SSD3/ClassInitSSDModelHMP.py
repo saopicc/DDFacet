@@ -41,7 +41,7 @@ class ClassInitSSDModelParallel():
         print("Initialise HMP machine", file=log)
         self.InitMachine.Init(DicoVariablePSF, GridFreqs, DegridFreqs,
                               facetcache=facetcache)
-
+        
     def Reset(self):
         self.DicoVariablePSF = None
         self.InitMachine.Reset()
@@ -65,14 +65,14 @@ class ClassInitSSDModelParallel():
             FileOut = "errIsland_%6.6i.npy" % iIsland
             print(ModColor.Str("...... error on island %i, saving to file %s" % (iIsland, FileOut)), file=log)
             np.save(FileOut, np.array(Island))
-            self.InitMachine.Reset()
+            #self.InitMachine.Reset()
             return
         PolyModel=np.zeros((self.GD["SSD3"]["PolyFreqOrder"],SModel.size),SModel.dtype)
         PolyModel[0,:]=SModel
         if PolyModel.shape[0]>1:
             PolyModel[1,:]=AModel
+        #self.InitMachine.Reset()
         return PolyModel
-        # self.InitMachine.Reset()
 
     def giveDicoInitIndiv(self, ListIslands=None, iIsland=None, ModelImage=None, DicoDirty=None):
         #DicoInitIndiv = shared_dict.attach("DicoInitIslandHMP%s"%self.StrField)
@@ -149,7 +149,7 @@ class ClassInitSSDModel():
         self.MinorCycleConfig = MinorCycleConfig
         self.DeconvMachine = ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=MainCache,
                                                                                  ParallelMode=True,
-                                                                                 CacheFileName="HMP_Init",
+                                                                                 CacheFileName="HMP_InitSSD",
                                                                                  IdSharedMem=IdSharedMem,
                                                                                  GD=self.GD,
                                                                                  **MinorCycleConfig)

@@ -48,7 +48,7 @@ from DDFacet.Other.AsyncProcessPool import APP
 logger.setSilent("ClassArrayMethodSSD")
 logger.setSilent("ClassIsland")
 
-DO_INIT=False
+DO_INIT=True
 SERIAL=True
 SERIAL=False
 
@@ -181,6 +181,8 @@ class ClassImageDeconvMachine():
         # clear anything we have left lying around in shared memory ## OMS how can this be right, what about others?
         # NpShared.DelAll()
         self._reset_InitMachine()
+        facetcache=shared_dict.attach("HMP_InitSSD")
+        facetcache.delete()
 
         
     def GiveModelImage(self,*args):
@@ -206,8 +208,8 @@ class ClassImageDeconvMachine():
             for InitMachine in self.ListInitMachine:
                 kwargs={}
                 if InitMachine.Type=="HMP" and useCachedHMP:
-                    facetcache=shared_dict.attach("HMP_Init")
-                    print("SDKSFKNSDFKS",facetcache.keys())
+                    facetcache=shared_dict.attach("HMP_InitSSD")
+                    # print("SDKSFKNSDFKS",facetcache.keys())
                     kwargs={"facetcache":facetcache}
                 InitMachine.Init(self.DicoVariablePSF, self.GridFreqs, self.DegridFreqs,**kwargs)
                 
@@ -498,12 +500,14 @@ class ClassImageDeconvMachine():
         
         if self.GD["Misc"]["ConserveMemory"]:
             self._reset_InitMachine()
-
+        self.Reset()#_reset_InitMachine()
+        
         
         logger.setSilent(["AsyncProcessPool"])
         self.GAMachine=ClassEvolveGA(self)
         self.GAMachine.runGA_AllIslands()
         del(self.GAMachine)
+        
         logger.setLoud(["AsyncProcessPool"])
         
         allIslandModelDict.delete()
@@ -554,7 +558,8 @@ class ClassImageDeconvMachine():
                                                 iIsland=iIsland,
                                                 ModelImage=self.ModelImage,
                                                 DicoDirty=self.DicoDirty)
-            print("SDKSDFKJSFKLJSF",rep,type(rep))
+            InitMachine.Reset()
+            #print("SDKSDFKJSFKLJSF",rep,type(rep))
             #self.DicoDicoInitIndiv[iMachine].addSubdict(iIsland)
             DicoInitModel[iMachine][iIsland] = rep
 

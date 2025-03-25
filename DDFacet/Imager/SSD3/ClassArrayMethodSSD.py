@@ -44,7 +44,6 @@ class ClassArrayMethodSSD():
         self.iIsland=iIsland
 
         self._island_dict = island_dict
-        self._chain_dict = island_dict.addSubdict("Chains")
 
         self.PSF = PSF
 
@@ -120,7 +119,6 @@ class ClassArrayMethodSSD():
         # pylab.clf()
 
     def __del__(self):
-        self._chain_dict.delete()
         if "Population" in self._island_dict:
             self._island_dict.delete_item("Population")
 
@@ -620,48 +618,6 @@ class ClassArrayMethodSSD():
     # ##########################################################
     # ##########################################################
 
-    # def _WorkerFitness(self,
-    #                    island_dict=None,
-    #                    iIsland=None,
-    #                    ListPixParms=None,
-    #                    ListPixData=None,
-    #                    GD=None,
-    #                    PSF=None,
-    #                    PauseOnStart=False,
-    #                    PM=None,
-    #                    PixVariance=1e-2,
-    #                    EstimatedStdFromResid=0,
-    #                    MaxFunc=None,
-    #                    WeightMaxFunc=None,
-    #                    DirtyArray=None,
-    #                    ConvMode=None,
-    #                    StopWhenQueueEmpty=False,
-    #                    BestChi2=1.,
-    #                    DicoData=None):
-    #     self.T=ClassTimeIt.ClassTimeIt("WorkerFitness")
-    #     self.T.disable()
-    #     self._island_dict = island_dict
-    #     self._chain_dict = island_dict["Chains"]
-    #     self.GD=GD
-    #     self.PM=PM
-    #     self.EstimatedStdFromResid=EstimatedStdFromResid
-    #     self.ListPixParms=ListPixParms
-    #     self.ListPixData=ListPixData
-    #     self.iIsland=iIsland
-    #     self.PSF = PSF
-    #     self.PixVariance=PixVariance
-    #     self.ConvMachine=ClassConvMachine.ClassConvMachine(self.PSF,self.ListPixParms,self.ListPixData,ConvMode)
-    #     self.ConvMachine.setParamMachine(self.PM)
-    #     self.DicoData=DicoData
-    #     self.MutMachine=ClassMutate.ClassMutate(self.PM)
-    #     self.MutMachine.setData(DicoData)
-    #     self.MaxFunc=MaxFunc
-    #     self.WeightMaxFunc=WeightMaxFunc
-    #     self.DirtyArray=DirtyArray
-    #     self.T.timeit("init")
-    #     self.StopWhenQueueEmpty=StopWhenQueueEmpty
-    #     self.BestChi2=BestChi2
-
 
 
     # def ToConvArray(self,V,OutMode="Data",Noise=False):
@@ -670,6 +626,7 @@ class ClassArrayMethodSSD():
     #         A+=np.random.randn(*A.shape)*Noise
     #     A=self.ConvMachine.Convolve(A,OutMode=OutMode)
     #     return A
+    
     def _ToConvArray(self,V,OutMode="Data"):
         ModelA=self.PM.GiveModelArray(V)
         A=self.ConvMachine.Convolve(ModelA,OutMode=OutMode)

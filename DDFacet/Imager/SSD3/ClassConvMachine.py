@@ -260,34 +260,34 @@ class ClassConvMachine():
             stop
 
 
-    def Convolve(self,A,Norm=True,OutMode="Data",ConvMode=None):
+    def Convolve(self,A,Norm=True,InMode="Parms",OutMode="Data",ConvMode=None):
         
         if ConvMode==None:
             ConvMode=self.ConvMode
 
         if ConvMode=="Matrix":
-            return self.ConvolveMatrix(A,OutMode=OutMode)
+            return self.ConvolveMatrix(A,InMode=InMode,OutMode=OutMode)
         elif ConvMode=="Vector":
             T=ClassTimeIt.ClassTimeIt("ConvVec")
             T.disable()
-            C=self.ConvolveVector(A,OutMode=OutMode)
+            C=self.ConvolveVector(A,InMode=InMode,OutMode=OutMode)
             T.timeit()
         elif ConvMode=="FFT":
             T=ClassTimeIt.ClassTimeIt("ConvFFT")
             T.disable()
-            C=self.ConvolveFFT(A,OutMode=OutMode)
+            C=self.ConvolveFFT(A,InMode=InMode,OutMode=OutMode)
             T.timeit()
             return C
 
     def setParamMachine(self,PM):
         self.PM=PM
 
-    def ConvolveFFT(self,A,OutMode="Data",AddNoise=None):
+    def ConvolveFFT(self,A,InMode="Parms",OutMode="Data",AddNoise=None):
         shin=A.shape
         
         T=ClassTimeIt.ClassTimeIt("ConvolveFFT")
         T.disable()
-        Asq=self.PM.ModelToSquareArray(A,TypeInOut=("Parms",OutMode))
+        Asq=self.PM.ModelToSquareArray(A,TypeInOut=(InMode,OutMode))
         T.timeit("0")
         NFreqBand,npol,N,_=Asq.shape
         zN=2*N+1
@@ -359,7 +359,7 @@ class ClassConvMachine():
         return A.reshape((NFreqBand,npol,NPixOut))
 
 
-    def ConvolveVector(self,A,Norm=True,OutMode="Data"):
+    def ConvolveVector(self,A,Norm=True,InMode="Parms",OutMode="Data"):
         sh=A.shape
         if OutMode=="Data":
             OutSize=self.NPixListData
@@ -384,15 +384,22 @@ class ClassConvMachine():
         return ConvA
 
 
-    def ConvolveMatrix(self,A,Norm=True,OutMode="Data"):
+    def ConvolveMatrix(self,A,Norm=True,InMode="Parms",OutMode="Data"):
         sh=A.shape
-        if OutMode=="Data":
+        if InMode=="Parms" and OutMode=="Data":
             CM=self.CM
             OutSize=self.NPixListData
+        elif InMode=="Data" and OutMode=="Data":
+            CM=self.CM_DataData
+            OutSize=self.NPixListData
+        elif InMode=="Data" and OutMode=="Parms":
+            CM=self.CM_DataParms
+            OutSize=self.NPixListParms
         elif OutMode=="Parms":
             CM=self.CMParms
             OutSize=self.NPixListParms
-
+        else:
+            stop
         # A.fill(0)
         # A[...,100]=10.
 
@@ -479,7 +486,6 @@ class ClassConvMachine():
 
         M=np.zeros((self.NFreqBands,1,self.NPixListData,self.NPixListParms),np.float32)
         xc,yc=NPixPSF_x//2,NPixPSF_y//2
-
         x0,y0=np.array(self.ListPixData).T
         x1,y1=np.array(self.ListPixParms).T
         N0=x0.size
@@ -495,8 +501,51 @@ class ClassConvMachine():
         for iBand in range(self.NFreqBands):
             PSF_Chan=PSF[iBand,0]
             M[iBand,0].flat[indPSF_sel] = PSF_Chan.flat[indPixPSF.ravel()]
-
         self.CM=M
+
+        M2=np.zeros((self.NFreqBands,1,self.NPixListData,self.NPixListData),np.float32)
+        xc,yc=NPixPSF_x//2,NPixPSF_y//2
+        x0,y0=np.array(self.ListPixData).T
+        x1,y1=np.array(self.ListPixData).T
+        N0=x0.size
+        N1=x1.size
+        dx=(x1.reshape((N1,1))-x0.reshape((1,N0))+xc).T
+        dy=(y1.reshape((N1,1))-y0.reshape((1,N0))+yc).T
+        Cx=((dx>=0)&(dx<NPixPSF_x))
+        Cy=((dy>=0)&(dy<NPixPSF_y))
+        C=(Cx&Cy)
+        indPSF=np.arange(M2.shape[-1]*M2.shape[-2])
+        indPSF_sel=indPSF[C.ravel()]
+        indPixPSF=dx.ravel()[C.ravel()]*NPixPSF_y+dy.ravel()[C.ravel()]
+        for iBand in range(self.NFreqBands):
+            PSF_Chan=PSF[iBand,0]
+            M2[iBand,0].flat[indPSF_sel] = PSF_Chan.flat[indPixPSF.ravel()]
+        self.CM_DataData=M2
+
+        M3=np.zeros((self.NFreqBands,1,self.NPixListParms,self.NPixListData),np.float32)
+        xc,yc=NPixPSF_x//2,NPixPSF_y//2
+        x0,y0=np.array(self.ListPixParms).T
+        x1,y1=np.array(self.ListPixData).T
+        N0=x0.size
+        N1=x1.size
+        dx=(x1.reshape((N1,1))-x0.reshape((1,N0))+xc).T
+        dy=(y1.reshape((N1,1))-y0.reshape((1,N0))+yc).T
+        Cx=((dx>=0)&(dx<NPixPSF_x))
+        Cy=((dy>=0)&(dy<NPixPSF_y))
+        C=(Cx&Cy)
+        indPSF=np.arange(M3.shape[-1]*M3.shape[-2])
+        indPSF_sel=indPSF[C.ravel()]
+        indPixPSF=dx.ravel()[C.ravel()]*NPixPSF_y+dy.ravel()[C.ravel()]
+        for iBand in range(self.NFreqBands):
+            PSF_Chan=PSF[iBand,0]
+            M3[iBand,0].flat[indPSF_sel] = PSF_Chan.flat[indPixPSF.ravel()]
+        self.CM_DataParms=M3
+
+
+
+
+
+        
         self.NormData=np.sum(M**2,axis=2).reshape((self.NFreqBands,self.NPixListParms))
         self.DirtyCMMean=np.mean(M,axis=0).reshape((1,1,self.NPixListData,self.NPixListParms))
 
