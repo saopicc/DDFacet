@@ -37,7 +37,8 @@ class ClassArrayMethodSSD():
                  island_dict=None,
                  iIsland=0,
                  ParallelFitness=False,
-                 NCPU=None):
+                 NCPU=None,
+                 ScaleS0=None):
         self.ParallelFitness=ParallelFitness
         self.iFacet=iFacet
         self.WeightFreqBands=WeightFreqBands
@@ -100,7 +101,8 @@ class ClassArrayMethodSSD():
         self.NFreqBands,self.npol,self.NPixPSF_x,self.NPixPSF_y=PSF.shape
         self.PM=ClassParamMachine(ListPixParms,ListPixData,FreqsInfo,
                                   NOrderPoly=GD["SSD3"]["PolyFreqOrder"],
-                                  SolveParamType=GD["SSD3"]["SolvePars"])
+                                  SolveParamType=GD["SSD3"]["SolvePars"],
+                                  ScaleS0=ScaleS0)
         self.PM.setFreqs(FreqsInfo)
         self.ConvMachine.setParamMachine(self.PM)
         
@@ -157,6 +159,7 @@ class ClassArrayMethodSSD():
 
         if (self.IslandBestIndiv is not None):
             S=self.PM.ArrayToSubArray(self.IslandBestIndiv,"Poly0")
+            
             if np.max(np.abs(S))>0:
                 AddArray=self.ToConvArray(self.IslandBestIndiv,OutMode="Data")
                 # if np.max(self.IslandBestIndiv)!=0:
@@ -796,18 +799,36 @@ class ClassArrayMethodSSD():
 
 
 
-    def _PlotIndiv(self,best_ind,iChannel=0):
+    def _PlotIndiv(self,best_ind,iChannel=0,Mode="MeanIm"):
 
         import pylab
         from mpl_toolkits.axes_grid1 import make_axes_locatable
 
         V=best_ind
-
-        ConvModelArray=self.ToConvArray(V)
-        IM=self.PM.ModelToSquareArray(ConvModelArray,TypeInOut=("Data","Data"))
-        Dirty=self.PM.ModelToSquareArray(self.DirtyArray,TypeInOut=("Data","Data"))
-
-
+        if len(best_ind.shape)==1:
+            ConvModelArray=self.ToConvArray(V)
+            IM=self.PM.ModelToSquareArray(ConvModelArray,TypeInOut=("Data","Data"))
+            Dirty=self.PM.ModelToSquareArray(self.DirtyArray,TypeInOut=("Data","Data"))
+        else:
+            if Mode=="MeanIm":
+                LIM,LDirty=[],[]
+                for V in best_ind:
+                    ConvModelArray=self.ToConvArray(V)
+                    IM=self.PM.ModelToSquareArray(ConvModelArray,TypeInOut=("Data","Data"))
+                    Dirty=self.PM.ModelToSquareArray(self.DirtyArray,TypeInOut=("Data","Data"))
+                    LIM.append(IM)
+                    LDirty.append(Dirty)
+                IM=np.mean(np.array(LIM),axis=0)
+                Dirty=np.mean(np.array(LDirty),axis=0)
+            elif Mode=="Rand":
+                ii=int(np.random.rand(1)[0]*best_ind.shape[0])
+                V=best_ind[ii]
+                ConvModelArray=self.ToConvArray(V)
+                IM=self.PM.ModelToSquareArray(ConvModelArray,TypeInOut=("Data","Data"))
+                Dirty=self.PM.ModelToSquareArray(self.DirtyArray,TypeInOut=("Data","Data"))
+            else:
+                stop
+            
         vmin,vmax=np.min([Dirty.min(),0]),Dirty.max()
     
         fig=pylab.figure(2,figsize=(5,3))
@@ -884,7 +905,7 @@ class ClassArrayMethodSSD():
         #pylab.suptitle('Population generation %i [%f]'%(iGen,best_ind.fitness.values[0]),size=16)
         #pylab.tight_layout()
         pylab.draw()
-        pylab.show(False)
+        pylab.show(block=False)
         pylab.pause(0.1)
 
         #fig.savefig("png/fig%2.2i_%4.4i.png"%(iChannel,iGen))

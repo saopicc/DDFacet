@@ -11,7 +11,6 @@ from deap import base
 from deap import creator
 from deap import tools
 import numpy
-from DDFacet.Imager.SSD3.GA import algorithms
 import numpy as np
 import random
 import psutil
@@ -22,6 +21,8 @@ from DDFacet.Imager.SSD3 import ClassImageDeconvMachineSSD
 import DDFacet.Other.AsyncProcessPool
 from SkyModel.PSourceExtract import ClassIncreaseIsland
 from DDFacet.Imager.SSD3.MultiNest.svgd import SVGD
+from DDFacet.Imager.SSD3.ClassParamMachine import ClassParamMachine
+
 
 def FilterIslandsPix(ListIn,Npix_x,Npix_y):
     ListOut=[]
@@ -33,10 +34,10 @@ def FilterIslandsPix(ListIn,Npix_x,Npix_y):
     return ListOut
 
 SERIAL=True
-#SERIAL=False
+SERIAL=False
 
 def test():
-    iIsland=0
+    iIsland=1
     S=np.load("SingleIsland_input_%i.npz"%iIsland,allow_pickle=True)
     Dirty=S["Dirty"]
     PSF=S["PSF"]
@@ -50,8 +51,14 @@ def test():
     ModelMachine=S["ModelMachine"][()]
     iIsland=S["iIsland"]
     island_dict=S["island_dict"]
-    
-    CEv=ClassEvolveGA_SingleIsland(Dirty,
+
+    # I=ModelMachine.GiveModelImage()
+    # import pylab
+    # pylab.clf()
+    # pylab.imshow(I[0,0],interpolation="nearest")
+    # pylab.show()
+    # return
+    CEv=ClassEvolveStein_SingleIsland(Dirty,
                                    PSF,
                                    FreqsInfo,
                                    ListPixParms=ListPixParms,
@@ -65,35 +72,35 @@ def test():
                                    ParallelFitness=False,
                                    ModelMachine=ModelMachine)
     
-    Model=CEv.doStein(NIter=1000)
+    Model=CEv.doStein(NIter=200)
 
 
-class ClassEvolveGA():
+class ClassEvolveStein():
     def __init__(self,ImageDeconvMachine):
         self.__dict__ = ImageDeconvMachine.__dict__
         self.ImageDeconvMachine=ImageDeconvMachine
         
-        self.APP=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_GA",
+        self.APP_Stein=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_Stein",
                                                          ncpu=self.GD["Parallel"]["NCPU"],
                                                          affinity=self.GD["Parallel"]["Affinity"],
                                                          parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
                                                          verbose=self.GD["Debug"]["APPVerbose"],
                                                          pause_on_start=self.GD["Debug"]["PauseWorkers"])
-        self.APP.registerJobHandlers(self)
-        self.APP.startWorkers()
+        self.APP_Stein.registerJobHandlers(self)
+        self.APP_Stein.startWorkers()
         
-    def runGA_AllIslands(self):
-        APP=self.APP
+    def runStein_AllIslands(self):
+        APP=self.APP_Stein
         
-        T=ClassTimeIt.ClassTimeIt("runGA_AllIslands")
+        T=ClassTimeIt.ClassTimeIt("runStein_AllIslands")
         T.disable()
         for iIsland,Island in enumerate(self.ListIslands):
-            IslandBestIndiv=self.ModelMachine.GiveIndividual(self.ListIslands[iIsland])
-            self.APP.runJob("runGA.%i"%(iIsland),
-                             self._runGA,
+            IslandBestIndiv=self.ModelMachine.GiveIndividual(self.ListIslands[iIsland]).copy()
+            APP.runJob("runStein.%i"%(iIsland),
+                             self._runStein,
                              args=(self.ListIslands,iIsland,IslandBestIndiv,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs), serial=SERIAL)
-        LDicoResults=self.APP.awaitJobResults("runGA.*", progress="Genetic Alg.")
-        T.timeit("runGA")
+        LDicoResults=APP.awaitJobResults("runStein.*", progress="Un Stein")
+        T.timeit("run")
 
         allIslandModelDict  = shared_dict.attach("DeconvListIslands%s"%self.StrField)
         allIslandModelDict.reload()
@@ -101,16 +108,20 @@ class ClassEvolveGA():
             iIsland=DicoResult["iIsland"]
             ThisIslandModelDict = allIslandModelDict[iIsland]
             ThisIslandModelDict.reload()
-            self.ModelMachine.AppendIsland(self.ListIslands[iIsland], ThisIslandModelDict["Model"].copy())
+            Model,StdModel=ThisIslandModelDict["SteinMedianModel"],ThisIslandModelDict["SteinStdModel"]
+            self.SteinModelMachine.AppendIsland(self.ListIslands[iIsland], Model.copy())
             if DicoResult["HasError"]:
+                stop
                 self.ErrorModelMachine.AppendIsland(ListIslands[iIsland], ThisIslandModelDict["sModel"].copy())
-        self.APP.shutdown()
-        del(self.APP)
+
+        APP.terminate()
+        APP.shutdown()
+        del(self.APP_Stein)
         
-    def _runGA(self,ListIslands,iIsland,IslandBestIndiv,DicoDirty_path,GridFreqs,DegridFreqs):
+    def _runStein(self,ListIslands,iIsland,IslandBestIndiv,DicoDirty_path,GridFreqs,DegridFreqs):
         NIslands=len(ListIslands)
         if NIslands==0: return
-        T=ClassTimeIt.ClassTimeIt("  ----  _runGA #%i"%iIsland)
+        T=ClassTimeIt.ClassTimeIt("  ----  _runStep #%i"%iIsland)
         T.disable()
         self.ImageDeconvMachine._updateWorkerInternals(DicoDirty_path,GridFreqs,DegridFreqs)
         T.timeit("updateWorkerInternals")
@@ -134,7 +145,7 @@ class ClassEvolveGA():
         FacetID=self.PSFServer.giveFacetID2(xm,ym)
         T.timeit("FacetID")
 
-        ThisIslandModelDict["BestIndiv"] = IslandBestIndiv
+        #ThisIslandModelDict["BestIndiv"] = IslandBestIndiv
         
         # ListOrder=[iIsland,FacetID,JonesNorm.flat[0],self.RMS**2,island_dict.path,iIslandInit]
         # ##############################################
@@ -144,11 +155,9 @@ class ClassEvolveGA():
         self.CubeVariablePSF = self.DicoVariablePSF["CubeVariablePSF"]
         
         ThisPixList = ThisIslandModelDict["Island"].tolist()
-        IslandBestIndiv = ThisIslandModelDict["BestIndiv"]
+        #IslandBestIndiv = ThisIslandModelDict["BestIndiv"]
 
         PSF=self.CubeVariablePSF[FacetID]
-        NGen=self.GD["GAClean"]["NMaxGen"]
-        NIndiv=self.GD["GAClean"]["NSourceKin"]
 
         ListPixParms=ThisPixList
         ListPixData=ThisPixList
@@ -161,61 +170,63 @@ class ClassEvolveGA():
         ParmDict = shared_dict.attach("ParmDict%s"%self.StrField) # ParmDict
         PixVariance=ParmDict["RMS"]**2
 
-        np_island_dict={}
-        for k in ThisIslandModelDict.keys():
-            np_island_dict[k]=ThisIslandModelDict[k].copy()
-
-        def giveCopy(D):
-            d={}
-            import copy
-            for k in D.keys():
-                if "SharedDict" in str(type(D[k])):
-                    for kk in D[k].keys():
-                        d[k]=giveCopy(D[k])
-                elif "array" in str(type(D[k])):
-                    d[k]=D[k].copy()
-                else:
-                    d[k]=copy.deepcopy(D[k])
+        # ###########################################
+        # np_island_dict={}
+        # for k in ThisIslandModelDict.keys():
+        #     np_island_dict[k]=ThisIslandModelDict[k].copy()
+        # def giveCopy(D):
+        #     d={}
+        #     import copy
+        #     for k in D.keys():
+        #         if "SharedDict" in str(type(D[k])):
+        #             for kk in D[k].keys():
+        #                 d[k]=giveCopy(D[k])
+        #         elif "array" in str(type(D[k])):
+        #             d[k]=D[k].copy()
+        #         else:
+        #             d[k]=copy.deepcopy(D[k])
+        # np_FreqsInfo=giveCopy(self.FreqsInfo)
+        # np.savez("SingleIsland_input_%i.npz"%iIsland,
+        #          Dirty=self._Dirty.copy(),
+        #          PSF=PSF.copy(),
+        #          FreqsInfo=np_FreqsInfo,
+        #          ListPixParms=ListPixParms,
+        #          ListPixData=ListPixData,
+        #          iFacet=FacetID,
+        #          PixVariance=PixVariance,
+        #          IslandBestIndiv=IslandBestIndiv,
+        #          GD=self.GD,
+        #          iIsland=iIsland,
+        #          island_dict=np_island_dict,
+        #          #ModelMachine=self.ModelMachine)
+        # 
+        # stop
+        # ###########################################
         
-        np_FreqsInfo=giveCopy(self.FreqsInfo)
+        CEv=ClassEvolveStein_SingleIsland(self._Dirty,
+                                          PSF,
+                                          self.FreqsInfo,
+                                          ListPixParms=ListPixParms,
+                                          ListPixData=ListPixData,
+                                          iFacet=FacetID,PixVariance=PixVariance,
+                                          IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
+                                          GD=self.GD,
+                                          iIsland=iIsland,
+                                          island_dict=ThisIslandModelDict,
+                                          ParallelFitness=False)
+        Model,StdModel=CEv.doStein(NIter=200)
         
-        np.savez("SingleIsland_input_%i.npz"%iIsland,
-                 Dirty=self._Dirty.copy(),
-                 PSF=PSF.copy(),
-                 FreqsInfo=np_FreqsInfo,
-                 ListPixParms=ListPixParms,
-                 ListPixData=ListPixData,
-                 iFacet=FacetID,
-                 PixVariance=PixVariance,
-                 IslandBestIndiv=IslandBestIndiv,
-                 GD=self.GD,
-                 iIsland=iIsland,
-                 island_dict=np_island_dict)
-        stop
-        
-        CEv=ClassEvolveGA_SingleIsland(self._Dirty,
-                                       PSF,
-                                       self.FreqsInfo,
-                                       ListPixParms=ListPixParms,
-                                       ListPixData=ListPixData,
-                                       iFacet=FacetID,PixVariance=PixVariance,
-                                       IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
-                                       GD=self.GD,
-                                       iIsland=iIsland,
-                                       island_dict=ThisIslandModelDict,
-                                       ParallelFitness=False)
-        Model=CEv.doStein(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
-        
-        ThisIslandModelDict["Model"] = np.array(Model)
+        ThisIslandModelDict["SteinMedianModel"] = np.array(Model)
+        ThisIslandModelDict["SteinStdModel"] = np.array(StdModel)
         
         del(CEv)
         return {"Success":True,"iIsland":iIsland,"HasError":False}
     
 
-class ClassEvolveGA_SingleIsland():
+class ClassEvolveStein_SingleIsland():
     def __init__(self,Dirty,PSF,FreqsInfo,ListPixData=None,ListPixParms=None,IslandBestIndiv=None,GD=None,
                  WeightFreqBands=None,PixVariance=1e-2,iFacet=0,iIsland=None,island_dict=None,
-                 ParallelFitness=False,ModelMachine=None):
+                 ParallelFitness=False):
 
                  
         if GD["Misc"]["RandomSeed"] is not None:
@@ -234,15 +245,60 @@ class ClassEvolveGA_SingleIsland():
         _,_,Npix_x,Npix_y=Dirty.shape
         ListPixData=FilterIslandsPix(ListPixData,Npix_x,Npix_y)
         ListPixParms=FilterIslandsPix(ListPixParms,Npix_x,Npix_y)
-        self.ModelMachine=ModelMachine
-        self.IslandBestIndiv=self.ModelMachine.GiveIndividual(ListPixParms)
-                    
+
+
 
         self.iIsland=iIsland
         
-        NCPU=(GD["GAClean"]["NCPU"] or None)
-        if NCPU==0:
-            NCPU=int(GD["Parallel"]["NCPU"] or psutil.cpu_count())
+        NCPU=int(GD["Parallel"]["NCPU"] or psutil.cpu_count())
+
+
+        self.ScaleS0="linear"
+        self.ScaleS0="log"
+
+
+        # # #######################################
+        # ScaleS0="linear"
+        # PM=ClassParamMachine(ListPixParms,ListPixData,FreqsInfo,
+        #                      NOrderPoly=GD["SSD3"]["PolyFreqOrder"],
+        #                      SolveParamType=GD["SSD3"]["SolvePars"],
+        #                      ScaleS0=ScaleS0)
+        # ArrayMethodsMachine=ClassArrayMethodSSD.ClassArrayMethodSSD(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,
+        #                                                             PixVariance=PixVariance,
+        #                                                             iFacet=iFacet,
+        #                                                             IslandBestIndiv=IslandBestIndiv,
+        #                                                             GD=GD,
+        #                                                             WeightFreqBands=WeightFreqBands,
+        #                                                             iIsland=iIsland,
+        #                                                             island_dict=island_dict,
+        #                                                             ParallelFitness=ParallelFitness,
+        #                                                             NCPU=NCPU,
+        #                                                             ScaleS0=ScaleS0)
+        # S=PM.ArrayToSubArray(IslandBestIndiv,"Poly0")
+        # if np.abs(S).max()==0:
+        #     print("LFJKDLSDFLKSDFKLK !!!!!!!!!!!!!!!!!!!!!")
+        #     print("LFJKDLSDFLKSDFKLK !!!!!!!!!!!!!!!!!!!!!")
+        #     print("LFJKDLSDFLKSDFKLK !!!!!!!!!!!!!!!!!!!!!")
+        #     SModelArrayMP,_=self.ArrayMethodsMachine.DeconvCLEAN()
+        #     S[:]=SModelArrayMP
+        #     T.timeit("CLEAN")
+        # # #######################################
+
+
+        if self.ScaleS0=="log":
+            ScaleS0=self.ScaleS0
+            PM=ClassParamMachine(ListPixParms,ListPixData,FreqsInfo,
+                                 NOrderPoly=GD["SSD3"]["PolyFreqOrder"],
+                                 SolveParamType=GD["SSD3"]["SolvePars"],
+                                 ScaleS0=ScaleS0)
+            S=PM.ArrayToSubArray(IslandBestIndiv,"Poly0")
+            Sm=S.max()*1e-6
+            S[S<Sm]=Sm
+            S[:]=np.log10(S[:])
+        
+        self.IslandBestIndiv=IslandBestIndiv
+        #print("LFLJGLDFJ",self.IslandBestIndiv)
+        
         
         self.ArrayMethodsMachine=ClassArrayMethodSSD.ClassArrayMethodSSD(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,
                                                                          PixVariance=PixVariance,
@@ -253,10 +309,12 @@ class ClassEvolveGA_SingleIsland():
                                                                          iIsland=iIsland,
                                                                          island_dict=island_dict,
                                                                          ParallelFitness=ParallelFitness,
-                                                                         NCPU=NCPU)
+                                                                         NCPU=NCPU,
+                                                                         ScaleS0=self.ScaleS0)
 
-        self.PM=self.ArrayMethodsMachine.PM
         self.ConvMachine=self.ArrayMethodsMachine.ConvMachine
+
+
         
     def doStein(self,NIter=1000):
         
@@ -268,18 +326,23 @@ class ClassEvolveGA_SingleIsland():
                 r=-1*np.matmul(theta-nm.repmat(self.mu, theta.shape[0], 1), self.A)
                 return r
 
-        NPoints=100
-
+        NPoints=50
+        ScaleS0=self.ScaleS0
         class MODEL:
-            def __init__(self,ArrayMethodsMachine):
+            def __init__(self,ArrayMethodsMachine,DoPos=False):
                 self.ArrayMethodsMachine=ArrayMethodsMachine
-                pass
                 
+                
+            def lnprob(self, Lindividual):
+                LChi2=[]
+                for individual in Lindividual:
+                    ym=self.ArrayMethodsMachine.ToConvArray(individual)
+                    y=self.ArrayMethodsMachine.DirtyArray
+                    yr=y-ym
+                    LChi2.append(np.sum((y-ym)**2/self.ArrayMethodsMachine.PixVariance))
+                return np.median(LChi2),np.std(LChi2)
+            
             def dlnprob(self, Lindividual):
-                # individual=
-                # toConvArray(V)
-                # A=self.PM.GiveModelArray(V)
-                # A=self.ConvMachine.Convolve(A,OutMode=OutMode)
                 L=[]
                 for individual in Lindividual:
                     ym=self.ArrayMethodsMachine.ToConvArray(individual)
@@ -287,54 +350,85 @@ class ClassEvolveGA_SingleIsland():
                     yr=y-ym
                     yr/=self.ArrayMethodsMachine.PixVariance
                     Cyr=self.ArrayMethodsMachine.ConvMachine.Convolve(yr,InMode="Data",OutMode="Parms")
+                    if ScaleS0=="log":
+                        S=self.ArrayMethodsMachine.PM.ArrayToSubArray(individual,Type="Poly0")
+                        S=S.reshape((1,1,-1))
+                        Cyr = Cyr * 10**(S)
+                        
+                    
+                    #Cyr*=np.sign(S)
+                    
                     L.append(Cyr.reshape((1,-1)))
                 r=np.array(L)
                 r=r.reshape((NPoints,self.ArrayMethodsMachine.NParms))
                 return r
 
-        ndims=self.IslandBestIndiv.size
-        x0=self.IslandBestIndiv.reshape((1,ndims))
-        x0=x0+np.random.randn(NPoints,ndims)*np.sqrt(self.ArrayMethodsMachine.PixVariance)
 
+        ndims=self.IslandBestIndiv.size
+        x0=self.IslandBestIndiv.copy()
+        x00=x0.flatten().copy()
+
+        if self.ScaleS0=="log":
+            S=self.ArrayMethodsMachine.PM.ArrayToSubArray(x0,Type="Poly0")
+            Slin0=(10**S).copy()
+            Lx0=[]
+            for iPoint in range(NPoints):
+                Slin=Slin0+np.random.randn(Slin0.size)*np.sqrt(self.ArrayMethodsMachine.PixVariance)
+                ssmax=Slin.max()/1e5
+                Slin[Slin<ssmax]=ssmax
+                S[:]=np.log10(Slin[:])
+                Lx0.append(x0.copy())
+        elif self.ScaleS0=="linear":
+            S=self.ArrayMethodsMachine.PM.ArrayToSubArray(x0,Type="Poly0")
+            Slin0=S.copy()
+            Lx0=[]
+            for iPoint in range(NPoints):
+                Slin=Slin0+np.random.randn(Slin0.size)*np.sqrt(self.ArrayMethodsMachine.PixVariance)
+                S[:]=Slin[:]
+                Lx0.append(x0.copy())
+
+        x0=np.array(Lx0)
+        #x0=np.random.rand(NPoints,ndims)#*np.sqrt(self.ArrayMethodsMachine.PixVariance)#*0.01
+        
+
+        x0[0]=x00[:]
+        #ym=self.ArrayMethodsMachine.ToConvArray(self.IslandBestIndiv)
+
+
+        # # ################################
+        # # IslandBestIndiv (gen code) -> sq model image
+        # A=self.ArrayMethodsMachine.PM.GiveModelArray(self.IslandBestIndiv)
+        # Im=self.ArrayMethodsMachine.PM.ModelToSquareArray(A,TypeInOut=("Parms","Data"))
+        # import pylab
+        # pylab.clf()
+        # ax=pylab.subplot(121)
+        # im=ax.imshow(Im[0,0],interpolation="nearest")
+        # pylab.colorbar(im)
+        # ax=pylab.subplot(122)
+        # im=ax.imshow(Im[1,0],interpolation="nearest")
+        # pylab.colorbar(im)
+        # pylab.draw()
+        # pylab.show()
+        # stop
+        # # ################################
         
         M=MODEL(self.ArrayMethodsMachine)
-        SVGD().update(x0, M.dlnprob, n_iter=10000, stepsize=0.1)
-        stop
-        # #########################################################
-        self.DicoDicoInitIndiv  = shared_dict.attach("DicoDicoInitIndiv")
-        self.DicoDicoInitIndiv.reload()
-        NTypeInitAllIslands=len(self.DicoDicoInitIndiv.keys())
-        LModel=[]
-        NTypeInit=0
-        for iTypeInit in range(NTypeInitAllIslands):
-            DModels=self.DicoDicoInitIndiv.get(iTypeInit)
-            Model=DModels.get(self.iIsland,None)
-            #print(Model)
-            if Model is not None: NTypeInit+=1
-        # eirther has no model init (islands too small) or has all of them (no crash)
-        if NTypeInit!=0 and NTypeInit!=NTypeInitAllIslands: stop
+        theta=SVGD(M,self.ArrayMethodsMachine).update(x0,
+                                                      n_iter=NIter,
+                                                      stepsize=.01,
+                                                      alpha = 0.9)
 
-        def GiveListPolyArrayMP(N,iTypeInit=None):
-            return [GivePolyArrayMP(iTypeInit=iTypeInit) for iIndiv in range(N)]
-                
+        # LIM,LDirty=[],[]
+        # for V in theta:
+        #     ConvModelArray=self.ToConvArray(V)
+        #     IM=self.PM.ModelToSquareArray(ConvModelArray,TypeInOut=("Data","Parms"))
+        #     LIM.append(IM)
+        # IM=np.mean(np.array(LIM),axis=0)
+        # Dirty=np.mean(np.array(LDirty),axis=0)
 
-
-        _=self.ArrayMethodsMachine.GiveFitnessPop(self.pop)
-        T.timeit("Init Givefitness")
-
-        self.pop, log= algorithms.eaSimple(self.pop, toolbox, cxpb=0.3, mutpb=0.5, ngen=NGen, 
-                                           halloffame=self.hof, 
-                                           #stats=stats,
-                                           verbose=False, 
-                                           ArrayMethodsMachine=self.ArrayMethodsMachine,
-                                           DoPlot=DoPlot,
-                                           MutConfig=self.MutConfig)
-        T.timeit("eaSimple")
-        #print(self.pop[0])
-        #stop
-        self.ArrayMethodsMachine.KillWorkers()
-
-        V = tools.selBest(self.pop, 1)[0]
-
-
-        return V
+        m0,m1=np.median(theta,axis=0),np.std(theta,axis=0)
+        S=self.ArrayMethodsMachine.PM.ArrayToSubArray(m0,"Poly0")
+        S[:]=10**(S[:])
+        
+        return m0,m1
+    

@@ -4,18 +4,21 @@ import pylab
 
 class SVGD():
 
-    def __init__(self):
+    def __init__(self,LikelyhoodModel=None,
+                 ArrayMethodsMachine=None):
+        self.ArrayMethodsMachine=ArrayMethodsMachine
+        self.LikelyhoodModel=LikelyhoodModel
         pass
     
-    def svgd_kernel(self, theta, h = -1):
+    def svgd_kernel(self, theta, h = -1, n=2):
         sq_dist = pdist(theta)
-        pairwise_dists = squareform(sq_dist)**2
+        pairwise_dists = squareform(sq_dist)**n
         if h < 0: # if h < 0, using median trick
             h = np.median(pairwise_dists)  
             h = np.sqrt(0.5 * h / np.log(theta.shape[0]+1))
 
         # compute the rbf kernel
-        Kxy = np.exp( -pairwise_dists / h**2 / 2)
+        Kxy = np.exp( -pairwise_dists / h**n / 2)
 
         dxkxy = -np.matmul(Kxy, theta)
         sumkxy = np.sum(Kxy, axis=1)
@@ -25,44 +28,38 @@ class SVGD():
         return (Kxy, dxkxy)
     
  
-    def update(self, x0, lnprob, n_iter = 1000, stepsize = 1e-3, bandwidth = -1, alpha = 0.9, debug = False):
+    def update(self, x0, n_iter = 1000, stepsize = 1e-3, bandwidth = -1, alpha = 0.90, debug = False):
         # Check input
+        lnprob=self.LikelyhoodModel.dlnprob
         if x0 is None or lnprob is None:
             raise ValueError('x0 or lnprob cannot be None!')
-        
+        x00=x0[0]
         theta = np.copy(x0) 
         
         # adagrad with momentum
         fudge_factor = 1e-6
         historical_grad = 0
-        for iter in range(n_iter):
-            if debug and (iter+1) % 1000 == 0:
-                print('iter ' + str(iter+1) )
+        for ii in range(n_iter):
 
-            # if iter%100==0:
-            #     print(theta)
-            #     x,y=theta.T
-            #     pylab.clf()
-            #     ax=pylab.subplot(111)
-            #     ax.scatter(x,y)
-            #     ax.set_xlim((-5,5))
-            #     ax.set_ylim((-5,5))
-            #     pylab.draw()
-            #     pylab.show(block=False)
-            #     pylab.pause(0.1)
-            
+            # if ii%99==0:
+            #     #self.ArrayMethodsMachine._PlotIndiv(theta,iChannel=0,Mode="Rand")
+            #     self.ArrayMethodsMachine._PlotIndiv(theta,iChannel=0,Mode="MeanIm")
+
             lnpgrad = lnprob(theta)
 
             # calculating the kernel matrix
-            kxy, dxkxy = self.svgd_kernel(theta, h = -1)  
+            kxy, dxkxy = self.svgd_kernel(theta, h = -1, n=2)
             grad_theta = (np.matmul(kxy, lnpgrad) + dxkxy) / x0.shape[0]  
             # adagrad 
-            if iter == 0:
+            if ii == 0:
                 historical_grad = historical_grad + grad_theta ** 2
             else:
                 historical_grad = alpha * historical_grad + (1 - alpha) * (grad_theta ** 2)
             adj_grad = np.divide(grad_theta, fudge_factor+np.sqrt(historical_grad))
-            theta = theta + stepsize * adj_grad 
+            theta = theta + stepsize * adj_grad
+            theta[0]=x00
+
+            #print("[%i]@%i"%(self.ArrayMethodsMachine.iIsland,ii,),self.LikelyhoodModel.lnprob(theta))
             
         return theta
     

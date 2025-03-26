@@ -387,7 +387,14 @@ class ClassIslandDistanceMachine():
             if (x.size<=3) or Cx or Cy:
                 ListConvexIslands.append(Island)
                 continue
+
+            
             try:
+                P0=points+np.array([[-0.5,-0.5]])
+                P1=points+np.array([[0.5,-0.5]])
+                P2=points+np.array([[-0.5,0.5]])
+                P3=points+np.array([[0.5,0.5]])
+                points=np.concatenate([P0,P1,P2,P3])
                 hull = ConvexHull(points)
                 Contour = np.array(
                     [hull.points[hull.vertices, 0],

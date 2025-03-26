@@ -205,6 +205,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         try:
             DicoComp=self.DicoSMStacked["Comp"]
         except:
+            print("HAHAHAHAHAHAHAHHAHAHAHAHAHHAHAHAHAHAHHAHAHAHAAHAH")
+            print("HAHAHAHAHAHAHAHHAHAHAHAHAHHAHAHAHAHAHHAHAHAHAAHAH")
+            print("HAHAHAHAHAHAHAHHAHAHAHAHAHHAHAHAHAHAHHAHAHAHAAHAH")
+            
             self.DicoSMStacked["Comp"]={}
             DicoComp=self.DicoSMStacked["Comp"]
 
@@ -215,7 +219,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             try:
                 Vals=DicoComp[xy]["Vals"][0]
                 OutArr[:,iPix]=Vals[:]
-                del(DicoComp[xy])
+                #del(DicoComp[xy])
             except:
                 pass
 

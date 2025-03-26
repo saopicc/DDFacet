@@ -32,34 +32,34 @@ def FilterIslandsPix(ListIn,Npix_x,Npix_y):
     return ListOut
 
 SERIAL=True
-#SERIAL=False
+SERIAL=False
 
 class ClassEvolveGA():
     def __init__(self,ImageDeconvMachine):
         self.__dict__ = ImageDeconvMachine.__dict__
         self.ImageDeconvMachine=ImageDeconvMachine
         
-        self.APP=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_GA",
+        self.APP_GA=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_GA",
                                                          ncpu=self.GD["Parallel"]["NCPU"],
                                                          affinity=self.GD["Parallel"]["Affinity"],
                                                          parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
                                                          verbose=self.GD["Debug"]["APPVerbose"],
                                                          pause_on_start=self.GD["Debug"]["PauseWorkers"])
-        self.APP.registerJobHandlers(self)
-        self.APP.startWorkers()
+        self.APP_GA.registerJobHandlers(self)
+        self.APP_GA.startWorkers()
         #print("LKLKFLSKFD")
         
     def runGA_AllIslands(self):
-        APP=self.APP
+        APP=self.APP_GA
         
         T=ClassTimeIt.ClassTimeIt("runGA_AllIslands")
         T.disable()
         for iIsland,Island in enumerate(self.ListIslands):
             IslandBestIndiv=self.ModelMachine.GiveIndividual(self.ListIslands[iIsland])
-            self.APP.runJob("runGA.%i"%(iIsland),
+            APP.runJob("runGA.%i"%(iIsland),
                              self._runGA,
                              args=(self.ListIslands,iIsland,IslandBestIndiv,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs), serial=SERIAL)
-        LDicoResults=self.APP.awaitJobResults("runGA.*", progress="Genetic Alg.")
+        LDicoResults=APP.awaitJobResults("runGA.*", progress="Genetic Alg.")
         T.timeit("runGA")
 
         allIslandModelDict  = shared_dict.attach("DeconvListIslands%s"%self.StrField)
@@ -71,8 +71,9 @@ class ClassEvolveGA():
             self.ModelMachine.AppendIsland(self.ListIslands[iIsland], ThisIslandModelDict["Model"].copy())
             if DicoResult["HasError"]:
                 self.ErrorModelMachine.AppendIsland(ListIslands[iIsland], ThisIslandModelDict["sModel"].copy())
-        self.APP.shutdown()
-        del(self.APP)
+        APP.terminate()
+        APP.shutdown()
+        del(self.APP_GA)
         
     def _runGA(self,ListIslands,iIsland,IslandBestIndiv,DicoDirty_path,GridFreqs,DegridFreqs):
         NIslands=len(ListIslands)
@@ -124,42 +125,43 @@ class ClassEvolveGA():
             IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
             ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=dx)
 
-
+        
         ParmDict = shared_dict.attach("ParmDict%s"%self.StrField) # ParmDict
         PixVariance=ParmDict["RMS"]**2
 
-        np_island_dict={}
-        for k in ThisIslandModelDict.keys():
-            np_island_dict[k]=ThisIslandModelDict[k].copy()
 
-        def giveCopy(D):
-            d={}
-            import copy
-            for k in D.keys():
-                if "SharedDict" in str(type(D[k])):
-                    for kk in D[k].keys():
-                        d[k]=giveCopy(D[k])
-                elif "array" in str(type(D[k])):
-                    d[k]=D[k].copy()
-                else:
-                    d[k]=copy.deepcopy(D[k])
-            return d
-        
-        np_FreqsInfo=giveCopy(self.FreqsInfo)
-        
-        np.savez("SingleIsland_input_%i.npz"%iIsland,
-                 Dirty=self._Dirty.copy(),
-                 PSF=PSF.copy(),
-                 FreqsInfo=np_FreqsInfo,
-                 ListPixParms=ListPixParms,
-                 ListPixData=ListPixData,
-                 iFacet=FacetID,
-                 PixVariance=PixVariance,
-                 IslandBestIndiv=IslandBestIndiv,
-                 GD=self.GD,
-                 iIsland=iIsland,
-                 island_dict=np_island_dict,
-                 ModelMachine=self.ModelMachine)
+        # # ##############################
+        # np_island_dict={}
+        # for k in ThisIslandModelDict.keys():
+        #     np_island_dict[k]=ThisIslandModelDict[k].copy()
+        # def giveCopy(D):
+        #     d={}
+        #     import copy
+        #     for k in D.keys():
+        #         if "SharedDict" in str(type(D[k])):
+        #             for kk in D[k].keys():
+        #                 d[k]=giveCopy(D[k])
+        #         elif "array" in str(type(D[k])):
+        #             d[k]=D[k].copy()
+        #         else:
+        #             d[k]=copy.deepcopy(D[k])
+        #     return d
+        # np_FreqsInfo=giveCopy(self.FreqsInfo)
+        # np.savez("SingleIsland_input_%i.npz"%iIsland,
+        #          Dirty=self._Dirty.copy(),
+        #          PSF=PSF.copy(),
+        #          FreqsInfo=np_FreqsInfo,
+        #          ListPixParms=ListPixParms,
+        #          ListPixData=ListPixData,
+        #          iFacet=FacetID,
+        #          PixVariance=PixVariance,
+        #          IslandBestIndiv=IslandBestIndiv,
+        #          GD=self.GD,
+        #          iIsland=iIsland,
+        #          island_dict=np_island_dict,
+        #          ModelMachine=self.ModelMachine)
+        # # ##############################
+
         
         CEv=ClassEvolveGA_SingleIsland(self._Dirty,
                                        PSF,
@@ -219,7 +221,8 @@ class ClassEvolveGA_SingleIsland():
                                                                          iIsland=iIsland,
                                                                          island_dict=island_dict,
                                                                          ParallelFitness=ParallelFitness,
-                                                                         NCPU=NCPU)
+                                                                         NCPU=NCPU,
+                                                                         ScaleS0="linear")
 
         
 
@@ -421,6 +424,6 @@ class ClassEvolveGA_SingleIsland():
         self.ArrayMethodsMachine.KillWorkers()
 
         V = tools.selBest(self.pop, 1)[0]
-
+        
 
         return V

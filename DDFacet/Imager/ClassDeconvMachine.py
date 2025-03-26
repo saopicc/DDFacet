@@ -1590,6 +1590,13 @@ class ClassImagerDeconv():
 
         self.FacetMachine.finaliseSmoothBeam()
 
+        if self.ModelMachine.DicoSMStacked["Type"]=="SSD3" and self.DeconvMachine.SteinModelMachine is not None: 
+            mod_image = self.DeconvMachine.SteinModelMachine.GiveModelImage()
+            self.FacetMachine.ToCasaImage(mod_image,ImageName="%s.model.mean_posterior.int"%self.BaseName,Fits=True)
+            mod_image = self.DeconvMachine.ModelMachine.GiveModelImage()
+            self.FacetMachine.ToCasaImage(mod_image,ImageName="%s.model.best_individual.int"%self.BaseName,Fits=True)
+            
+                    
         # dump dirty to cache
         if self.GD["Cache"]["LastResidual"] and self.DicoDirty is not None:
             cachepath, valid = self.VS.maincache.checkCache("LastResidual",

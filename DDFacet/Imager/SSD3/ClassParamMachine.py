@@ -36,7 +36,8 @@ from DDFacet.ToolsDir import ClassSpectralFunctions
 class ClassParamMachine():
     def __init__(self,ListPixParms,ListPixData,FreqsInfo,iFacet=0,
                  NOrderPoly=2,
-                 SolveParamType=["Poly"]):
+                 SolveParamType=["Poly"],
+                 ScaleS0=None):
 
         self.ListPixParms=ListPixParms
         self.ListPixData=ListPixData
@@ -53,7 +54,8 @@ class ClassParamMachine():
         self.PolyOrder=NOrderPoly#np.sum([("Poly" in key) for key in SolveParam])
         
         self.SolveParam=SolveParam
-
+        self.ScaleS0=ScaleS0
+        if self.ScaleS0 is None: stop
         
         self.MultiFreqMode=False
         if self.PolyOrder>1:
@@ -365,9 +367,11 @@ class ClassParamMachine():
         PolyArray=np.zeros((self.NPixListParms,self.PolyOrder),np.float32)
         for iOrder in range(self.PolyOrder):
             PolyArray[:,iOrder]=self.ArrayToSubArray(A,"Poly%i"%iOrder)
-            
+
+        
+        
         for iBand in range(self.NFreqBands):
-            MA[iBand]=self.SpectralFunctionsMachine.IntExpFuncPoly(PolyArray,iChannel=iBand,iFacet=self.iFacet)
+            MA[iBand]=self.SpectralFunctionsMachine.IntExpFuncPoly(PolyArray,iChannel=iBand,iFacet=self.iFacet,ScaleS0=self.ScaleS0)
 
 
 

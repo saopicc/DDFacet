@@ -38,12 +38,15 @@ from DDFacet.Imager import ClassGainMachine
 from SkyModel.PSourceExtract import ClassIncreaseIsland
 from DDFacet.Imager.SSD3.GA.ClassEvolveGA import ClassEvolveGA
 from DDFacet.Imager.SSD3.MCMC.ClassMetropolis import ClassMetropolis
+from DDFacet.Imager.SSD3.MultiNest.ClassMultiNest import ClassEvolveStein
 from DDFacet.Array import NpParallel
 from DDFacet.Imager.SSD3 import ClassIslandDistanceMachine
 from DDFacet.Array import shared_dict
 import psutil
 import copy
 from DDFacet.Other.AsyncProcessPool import APP
+#from DDFacet.Imager.ModModelMachine import ClassModModelMachine
+from DDFacet.Imager.SSD3 import ClassModelMachineSSD
 
 logger.setSilent("ClassArrayMethodSSD")
 logger.setSilent("ClassIsland")
@@ -96,6 +99,7 @@ class ClassImageDeconvMachine():
         #     self.ModelMachine=ClassModelMachineSSD.ClassModelMachine(self.GD,GainMachine=self.GainMachine)
         # else:
         self.ModelMachine = ModelMachine
+        self.SteinModelMachine = None
         if self.ModelMachine.DicoSMStacked["Type"]!="SSD3":
             raise ValueError("ModelMachine Type should be SSD3")
         self._CurrentMajorIter=0
@@ -212,7 +216,8 @@ class ClassImageDeconvMachine():
                     # print("SDKSFKNSDFKS",facetcache.keys())
                     kwargs={"facetcache":facetcache}
                 InitMachine.Init(self.DicoVariablePSF, self.GridFreqs, self.DegridFreqs,**kwargs)
-                
+                #print(self.DicoVariablePSF.keys())
+
         self._init_machine_initialized = True
 
     def _reset_InitMachine(self):
@@ -502,11 +507,20 @@ class ClassImageDeconvMachine():
             self._reset_InitMachine()
         self.Reset()#_reset_InitMachine()
         
+
         
         logger.setSilent(["AsyncProcessPool"])
         self.GAMachine=ClassEvolveGA(self)
         self.GAMachine.runGA_AllIslands()
         del(self.GAMachine)
+
+        if  self.GD["SSD3"]["Posterior"] and self._CurrentMajorIter==self.MaxMajorIter:
+            self.SteinModelMachine = ClassModelMachineSSD.ClassModelMachine(self.GD)
+            self.SteinModelMachine.setRefFreq(self.ModelMachine.RefFreq)
+            self.SteinModelMachine.setModelShape(self.ModelMachine.ModelShape)
+            self.SteinMachine=ClassEvolveStein(self)
+            self.SteinMachine.runStein_AllIslands()
+            del(self.SteinMachine)
         
         logger.setLoud(["AsyncProcessPool"])
         
@@ -558,7 +572,7 @@ class ClassImageDeconvMachine():
                                                 iIsland=iIsland,
                                                 ModelImage=self.ModelImage,
                                                 DicoDirty=self.DicoDirty)
-            InitMachine.Reset()
+            #InitMachine.Reset()
             #print("SDKSDFKJSFKLJSF",rep,type(rep))
             #self.DicoDicoInitIndiv[iMachine].addSubdict(iIsland)
             DicoInitModel[iMachine][iIsland] = rep
