@@ -205,10 +205,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         try:
             DicoComp=self.DicoSMStacked["Comp"]
         except:
-            print("HAHAHAHAHAHAHAHHAHAHAHAHAHHAHAHAHAHAHHAHAHAHAAHAH")
-            print("HAHAHAHAHAHAHAHHAHAHAHAHAHHAHAHAHAHAHHAHAHAHAAHAH")
-            print("HAHAHAHAHAHAHAHHAHAHAHAHAHHAHAHAHAHAHHAHAHAHAAHAH")
-            
             self.DicoSMStacked["Comp"]={}
             DicoComp=self.DicoSMStacked["Comp"]
 

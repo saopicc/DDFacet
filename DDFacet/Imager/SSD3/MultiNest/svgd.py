@@ -46,7 +46,6 @@ class SVGD():
             #     self.ArrayMethodsMachine._PlotIndiv(theta,iChannel=0,Mode="MeanIm")
 
             lnpgrad = lnprob(theta)
-
             # calculating the kernel matrix
             kxy, dxkxy = self.svgd_kernel(theta, h = -1, n=2)
             grad_theta = (np.matmul(kxy, lnpgrad) + dxkxy) / x0.shape[0]  

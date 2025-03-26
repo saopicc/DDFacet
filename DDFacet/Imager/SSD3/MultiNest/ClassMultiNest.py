@@ -184,47 +184,47 @@ class ClassEvolveStein():
                                           GD=self.GD,
                                           island_dict=ThisIslandModelDict,
                                           ParallelFitness=False)
-        Model,StdModel=CEv.doStein()
+        #Model,StdModel=CEv.doStein()
         
-        # try:
-        #     Model,StdModel=CEv.doStein()
-        #     ###########################################
-        # except Exception as e:
-        #     print("================================")
-        #     print(e)
-        #     print("[%i] "%iIsland)
-        #     print("================================")
-        #     np_island_dict={}
-        #     for k in ThisIslandModelDict.keys():
-        #         np_island_dict[k]=ThisIslandModelDict[k].copy()
-        #     def giveCopy(D):
-        #         d={}
-        #         import copy
-        #         for k in D.keys():
-        #             if "SharedDict" in str(type(D[k])):
-        #                 for kk in D[k].keys():
-        #                     d[k]=giveCopy(D[k])
-        #             elif "array" in str(type(D[k])):
-        #                 d[k]=D[k].copy()
-        #             else:
-        #                 d[k]=copy.deepcopy(D[k])
-        #     np_FreqsInfo=giveCopy(self.FreqsInfo)
-        #     np.savez("SingleIsland_exception_input_%i.npz"%iIsland,
-        #              Dirty=self._Dirty.copy(),
-        #              PSF=PSF.copy(),
-        #              FreqsInfo=np_FreqsInfo,
-        #              ListPixParms=ListPixParms,
-        #              ListPixData=ListPixData,
-        #              iFacet=FacetID,
-        #              PixVariance=PixVariance,
-        #              IslandBestIndiv=IslandBestIndiv,
-        #              GD=self.GD,
-        #              iIsland=iIsland,
-        #              island_dict=np_island_dict,
-        #              ModelMachine=self.ModelMachine)
+        try:
+            Model,StdModel=CEv.doStein()
+            ###########################################
+        except Exception as e:
+            print("================================")
+            print("Island #%i, error is: "%iIsland)
+            print(e)
+            print()
+            np_island_dict={}
+            for k in ThisIslandModelDict.keys():
+                np_island_dict[k]=ThisIslandModelDict[k].copy()
+            def giveCopy(D):
+                d={}
+                import copy
+                for k in D.keys():
+                    if "SharedDict" in str(type(D[k])):
+                        for kk in D[k].keys():
+                            d[k]=giveCopy(D[k])
+                    elif "array" in str(type(D[k])):
+                        d[k]=D[k].copy()
+                    else:
+                        d[k]=copy.deepcopy(D[k])
+            np_FreqsInfo=giveCopy(self.FreqsInfo)
+            np.savez("SingleIsland_exception_input_%i.npz"%iIsland,
+                     Dirty=self._Dirty.copy(),
+                     PSF=PSF.copy(),
+                     FreqsInfo=np_FreqsInfo,
+                     ListPixParms=ListPixParms,
+                     ListPixData=ListPixData,
+                     iFacet=FacetID,
+                     PixVariance=PixVariance,
+                     IslandBestIndiv=IslandBestIndiv,
+                     GD=self.GD,
+                     iIsland=iIsland,
+                     island_dict=np_island_dict,
+                     ModelMachine=self.ModelMachine)
             
-        #     stop
-        #     ###########################################
+            stop
+            ###########################################
         
         ThisIslandModelDict["SteinMedianModel"] = np.array(Model)
         ThisIslandModelDict["SteinStdModel"] = np.array(StdModel)
