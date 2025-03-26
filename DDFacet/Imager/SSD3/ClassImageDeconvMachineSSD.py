@@ -487,10 +487,10 @@ class ClassImageDeconvMachine():
         
         self._init_InitMachine()
         
-        print("Deconvolving %i islands"%(len(self.ListIslands)))
+        log.print("Deconvolving %i islands"%(len(self.ListIslands)))
         
         DoAbs=int(self.GD["Deconv"]["AllowNegative"])
-        print("  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter,self.MaxMinorIter,DoAbs), file=log)
+        # print("  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter,self.MaxMinorIter,DoAbs), file=log)
         
 
         
@@ -550,13 +550,15 @@ class ClassImageDeconvMachine():
         
         if self.GD["GAClean"]["MinSizeInit"]==-1: return
 
+        LSilent=["ClassInitSSDModelHMP", "ClassMultiScaleMachine", "ClassInitSSDModelMultiSlice", "ClassImageDeconvMachineMSMF"]
+        logger.setSilent(LSilent)
         self.ListSizeIslands=[]
         ThisPixList=ListIslands[iIsland]
         x,y=np.array(ThisPixList,dtype=np.float32).T
         dx,dy=x.max()-x.min(),y.max()-y.min()
         dd=np.max([dx,dy])+1
         DoIslandsInit = (dd>=self.GD["GAClean"]["MinSizeInit"])
-        if not DoIslandsInit or not DO_INIT: return
+        #if not DoIslandsInit or not DO_INIT: return
         
         self._updateWorkerInternals(DicoDirty_path,GridFreqs,DegridFreqs)
         
@@ -566,7 +568,7 @@ class ClassImageDeconvMachine():
         
         
         DicoInitModel  = shared_dict.attach("DicoDicoInitIndiv%s"%self.StrField)
-        
+
         for iMachine,InitMachine in enumerate(self.ListInitMachine):
             rep = InitMachine.giveDicoInitIndiv(ListIslands=ListIslands,
                                                 iIsland=iIsland,
@@ -576,6 +578,7 @@ class ClassImageDeconvMachine():
             #print("SDKSDFKJSFKLJSF",rep,type(rep))
             #self.DicoDicoInitIndiv[iMachine].addSubdict(iIsland)
             DicoInitModel[iMachine][iIsland] = rep
+        logger.setLoud(LSilent)
 
         
 
