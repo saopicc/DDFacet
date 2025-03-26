@@ -101,7 +101,7 @@ class ClassEvolveStein():
             APP.runJob("runStein.%i"%(iIsland),
                              self._runStein,
                              args=(self.ListIslands,iIsland,IslandBestIndiv,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs), serial=SERIAL)
-        LDicoResults=APP.awaitJobResults("runStein.*", progress="Un Stein")
+        LDicoResults=APP.awaitJobResults("runStein.*", progress="Stein VGD")
         T.timeit("run")
 
         allIslandModelDict  = shared_dict.attach("DeconvListIslands%s"%self.StrField)
@@ -384,8 +384,8 @@ class ClassEvolveStein_SingleIsland():
             Slin0=(10**S).copy()
             Lx0=[]
             for iPoint in range(NPoints):
-                Slin=Slin0+np.random.rand(Slin0.size)*np.sqrt(self.ArrayMethodsMachine.PixVariance)
-                ssmax=Slin.max()/1e5
+                Slin=Slin0+np.random.randn(Slin0.size)*np.sqrt(self.ArrayMethodsMachine.PixVariance)
+                ssmax=Slin.max()/1e10
                 Slin[Slin<ssmax]=ssmax
                 S[:]=np.log10(Slin[:])
                 Lx0.append(x0.copy())
