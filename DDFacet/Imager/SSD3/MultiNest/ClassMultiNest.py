@@ -291,7 +291,7 @@ class ClassEvolveStein_SingleIsland():
                                  SolveParamType=GD["SSD3"]["SolvePars"],
                                  ScaleS0=ScaleS0)
             S=PM.ArrayToSubArray(IslandBestIndiv,"Poly0")
-            Sm=S.max()*1e-6
+            Sm=np.max([np.abs(S).max()*1e-6,np.sqrt(PixVariance)])
             S[S<Sm]=Sm
             S[:]=np.log10(S[:])
         
@@ -373,7 +373,7 @@ class ClassEvolveStein_SingleIsland():
             Slin0=(10**S).copy()
             Lx0=[]
             for iPoint in range(NPoints):
-                Slin=Slin0+np.random.randn(Slin0.size)*np.sqrt(self.ArrayMethodsMachine.PixVariance)
+                Slin=Slin0+np.random.rand(Slin0.size)*np.sqrt(self.ArrayMethodsMachine.PixVariance)
                 ssmax=Slin.max()/1e5
                 Slin[Slin<ssmax]=ssmax
                 S[:]=np.log10(Slin[:])
@@ -415,7 +415,7 @@ class ClassEvolveStein_SingleIsland():
         M=MODEL(self.ArrayMethodsMachine)
         theta=SVGD(M,self.ArrayMethodsMachine).update(x0,
                                                       n_iter=NIter,
-                                                      stepsize=.01,
+                                                      stepsize=.05,
                                                       alpha = 0.9)
 
         # LIM,LDirty=[],[]
