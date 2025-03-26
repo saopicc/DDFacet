@@ -39,6 +39,9 @@ class SVGD():
         # adagrad with momentum
         fudge_factor = 1e-6
         historical_grad = 0
+
+        LdL=[]
+        Chi2_0=1e100
         for ii in range(n_iter):
 
             # if ii%99==0:
@@ -58,7 +61,18 @@ class SVGD():
             theta = theta + stepsize * adj_grad
             theta[0]=x00
 
-            #print("[%i]@%i"%(self.ArrayMethodsMachine.iIsland,ii,),self.LikelyhoodModel.lnprob(theta))
+            Chi2,_=self.LikelyhoodModel.lnprob(theta)
+
+            LdL.append(Chi2)
+            dChi2_Chi2=(Chi2-Chi2_0)/np.abs(Chi2_0)
+            if dChi2_Chi2>.1:
+                print("[%i]@%i (alpha=%f)"%(self.ArrayMethodsMachine.iIsland,ii,stepsize),"Reduce Stepsize by half")
+                stepsize=stepsize/2
+            if dChi2_Chi2<0 and np.abs(dChi2_Chi2)<1e-3:
+                print("[%i]@%i (alpha=%f)"%(self.ArrayMethodsMachine.iIsland,ii,stepsize),"STOP")
+                return theta
+            Chi2_0=Chi2
+            print("[%i]@%i (alpha=%f)"%(self.ArrayMethodsMachine.iIsland,ii,stepsize),Chi2)
             
         return theta
     
