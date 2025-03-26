@@ -34,7 +34,7 @@ def FilterIslandsPix(ListIn,Npix_x,Npix_y):
 
 global SERIAL
 SERIAL=True
-#SERIAL=False
+SERIAL=False
 
 def debug(FName="SingleIsland_input_0.npz"):
     global SERIAL
@@ -238,7 +238,7 @@ class ClassEvolveStein_SingleIsland():
                  WeightFreqBands=None,PixVariance=1e-2,iFacet=0,iIsland=None,island_dict=None,
                  ParallelFitness=False,GD=None):
 
-                 
+        self.GD=GD
         if GD["Misc"]["RandomSeed"] is not None:
             random.seed(int(GD["Misc"]["RandomSeed"]))
             np.random.seed(int(GD["Misc"]["RandomSeed"]))
