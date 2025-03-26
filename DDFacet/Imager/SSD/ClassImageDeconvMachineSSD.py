@@ -360,7 +360,7 @@ class ClassImageDeconvMachine():
         #print "::::::::::::::::::::::"
         self.RMS=RMS
 
-        self.GainMachine.SetRMS(RMS)
+        #self.GainMachine.SetRMS(RMS)
         
         Fluxlimit_RMS = self.RMSFactor*RMS
 

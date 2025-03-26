@@ -54,7 +54,7 @@ class ClassInitSSDModelParallel():
         try:
             SModel, AModel = self.InitMachine.giveModel(Island)
         except:
-            if not self.GD["GAClean"]["ParallelInitHMP"]:
+            if not self.GD["GAClean"]["ParallelInit"]:
                 raise
             print(traceback.format_exc(), file=log)
             FileOut = "errIsland_%6.6i.npy" % iIsland
@@ -120,7 +120,7 @@ class ClassInitSSDModelParallel():
         print("Initialise islands (parallelised over islands)", file=log)
         if self.InitMachine.DeconvMachine.facetcache is None:
             print("HMP bases not initialized. Will re-initialize now.", file=log)
-        if not self.GD["GAClean"]["ParallelInitHMP"]:
+        if not self.GD["GAClean"]["ParallelInit"]:
           pBAR = ProgressBar(Title="  Init islands")
           for iIsland,Island in enumerate(ListIslands):
             if not ListDoIsland or ListDoIsland[iIsland]:
