@@ -112,7 +112,6 @@ class ClassArrayMethodSSD():
 
 
         self.SetDirtyArrays(Dirty)
-        self.InitWorkers()
 
 
         #pylab.figure(3,figsize=(5,3))
