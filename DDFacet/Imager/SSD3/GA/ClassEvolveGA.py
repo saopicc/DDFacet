@@ -223,6 +223,7 @@ class ClassEvolveGA_SingleIsland():
                                                                          ParallelFitness=ParallelFitness,
                                                                          NCPU=NCPU,
                                                                          ScaleS0="linear")
+        self.ArrayMethodsMachine.InitWorkers()
 
         
 
