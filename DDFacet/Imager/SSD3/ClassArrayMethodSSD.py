@@ -351,6 +351,7 @@ class ClassArrayMethodSSD():
         self.T.timeit("StartWorker")
 
     def KillWorkers(self):
+        self.APP.terminate()
         self.APP.shutdown()
         del(self.APP)
 

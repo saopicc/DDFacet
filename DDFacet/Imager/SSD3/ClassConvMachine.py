@@ -284,10 +284,10 @@ class ClassConvMachine():
 
     def ConvolveFFT(self,A,InMode="Parms",OutMode="Data",AddNoise=None):
         shin=A.shape
-        
+        OutModeInterm="Data"
         T=ClassTimeIt.ClassTimeIt("ConvolveFFT")
         T.disable()
-        Asq=self.PM.ModelToSquareArray(A,TypeInOut=(InMode,OutMode))
+        Asq=self.PM.ModelToSquareArray(A,TypeInOut=(InMode,OutModeInterm))
         T.timeit("0")
         NFreqBand,npol,N,_=Asq.shape
         zN=2*N+1
@@ -331,7 +331,7 @@ class ClassConvMachine():
                 # pylab.show()
 
         T.timeit("3 [%s]"%str(zAsq.shape))
-        A=self.PM.SquareArrayToModel(Conv[:,:,zN//2-N//2:zN//2+N//2+1,zN//2-N//2:zN//2+N//2+1],TypeInOut=(OutMode,OutMode))
+        A=self.PM.SquareArrayToModel(Conv[:,:,zN//2-N//2:zN//2+N//2+1,zN//2-N//2:zN//2+N//2+1],TypeInOut=(OutModeInterm,OutMode))
         T.timeit("4")
 
 

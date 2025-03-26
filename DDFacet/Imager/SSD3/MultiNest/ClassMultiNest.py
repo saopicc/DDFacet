@@ -18,7 +18,6 @@ from DDFacet.Imager.SSD3 import ClassArrayMethodSSD
 #from DDFacet.Imager.SSD3 import ClassImageArrayMethodSSD
 from DDFacet.Array import shared_dict
 from DDFacet.Imager.SSD3 import ClassImageDeconvMachineSSD
-import DDFacet.Other.AsyncProcessPool
 from SkyModel.PSourceExtract import ClassIncreaseIsland
 from DDFacet.Imager.SSD3.MultiNest.svgd import SVGD
 from DDFacet.Imager.SSD3.ClassParamMachine import ClassParamMachine
@@ -79,7 +78,7 @@ class ClassEvolveStein():
     def __init__(self,ImageDeconvMachine):
         self.__dict__ = ImageDeconvMachine.__dict__
         self.ImageDeconvMachine=ImageDeconvMachine
-        
+        import DDFacet.Other.AsyncProcessPool
         self.APP_Stein=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_Stein",
                                                          ncpu=self.GD["Parallel"]["NCPU"],
                                                          affinity=self.GD["Parallel"]["Affinity"],
@@ -350,6 +349,7 @@ class ClassEvolveStein_SingleIsland():
                     yr=y-ym
                     yr/=self.ArrayMethodsMachine.PixVariance
                     Cyr=self.ArrayMethodsMachine.ConvMachine.Convolve(yr,InMode="Data",OutMode="Parms")
+                    
                     if ScaleS0=="log":
                         S=self.ArrayMethodsMachine.PM.ArrayToSubArray(individual,Type="Poly0")
                         S=S.reshape((1,1,-1))
