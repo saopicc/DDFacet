@@ -411,13 +411,20 @@ class ClassEvolveStein_SingleIsland():
         # pylab.show()
         # stop
         # # ################################
-        
+        import warnings
+        warnings.filterwarnings("error")
         M=MODEL(self.ArrayMethodsMachine)
-        theta=SVGD(M,self.ArrayMethodsMachine).update(x0,
-                                                      n_iter=NIter,
-                                                      stepsize=.05,
-                                                      alpha = 0.9)
-
+        try:
+            theta=SVGD(M,self.ArrayMethodsMachine).update(x0,
+                                                          n_iter=NIter,
+                                                          stepsize=.05,
+                                                          alpha = 0.9)
+        except Exception as e:
+            print("===================================")
+            print("[%i]"%self.iIsland,theta)
+            print(e)
+            print("===================================")
+            
         # LIM,LDirty=[],[]
         # for V in theta:
         #     ConvModelArray=self.ToConvArray(V)
