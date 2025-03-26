@@ -515,6 +515,7 @@ class ClassImageDeconvMachine():
         del(self.GAMachine)
 
         if  self.GD["SSD3"]["Posterior"] and self._CurrentMajorIter==self.MaxMajorIter:
+            log.print("Doing SVGD to estimate the posterior.")
             self.SteinModelMachine = ClassModelMachineSSD.ClassModelMachine(self.GD)
             self.SteinModelMachine.setRefFreq(self.ModelMachine.RefFreq)
             self.SteinModelMachine.setModelShape(self.ModelMachine.ModelShape)

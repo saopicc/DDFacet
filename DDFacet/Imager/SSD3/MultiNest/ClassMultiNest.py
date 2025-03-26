@@ -32,12 +32,15 @@ def FilterIslandsPix(ListIn,Npix_x,Npix_y):
             ListOut.append([x,y])
     return ListOut
 
+global SERIAL
 SERIAL=True
-SERIAL=False
+#SERIAL=False
 
-def test():
+def debug(FName="SingleIsland_input_0.npz"):
+    global SERIAL
+    SERIAL=False
     iIsland=1
-    S=np.load("SingleIsland_input_%i.npz"%iIsland,allow_pickle=True)
+    S=np.load(FName,allow_pickle=True)
     Dirty=S["Dirty"]
     PSF=S["PSF"]
     FreqsInfo=S["FreqsInfo"][()]
@@ -58,20 +61,20 @@ def test():
     # pylab.show()
     # return
     CEv=ClassEvolveStein_SingleIsland(Dirty,
-                                   PSF,
-                                   FreqsInfo,
-                                   ListPixParms=ListPixParms,
-                                   ListPixData=ListPixData,
-                                   iFacet=iFacet,
-                                   PixVariance=PixVariance,
-                                   IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
-                                   GD=GD,
-                                   iIsland=iIsland,
-                                   island_dict=island_dict,
-                                   ParallelFitness=False,
-                                   ModelMachine=ModelMachine)
+                                      PSF,
+                                      FreqsInfo,
+                                      ListPixParms=ListPixParms,
+                                      ListPixData=ListPixData,
+                                      iFacet=iFacet,
+                                      PixVariance=PixVariance,
+                                      IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
+                                      GD=GD,
+                                      iIsland=iIsland,
+                                      island_dict=island_dict,
+                                      ParallelFitness=False,
+                                      ModelMachine=ModelMachine)
     
-    Model=CEv.doStein(NIter=200)
+    Model=CEv.doStein()
 
 
 class ClassEvolveStein():
@@ -177,46 +180,51 @@ class ClassEvolveStein():
                                           ListPixData=ListPixData,
                                           iFacet=FacetID,PixVariance=PixVariance,
                                           IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
-                                          GD=self.GD,
                                           iIsland=iIsland,
+                                          GD=self.GD,
                                           island_dict=ThisIslandModelDict,
                                           ParallelFitness=False)
-        try:
+        Model,StdModel=CEv.doStein()
+        
+        # try:
+        #     Model,StdModel=CEv.doStein()
+        #     ###########################################
+        # except Exception as e:
+        #     print("================================")
+        #     print(e)
+        #     print("[%i] "%iIsland)
+        #     print("================================")
+        #     np_island_dict={}
+        #     for k in ThisIslandModelDict.keys():
+        #         np_island_dict[k]=ThisIslandModelDict[k].copy()
+        #     def giveCopy(D):
+        #         d={}
+        #         import copy
+        #         for k in D.keys():
+        #             if "SharedDict" in str(type(D[k])):
+        #                 for kk in D[k].keys():
+        #                     d[k]=giveCopy(D[k])
+        #             elif "array" in str(type(D[k])):
+        #                 d[k]=D[k].copy()
+        #             else:
+        #                 d[k]=copy.deepcopy(D[k])
+        #     np_FreqsInfo=giveCopy(self.FreqsInfo)
+        #     np.savez("SingleIsland_exception_input_%i.npz"%iIsland,
+        #              Dirty=self._Dirty.copy(),
+        #              PSF=PSF.copy(),
+        #              FreqsInfo=np_FreqsInfo,
+        #              ListPixParms=ListPixParms,
+        #              ListPixData=ListPixData,
+        #              iFacet=FacetID,
+        #              PixVariance=PixVariance,
+        #              IslandBestIndiv=IslandBestIndiv,
+        #              GD=self.GD,
+        #              iIsland=iIsland,
+        #              island_dict=np_island_dict,
+        #              ModelMachine=self.ModelMachine)
             
-            Model,StdModel=CEv.doStein(NIter=200)
-            ###########################################
-        except:
-            np_island_dict={}
-            for k in ThisIslandModelDict.keys():
-                np_island_dict[k]=ThisIslandModelDict[k].copy()
-            def giveCopy(D):
-                d={}
-                import copy
-                for k in D.keys():
-                    if "SharedDict" in str(type(D[k])):
-                        for kk in D[k].keys():
-                            d[k]=giveCopy(D[k])
-                    elif "array" in str(type(D[k])):
-                        d[k]=D[k].copy()
-                    else:
-                        d[k]=copy.deepcopy(D[k])
-            np_FreqsInfo=giveCopy(self.FreqsInfo)
-            np.savez("SingleIsland_exception_input_%i.npz"%iIsland,
-                     Dirty=self._Dirty.copy(),
-                     PSF=PSF.copy(),
-                     FreqsInfo=np_FreqsInfo,
-                     ListPixParms=ListPixParms,
-                     ListPixData=ListPixData,
-                     iFacet=FacetID,
-                     PixVariance=PixVariance,
-                     IslandBestIndiv=IslandBestIndiv,
-                     GD=self.GD,
-                     iIsland=iIsland,
-                     island_dict=np_island_dict,
-                     ModelMachine=self.ModelMachine)
-            
-            stop
-            ###########################################
+        #     stop
+        #     ###########################################
         
         ThisIslandModelDict["SteinMedianModel"] = np.array(Model)
         ThisIslandModelDict["SteinStdModel"] = np.array(StdModel)
@@ -226,9 +234,9 @@ class ClassEvolveStein():
     
 
 class ClassEvolveStein_SingleIsland():
-    def __init__(self,Dirty,PSF,FreqsInfo,ListPixData=None,ListPixParms=None,IslandBestIndiv=None,GD=None,
+    def __init__(self,Dirty,PSF,FreqsInfo,ListPixData=None,ListPixParms=None,IslandBestIndiv=None,
                  WeightFreqBands=None,PixVariance=1e-2,iFacet=0,iIsland=None,island_dict=None,
-                 ParallelFitness=False):
+                 ParallelFitness=False,GD=None):
 
                  
         if GD["Misc"]["RandomSeed"] is not None:
@@ -318,7 +326,7 @@ class ClassEvolveStein_SingleIsland():
 
 
         
-    def doStein(self,NIter=1000):
+    def doStein(self):
         
         class MVN:
             def __init__(self, mu, A):
@@ -328,7 +336,7 @@ class ClassEvolveStein_SingleIsland():
                 r=-1*np.matmul(theta-nm.repmat(self.mu, theta.shape[0], 1), self.A)
                 return r
 
-        NPoints=50
+        NPoints=self.GD["SSD3"]["PosteriorNPoints"]
         ScaleS0=self.ScaleS0
         class MODEL:
             def __init__(self,ArrayMethodsMachine,DoPos=False):
@@ -417,9 +425,10 @@ class ClassEvolveStein_SingleIsland():
         #import warnings
         #warnings.filterwarnings("error")
         M=MODEL(self.ArrayMethodsMachine)
+        
         theta=SVGD(M,self.ArrayMethodsMachine).update(x0,
-                                                      n_iter=NIter,
-                                                      stepsize=.01,
+                                                      n_iter=self.GD["SSD3"]["PosteriorNIter"],
+                                                      stepsize=self.GD["SSD3"]["PosteriorAlpha"],
                                                       alpha = 0.9)
             
         # LIM,LDirty=[],[]
