@@ -169,38 +169,6 @@ class ClassEvolveStein():
         ParmDict = shared_dict.attach("ParmDict%s"%self.StrField) # ParmDict
         PixVariance=ParmDict["RMS"]**2
 
-        # ###########################################
-        # np_island_dict={}
-        # for k in ThisIslandModelDict.keys():
-        #     np_island_dict[k]=ThisIslandModelDict[k].copy()
-        # def giveCopy(D):
-        #     d={}
-        #     import copy
-        #     for k in D.keys():
-        #         if "SharedDict" in str(type(D[k])):
-        #             for kk in D[k].keys():
-        #                 d[k]=giveCopy(D[k])
-        #         elif "array" in str(type(D[k])):
-        #             d[k]=D[k].copy()
-        #         else:
-        #             d[k]=copy.deepcopy(D[k])
-        # np_FreqsInfo=giveCopy(self.FreqsInfo)
-        # np.savez("SingleIsland_input_%i.npz"%iIsland,
-        #          Dirty=self._Dirty.copy(),
-        #          PSF=PSF.copy(),
-        #          FreqsInfo=np_FreqsInfo,
-        #          ListPixParms=ListPixParms,
-        #          ListPixData=ListPixData,
-        #          iFacet=FacetID,
-        #          PixVariance=PixVariance,
-        #          IslandBestIndiv=IslandBestIndiv,
-        #          GD=self.GD,
-        #          iIsland=iIsland,
-        #          island_dict=np_island_dict,
-        #          #ModelMachine=self.ModelMachine)
-        # 
-        # stop
-        # ###########################################
         
         CEv=ClassEvolveStein_SingleIsland(self._Dirty,
                                           PSF,
@@ -213,7 +181,42 @@ class ClassEvolveStein():
                                           iIsland=iIsland,
                                           island_dict=ThisIslandModelDict,
                                           ParallelFitness=False)
-        Model,StdModel=CEv.doStein(NIter=200)
+        try:
+            
+            Model,StdModel=CEv.doStein(NIter=200)
+            ###########################################
+        except:
+            np_island_dict={}
+            for k in ThisIslandModelDict.keys():
+                np_island_dict[k]=ThisIslandModelDict[k].copy()
+            def giveCopy(D):
+                d={}
+                import copy
+                for k in D.keys():
+                    if "SharedDict" in str(type(D[k])):
+                        for kk in D[k].keys():
+                            d[k]=giveCopy(D[k])
+                    elif "array" in str(type(D[k])):
+                        d[k]=D[k].copy()
+                    else:
+                        d[k]=copy.deepcopy(D[k])
+            np_FreqsInfo=giveCopy(self.FreqsInfo)
+            np.savez("SingleIsland_exception_input_%i.npz"%iIsland,
+                     Dirty=self._Dirty.copy(),
+                     PSF=PSF.copy(),
+                     FreqsInfo=np_FreqsInfo,
+                     ListPixParms=ListPixParms,
+                     ListPixData=ListPixData,
+                     iFacet=FacetID,
+                     PixVariance=PixVariance,
+                     IslandBestIndiv=IslandBestIndiv,
+                     GD=self.GD,
+                     iIsland=iIsland,
+                     island_dict=np_island_dict,
+                     ModelMachine=self.ModelMachine)
+            
+            stop
+            ###########################################
         
         ThisIslandModelDict["SteinMedianModel"] = np.array(Model)
         ThisIslandModelDict["SteinStdModel"] = np.array(StdModel)
@@ -411,19 +414,13 @@ class ClassEvolveStein_SingleIsland():
         # pylab.show()
         # stop
         # # ################################
-        import warnings
-        warnings.filterwarnings("error")
+        #import warnings
+        #warnings.filterwarnings("error")
         M=MODEL(self.ArrayMethodsMachine)
-        try:
-            theta=SVGD(M,self.ArrayMethodsMachine).update(x0,
-                                                          n_iter=NIter,
-                                                          stepsize=.05,
-                                                          alpha = 0.9)
-        except Exception as e:
-            print("===================================")
-            print("[%i]"%self.iIsland,theta)
-            print(e)
-            print("===================================")
+        theta=SVGD(M,self.ArrayMethodsMachine).update(x0,
+                                                      n_iter=NIter,
+                                                      stepsize=.01,
+                                                      alpha = 0.9)
             
         # LIM,LDirty=[],[]
         # for V in theta:
