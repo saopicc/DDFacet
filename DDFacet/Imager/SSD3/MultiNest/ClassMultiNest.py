@@ -385,7 +385,7 @@ class ClassEvolveStein_SingleIsland():
             Lx0=[]
             for iPoint in range(NPoints):
                 Slin=Slin0+np.random.randn(Slin0.size)*np.sqrt(self.ArrayMethodsMachine.PixVariance)
-                ssmax=Slin.max()/1e10
+                ssmax=np.abs(Slin).max()/1e10
                 Slin[Slin<ssmax]=ssmax
                 S[:]=np.log10(Slin[:])
                 Lx0.append(x0.copy())
