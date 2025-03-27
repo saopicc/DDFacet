@@ -66,7 +66,8 @@ class SVGD():
             theta[0]=x00
 
             Chi2,_=self.LikelyhoodModel.lnprob(theta)
-            print("[%.4i]@%.4i (alpha=%.5f)"%(self.ArrayMethodsMachine.iIsland,ii,stepsize),Chi2)
+            if DoPlot:
+                print("[%.4i]@%.4i (alpha=%.5f)"%(self.ArrayMethodsMachine.iIsland,ii,stepsize),Chi2)
             
             # dChi2_Chi2=(Chi2-Chi2_0)/np.abs(Chi2_0)
             # LdL.append(Chi2)

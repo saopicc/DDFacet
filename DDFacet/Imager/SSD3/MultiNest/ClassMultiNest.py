@@ -23,6 +23,8 @@ from DDFacet.Imager.SSD3.MultiNest.svgd import SVGD
 from DDFacet.Imager.SSD3.ClassParamMachine import ClassParamMachine
 from DDFacet.Other import ModColor
 
+from DDFacet.Other import logger
+log=logger.getLogger("ClassEvolveStein")
 
 def FilterIslandsPix(ListIn,Npix_x,Npix_y):
     ListOut=[]
@@ -34,8 +36,13 @@ def FilterIslandsPix(ListIn,Npix_x,Npix_y):
     return ListOut
 
 global SERIAL
+# ################
 SERIAL=True
-#SERIAL=False
+DOPLOT=True
+# ################
+SERIAL=False
+DOPLOT=False
+# ################
 
 def debug(FName="SingleIsland_input_0.npz"):
     global SERIAL
@@ -190,49 +197,53 @@ class ClassEvolveStein():
                                           island_dict=ThisIslandModelDict,
                                           ParallelFitness=False)
         #Model,StdModel=CEv.doStein()
-        
-        try:
+
+        if SERIAL:
             Model,StdModel=CEv.doStein()
-            # if iIsland==394: stop
-            ###########################################
-        except Exception as e:
-#        if True:
-            np_island_dict={}
-            for k in ThisIslandModelDict.keys():
-                np_island_dict[k]=ThisIslandModelDict[k].copy()
-            def giveCopy(D):
-                d={}
-                import copy
-                for k in D.keys():
-                    if "SharedDict" in str(type(D[k])):
-                        for kk in D[k].keys():
-                            d[k]=giveCopy(D[k])
-                    elif "array" in str(type(D[k])):
-                        d[k]=D[k].copy()
-                    else:
-                        d[k]=copy.deepcopy(D[k])
-                return d
-            np_FreqsInfo=giveCopy(self.FreqsInfo)
-            np.savez("SingleIsland_exception_input_%i.npz"%iIsland,
-                     Dirty=self._Dirty.copy(),
-                     PSF=PSF.copy(),
-                     FreqsInfo=np_FreqsInfo,
-                     ListPixParms=ListPixParms,
-                     ListPixData=ListPixData,
-                     iFacet=FacetID,
-                     PixVariance=PixVariance,
-                     IslandBestIndiv=IslandBestIndiv,
-                     GD=self.GD,
-                     iIsland=iIsland,
-                     island_dict=np_island_dict,
-                     ModelMachine=self.ModelMachine)
-            
-            print("================================")
-            print("Island #%i, error is: "%iIsland)
-            print(e)
-            print()
-            return {"Success":False,"iIsland":iIsland,"ErrorMessage":str(e)}
-            ###########################################
+        else:
+        
+            try:
+                Model,StdModel=CEv.doStein()
+                # if iIsland==394: stop
+                ###########################################
+            except Exception as e:
+#            if True:
+                np_island_dict={}
+                for k in ThisIslandModelDict.keys():
+                    np_island_dict[k]=ThisIslandModelDict[k].copy()
+                def giveCopy(D):
+                    d={}
+                    import copy
+                    for k in D.keys():
+                        if "SharedDict" in str(type(D[k])):
+                            for kk in D[k].keys():
+                                d[k]=giveCopy(D[k])
+                        elif "array" in str(type(D[k])):
+                            d[k]=D[k].copy()
+                        else:
+                            d[k]=copy.deepcopy(D[k])
+                    return d
+                np_FreqsInfo=giveCopy(self.FreqsInfo)
+                np.savez("SingleIsland_exception_input_%i.npz"%iIsland,
+                         Dirty=self._Dirty.copy(),
+                         PSF=PSF.copy(),
+                         FreqsInfo=np_FreqsInfo,
+                         ListPixParms=ListPixParms,
+                         ListPixData=ListPixData,
+                         iFacet=FacetID,
+                         PixVariance=PixVariance,
+                         IslandBestIndiv=IslandBestIndiv,
+                         GD=self.GD,
+                         iIsland=iIsland,
+                         island_dict=np_island_dict,
+                         ModelMachine=self.ModelMachine)
+                
+                print("================================")
+                print("Island #%i, error is: "%iIsland)
+                print(e)
+                print()
+                return {"Success":False,"iIsland":iIsland,"ErrorMessage":str(e)}
+                ###########################################
         
         ThisIslandModelDict["SteinMedianModel"] = np.array(Model)
         ThisIslandModelDict["SteinStdModel"] = np.array(StdModel)
@@ -244,7 +255,7 @@ class ClassEvolveStein():
 class ClassEvolveStein_SingleIsland():
     def __init__(self,Dirty,PSF,FreqsInfo,ListPixData=None,ListPixParms=None,IslandBestIndiv=None,
                  WeightFreqBands=None,PixVariance=1e-2,iFacet=0,iIsland=None,island_dict=None,
-                 ParallelFitness=False,GD=None,DoPlot=False):
+                 ParallelFitness=False,GD=None,DoPlot=None):
 
         self.GD=GD
         if GD["Misc"]["RandomSeed"] is not None:
@@ -269,7 +280,10 @@ class ClassEvolveStein_SingleIsland():
         self.iIsland=iIsland
         
         NCPU=int(GD["Parallel"]["NCPU"] or psutil.cpu_count())
-        self.DoPlot=DoPlot
+        if DoPlot is None:
+            self.DoPlot=DOPLOT
+        else:
+            self.DoPlot=DoPlot
 
 
         self.ScaleS0="linear"
@@ -420,13 +434,15 @@ class ClassEvolveStein_SingleIsland():
             A=self.ArrayMethodsMachine.PM.GiveModelArray(self.IslandBestIndiv)
             Im=self.ArrayMethodsMachine.PM.ModelToSquareArray(A,TypeInOut=("Parms","Data"))
             import pylab
+            v0=Im.min()
+            v1=Im.max()
             fig=pylab.figure("Init")
             pylab.clf()
             ax=pylab.subplot(121)
-            im=ax.imshow(Im[0,0],interpolation="nearest")
+            im=ax.imshow(Im[0,0],interpolation="nearest",vmin=v0,vmax=v1)
             pylab.colorbar(im)
             ax=pylab.subplot(122)
-            im=ax.imshow(Im[1,0],interpolation="nearest")
+            im=ax.imshow(Im[1,0],interpolation="nearest",vmin=v0,vmax=v1)
             pylab.colorbar(im)
             pylab.draw()
             pylab.show(block=False)
