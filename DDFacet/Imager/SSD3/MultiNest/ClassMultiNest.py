@@ -40,8 +40,8 @@ global SERIAL
 SERIAL=True
 DOPLOT=True
 # ################
-SERIAL=False
-DOPLOT=False
+#SERIAL=False
+#DOPLOT=False
 # ################
 
 def debug(FName="SingleIsland_input_0.npz"):
