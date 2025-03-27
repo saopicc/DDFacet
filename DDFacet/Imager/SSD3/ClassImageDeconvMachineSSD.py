@@ -559,7 +559,7 @@ class ClassImageDeconvMachine():
         dx,dy=x.max()-x.min(),y.max()-y.min()
         dd=np.max([dx,dy])+1
         DoIslandsInit = (dd>=self.GD["GAClean"]["MinSizeInit"])
-        #if not DoIslandsInit or not DO_INIT: return
+        if not DoIslandsInit or not DO_INIT: return
         
         self._updateWorkerInternals(DicoDirty_path,GridFreqs,DegridFreqs)
         
