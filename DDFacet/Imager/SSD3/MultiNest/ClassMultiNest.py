@@ -58,9 +58,11 @@ def debug(FName="SingleIsland_input_0.npz"):
     PixVariance=S["PixVariance"]
     IslandBestIndiv=S["IslandBestIndiv"]
     GD=S["GD"][()]
-    #ModelMachine=S["ModelMachine"][()]
+    ModelMachine=S["ModelMachine"][()]
     iIsland=S["iIsland"]
     island_dict=S["island_dict"]
+
+    IslandBestIndiv=ModelMachine.GiveIndividual(ListPixParms).copy()
 
     # I=ModelMachine.GiveModelImage()
     # import pylab
@@ -401,32 +403,6 @@ class ClassEvolveStein_SingleIsland():
         x0=self.IslandBestIndiv.copy()
         x00=x0.flatten().copy()
 
-        if self.ScaleS0=="log":
-            S=self.ArrayMethodsMachine.PM.ArrayToSubArray(x0,Type="Poly0")
-            Slin0=(10**S).copy()
-            Lx0=[]
-            for iPoint in range(NPoints):
-                Slin=Slin0+np.random.randn(Slin0.size)*np.sqrt(self.ArrayMethodsMachine.PixVariance)
-                ssmax=np.abs(Slin).max()/1e10
-                Slin[Slin<ssmax]=ssmax
-                S[:]=np.log10(Slin[:])
-                Lx0.append(x0.copy())
-        elif self.ScaleS0=="linear":
-            S=self.ArrayMethodsMachine.PM.ArrayToSubArray(x0,Type="Poly0")
-            Slin0=S.copy()
-            Lx0=[]
-            for iPoint in range(NPoints):
-                Slin=Slin0+np.random.randn(Slin0.size)*np.sqrt(self.ArrayMethodsMachine.PixVariance)
-                S[:]=Slin[:]
-                Lx0.append(x0.copy())
-
-        x0=np.array(Lx0)
-        #x0=np.random.rand(NPoints,ndims)#*np.sqrt(self.ArrayMethodsMachine.PixVariance)#*0.01
-        
-
-        x0[0]=x00[:]
-        #ym=self.ArrayMethodsMachine.ToConvArray(self.IslandBestIndiv)
-
 
         # ################################
         # IslandBestIndiv (gen code) -> sq model image
@@ -449,6 +425,35 @@ class ClassEvolveStein_SingleIsland():
             pylab.pause(0.1)
         # stop
         # # ################################
+        
+
+        if self.ScaleS0=="log":
+            S=self.ArrayMethodsMachine.PM.ArrayToSubArray(x0,Type="Poly0")
+            Slin0=(10**S).copy()
+            Lx0=[]
+            for iPoint in range(NPoints):
+                Slin=Slin0+np.random.randn(Slin0.size)*np.sqrt(self.ArrayMethodsMachine.PixVariance)*0.01
+                ssmax=np.abs(Slin).max()/1e10
+                Slin[Slin<ssmax]=ssmax
+                S[:]=np.log10(Slin[:])
+                Lx0.append(x0.copy())
+        elif self.ScaleS0=="linear":
+            S=self.ArrayMethodsMachine.PM.ArrayToSubArray(x0,Type="Poly0")
+            Slin0=S.copy()
+            Lx0=[]
+            for iPoint in range(NPoints):
+                Slin=Slin0+np.random.randn(Slin0.size)*np.sqrt(self.ArrayMethodsMachine.PixVariance)
+                S[:]=Slin[:]
+                Lx0.append(x0.copy())
+
+        x0=np.array(Lx0)
+        #x0=np.random.rand(NPoints,ndims)#*np.sqrt(self.ArrayMethodsMachine.PixVariance)#*0.01
+        
+
+        x0[0]=x00[:]
+        #ym=self.ArrayMethodsMachine.ToConvArray(self.IslandBestIndiv)
+
+
         #import warnings
         #warnings.filterwarnings("error")
         M=MODEL(self.ArrayMethodsMachine)

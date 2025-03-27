@@ -881,9 +881,9 @@ class ClassArrayMethodSSD():
         ModelArray=self.PM.GiveModelArray(V)
         IM=self.PM.ModelToSquareArray(ModelArray)
 
-
+        
         #im4=pylab.imshow(IM[iChannel,0],interpolation="nearest",vmin=vmin-0.1,vmax=vmax)
-        im4=pylab.imshow(IM[iChannel,0],interpolation="nearest",vmin=vmin-0.1,vmax=1.5)
+        im4=pylab.imshow(IM[iChannel,0],interpolation="nearest",vmin=IM.min(),vmax=IM.max())
         ax4.axes.get_xaxis().set_visible(False)
         ax4.axes.get_yaxis().set_visible(False)
         pylab.title("Best individual")
