@@ -17,10 +17,11 @@ import psutil
 from DDFacet.Imager.SSD3 import ClassArrayMethodSSD
 #from DDFacet.Imager.SSD3 import ClassImageArrayMethodSSD
 from DDFacet.Array import shared_dict
-from DDFacet.Imager.SSD3 import ClassImageDeconvMachineSSD
+#from DDFacet.Imager.SSD3 import ClassImageDeconvMachineSSD
 from SkyModel.PSourceExtract import ClassIncreaseIsland
 from DDFacet.Imager.SSD3.MultiNest.svgd import SVGD
 from DDFacet.Imager.SSD3.ClassParamMachine import ClassParamMachine
+from DDFacet.Other import ModColor
 
 
 def FilterIslandsPix(ListIn,Npix_x,Npix_y):
@@ -34,7 +35,7 @@ def FilterIslandsPix(ListIn,Npix_x,Npix_y):
 
 global SERIAL
 SERIAL=True
-SERIAL=False
+#SERIAL=False
 
 def debug(FName="SingleIsland_input_0.npz"):
     global SERIAL
@@ -50,7 +51,7 @@ def debug(FName="SingleIsland_input_0.npz"):
     PixVariance=S["PixVariance"]
     IslandBestIndiv=S["IslandBestIndiv"]
     GD=S["GD"][()]
-    ModelMachine=S["ModelMachine"][()]
+    #ModelMachine=S["ModelMachine"][()]
     iIsland=S["iIsland"]
     island_dict=S["island_dict"]
 
@@ -72,7 +73,9 @@ def debug(FName="SingleIsland_input_0.npz"):
                                       iIsland=iIsland,
                                       island_dict=island_dict,
                                       ParallelFitness=False,
-                                      ModelMachine=ModelMachine)
+                                      DoPlot=1,
+                                      #ModelMachine=ModelMachine
+    )
     
     Model=CEv.doStein()
 
@@ -107,14 +110,16 @@ class ClassEvolveStein():
         allIslandModelDict  = shared_dict.attach("DeconvListIslands%s"%self.StrField)
         allIslandModelDict.reload()
         for iRes,DicoResult in enumerate(LDicoResults):
+            if not DicoResult["Success"]:
+                log.print(ModColor.Str("Island #%i, error: %s"%(iIsland,DicoResult["ErrorMessage"])))
+                log.print(ModColor.Str("Island #%i, error: %s"%(iIsland,DicoResult["ErrorMessage"])))
+                continue
+                #self.ErrorModelMachine.AppendIsland(ListIslands[iIsland], ThisIslandModelDict["sModel"].copy())
             iIsland=DicoResult["iIsland"]
             ThisIslandModelDict = allIslandModelDict[iIsland]
             ThisIslandModelDict.reload()
             Model,StdModel=ThisIslandModelDict["SteinMedianModel"],ThisIslandModelDict["SteinStdModel"]
             self.SteinModelMachine.AppendIsland(self.ListIslands[iIsland], Model.copy())
-            if DicoResult["HasError"]:
-                stop
-                self.ErrorModelMachine.AppendIsland(ListIslands[iIsland], ThisIslandModelDict["sModel"].copy())
 
         APP.terminate()
         APP.shutdown()
@@ -188,12 +193,10 @@ class ClassEvolveStein():
         
         try:
             Model,StdModel=CEv.doStein()
+            # if iIsland==394: stop
             ###########################################
         except Exception as e:
-            print("================================")
-            print("Island #%i, error is: "%iIsland)
-            print(e)
-            print()
+#        if True:
             np_island_dict={}
             for k in ThisIslandModelDict.keys():
                 np_island_dict[k]=ThisIslandModelDict[k].copy()
@@ -208,6 +211,7 @@ class ClassEvolveStein():
                         d[k]=D[k].copy()
                     else:
                         d[k]=copy.deepcopy(D[k])
+                return d
             np_FreqsInfo=giveCopy(self.FreqsInfo)
             np.savez("SingleIsland_exception_input_%i.npz"%iIsland,
                      Dirty=self._Dirty.copy(),
@@ -223,20 +227,24 @@ class ClassEvolveStein():
                      island_dict=np_island_dict,
                      ModelMachine=self.ModelMachine)
             
-            stop
+            print("================================")
+            print("Island #%i, error is: "%iIsland)
+            print(e)
+            print()
+            return {"Success":False,"iIsland":iIsland,"ErrorMessage":str(e)}
             ###########################################
         
         ThisIslandModelDict["SteinMedianModel"] = np.array(Model)
         ThisIslandModelDict["SteinStdModel"] = np.array(StdModel)
         
         del(CEv)
-        return {"Success":True,"iIsland":iIsland,"HasError":False}
+        return {"Success":True,"iIsland":iIsland}
     
 
 class ClassEvolveStein_SingleIsland():
     def __init__(self,Dirty,PSF,FreqsInfo,ListPixData=None,ListPixParms=None,IslandBestIndiv=None,
                  WeightFreqBands=None,PixVariance=1e-2,iFacet=0,iIsland=None,island_dict=None,
-                 ParallelFitness=False,GD=None):
+                 ParallelFitness=False,GD=None,DoPlot=False):
 
         self.GD=GD
         if GD["Misc"]["RandomSeed"] is not None:
@@ -261,11 +269,11 @@ class ClassEvolveStein_SingleIsland():
         self.iIsland=iIsland
         
         NCPU=int(GD["Parallel"]["NCPU"] or psutil.cpu_count())
+        self.DoPlot=DoPlot
 
 
         self.ScaleS0="linear"
-        self.ScaleS0="log"
-
+        #self.ScaleS0="log"
 
         # # #######################################
         # ScaleS0="linear"
@@ -406,20 +414,23 @@ class ClassEvolveStein_SingleIsland():
         #ym=self.ArrayMethodsMachine.ToConvArray(self.IslandBestIndiv)
 
 
-        # # ################################
-        # # IslandBestIndiv (gen code) -> sq model image
-        # A=self.ArrayMethodsMachine.PM.GiveModelArray(self.IslandBestIndiv)
-        # Im=self.ArrayMethodsMachine.PM.ModelToSquareArray(A,TypeInOut=("Parms","Data"))
-        # import pylab
-        # pylab.clf()
-        # ax=pylab.subplot(121)
-        # im=ax.imshow(Im[0,0],interpolation="nearest")
-        # pylab.colorbar(im)
-        # ax=pylab.subplot(122)
-        # im=ax.imshow(Im[1,0],interpolation="nearest")
-        # pylab.colorbar(im)
-        # pylab.draw()
-        # pylab.show()
+        # ################################
+        # IslandBestIndiv (gen code) -> sq model image
+        if self.DoPlot:
+            A=self.ArrayMethodsMachine.PM.GiveModelArray(self.IslandBestIndiv)
+            Im=self.ArrayMethodsMachine.PM.ModelToSquareArray(A,TypeInOut=("Parms","Data"))
+            import pylab
+            fig=pylab.figure("Init")
+            pylab.clf()
+            ax=pylab.subplot(121)
+            im=ax.imshow(Im[0,0],interpolation="nearest")
+            pylab.colorbar(im)
+            ax=pylab.subplot(122)
+            im=ax.imshow(Im[1,0],interpolation="nearest")
+            pylab.colorbar(im)
+            pylab.draw()
+            pylab.show(block=False)
+            pylab.pause(0.1)
         # stop
         # # ################################
         #import warnings
@@ -429,7 +440,8 @@ class ClassEvolveStein_SingleIsland():
         theta=SVGD(M,self.ArrayMethodsMachine).update(x0,
                                                       n_iter=self.GD["SSD3"]["PosteriorNIter"],
                                                       stepsize=self.GD["SSD3"]["PosteriorAlpha"],
-                                                      alpha = 0.9)
+                                                      alpha = 0.9,
+                                                      DoPlot=self.DoPlot)
             
         # LIM,LDirty=[],[]
         # for V in theta:

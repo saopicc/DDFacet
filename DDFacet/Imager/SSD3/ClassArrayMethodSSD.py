@@ -799,7 +799,7 @@ class ClassArrayMethodSSD():
 
 
 
-    def _PlotIndiv(self,best_ind,iChannel=0,Mode="MeanIm"):
+    def _PlotIndiv(self,best_ind,iChannel=0,Mode="MeanIm",Title=None):
 
         import pylab
         from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -831,7 +831,7 @@ class ClassArrayMethodSSD():
             
         vmin,vmax=np.min([Dirty.min(),0]),Dirty.max()
     
-        fig=pylab.figure(2,figsize=(5,3))
+        fig=pylab.figure(2,figsize=(10,6))
         pylab.clf()
     
         ax0=pylab.subplot(2,3,1)
@@ -901,8 +901,9 @@ class ClassArrayMethodSSD():
         divider5 = make_axes_locatable(ax5)
         cax5 = divider5.append_axes("right", size="5%", pad=0.05)
         pylab.colorbar(im5, cax=cax5)
-    
-        #pylab.suptitle('Population generation %i [%f]'%(iGen,best_ind.fitness.values[0]),size=16)
+
+        if Title is not None:
+            pylab.suptitle(Title)
         #pylab.tight_layout()
         pylab.draw()
         pylab.show(block=False)
