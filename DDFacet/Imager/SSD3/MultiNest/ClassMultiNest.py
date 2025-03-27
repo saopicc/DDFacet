@@ -286,8 +286,8 @@ class ClassEvolveStein_SingleIsland():
             self.DoPlot=DoPlot
 
 
-        self.ScaleS0="linear"
-        #self.ScaleS0="log"
+        #self.ScaleS0="linear"
+        self.ScaleS0="log"
 
         # # #######################################
         # ScaleS0="linear"
@@ -468,8 +468,9 @@ class ClassEvolveStein_SingleIsland():
         # Dirty=np.mean(np.array(LDirty),axis=0)
 
         m0,m1=np.median(theta,axis=0),np.std(theta,axis=0)
-        S=self.ArrayMethodsMachine.PM.ArrayToSubArray(m0,"Poly0")
-        S[:]=10**(S[:])
+        if self.ScaleS0=="log":
+            S=self.ArrayMethodsMachine.PM.ArrayToSubArray(m0,"Poly0")
+            S[:]=10**(S[:])
         
         return m0,m1
     
