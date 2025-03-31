@@ -45,7 +45,7 @@ class ClassArrayMethodSSD():
         self.iIsland=iIsland
 
         self._island_dict = island_dict
-
+        #self._island_dict=None
         self.PSF = PSF
 
         self.IslandBestIndiv=IslandBestIndiv

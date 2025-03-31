@@ -76,13 +76,13 @@ class SVGD():
                 sig_dChi2_Chi2=np.std(np.array(LdChi2_Chi2)[-10:])
                 max_dChi2_Chi2=np.max(np.abs(np.array(LdChi2_Chi2)[-10:]))
             if dChi2_Chi2>sig_dChi2_Chi2:
-                print("[%.4i]@%.4i (alpha=%.5f, Sig_dChi2_Chi2=%.5f)"%(self.ArrayMethodsMachine.iIsland,ii,stepsize,sig_dChi2_Chi2),"Reduce Stepsize by half")
+                #print("[%.4i]@%.4i (alpha=%.5f, Sig_dChi2_Chi2=%.5f)"%(self.ArrayMethodsMachine.iIsland,ii,stepsize,sig_dChi2_Chi2),"Reduce Stepsize by half")
                 stepsize=stepsize/2
             if dChi2_Chi2<0 and max_dChi2_Chi2<1e-2:
-                print("[%.4i]@%.4i (alpha=%.5f, Sig_dChi2_Chi2=%.5f)"%(self.ArrayMethodsMachine.iIsland,ii,stepsize,sig_dChi2_Chi2),"STOP")
+                #print("[%.4i]@%.4i (alpha=%.5f, Sig_dChi2_Chi2=%.5f)"%(self.ArrayMethodsMachine.iIsland,ii,stepsize,sig_dChi2_Chi2),"STOP")
                 return theta
             Chi2_0=Chi2
-            print("[%.4i]@%.4i (alpha=%.5f, Sig_dChi2_Chi2=%.5f)"%(self.ArrayMethodsMachine.iIsland,ii,stepsize,sig_dChi2_Chi2),Chi2,dChi2_Chi2)
+            #print("[%.4i]@%.4i (alpha=%.5f, Sig_dChi2_Chi2=%.5f)"%(self.ArrayMethodsMachine.iIsland,ii,stepsize,sig_dChi2_Chi2),Chi2,dChi2_Chi2)
             
         return theta
     

@@ -40,8 +40,8 @@ global SERIAL
 SERIAL=True
 DOPLOT=True
 # ################
-#SERIAL=False
-#DOPLOT=False
+SERIAL=False
+DOPLOT=False
 # ################
 
 def debug(FName="SingleIsland_input_0.npz"):
@@ -59,9 +59,18 @@ def debug(FName="SingleIsland_input_0.npz"):
     IslandBestIndiv=S["IslandBestIndiv"]
     GD=S["GD"][()]
     ModelMachine=S["ModelMachine"][()]
+    
     iIsland=S["iIsland"]
     island_dict=S["island_dict"]
 
+    Image=ModelMachine.GiveModelImage()
+    import pylab
+    pylab.figure("image")
+    pylab.clf()
+    pylab.imshow(Image[0,0],interpolation="nearest",vmin=0,vmax=0.01)
+    pylab.draw()
+    pylab.show()
+    
     IslandBestIndiv=ModelMachine.GiveIndividual(ListPixParms).copy()
 
     # I=ModelMachine.GiveModelImage()
@@ -203,7 +212,6 @@ class ClassEvolveStein():
         if SERIAL:
             Model,StdModel=CEv.doStein()
         else:
-        
             try:
                 Model,StdModel=CEv.doStein()
                 # if iIsland==394: stop
@@ -403,7 +411,6 @@ class ClassEvolveStein_SingleIsland():
         x0=self.IslandBestIndiv.copy()
         x00=x0.flatten().copy()
 
-
         # ################################
         # IslandBestIndiv (gen code) -> sq model image
         if self.DoPlot:
@@ -428,11 +435,49 @@ class ClassEvolveStein_SingleIsland():
         
 
         if self.ScaleS0=="log":
+            # S=self.ArrayMethodsMachine.PM.ArrayToSubArray(x0,Type="Poly0")
+            # Slin0=(10**S).copy()
+            # Lx0=[]
+            # for iPoint in range(NPoints):
+            #     Slin=Slin0+np.random.randn(Slin0.size)*np.sqrt(self.ArrayMethodsMachine.PixVariance)#*0.01
+            #     ssmax=np.abs(Slin).max()/1e10
+            #     Slin[Slin<ssmax]=ssmax
+            #     S[:]=np.log10(Slin[:])
+            #     Lx0.append(x0.copy())
+
+            A=self.ArrayMethodsMachine.PM.GiveModelArray(x0)
+            Im=self.ArrayMethodsMachine.PM.ModelToSquareArray(A,TypeInOut=("Parms","Data"))
+            import DDFacet.ToolsDir.Gaussian
+            G=DDFacet.ToolsDir.Gaussian.GaussianSymmetric(0.5, 1)
+            #PSF.fill(1.)
+    
+            import scipy.signal
+            PP=scipy.signal.fftconvolve(np.mean(Im,axis=0)[0],G, mode='same')
+            nch=Im.shape[0]
+            for ich in range(nch):
+                Im[ich,0,...]=PP[...]
+            PM=self.ArrayMethodsMachine.PM
+            Sig=PM.SquareArrayToModel(Im,TypeInOut=("Data","Parms")).reshape((PM.NParam,PM.NPixListParms))[0]
+            Sig/=np.max(Sig)
             S=self.ArrayMethodsMachine.PM.ArrayToSubArray(x0,Type="Poly0")
+
+            # fig=pylab.figure("Init1")
+            # pylab.clf()
+            # ax=pylab.subplot(121)
+            # im=ax.imshow(Im[0,0],interpolation="nearest")
+            # pylab.colorbar(im)
+            # ax=pylab.subplot(122)
+            # im=ax.imshow(G,interpolation="nearest")
+            # pylab.colorbar(im)
+            # pylab.draw()
+            # pylab.show()
+            # pylab.pause(0.1)
+
+            
             Slin0=(10**S).copy()
             Lx0=[]
             for iPoint in range(NPoints):
-                Slin=Slin0+np.random.randn(Slin0.size)*np.sqrt(self.ArrayMethodsMachine.PixVariance)*0.01
+                Slin=Slin0+np.random.randn(Slin0.size)*Sig[:]*np.sqrt(self.ArrayMethodsMachine.PixVariance)
                 ssmax=np.abs(Slin).max()/1e10
                 Slin[Slin<ssmax]=ssmax
                 S[:]=np.log10(Slin[:])
@@ -457,7 +502,9 @@ class ClassEvolveStein_SingleIsland():
         #import warnings
         #warnings.filterwarnings("error")
         M=MODEL(self.ArrayMethodsMachine)
-        
+
+        theta=x0
+
         theta=SVGD(M,self.ArrayMethodsMachine).update(x0,
                                                       n_iter=self.GD["SSD3"]["PosteriorNIter"],
                                                       stepsize=self.GD["SSD3"]["PosteriorAlpha"],
