@@ -78,6 +78,7 @@ class ClassInitSSDModelParallel():
         #print ":::::::::::::::::::::::",iIsland
 
         
+        # ModelImageIsland = self.InitMachine.giveModel(Island)
         try:
             ModelImageIsland = self.InitMachine.giveModel(Island)
         except:

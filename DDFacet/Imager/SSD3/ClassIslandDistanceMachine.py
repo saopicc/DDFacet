@@ -95,18 +95,22 @@ class ClassIslandDistanceMachine():
 
         ListIslands=Islands.LIslands
 
+        
         print("  found %i islands"%len(ListIslands), file=log)
-        if self.GD is not None:
-            dx=self.GD["SSDClean"]["NEnlargePars"]
-            if dx>0:
-                print("  increase their sizes by %i pixels"%dx, file=log)
-                IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
-                for iIsland in range(len(ListIslands)):#self.NIslands):
-                    ListIslands[iIsland]=IncreaseIslandMachine.IncreaseIsland(ListIslands[iIsland],dx=dx)
-
         
         return ListIslands
 
+
+    def IncreaseIslands(self,ListIslands):
+        if self.GD is None: return ListIslands
+        dx=self.GD["SSDClean"]["NEnlargePars"]
+        if dx>0:
+            print("  increase their sizes by %i pixels"%dx, file=log)
+            IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
+            for iIsland in range(len(ListIslands)):#self.NIslands):
+                ListIslands[iIsland]=IncreaseIslandMachine.IncreaseIsland(ListIslands[iIsland],dx=dx)
+        return ListIslands
+    
     def CalcLabelImage(self,ListIslands):
         print("  calculating label image", file=log)
         _,_,nx,ny=self._MaskArray.shape

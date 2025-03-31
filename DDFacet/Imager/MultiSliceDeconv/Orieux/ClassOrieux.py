@@ -25,6 +25,45 @@ import astropy.io.fits as pyfits
 from tqdm import tqdm
 
 
+def test2():
+    S=np.load("AB.npz")
+
+    A=S["A"]
+    
+    B=S["B"]
+    
+    #A=A+A.T
+    #A=B+B.T
+    
+    CO=ClassOrieux(A,B)
+    
+    C=CO.Deconv()
+
+
+    import pylab
+    import scipy.stats
+    pylab.clf()
+    pylab.subplot(1, 2, 1)
+    STD = scipy.stats.median_abs_deviation(A[A!=0],axis=None,scale="normal")
+    pylab.imshow(A,vmin=2*STD,vmax=10*STD)
+    
+    pylab.subplot(1, 2, 2)
+    STD = scipy.stats.median_abs_deviation(C[C!=0],axis=None,scale="normal")
+    pylab.imshow(C,vmin=2*STD,vmax=30*STD)
+    pylab.draw()
+    pylab.show()
+    
+    # import pylab
+    # pylab.clf()
+    # pylab.imshow(A,interpolation="nearest")
+    # pylab.imshow(B,interpolation="nearest")
+    # pylab.draw()
+    # pylab.show()
+    
+
+
+
+
 
 
 

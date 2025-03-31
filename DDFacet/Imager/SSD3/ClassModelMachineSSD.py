@@ -248,21 +248,38 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             self.AppendComponentToDictStacked((x,y),Vals)
 
 
-    def AppendComponentToDictStacked(self,key,Vals):
+    def reinitIslands(self,ListIslands):
         if "Comp" not in self.DicoSMStacked.keys():
             self.DicoSMStacked["Comp"]={}
+            
+        DicoComp=self.DicoSMStacked["Comp"]
+            
+        for Island in ListIslands:
+            for key in Island:
+                key=tuple(key)
+                try:
+                    del(DicoComp[key]["Vals"])
+                    del(DicoComp[key]["Weights"])
+                except:
+                    pass
+                DicoComp[key]={}
+                DicoComp[key]["Vals"]=[]
+                DicoComp[key]["Weights"]=[]
+
+    def AppendComponentToDictStacked(self,key,Vals):
         
         DicoComp=self.DicoSMStacked["Comp"]
-
-        try:
-            del(DicoComp[key]["Vals"])
-        except:
-            pass
-        DicoComp[key]={}
-        DicoComp[key]["Vals"]=[]
         DicoComp[key]["Vals"].append(Vals)
+        #DicoComp[key]["Weights"].append(1.)
 
-
+    def RenormaliseMultiEstimatesPerPixel(self):
+        DicoComp=self.DicoSMStacked["Comp"]
+        for x,y in DicoComp.keys():
+            ListSols=DicoComp[(x,y)]["Vals"]
+            if len(ListSols)==1: continue
+            Vals=np.array(DicoComp[(x,y)]["Vals"]).mean(axis=0)
+            DicoComp[(x,y)]["Vals"]=[Vals]
+        
     def GiveModelImage(self,FreqIn=None,out=None):
         
         

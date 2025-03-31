@@ -274,11 +274,24 @@ class ClassImageDeconvMachine():
             for ch in range(nch):
                 A,B=dirty[ch,0,s_dirty_cut,s_dirty_cut].copy(), psf[ch,0,s_psf_cut,s_psf_cut].copy()
                 #A,B=psf[ch,0,s_psf_cut,s_psf_cut].copy(), psf[ch,0,s_psf_cut,s_psf_cut].copy()
+                #print("FDFKLDFGKLDFK")
+                #np.savez("AB.npz",A=A,B=B)
                 CO=ClassOrieux.ClassOrieux(A,B)
+                
                 #CO=ClassOrieux.ClassOrieux(dirty[ch,0,:,:], psf[ch,0,:,:])
                 model=CO.Deconv()
                 # model = restoration.richardson_lucy(dirty[ch,0,s_dirty_cut,s_dirty_cut], psf[ch,0,s_psf_cut,s_psf_cut], iterations=30)
 
+                # import pylab
+                # pylab.clf()
+                # pylab.subplot(1,2,1)
+                # pylab.imshow(A,interpolation="nearest")
+                # pylab.subplot(1,2,2)
+                # pylab.imshow(model,interpolation="nearest")
+                # pylab.draw()
+                # pylab.show()
+                
+                
                 Model[ch,0,s_dirty_cut,s_dirty_cut]=model[:,:]
                 if CurrentNegMask is not None:
                     indx,indy=np.where(CurrentNegMask[0,0]==1)

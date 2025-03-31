@@ -64,6 +64,9 @@ class ClassEvolveGA():
 
         allIslandModelDict  = shared_dict.attach("DeconvListIslands%s"%self.StrField)
         allIslandModelDict.reload()
+        
+        self.ModelMachine.reinitIslands(self.ListIslands)
+        
         for iRes,DicoResult in enumerate(LDicoResults):
             iIsland=DicoResult["iIsland"]
             ThisIslandModelDict = allIslandModelDict[iIsland]
@@ -71,9 +74,12 @@ class ClassEvolveGA():
             self.ModelMachine.AppendIsland(self.ListIslands[iIsland], ThisIslandModelDict["Model"].copy())
             if DicoResult["HasError"]:
                 self.ErrorModelMachine.AppendIsland(ListIslands[iIsland], ThisIslandModelDict["sModel"].copy())
+        
         APP.terminate()
         APP.shutdown()
         del(self.APP_GA)
+        
+        self.ModelMachine.RenormaliseMultiEstimatesPerPixel()
         
     def _runGA(self,ListIslands,iIsland,IslandBestIndiv,DicoDirty_path,GridFreqs,DegridFreqs):
         NIslands=len(ListIslands)

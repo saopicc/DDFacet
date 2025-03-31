@@ -340,8 +340,10 @@ class ClassImageDeconvMachine():
         if self.GD["SSD3"]["ConvexifyIslands"]:
             ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
             
-        ListIslands=IslandDistanceMachine.MergeIslands(ListIslands)
+        #ListIslands=IslandDistanceMachine.MergeIslands(ListIslands)
         ListIslands=IslandDistanceMachine.BreakLargeIslands(ListIslands)
+        
+        ListIslands=IslandDistanceMachine.IncreaseIslands(ListIslands)
         
         self.LabelIslandsImage=IslandDistanceMachine.CalcLabelImage(ListIslands)
 
