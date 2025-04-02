@@ -222,7 +222,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         return OutArr.flatten()
 
 
-    def AppendIsland(self,ListPixParms,V,JonesNorm=None):
+    def AppendIsland(self,ListPixParms,V,W=None,JonesNorm=None):
         ListPix=ListPixParms
         Vr=V.reshape((self.NParam,V.size//self.NParam))
         NPixListParms=len(ListPixParms)
@@ -245,7 +245,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         for (x,y),iComp in zip(ListPix,range(NPixListParms)):
             #if S[iComp]==0: continue
             Vals=np.array(Vr[:,iComp]).copy()
-            self.AppendComponentToDictStacked((x,y),Vals)
+            self.AppendComponentToDictStacked((x,y),Vals,W=W[iComp])
 
 
     def reinitIslands(self,ListIslands):
@@ -266,19 +266,26 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 DicoComp[key]["Vals"]=[]
                 DicoComp[key]["Weights"]=[]
 
-    def AppendComponentToDictStacked(self,key,Vals):
+    def AppendComponentToDictStacked(self,key,Vals,W=None):
         
         DicoComp=self.DicoSMStacked["Comp"]
         DicoComp[key]["Vals"].append(Vals)
-        #DicoComp[key]["Weights"].append(1.)
-
+        if W is None:
+            DicoComp[key]["Weights"].append(1.)
+        else:
+            DicoComp[key]["Weights"].append(W)
+            
     def RenormaliseMultiEstimatesPerPixel(self):
         DicoComp=self.DicoSMStacked["Comp"]
         for x,y in DicoComp.keys():
             ListSols=DicoComp[(x,y)]["Vals"]
             if len(ListSols)==1: continue
-            Vals=np.array(DicoComp[(x,y)]["Vals"]).mean(axis=0)
+            #Vals=np.array(DicoComp[(x,y)]["Vals"]).mean(axis=0)
+            W=np.array(DicoComp[(x,y)]["Weights"]).reshape((-1,1))
+            W/=np.sum(W)
+            Vals=np.sum(np.array(DicoComp[(x,y)]["Vals"])*W,axis=0)
             DicoComp[(x,y)]["Vals"]=[Vals]
+            DicoComp[(x,y)]["Weights"]=[1.]
         
     def GiveModelImage(self,FreqIn=None,out=None):
         

@@ -189,7 +189,7 @@ class ClassEvolveStein():
         dx=self.GD["SSDClean"]["NEnlargeData"]
         if dx>0:
             IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
-            ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=dx)
+            ListPixData,_=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=dx)
 
 
         ParmDict = shared_dict.attach("ParmDict%s"%self.StrField) # ParmDict

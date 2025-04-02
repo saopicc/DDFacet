@@ -337,14 +337,14 @@ class ClassImageDeconvMachine():
         #ListIslands=[np.load("errIsland_000524.npy").tolist()]
         
         ListIslands=IslandDistanceMachine.CalcCrossIslandFlux(ListIslands)
-        if self.GD["SSD3"]["ConvexifyIslands"]:
-            ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
             
         #ListIslands=IslandDistanceMachine.MergeIslands(ListIslands)
         ListIslands=IslandDistanceMachine.BreakLargeIslands(ListIslands)
         
-        ListIslands=IslandDistanceMachine.IncreaseIslands(ListIslands)
-        
+        if self.GD["SSD3"]["ConvexifyIslands"]:
+            ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
+        ListIslands,ListSpacialWeight=IslandDistanceMachine.IncreaseIslands(ListIslands)
+
         self.LabelIslandsImage=IslandDistanceMachine.CalcLabelImage(ListIslands)
 
         self.ListIslands=ListIslands
@@ -358,6 +358,7 @@ class ClassImageDeconvMachine():
 
         ListIslandsOut=[self.ListIslands[i] for i in ind]
         self.ListIslands=ListIslandsOut#[100::10][0:1]
+        self.ListSpacialWeight=[ListSpacialWeight[i] for i in ind]
         self.NIslands=len(self.ListIslands)
         
 
@@ -470,6 +471,7 @@ class ClassImageDeconvMachine():
             self.DicoDicoInitIndiv.delete()
             
         allIslandModelDict  = shared_dict.create("DeconvListIslands%s"%self.StrField)
+        
         self.DicoDicoInitIndiv  = shared_dict.create("DicoDicoInitIndiv%s"%self.StrField)
         for iMachine,InitMachine in enumerate(self.ListInitMachine):
             self.DicoDicoInitIndiv.addSubdict(iMachine)
@@ -504,6 +506,24 @@ class ClassImageDeconvMachine():
                        self._initIsland,
                        args=(self.ListIslands,iIsland,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs), serial=SERIAL)
         LDicoResults=APP.awaitJobResults("initIsland.*", progress="Init Islands")
+
+        DTime={}
+        for DicoResult in LDicoResults:
+            if DicoResult is None: continue
+            for InitType in DicoResult.keys():
+                L=DTime.get(InitType,[])
+                L.append(DicoResult[InitType])
+                DTime[InitType]=L
+
+        Lkey=list(DTime.keys())
+        Ttot=[np.sum(DTime[InitType]) for InitType in Lkey]
+        TtotTot=np.sum(Ttot)
+        TFrac=[100*np.sum(DTime[InitType])/TtotTot for InitType in Lkey]
+        Lss=[]
+        for iInitType,InitType in enumerate(Lkey):
+            Lss.append("[%s] %.1f min. (%.1f%%)"%(InitType,Ttot[iInitType]/60,TFrac[iInitType]))
+        ss="Initialisation times: %s"%(", ".join(Lss))
+        log.print(ss)
         
         if self.GD["Misc"]["ConserveMemory"]:
             self._reset_InitMachine()
@@ -572,6 +592,8 @@ class ClassImageDeconvMachine():
         
         DicoInitModel  = shared_dict.attach("DicoDicoInitIndiv%s"%self.StrField)
 
+        t0=time.time()
+        DTime={}
         for iMachine,InitMachine in enumerate(self.ListInitMachine):
             rep = InitMachine.giveDicoInitIndiv(ListIslands=ListIslands,
                                                 iIsland=iIsland,
@@ -580,10 +602,13 @@ class ClassImageDeconvMachine():
             #InitMachine.Reset()
             #print("SDKSDFKJSFKLJSF",rep,type(rep))
             #self.DicoDicoInitIndiv[iMachine].addSubdict(iIsland)
+            t1=time.time()
+            DTime[InitMachine.Type]=t1-t0
+            t0=t1
             DicoInitModel[iMachine][iIsland] = rep
         logger.setLoud(LSilent)
 
-        
+        return DTime
 
 
 

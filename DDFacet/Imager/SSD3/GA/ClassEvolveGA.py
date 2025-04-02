@@ -40,11 +40,12 @@ class ClassEvolveGA():
         self.ImageDeconvMachine=ImageDeconvMachine
         
         self.APP_GA=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_GA",
-                                                         ncpu=self.GD["Parallel"]["NCPU"],
-                                                         affinity=self.GD["Parallel"]["Affinity"],
-                                                         parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
-                                                         verbose=self.GD["Debug"]["APPVerbose"],
-                                                         pause_on_start=self.GD["Debug"]["PauseWorkers"])
+                                                           ncpu=self.GD["Parallel"]["NCPU"],
+                                                           affinity="disable",#self.GD["Parallel"]["Affinity"],
+                                                           #parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
+                                                           #verbose=self.GD["Debug"]["APPVerbose"],
+                                                           #pause_on_start=self.GD["Debug"]["PauseWorkers"]
+                                                           )
         self.APP_GA.registerJobHandlers(self)
         self.APP_GA.startWorkers()
         #print("LKLKFLSKFD")
@@ -55,10 +56,12 @@ class ClassEvolveGA():
         T=ClassTimeIt.ClassTimeIt("runGA_AllIslands")
         T.disable()
         for iIsland,Island in enumerate(self.ListIslands):
-            IslandBestIndiv=self.ModelMachine.GiveIndividual(self.ListIslands[iIsland])
+            #IslandBestIndiv=self.ModelMachine.GiveIndividual(self.ListIslands[iIsland])
             APP.runJob("runGA.%i"%(iIsland),
                              self._runGA,
-                             args=(self.ListIslands,iIsland,IslandBestIndiv,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs), serial=SERIAL)
+                             args=(self.ListIslands,iIsland,
+                                   #IslandBestIndiv,
+                                   self.DicoDirty.path,self.GridFreqs,self.DegridFreqs), serial=SERIAL)
         LDicoResults=APP.awaitJobResults("runGA.*", progress="Genetic Alg.")
         T.timeit("runGA")
 
@@ -71,7 +74,7 @@ class ClassEvolveGA():
             iIsland=DicoResult["iIsland"]
             ThisIslandModelDict = allIslandModelDict[iIsland]
             ThisIslandModelDict.reload()
-            self.ModelMachine.AppendIsland(self.ListIslands[iIsland], ThisIslandModelDict["Model"].copy())
+            self.ModelMachine.AppendIsland(self.ListIslands[iIsland], ThisIslandModelDict["Model"].copy(),W=self.ListSpacialWeight[iIsland])
             if DicoResult["HasError"]:
                 self.ErrorModelMachine.AppendIsland(ListIslands[iIsland], ThisIslandModelDict["sModel"].copy())
         
@@ -81,7 +84,12 @@ class ClassEvolveGA():
         
         self.ModelMachine.RenormaliseMultiEstimatesPerPixel()
         
-    def _runGA(self,ListIslands,iIsland,IslandBestIndiv,DicoDirty_path,GridFreqs,DegridFreqs):
+    def _runGA(self,ListIslands,iIsland,
+               #IslandBestIndiv,
+               DicoDirty_path,GridFreqs,DegridFreqs):
+        
+        IslandBestIndiv=self.ModelMachine.GiveIndividual(self.ListIslands[iIsland])
+        
         NIslands=len(ListIslands)
         if NIslands==0: return
         T=ClassTimeIt.ClassTimeIt("  ----  _runGA #%i"%iIsland)
@@ -128,8 +136,8 @@ class ClassEvolveGA():
         ListPixData=ThisPixList
         dx=self.GD["SSDClean"]["NEnlargeData"]
         if dx>0:
-            IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
-            ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=dx)
+            IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland(self.MaskMachine.CurrentNegMask)
+            ListPixData,_=IncreaseIslandMachine.IncreaseIsland(ListPixData,AllowMasked=True,dx=dx)
 
         
         ParmDict = shared_dict.attach("ParmDict%s"%self.StrField) # ParmDict

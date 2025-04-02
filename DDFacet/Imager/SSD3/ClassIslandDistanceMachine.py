@@ -18,6 +18,7 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 from scipy.spatial import ConvexHull
 from matplotlib.path import Path
 import psutil
+import DDFacet.Other.AsyncProcessPool
 
 
 class Island(object):
@@ -75,6 +76,24 @@ class ClassIslandDistanceMachine():
             self.NCPU=psutil.cpu_count()
         self.IdSharedMem=IdSharedMem
 
+
+    def startWorkers(self):
+        self.APP_Islands=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_Islands",
+                                                                ncpu=self.GD["Parallel"]["NCPU"],
+                                                                affinity="disable",#self.GD["Parallel"]["Affinity"],
+                                                                #parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
+                                                                #verbose=self.GD["Debug"]["APPVerbose"],
+                                                                #pause_on_start=self.GD["Debug"]["PauseWorkers"]
+                                                                )
+        self.APP_Islands.registerJobHandlers(self)
+        self.APP_Islands.startWorkers()
+        
+    def killWorkers(self):
+        APP=self.APP_Islands
+        APP.terminate()
+        APP.shutdown()
+        del(self.APP_Islands)
+        
     def SearchIslands(self,Threshold,Image=None):
         print("Searching Islands", file=log)
         if Image is not None:
@@ -104,12 +123,43 @@ class ClassIslandDistanceMachine():
     def IncreaseIslands(self,ListIslands):
         if self.GD is None: return ListIslands
         dx=self.GD["SSDClean"]["NEnlargePars"]
-        if dx>0:
-            print("  increase their sizes by %i pixels"%dx, file=log)
-            IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
-            for iIsland in range(len(ListIslands)):#self.NIslands):
-                ListIslands[iIsland]=IncreaseIslandMachine.IncreaseIsland(ListIslands[iIsland],dx=dx)
-        return ListIslands
+        if dx==0: return
+        print("  increase their sizes by %i pixels"%dx, file=log)
+        self.ListIslands=ListIslands
+        logger.setSilent(["AsyncProcessPool"])
+        self.startWorkers()
+        APP=self.APP_Islands
+        for iIsland in range(len(ListIslands)):#self.NIslands):
+            
+            APP.runJob("runIncreaseIsland.%i"%(iIsland),
+                       self._increaseSingleIslands,
+                       args=(iIsland,), serial=True)
+        LDicoResults=APP.awaitJobResults("runIncreaseIsland.*", progress="Increase Islands")
+        DicoResult={}
+        for L in LDicoResults:
+            iIsland,Island,W=L
+            DicoResult[iIsland]=(Island,W)
+        
+        ListIslands=[DicoResult[iIsland][0] for iIsland in range(len(ListIslands))]
+        ListW=[DicoResult[iIsland][1] for iIsland in range(len(ListIslands))]
+        self.killWorkers()
+        logger.setLoud(["AsyncProcessPool"])
+        
+        return ListIslands,ListW
+
+    def _increaseSingleIslands(self,iIsland):
+        dx=self.GD["SSDClean"]["NEnlargePars"]
+        IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland(self._MaskArray)
+        NIn=len(self.ListIslands[iIsland])
+        ListOut,W=IncreaseIslandMachine.IncreaseIsland(self.ListIslands[iIsland],
+                                                     dx=dx,
+                                                     AllowMasked=False)
+        # NOut=len(ListOut)
+        
+        #print("#%i: %i -> %i"%(iIsland,NIn,NOut))
+        #print("#%i: %i -> %i"%(iIsland,NIn,NOut))
+
+        return [iIsland,ListOut,W]
     
     def CalcLabelImage(self,ListIslands):
         print("  calculating label image", file=log)
@@ -438,6 +488,13 @@ class ClassIslandDistanceMachine():
             except:
                 ListConvexIslands.append(Island)
 
+        log.print("    update internal Mask")
+        #_MaskArray=np.zeros_like(self._MaskArray)
+        for Island in ListIslands:
+            xx,yy=np.array(Island).T
+            self._MaskArray[0,0,xx,yy]=0
+            
+                
         # if PolygonFile is not None:
         #     print("  ----> Saving polygons as %s"%PolygonFile, file=log)
         #     MyPickle.Save(ListPolygons,PolygonFile)

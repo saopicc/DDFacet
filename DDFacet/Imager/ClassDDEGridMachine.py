@@ -1250,11 +1250,11 @@ class ClassDDEGridMachine():
             raise ValueError("unknown --RIME-ForwardMode %s"%self.GD["RIME"]["ForwardMode"])
 
         T.timeit("4 (degrid)")
+        
         # print vis
-
         # uvw,vis=self.ShiftVis(uvwOrig,vis,reverse=False)
-
         # T.timeit("5")
+        
         return vis
 
     #########################################################

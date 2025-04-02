@@ -29,7 +29,7 @@ from DDFacet.ToolsDir.GeneDist import ClassDistMachine
 from DDFacet.Imager.SSD3 import ClassMutate
 
 SERIAL=True
-SERIAL=False
+#SERIAL=False
 
 class ClassArrayMethodSSD():
     def __init__(self,Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,GD=None,
@@ -338,11 +338,12 @@ class ClassArrayMethodSSD():
         import DDFacet.Other.AsyncProcessPool
         self.pid=str(multiprocessing.current_process())
         self.APP=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_GA_SingleIsland_%s"%self.iIsland,
-                                                         ncpu=self.GD["Parallel"]["NCPU"],
-                                                         affinity=self.GD["Parallel"]["Affinity"],
-                                                         parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
-                                                         verbose=self.GD["Debug"]["APPVerbose"],
-                                                         pause_on_start=self.GD["Debug"]["PauseWorkers"])
+                                                        ncpu=self.GD["Parallel"]["NCPU"],
+                                                        affinity="disable",#self.GD["Parallel"]["Affinity"],
+                                                        #parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
+                                                        #verbose=self.GD["Debug"]["APPVerbose"],
+                                                        #pause_on_start=self.GD["Debug"]["PauseWorkers"],
+                                                        )
         self.T.timeit("APP")
         self.APP.registerJobHandlers(self)
         self.T.timeit("Register")
