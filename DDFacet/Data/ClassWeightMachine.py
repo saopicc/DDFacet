@@ -475,14 +475,14 @@ class ClassWeightMachine():
             # of flags becomes nrow,nchan
 
             
-            
-            d0, d1 = self.GD["Selection"]["UVRangeKm"]
-            d0 = d0**2*1e6
-            d1 = d1**2*1e6
-            duv = (uvw[:,:2]**2).sum(1)  # u^2+v^2... and we already squared d0 and d1
-            flags[(duv < d0) | (duv > d1),:,:] = True
-            #flags = flags.any(axis=2)
-            #rowflags = flags.all(axis=1)
+            if self.GD["Selection"]["UVRangeKm"] is not None and self.GD["Selection"]["UVRangeKm"]!="":
+                d0, d1 = self.GD["Selection"]["UVRangeKm"]
+                d0 = d0**2*1e6
+                d1 = d1**2*1e6
+                duv = (uvw[:,:2]**2).sum(1)  # u^2+v^2... and we already squared d0 and d1
+                flags[(duv < d0) | (duv > d1),:,:] = True
+                #flags = flags.any(axis=2)
+                #rowflags = flags.all(axis=1)
             
 
 

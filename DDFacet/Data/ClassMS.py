@@ -1212,7 +1212,8 @@ class ClassMS():
         T.timeit("pol")
 
         
-        if self.DicoSelectOptions["UVRangeKm"]:
+        if self.GD["Selection"]["UVRangeKm"] is not None and self.GD["Selection"]["UVRangeKm"]!="":
+
             d0, d1 = self.DicoSelectOptions["UVRangeKm"]
             print("  flagging uv data outside uv distance of [%5.2f~%5.2f] km" % (d0, d1), file=log)
             d0 = d0**2*1e6
@@ -1706,11 +1707,12 @@ class ClassMS():
 
         flags = np.empty((nrows, len(self.ChanFreq), len(self.CorrelationIds)), bool)
         tab.getcolslicenp("FLAG", flags, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nrows)
-        d0, d1 = self.GD["Selection"]["UVRangeKm"]
-        d0 = d0**2*1e6
-        d1 = d1**2*1e6
-        duv = (uvw[:,:2]**2).sum(1)  # u^2+v^2... and we already squared d0 and d1
-        flags[(duv < d0) | (duv > d1),:,:] = True
+        if self.GD["Selection"]["UVRangeKm"] is not None and self.GD["Selection"]["UVRangeKm"]!="":
+            d0, d1 = self.GD["Selection"]["UVRangeKm"]
+            d0 = d0**2*1e6
+            d1 = d1**2*1e6
+            duv = (uvw[:,:2]**2).sum(1)  # u^2+v^2... and we already squared d0 and d1
+            flags[(duv < d0) | (duv > d1),:,:] = True
 
         
         if self._reverse_channel_order:
