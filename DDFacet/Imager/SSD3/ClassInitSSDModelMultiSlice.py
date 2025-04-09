@@ -11,7 +11,7 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 from DDFacet.Imager.ClassPSFServer import ClassPSFServer
 from DDFacet.Imager.ModModelMachine import ClassModModelMachine
-import multiprocessing
+#import multiprocessing
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other.progressbar import ProgressBar
 import time
@@ -25,7 +25,7 @@ from .ClassConvMachine import ClassConvMachineImages
 from DDFacet.Array import shared_dict
 import psutil
 from DDFacet.Other.progressbar import ProgressBar
-from DDFacet.Other.AsyncProcessPool import APP
+#from DDFacet.Other.AsyncProcessPool import APP
 
 SilentModules=["ClassPSFServer",
                "ClassImageDeconvMachine",
@@ -37,6 +37,8 @@ SilentModules=["ClassPSFServer",
 
 class ClassInitSSDModelParallel():
     def __init__(self, GD, NFreqBands, RefFreq, NCPU, MainCache=None,IdSharedMem=""):
+        self.T=ClassTimeIt.ClassTimeIt("ClassInitSSDModelParallel")
+        self.T.disable()
         self.GD = copy.deepcopy(GD)
         
         from DDFacet.Imager.MultiFields.AppendSubFieldInfo import AppendSubFieldInfo
@@ -49,18 +51,23 @@ class ClassInitSSDModelParallel():
         self.IdSharedMem=IdSharedMem
         self.NFreqBands=NFreqBands
         self.Type="MultiSlice"
+        self.T.timeit("Init0")
         self.InitMachine = ClassInitSSDModel(self.GD, NFreqBands, RefFreq, MainCache, IdSharedMem)
         self.NCPU=(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
-        APP.registerJobHandlers(self)
+        self.T.timeit("Init1")
+        #APP.registerJobHandlers(self)
+        self.T.timeit("Init2")
 
         
 
     def Init(self, DicoVariablePSF, GridFreqs, DegridFreqs):
+        self.T.reinit()
         self.DicoVariablePSF=DicoVariablePSF
         self.GridFreqs=GridFreqs
         self.DegridFreqs=DegridFreqs
         print("Initialise MultiSlice machine", file=log)
         self.InitMachine=ClassInitSSDModel(self.GD, self.NFreqBands, self.RefFreq, MainCache=self.MainCache, IdSharedMem=self.IdSharedMem)
+        self.T.timeit("Init_Init")
 
     def Reset(self):
         self.DicoVariablePSF = None
@@ -69,16 +76,22 @@ class ClassInitSSDModelParallel():
 
     def _initIsland_worker(self, iIsland, Island,
                            DicoVariablePSF, DicoDirty, DicoParm, NCPU):
+        self.T.reinit()
         logger.setSilent(["ClassImageDeconvMachineMSMF", "ClassPSFServer", "ClassMultiScaleMachine", "GiveModelMachine", "ClassModelMachineMSMF"])
         self.InitMachine.Init(DicoVariablePSF, DicoParm["GridFreqs"], DicoParm["DegridFreqs"])
+        self.T.timeit("_initIsland_worker:Init")
         self.InitMachine.setDirty(DicoDirty)
+        self.T.timeit("_initIsland_worker:setDirty")
         # self.InitMachine.DeconvMachine.setNCPU(NCPU)
         self.InitMachine.setSSDModelImage(DicoParm["ModelImage"])
+        self.T.timeit("_initIsland_worker:setSSD")
+
 
         #print ":::::::::::::::::::::::",iIsland
 
         
-        # ModelImageIsland = self.InitMachine.giveModel(Island)
+        #ModelImageIsland = self.InitMachine.giveModel(Island)
+
         try:
             ModelImageIsland = self.InitMachine.giveModel(Island)
         except:
@@ -90,15 +103,17 @@ class ClassInitSSDModelParallel():
             np.save(FileOut, np.array(Island))
             self.InitMachine.Reset()
             return
+        self.T.timeit("_initIsland_worker:giveModel")
         #DicoOut["PolyModel"] = ModelImageIsland
         return ModelImageIsland
         # self.InitMachine.Reset()
 
-    def giveDicoInitIndiv(self, ListIslands=None, iIsland=None, ModelImage=None, DicoDirty=None):
+    def giveDicoInitIndiv(self, Island=None,ListIslands=None, iIsland=None, ModelImage=None, DicoDirty=None):
         #DicoInitIndiv = shared_dict.attach("DicoInitIslandMultiSlice%s"%self.StrField)
         ParmDict = shared_dict.attach("ParmDict%s"%self.StrField)
-        
-        Island=ListIslands[iIsland]
+        if Island is None:
+            Island=ListIslands[iIsland]
+            
         #subdict = DicoInitIndiv.addSubdict(iIsland)
         PolyModel = self._initIsland_worker(iIsland, 
                                             Island,
@@ -107,6 +122,7 @@ class ClassInitSSDModelParallel():
                                             ParmDict, 
                                             1)
         # DicoInitIndiv.reload()
+        
     
         # ParmDict.delete()
 
@@ -119,6 +135,8 @@ class ClassInitSSDModelParallel():
 class ClassInitSSDModel():
     def __init__(self, GD, NFreqBands, RefFreq, MainCache=None, IdSharedMem=""):
         GD=copy.deepcopy(GD)
+        self.T=ClassTimeIt.ClassTimeIt("ClassInitSSDModel_Single")
+        self.T.disable()
         self.RefFreq=RefFreq
         self.GD=GD
         self.GD["Parallel"]["NCPU"]=1
@@ -148,6 +166,7 @@ class ClassInitSSDModel():
         MinorCycleConfig["ModelMachine"]=ModelMachine
         #MinorCycleConfig["CleanMaskImage"]=None
         self.MinorCycleConfig=MinorCycleConfig
+        self.T.timeit("Init0")
         self.DeconvMachine=ClassImageDeconvMachineMultiSlice.ClassImageDeconvMachine(MainCache=MainCache,
                                                                                      ParallelMode=False,
                                                                                      RefFreq=self.RefFreq,
@@ -157,6 +176,7 @@ class ClassInitSSDModel():
                                                                                      **self.MinorCycleConfig)
         self.GD["Mask"]["Auto"]=False
         self.GD["Mask"]["External"]=None
+        self.T.timeit("Init1")
 
         self.Margin=50
 
@@ -165,6 +185,7 @@ class ClassInitSSDModel():
     
     def Init(self,DicoVariablePSF,GridFreqs,DegridFreqs,
                  DoWait=False):
+        self.T.reinit()
         self.DicoVariablePSF=DicoVariablePSF
         self.GridFreqs=GridFreqs
         self.DegridFreqs=DegridFreqs
@@ -174,13 +195,16 @@ class ClassInitSSDModel():
 
         self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["PSFSideLobes"],
                                 GridFreqs=self.GridFreqs,DegridFreqs=self.DegridFreqs,DoWait=DoWait)
+        self.T.timeit("_Init")
 
 
     def setDirty(self, DicoDirty):
+        self.T.reinit()
         self.DicoDirty=DicoDirty
         self.Dirty=DicoDirty["ImageCube"]
         self.MeanDirty=DicoDirty["MeanImage"]
         self.DeconvMachine.Update(self.DicoDirty,DoSetMask=False)
+        self.T.timeit("setDirty")
         #self.DeconvMachine.updateRMS()
 
     def setSubDirty(self,ListPixParms):
@@ -251,9 +275,12 @@ class ClassInitSSDModel():
         self.SSDModelImage=ModelImage
 
     def giveConvModel(self,SubModelImage):
-
+        T=ClassTimeIt.ClassTimeIt("InitSSD.giveConvModel")
+        T.disable()
         PSF,MeanPSF=self.DeconvMachine.PSFServer.GivePSF()
+        T.timeit("GivePSF")
         ConvModel=ClassConvMachineImages(PSF).giveConvModel(SubModelImage)
+        T.timeit("ConvModel")
 
         # ConvModel=np.zeros_like(SubModelImage)
         # nch,_,N0x,N0y=ConvModel.shape

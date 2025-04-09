@@ -561,6 +561,9 @@ class AsyncProcessPool (object):
             # raise RuntimeError("runJob() with collect_result can only be called in the parent process. This is a bug.")
             log.print(ModColor.Str("In principle tunJob() with collect_result can only be called in the parent could be cess. This is a bug."))
         if collect_result and job_id in self._results_map:
+            log.print(ModColor.Str("RAISE"))
+            log.print(ModColor.Str("RAISE"))
+            log.print(ModColor.Str("RAISE"))
             raise RuntimeError("Job '%s' has an uncollected result, or is a singleton. This is a bug."%job_id)
         # make sure workers are started
         self.awaitWorkerStart()
@@ -811,6 +814,7 @@ class AsyncProcessPool (object):
         self._compute_queue.close()
         for queue in self._io_queues:
             queue.close()
+        shared_dict.delDict(self.Name)
         if self.verbose > 1:
             print("shutdown complete", file=log)
 

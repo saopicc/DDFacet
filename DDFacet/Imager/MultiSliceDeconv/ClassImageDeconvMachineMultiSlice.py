@@ -51,7 +51,7 @@ MAD=scipy.stats.median_abs_deviation
 from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 
 class ClassImageDeconvMachine():
-    def __init__(self,GD=None,ModelMachine=None,RefFreq=None,*args,**kw):
+    def __init__(self,GD=None,ModelMachine=None,RefFreq=None,CacheFileName=None,*args,**kw):
         self.GD=GD
         
         
@@ -64,6 +64,8 @@ class ClassImageDeconvMachine():
         self.FitFluxScale="Linear"
         self.FitFluxScale="Exp"
         self.MaskMachine=None
+        self.CacheFileName=CacheFileName
+        
 
     def Reset(self):
         pass
@@ -84,7 +86,64 @@ class ClassImageDeconvMachine():
         if self.DicoMappingDesc is None: return
         self.SpectralFunctionsMachine=ClassSpectralFunctions.ClassSpectralFunctions(self.DicoMappingDesc,RefFreq=self.DicoMappingDesc["RefFreq"])#,BeamEnable=False)
         self.SpectralFunctionsMachine.CalcFluxBands()
+        self.DicoVariablePSF.reload()
+        if "FreqBandToTaylor_FluxVec" not in list(self.DicoVariablePSF.keys()):
+            #print("FKJKJDFKJKDJKGDJFKDG")
+            self.cache_FreqBandToTaylor()
 
+    def cache_FreqBandToTaylor(self):
+        NOrder=self.GD["MultiSliceDeconv"]["PolyFitOrder"]
+        if NOrder==0:
+            NOrder=self.GD["Freq"]["NBand"]
+
+        NModel=1
+        Lx0x1=[]
+        for iOrder in range(1,NOrder):
+            if iOrder==1:
+                ThisParm=np.linspace(-3,2,51)
+                Lx0x1.append(ThisParm)
+                NModel*=ThisParm.size
+            else:
+                ThisParm=np.linspace(-1,1,21)
+                Lx0x1.append(ThisParm)
+                NModel*=ThisParm.size
+        ParmGrid=np.meshgrid(*Lx0x1)
+        NComb=ParmGrid[0].size
+        #ParmVec=np.array(ParmGrid).reshape((NComb,NOrder))
+        NBand=self.GD["Freq"]["NBand"]
+        ParmVec=np.zeros((NComb,NOrder),np.float32)
+        ParmVec[:,0]=1
+        ParmVec[:,1:]=np.array(ParmGrid).reshape((NComb,NOrder-1))
+
+
+        NFacets=self.PSFServer.NFacets
+        FluxVec=np.zeros((NFacets,NComb,NBand),np.float32)
+        
+        for iFacet in range(NFacets):
+            for iBand in range(NBand):
+                for iComb in range(NComb):
+                    X=ParmVec[iComb]
+                    F=self.SpectralFunctionsMachine.IntExpFuncPoly(X.reshape((1,NOrder)),
+                                                                   iChannel=iBand,
+                                                                   iFacet=iFacet,
+                                                                   FluxScale=self.FitFluxScale)
+                    FluxVec[iFacet,iComb,iBand]=F[0]
+        MeanFluxVec=np.mean(FluxVec,axis=-1).reshape((NFacets,NComb,1))
+        FluxVec/=MeanFluxVec
+        self.DicoVariablePSF["FreqBandToTaylor_FluxVec"]=FluxVec
+        self.DicoVariablePSF["FreqBandToTaylor_ParmVec"]=ParmVec
+
+        # AA=np.zeros()
+        # def GiveResid(X,F,iFacet):
+        #     R=np.zeros_like(F)
+        #     Fit=np.zeros_like(F)
+        #     for iBand in range(R.size):
+        #         Fit[iBand]=self.SpectralFunctionsMachine.IntExpFuncPoly(X.reshape((1,NOrder)),
+        #                                                                 iChannel=iBand,
+        #                                                                 iFacet=iFacet,
+        #                                                                 FluxScale=self.FitFluxScale)
+        
+        
     def GiveModelImage(self,*args): return self.ModelMachine.GiveModelImage(*args)
 
     def Update(self,DicoDirty,**kwargs):
@@ -118,6 +177,7 @@ class ClassImageDeconvMachine():
 
     def Init(self,**kwargs):
         self.SetPSF(kwargs["PSFVar"])
+        
         if "PSFSideLobes" not in self.DicoVariablePSF.keys():
             self.DicoVariablePSF["PSFSideLobes"]=kwargs["PSFAve"]
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
@@ -195,7 +255,8 @@ class ClassImageDeconvMachine():
 
 
     def Deconvolve(self):
-
+        T=ClassTimeIt.ClassTimeIt("ClassImageDeconvMachineMultiSlice")
+        T.disable()
         
         if self._Dirty.shape[-1]!=self._Dirty.shape[-2]:
             # print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
@@ -234,7 +295,7 @@ class ClassImageDeconvMachine():
 
             
         # from skimage import restoration
-
+        T.timeit("Init")
         if self.GD["MultiSliceDeconv"]["Type"]=="MORESANE":
             s_dirty_cut=self.giveSliceCut(dirty,Nout)
             s_psf_cut=self.giveSliceCut(psf,2*Nout)
@@ -297,6 +358,8 @@ class ClassImageDeconvMachine():
                     indx,indy=np.where(CurrentNegMask[0,0]==1)
                     nx,ny=Model[ch,0].shape
                     Model[ch,0].flat[indx*ny+indy]=0
+            #print()
+            T.timeit("Deconv Orieux")
             
         elif self.GD["MultiSliceDeconv"]["Type"]=="Sara":
             import pfb.deconv.sara as sara
@@ -383,15 +446,68 @@ class ClassImageDeconvMachine():
         #     for ch in range(nch):
         #         Model[ch,0,indx,indy]=0
 
+        MaxDR=1e4
         for ich in range(nch):
             absModel=np.abs(Model[ich])
             #_,indx,indy=np.where(np.any(absModel<absModel.max()/1e4,axis=0))
-            _,indx,indy=np.where(absModel<absModel.max()/1e4)
+            _,indx,indy=np.where(absModel<absModel.max()/MaxDR)
             Model[ich,0,indx,indy]=0
+            
         
-        CoefImage=self.DoSpectralFit(Model)
+        #print()
+        
+        T.timeit("Cut")
+        
+        #CoefImage=self.DoSpectralFit(Model)
+        #T.timeit("DoSpectralFit")
+
+        nx,ny=Model.shape[-2:]
+        MM=Model.copy().reshape((nch,nx*ny)).T
+        meanMM=MM.mean(axis=-1).reshape((-1,1))
+        indZero=np.where(meanMM==0)[0]
+        meanMM[indZero]=1
+        MM=MM/meanMM
+        
+        MM=MM.reshape((1,nx*ny,nch))
+        FF=self.DicoVariablePSF["FreqBandToTaylor_FluxVec"][self.iFacet]
+        NComb,NParm=self.DicoVariablePSF["FreqBandToTaylor_ParmVec"].shape
+        FF=FF.reshape((NComb,1,nch))
+        indComb=np.argmin(np.sum((MM-FF)**2,axis=-1),axis=0)
+        
+        
+        CoefImage2=self.DicoVariablePSF["FreqBandToTaylor_ParmVec"][indComb].copy()
+        CoefImage2[:,0]=meanMM.ravel()
+        CoefImage2[indZero,:]=0
+        CoefImage2=CoefImage2.T.reshape((NParm,1,nx,ny))
+        
+        T.timeit("DoSpectralFit2")
+
+
+        # import pylab
+        # pylab.clf()
+        # ax=pylab.subplot(2,2,1)
+        # v0,v1=CoefImage[0,0].min(),CoefImage[0,0].max()
+        # pylab.imshow(CoefImage[0,0],interpolation="nearest",vmin=v0,vmax=v1)
+        # pylab.subplot(2,2,2,sharex=ax,sharey=ax)
+        # pylab.imshow(CoefImage2[0,0],interpolation="nearest",vmin=v0,vmax=v1)
+        
+        # v0,v1=CoefImage[1,0].min(),CoefImage[1,0].max()
+        # pylab.subplot(2,2,3,sharex=ax,sharey=ax)
+        # pylab.imshow(CoefImage[1,0],interpolation="nearest",vmin=v0,vmax=v1)
+        # pylab.subplot(2,2,4,sharex=ax,sharey=ax)
+        # pylab.imshow(CoefImage2[1,0],interpolation="nearest",vmin=v0,vmax=v1)
+        # pylab.draw()
+        # pylab.show()
+        
+        CoefImage=CoefImage2
+        
+
+        #print()
+        T.timeit("DoSpectralFit")
         
         self.ModelMachine.setModel(CoefImage,FluxScale=self.FitFluxScale)
+        #print()
+        T.timeit("setModel")
 
         
         return "MaxIter", True, True   # stop deconvolution but do update model

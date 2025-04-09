@@ -100,7 +100,16 @@ class ClassIslandDistanceMachine():
             Dirty=Image
         else:
             Dirty=self.DicoDirty["MeanImage"]
-        
+
+        # ###########################
+        if self.GD["SSD3"]["UniqueIsland"]:
+            nx,ny=Dirty.shape[-2:]
+            xx,yy=np.mgrid[0:nx,0:ny]
+            SingleIsland=np.array([xx.ravel(),yy.ravel()]).T.tolist()
+            self._MaskArray.fill(0)
+            return [SingleIsland]
+        # ###########################
+    
         # self.IslandArray[0,0]=(Dirty[0,0]>Threshold)|(self.IslandArray[0,0])
         # MaskImage=(self.IslandArray[0,0])&(np.logical_not(self._MaskArray[0,0]))
         # MaskImage=(np.logical_not(self._MaskArray[0,0]))
@@ -140,11 +149,11 @@ class ClassIslandDistanceMachine():
             iIsland,Island,W=L
             DicoResult[iIsland]=(Island,W)
         
-        ListIslands=[DicoResult[iIsland][0] for iIsland in range(len(ListIslands))]
-        ListW=[DicoResult[iIsland][1] for iIsland in range(len(ListIslands))]
+        ListIslands=[DicoResult[iIsland][0] for iIsland in range(len(DicoResult)) if len(DicoResult[iIsland][0])>0]
+        ListW=[DicoResult[iIsland][1] for iIsland in range(len(DicoResult)) if len(DicoResult[iIsland][0])>0]
         self.killWorkers()
         logger.setLoud(["AsyncProcessPool"])
-        
+
         return ListIslands,ListW
 
     def _increaseSingleIslands(self,iIsland):
@@ -193,12 +202,32 @@ class ClassIslandDistanceMachine():
                     xb=xb.flatten()
                     yb=yb.flatten()
                     for ix in range(nx):
+                        print("%i/%i"%(ix,nx))
                         for iy in range(ny):
-                            ind=np.where((x>xb[ix])&(x<=xb[ix+1])&(y>yb[iy])&(y<=yb[iy+1]))[0]
+                            xs=x.copy()
+                            ys=y.copy()
+                            #ind=np.where((xs>xb[ix])&(xs<=xb[ix+1])&(ys>yb[iy])&(ys<=yb[iy+1]))[0]
+                            #if ind.size==0: continue
+                            
+                            ind=np.where(xs>xb[ix])[0]
                             if ind.size==0: continue
+                            xs=xs[ind]; ys=ys[ind]
+                            
+                            ind=np.where(xs<=xb[ix+1])[0]
+                            if ind.size==0: continue
+                            xs=xs[ind]; ys=ys[ind]
+                            
+                            ind=np.where(ys>yb[iy])[0]
+                            if ind.size==0: continue
+                            xs=xs[ind]; ys=ys[ind]
+                            
+                            ind=np.where(ys<=yb[iy+1])[0]
+                            if ind.size==0: continue
+                            xs=xs[ind]; ys=ys[ind]
+                            
                             II=np.zeros((ind.size,2),x.dtype)
-                            II[:,0]=x[ind]
-                            II[:,1]=y[ind]
+                            II[:,0]=xs
+                            II[:,1]=ys
                             LOut.append(II)
 
             return LOut
@@ -490,10 +519,12 @@ class ClassIslandDistanceMachine():
 
         log.print("    update internal Mask")
         #_MaskArray=np.zeros_like(self._MaskArray)
-        for Island in ListIslands:
+        # np.save("Mask0.npy",self._MaskArray)
+        for Island in ListConvexIslands:
             xx,yy=np.array(Island).T
             self._MaskArray[0,0,xx,yy]=0
-            
+        # np.save("Mask1.npy",self._MaskArray)
+        
                 
         # if PolygonFile is not None:
         #     print("  ----> Saving polygons as %s"%PolygonFile, file=log)

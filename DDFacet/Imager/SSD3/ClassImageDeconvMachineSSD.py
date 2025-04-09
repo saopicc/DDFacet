@@ -157,12 +157,12 @@ class ClassImageDeconvMachine():
                 GD["MultiSliceDeconv"]["Type"]=SubType
                 from . import ClassInitSSDModelMultiSlice
                 print(ModColor.Str("Initialisation of sourcekins using MultiSlice/%s"%GD["MultiSliceDeconv"]["Type"],col="blue"),file=log)
-                self.ListInitMachine.append( ClassInitSSDModelMultiSlice.ClassInitSSDModelParallel(GD,
-                                                                                                   NFreqBands, RefFreq,
-                                                                                                   NCPU=self.NCPU,
-                                                                                                   MainCache=self.maincache,
-                                                                                                   IdSharedMem=self.IdSharedMem) )
-                
+                ThisMachine=ClassInitSSDModelMultiSlice.ClassInitSSDModelParallel(GD,
+                                                                                  NFreqBands, RefFreq,
+                                                                                  NCPU=self.NCPU,
+                                                                                  MainCache=self.maincache,
+                                                                                  IdSharedMem=self.IdSharedMem) 
+                self.ListInitMachine.append( ThisMachine)
             else:
                 raise ValueError("InitType should be HMP or MultiSlice or MORESANE")
 
@@ -216,9 +216,14 @@ class ClassImageDeconvMachine():
                     # print("SDKSFKNSDFKS",facetcache.keys())
                     kwargs={"facetcache":facetcache}
                 InitMachine.Init(self.DicoVariablePSF, self.GridFreqs, self.DegridFreqs,**kwargs)
+
+                if InitMachine.Type.startswith("MultiSlice"):
+                    # cache Taylor term grid
+                    InitMachine.InitMachine.DeconvMachine.SetPSF(self.DicoVariablePSF)
+                    
                 #print(self.DicoVariablePSF.keys())
 
-        self._init_machine_initialized = True
+            self._init_machine_initialized = True
 
     def _reset_InitMachine(self):
         if self._init_machine_initialized:
@@ -335,14 +340,15 @@ class ClassImageDeconvMachine():
             return "NoIslands"
         ListIslands=ListIslandsFiltered
         #ListIslands=[np.load("errIsland_000524.npy").tolist()]
-        
-        ListIslands=IslandDistanceMachine.CalcCrossIslandFlux(ListIslands)
+
+        if not self.GD["SSD3"]["UniqueIsland"]:
+            ListIslands=IslandDistanceMachine.CalcCrossIslandFlux(ListIslands)
+            if self.GD["SSD3"]["ConvexifyIslands"]:
+                ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
             
         #ListIslands=IslandDistanceMachine.MergeIslands(ListIslands)
         ListIslands=IslandDistanceMachine.BreakLargeIslands(ListIslands)
         
-        if self.GD["SSD3"]["ConvexifyIslands"]:
-            ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
         ListIslands,ListSpacialWeight=IslandDistanceMachine.IncreaseIslands(ListIslands)
 
         self.LabelIslandsImage=IslandDistanceMachine.CalcLabelImage(ListIslands)
@@ -453,9 +459,11 @@ class ClassImageDeconvMachine():
             print(ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done here" % (ThisFlux),col="green" ), file=log)
             return "FluxThreshold", False, False
 
+        ###########################
         rep=self.SearchIslands(StopFlux)
         if rep=="NoIslands":
             return "FluxThreshold", False, False
+        ###########################
 
 
         
@@ -471,7 +479,10 @@ class ClassImageDeconvMachine():
             self.DicoDicoInitIndiv.delete()
             
         allIslandModelDict  = shared_dict.create("DeconvListIslands%s"%self.StrField)
-        
+        for iIsland,Island in enumerate(self.ListIslands):
+            allIslandModelDict.addSubdict(iIsland)
+            allIslandModelDict[iIsland]["Island"]=Island
+
         self.DicoDicoInitIndiv  = shared_dict.create("DicoDicoInitIndiv%s"%self.StrField)
         for iMachine,InitMachine in enumerate(self.ListInitMachine):
             self.DicoDicoInitIndiv.addSubdict(iMachine)
@@ -488,6 +499,9 @@ class ClassImageDeconvMachine():
         #ParmDictMultiSlice["ModelImage"] = ModelImage
         #ParmDictMultiSlice["GridFreqs"] = self.GridFreqs
         #ParmDictMultiSlice["DegridFreqs"] = self.DegridFreqs
+
+
+
         
         self._init_InitMachine()
         
@@ -504,7 +518,8 @@ class ClassImageDeconvMachine():
         for iIsland,Island in enumerate(self.ListIslands):
             APP.runJob("initIsland.%i"%(iIsland),
                        self._initIsland,
-                       args=(self.ListIslands,iIsland,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs), serial=SERIAL)
+                       args=(#self.ListIslands,
+                             iIsland,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs), serial=SERIAL)
         LDicoResults=APP.awaitJobResults("initIsland.*", progress="Init Islands")
 
         DTime={}
@@ -568,15 +583,23 @@ class ClassImageDeconvMachine():
         self.DegridFreqs = DegridFreqs
 
     
-    def _initIsland(self,ListIslands,iIsland,DicoDirty_path,GridFreqs,DegridFreqs):
+    def _initIsland(self,
+                    #ListIslands,
+                    iIsland,DicoDirty_path,GridFreqs,DegridFreqs):
+
         self.DicoInitIndiv={}
         
         if self.GD["GAClean"]["MinSizeInit"]==-1: return
 
+
+        
         LSilent=["ClassInitSSDModelHMP", "ClassMultiScaleMachine", "ClassInitSSDModelMultiSlice", "ClassImageDeconvMachineMSMF"]
         logger.setSilent(LSilent)
         self.ListSizeIslands=[]
-        ThisPixList=ListIslands[iIsland]
+        #ThisPixList=ListIslands[iIsland]
+        allIslandModelDict  = shared_dict.attach("DeconvListIslands%s"%self.StrField)
+        ThisPixList=allIslandModelDict[iIsland]["Island"]
+        
         x,y=np.array(ThisPixList,dtype=np.float32).T
         dx,dy=x.max()-x.min(),y.max()-y.min()
         dd=np.max([dx,dy])+1
@@ -595,8 +618,9 @@ class ClassImageDeconvMachine():
         t0=time.time()
         DTime={}
         for iMachine,InitMachine in enumerate(self.ListInitMachine):
-            rep = InitMachine.giveDicoInitIndiv(ListIslands=ListIslands,
-                                                iIsland=iIsland,
+            rep = InitMachine.giveDicoInitIndiv(Island=ThisPixList,
+                                                #ListIslands=ListIslands,
+                                                #iIsland=iIsland,
                                                 ModelImage=self.ModelImage,
                                                 DicoDirty=self.DicoDirty)
             #InitMachine.Reset()

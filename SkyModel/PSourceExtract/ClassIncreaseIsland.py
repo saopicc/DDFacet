@@ -72,6 +72,15 @@ class ClassIncreaseIsland():
         xx=indx+x0-dx0
         yy=indy+y0-dy0
 
+        if self.Mask is not None:
+            Nx,Ny=self.Mask.shape[-2:]
+            Cx=((xx>=0)&(xx<Nx))
+            Cy=((yy>=0)&(yy<Ny))
+            ind=np.where(Cx & Cy)[0]
+            xx=xx[ind]
+            yy=yy[ind]
+            W=W[ind]
+            
         if not AllowMasked:
             MM=self.Mask[0,0,xx,yy]
             ind=np.where((MM==0))[0]

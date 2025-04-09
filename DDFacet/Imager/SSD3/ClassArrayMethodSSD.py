@@ -201,10 +201,14 @@ class ClassArrayMethodSSD():
     
 
     def ToConvArray(self,V,OutMode="Data",Noise=False):
+        T=ClassTimeIt.ClassTimeIt("ToConvArray")
+        T.disable()
         A=self.PM.GiveModelArray(V)
+        T.timeit("GiveModelArray")
         if Noise is not False:
             A+=np.random.randn(*A.shape)*Noise
         A=self.ConvMachine.Convolve(A,OutMode=OutMode)
+        T.timeit("Convolve")
         return A
 
 
@@ -337,7 +341,8 @@ class ClassArrayMethodSSD():
         self.T.reinit()
         import DDFacet.Other.AsyncProcessPool
         self.pid=str(multiprocessing.current_process())
-        self.APP=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_GA_SingleIsland_%s"%self.iIsland,
+        self.APPName="APP_GA_SingleIsland_%s"%self.iIsland
+        self.APP=DDFacet.Other.AsyncProcessPool.initNew(Name=self.APPName,
                                                         ncpu=self.GD["Parallel"]["NCPU"],
                                                         affinity="disable",#self.GD["Parallel"]["Affinity"],
                                                         #parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
@@ -372,6 +377,7 @@ class ClassArrayMethodSSD():
     def _fill_pop_array(self, pop):
         """Creates "Population" cube inside the island dict, iof not already created, or if the wrong shape."""
         if len(pop) > 0:
+            self.T.reinit()
             pop_shape = tuple([len(pop)] + list(pop[0].shape))
             if "Population" not in self._island_dict:
                 pop_array = self._island_dict.addSharedArray("Population", pop_shape, pop[0].dtype)
@@ -382,23 +388,38 @@ class ClassArrayMethodSSD():
                     pop_array = self._island_dict.addSharedArray("Population", pop_shape, pop[0].dtype)
             for i,individual in enumerate(pop):
                 pop_array[i,...] = pop[i]
+            self.T.timeit("_fill_pop_array")
             return pop_array
 
+
+
+        
     def GiveFitnessPop(self,pop):
 
-        self._fill_pop_array(pop)
-        for iIndividual,individual in enumerate(pop):
-            DicoJob={"iIndividual":iIndividual,
-                     "BestChi2":self.BestChi2,
-                     "EntropyMinMax":self.EntropyMinMax,
-                     "OperationType":"Fitness"}
-            self.APP.runJob("getFitness.Isl_%i.Indiv_%i"%(self.iIsland,iIndividual),
-                            self._runOperation,
-                            args=(DicoJob,), serial=SERIAL)
-        LDicoResults=self.APP.awaitJobResults("getFitness.Isl_%i.Indiv_*"%(self.iIsland),
-                                              progress=None,
-                                              #progress="Fitness #%i"%self.iIsland,
-                                              )
+        pop=self._fill_pop_array(pop)
+
+
+        if SERIAL:
+            LDicoResults=[]
+            for iIndividual,individual in enumerate(pop):
+                DicoJob={"iIndividual":iIndividual,
+                         "BestChi2":self.BestChi2,
+                         "EntropyMinMax":self.EntropyMinMax,
+                         "OperationType":"Fitness"}
+                LDicoResults.append(self._runOperation(DicoJob))
+        else:
+            for iIndividual,individual in enumerate(pop):
+                DicoJob={"iIndividual":iIndividual,
+                         "BestChi2":self.BestChi2,
+                         "EntropyMinMax":self.EntropyMinMax,
+                         "OperationType":"Fitness"}
+                self.APP.runJob("getFitness.Isl_%i.Indiv_%i"%(self.iIsland,iIndividual),
+                                self._runOperation,
+                                args=(DicoJob,), serial=SERIAL)
+                LDicoResults=self.APP.awaitJobResults("getFitness.Isl_%i.Indiv_*"%(self.iIsland),
+                                                      progress=None,
+                                                      #progress="Fitness #%i"%self.iIsland,
+                                                      )
         
         fitnesses=[]
         Chi2=[]
@@ -411,7 +432,6 @@ class ClassArrayMethodSSD():
         for iIndividual in range(len(pop)):
             fitnesses.append(DicoFitnesses[iIndividual])
             Chi2.append(DicoChi2[iIndividual])
-
 
         self.BestChi2=np.min(Chi2)
 
@@ -440,15 +460,20 @@ class ClassArrayMethodSSD():
                          "OperationType":"Mutate"}
                 LJob.append(DicoJob)
 
-        for DicoJob in LJob:
-            iIndividual=DicoJob["iIndividual"]
-            self.APP.runJob("doMutate.Isl_%i.Indiv_%i"%(self.iIsland,iIndividual),
-                            self._runOperation,
-                            args=(DicoJob,), serial=SERIAL)
-        LDicoResults=self.APP.awaitJobResults("doMutate.Isl_%i.Indiv_*"%(self.iIsland),
-                                              #progress="Mutate #%i"%self.iIsland,
-                                              progress=None,
-                                              )
+        if SERIAL:
+            LDicoResults=[]
+            for DicoJob in LJob:
+                LDicoResults.append(self._runOperation(DicoJob))
+        else:
+            for DicoJob in LJob:
+                iIndividual=DicoJob["iIndividual"]
+                self.APP.runJob("doMutate.Isl_%i.Indiv_%i"%(self.iIsland,iIndividual),
+                                self._runOperation,
+                                args=(DicoJob,), serial=SERIAL)
+                LDicoResults=self.APP.awaitJobResults("doMutate.Isl_%i.Indiv_*"%(self.iIsland),
+                                                      #progress="Mutate #%i"%self.iIsland,
+                                                      progress=None,
+                                                      )
 
         for DicoResults in LDicoResults:
             if DicoResults["Success"]:
@@ -661,7 +686,7 @@ class ClassArrayMethodSSD():
 
         DicoResult={"Success": True, 
                     "iIndividual": iIndividual}
-
+        self.T.timeit("SingleMutation")
         return DicoResult
 
 
@@ -685,16 +710,19 @@ class ClassArrayMethodSSD():
                     "iIndividual": iIndividual,
                     "fitness":fitness,
                     "Chi2":Chi2}
-        self.T.timeit("done job")
+        self.T.timeit("done job Fitness single")
         return DicoResult
 
 
 
     def _GiveFitness(self,individual,DoPlot=False):
-        
+        T=ClassTimeIt.ClassTimeIt("_GiveFitness")
+        T.disable()
         A=self.ToConvArray(individual)
+        T.timeit("ToConvArray")
         fitness=0.
         Resid=self.DirtyArray-A
+        T.timeit("Resid")
         
 
 
@@ -715,6 +743,7 @@ class ClassArrayMethodSSD():
         #WeightFreqBands=self.WeightFreqBands.reshape((nFreqBands,1,1))
         #Weight=WeightFreqBands/np.sum(WeightFreqBands)
         S=self.PM.ArrayToSubArray(individual,"Poly0")
+        T.timeit("ArrayToSubArray")
         chi2=0.
         ContinuousFitNess=[]
         for FuncType in self.MaxFunc:
@@ -793,6 +822,7 @@ class ClassArrayMethodSSD():
                 FNeg=np.sign(FNeg)*np.log10(np.abs(FNeg))
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(FNeg*W)
+        T.timeit("ContinuousFitNess")
             
 
         return (np.sum(ContinuousFitNess),),chi2
