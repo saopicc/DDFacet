@@ -34,6 +34,9 @@ D={"A":"a",
 
 def giveStrDiffObj(D0,D1):
     if isinstance(D0,np.ndarray):
+        if D0.shape!=D1.shape:
+            print(ModColor.Str("shape %s != %s"%(str(D0.shape),str(D1.shape))))
+            return np.nan
         if D0.dtype==bool:
             D0=np.float32(D0)
             D1=np.float32(D1)
