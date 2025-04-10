@@ -34,6 +34,9 @@ D={"A":"a",
 
 def giveStrDiffObj(D0,D1):
     if isinstance(D0,np.ndarray):
+        if D0.shape!=D1.shape:
+            print(ModColor.Str("shape %s != %s"%(str(D0.shape),str(D1.shape))))
+            return np.nan
         if D0.dtype==bool:
             D0=np.float32(D0)
             D1=np.float32(D1)
@@ -124,7 +127,13 @@ def CheckFiles(F0,F1):
         if "SubDico" not in F0 and "SubArray" not in F0:
             CheckDir(F0,F1)
     else:
-        #if (os.path.isfile(F0) and os.path.isfile(F1))==0: continue
+        if not os.path.isfile(F0):
+            print("MISSING: %s"%F0)
+            return
+        if not os.path.isfile(F1):
+            print("MISSING: %s"%F1)
+            return
+        
         if os.path.getsize(F0)==0 or os.path.getsize(F1)==0:
             return
         #if "Dirty" in F0 or "CF" in F0:

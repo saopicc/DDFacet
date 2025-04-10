@@ -361,8 +361,8 @@ class ClassWeightMachine():
                     sSq = numeratorSqrt ** 2 / avgW
                     grid1[...] = 1 + grid1 * sSq
 
-        if MPIManager.useMPI:
-            self._weight_grid["grid"] = MPIManager.COMM_WORLD.allreduce(self._weight_grid["grid"], MPIManager.SUM)
+            if MPIManager.useMPI:
+                self._weight_grid["grid"] = MPIManager.COMM_WORLD.allreduce(self._weight_grid["grid"], MPIManager.SUM)
             
         # launch jobs to finalize weights and save them to the cache
         for ims, ms in enumerate(self.ListMS):
@@ -475,14 +475,14 @@ class ClassWeightMachine():
             # of flags becomes nrow,nchan
 
             
-            
-            d0, d1 = self.GD["Selection"]["UVRangeKm"]
-            d0 = d0**2*1e6
-            d1 = d1**2*1e6
-            duv = (uvw[:,:2]**2).sum(1)  # u^2+v^2... and we already squared d0 and d1
-            flags[(duv < d0) | (duv > d1),:,:] = True
-            #flags = flags.any(axis=2)
-            #rowflags = flags.all(axis=1)
+            if self.GD["Selection"]["UVRangeKm"] is not None and self.GD["Selection"]["UVRangeKm"]!="":
+                d0, d1 = self.GD["Selection"]["UVRangeKm"]
+                d0 = d0**2*1e6
+                d1 = d1**2*1e6
+                duv = (uvw[:,:2]**2).sum(1)  # u^2+v^2... and we already squared d0 and d1
+                flags[(duv < d0) | (duv > d1),:,:] = True
+                #flags = flags.any(axis=2)
+                #rowflags = flags.all(axis=1)
             
 
 
@@ -725,14 +725,17 @@ class ClassWeightMachine():
                     flags = flags[:,::-1,:]
                 flags = flags.any(axis=2)
                 rowflags = flags.all(axis=1)
+
+                #rowflags = tab.getcol("FLAG_ROW", row0, nrows)
                 
                 # max of |u|, |v| in wavelengths
                 if not rowflags.all():
                     uvmax_wavelengths = abs(uvw[~rowflags, :2]).max() * max_freq / _cc
                     self._uvmax = max(self._uvmax, uvmax_wavelengths)
                     wmax = max(wmax, abs(uvw[~rowflags, 2]).max())
+                    #print(uvmax_wavelengths,wmax)
+                    #stop
                     
-
         if MPIManager.useMPI:
             self._uvmax = MPIManager.COMM_WORLD.allreduce(self._uvmax, MPIManager.MAX)
             wmax = MPIManager.COMM_WORLD.allreduce(wmax, MPIManager.MAX)
