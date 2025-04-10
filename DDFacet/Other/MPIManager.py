@@ -7,6 +7,7 @@ try:
     
     useMPI = True
     size = COMM_WORLD.size
+    
     rank = COMM_WORLD.rank
 except ModuleNotFoundError:
     pass

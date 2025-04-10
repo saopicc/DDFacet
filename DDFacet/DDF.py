@@ -488,32 +488,24 @@ def driver():
     retcode = report_error = 0
 
     try:
-        if not MPIManager.useMPI:
-            main(OP, messages)
-        else: # UseMPI
+        if OP.DicoConfig["Parallel"]["UseMPI"]:
             try:
                 from mpi4py import MPI
             except ImportError:
                 MPI = None
-                
             if MPI is None:
-                raise RuntimeError("MPI requested but it is not installed. You can install this optional requirement using "
-                                   "pip install 'DDFacet[mpi-support]' when installing DDFacet.")
-            if OP.DicoConfig["Parallel"]["UseMPIPool"]:
-                import mpi4py.futures
-
-                with mpi4py.futures.MPIPoolExecutor() as mpi_executor:
-                    size_mpi = MPI.COMM_WORLD.Get_size()
-                    rank = MPI.COMM_WORLD.Get_rank()
-                    ddfs = []
-                    for n in range(1,size_mpi):
-                        ddfs.append(mpi_executor.submit(main, OP, messages))
-                    main()
-                    mpi4py.futures.wait(ddfs)
-            else: # classical MPI
-                size_mpi = MPI.COMM_WORLD.Get_size()
-                rank = MPI.COMM_WORLD.Get_rank()
-                main(OP, messages)
+                # raise RuntimeError("MPI requested but it is not installed. You can install this optional requirement using "
+                #                    "pip install 'DDFacet[mpi-support]' when installing DDFacet.")
+                print(ModColor.Str("MPI requested but it is not installed. You can install this optional requirement using pip install 'DDFacet[mpi-support]' when installing DDFacet."))
+            #elif MPIManager.size==1:
+                #print(ModColor.Str("MPI requested but only one MPI process. Disabling MPI"))
+                # MPIManager.useMPI=False
+        else:
+            if MPIManager.size>1:
+                raise RuntimeError("MPI not requested but you likely use mpi4py use --Parallel-UseMPI=True?")
+            MPIManager.useMPI=False
+            
+        main(OP, messages)
         print(ModColor.Str(
             "DDFacet ended successfully after %s" %
             T.timehms(), col="green"), file=log)

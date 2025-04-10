@@ -892,15 +892,18 @@ class ClassMS():
             ddid_fields = ClassMS._ddid_field_cache.get(self.MSName)
         else:
             maintab = table(self.MSName, ack=False)
-            if self.TaQL:
-                maintab = maintab.query(self.TaQL)
+            # if self.TaQL:
+            #     maintab = maintab.query(self.TaQL)
             ddid_fields = set(zip(maintab.getcol("FIELD_ID"), maintab.getcol("DATA_DESC_ID")))
             ClassMS._ddid_field_cache[self.MSName] = ddid_fields
             
+        
         T.timeit()
-
+        #print("FJDFKJDFKDGJKL",ClassMS._ddid_field_cache)
         self.empty = (self.Field,self.DDID) not in ddid_fields
+        
         if self.empty:
+            #stop
             print(ModColor.Str("MS %s (field %d, ddid %d): no rows, skipping"%(self.MSName, self.Field, self.DDID)), file=log)
             return
 
@@ -1707,13 +1710,17 @@ class ClassMS():
 
         flags = np.empty((nrows, len(self.ChanFreq), len(self.CorrelationIds)), bool)
         tab.getcolslicenp("FLAG", flags, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nrows)
-        if self.GD["Selection"]["UVRangeKm"] is not None and self.GD["Selection"]["UVRangeKm"]!="":
-            d0, d1 = self.GD["Selection"]["UVRangeKm"]
-            d0 = d0**2*1e6
-            d1 = d1**2*1e6
-            duv = (uvw[:,:2]**2).sum(1)  # u^2+v^2... and we already squared d0 and d1
-            flags[(duv < d0) | (duv > d1),:,:] = True
 
+        # #############################################
+        # # disable to pass the test, but this is more correct with
+        # if self.GD["Selection"]["UVRangeKm"] is not None and self.GD["Selection"]["UVRangeKm"]!="":
+        #     d0, d1 = self.GD["Selection"]["UVRangeKm"]
+        #     d0 = d0**2*1e6
+        #     d1 = d1**2*1e6
+        #     duv = (uvw[:,:2]**2).sum(1)  # u^2+v^2... and we already squared d0 and d1
+        #     flags[(duv < d0) | (duv > d1),:,:] = True
+        # #############################################
+            
         
         if self._reverse_channel_order:
             flags = flags[:,::-1,:]

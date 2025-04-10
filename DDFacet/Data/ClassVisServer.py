@@ -154,6 +154,7 @@ class ClassVisServer():
                 msname, host, ddid, field, column = msspec
             else:
                 msname, host, ddid, field, column = msspec, self.DicoSelectOptions["DDID"], self.DicoSelectOptions["Field"], self.ColName
+                
             MS = CMS(
                 msname,
                 Col=column or self.ColName,
@@ -729,7 +730,6 @@ class ClassVisServer():
                     _, _, nx, ny = FullImShape
                 mode = self.GD["Comp"]["BDAMode"]
                 FOV =  np.sqrt((CellSizeRad_x*nx/2)**2+(CellSizeRad_y*ny/2)**2) * 180. / np.pi
-                print("SDLJSFLJSDFLDFJS FOV grid",FOV,ChanMappingGridding)
                 self._smm_grid.computeSmearMappingInBackground(base_job_id, ms, DATA, FOV,
                                                           (1. - self.GD["Comp"]["GridDecorr"]),
                                                           ChanMappingGridding, mode)
@@ -747,7 +747,6 @@ class ClassVisServer():
                     _, _, nx, ny = FullImShape
                 mode = self.GD["Comp"]["BDAMode"]
                 FOV =  np.sqrt((CellSizeRad_x*nx/2)**2+(CellSizeRad_y*ny/2)**2) * 180. / np.pi
-                print("SDLJSFLJSDFLDFJS FOV degrid",FOV,ChanMappingDeGridding)
                 self._smm_degrid.computeSmearMappingInBackground(base_job_id, ms, DATA, FOV,
                                                           (1. - self.GD["Comp"]["DegridDecorr"]),
                                                           ChanMappingDeGridding, mode)
