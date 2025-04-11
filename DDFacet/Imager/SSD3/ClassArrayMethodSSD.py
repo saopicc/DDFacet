@@ -338,6 +338,7 @@ class ClassArrayMethodSSD():
         self.BestContinuousFitNess=BestIndiv.ContinuousFitNess
 
     def InitWorkers(self):
+        stop
         self.T.reinit()
         import DDFacet.Other.AsyncProcessPool
         self.pid=str(multiprocessing.current_process())
@@ -356,6 +357,7 @@ class ClassArrayMethodSSD():
         self.T.timeit("StartWorker")
 
     def KillWorkers(self):
+        stop
         self.APP.terminate()
         self.APP.shutdown()
         del(self.APP)

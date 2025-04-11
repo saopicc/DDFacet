@@ -21,6 +21,9 @@ from DDFacet.Array import shared_dict
 from DDFacet.Imager.SSD3 import ClassImageDeconvMachineSSD
 import DDFacet.Other.AsyncProcessPool
 from SkyModel.PSourceExtract import ClassIncreaseIsland
+from DDFacet.Other import logger
+from DDFacet.Other import ModColor
+log=logger.getLogger("ClassEvolveGA")
 
 def FilterIslandsPix(ListIn,Npix_x,Npix_y):
     ListOut=[]
@@ -53,7 +56,8 @@ class ClassEvolveGA():
         
     def runGA_AllIslands(self):
         APP=self.APP_GA
-        
+
+        log.print("Running GA algorithm")
         T=ClassTimeIt.ClassTimeIt("runGA_AllIslands")
         T.disable()
         for iIsland,Island in enumerate(self.ListIslands):
@@ -70,8 +74,10 @@ class ClassEvolveGA():
         allIslandModelDict  = shared_dict.attach("DeconvListIslands%s"%self.StrField)
         allIslandModelDict.reload()
         
+        log.print("  Reinit islands in ModelMachine...")
         self.ModelMachine.reinitIslands(self.ListIslands)
         
+        log.print("  Update islands...")
         for iRes,DicoResult in enumerate(LDicoResults):
             iIsland=DicoResult["iIsland"]
             ThisIslandModelDict = allIslandModelDict[iIsland]
@@ -79,12 +85,14 @@ class ClassEvolveGA():
             self.ModelMachine.AppendIsland(self.ListIslands[iIsland], ThisIslandModelDict["Model"].copy(),W=self.ListSpacialWeight[iIsland])
             if DicoResult["HasError"]:
                 self.ErrorModelMachine.AppendIsland(ListIslands[iIsland], ThisIslandModelDict["sModel"].copy())
+        log.print("  Renormalise...")
+        self.ModelMachine.RenormaliseMultiEstimatesPerPixel()
+        log.print("  Done GA")
         
         APP.terminate()
         APP.shutdown()
         del(self.APP_GA)
         
-        self.ModelMachine.RenormaliseMultiEstimatesPerPixel()
         
     def _runGA(self,#ListIslands,
                iIsland,
@@ -260,7 +268,7 @@ class ClassEvolveGA_SingleIsland():
                                                                          ParallelFitness=ParallelFitness,
                                                                          NCPU=NCPU,
                                                                          ScaleS0="linear")
-        self.ArrayMethodsMachine.InitWorkers()
+        #self.ArrayMethodsMachine.InitWorkers()
 
         
 
@@ -372,7 +380,7 @@ class ClassEvolveGA_SingleIsland():
         if self.IslandBestIndiv is not None:
             if NGen==0:
                 self.ArrayMethodsMachine.PM.ReinitPop(self.pop,GiveListPolyArrayMP_LinComb(len(self.pop)),PutNoise=False)
-                self.ArrayMethodsMachine.KillWorkers()
+                #self.ArrayMethodsMachine.KillWorkers()
                 return self.pop[0]
             T.timeit("N=0")
 
@@ -476,7 +484,7 @@ class ClassEvolveGA_SingleIsland():
         T.timeit("eaSimple")
         #print(self.pop[0])
         #stop
-        self.ArrayMethodsMachine.KillWorkers()
+        #self.ArrayMethodsMachine.KillWorkers()
 
         V = tools.selBest(self.pop, 1)[0]
         

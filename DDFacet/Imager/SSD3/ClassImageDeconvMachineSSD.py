@@ -307,6 +307,17 @@ class ClassImageDeconvMachine():
 
         # ListIslands=self.CalcCrossIslandFlux(ListIslandsSort)
 
+        
+        #ListIslands=[np.load("errIsland_000524.npy").tolist()]
+
+        if not self.GD["SSD3"]["UniqueIsland"]:
+            ListIslands=IslandDistanceMachine.CalcCrossIslandFlux(ListIslands)
+            if self.GD["SSD3"]["ConvexifyIslands"]:
+                ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
+            
+        #ListIslands=IslandDistanceMachine.MergeIslands(ListIslands)
+        ListIslands=IslandDistanceMachine.BreakLargeIslands(ListIslands)
+
         # #############################
         # Filter by peak flux 
         ListIslandsFiltered=[]
@@ -317,41 +328,17 @@ class ClassImageDeconvMachine():
             DoThisOne=False
             
             MaxIsland=np.max(np.abs(PixVals))
-
-           # print "island %i [%i]: %f"%(iIsland,x.size,MaxIsland)
-
-#            if (MaxIsland>(3.*self.RMS))|(MaxIsland>Threshold):
             if (MaxIsland>Threshold):
                 ListIslandsFiltered.append(ListIslands[iIsland])
-            # else:
-            #     self.MaskMachine.CurrentNegMask[:,:,x,y]=1
-            #     self.MaskMachine.CurrentMask[:,:,x,y]=0
-            # ###############################
-            # if np.max(np.abs(PixVals))>Threshold:
-            #     DoThisOne=True
-            #     self.IslandHasBeenDone[0,0,x,y]=1
-            # if ((DoThisOne)|self.IslandHasBeenDone[0,0,x[0],y[0]]):
-            #     self.ListIslands.append(ListIslands[iIsland])
-            # ###############################
-        # #############################
-        
         print("  selected %i islands [out of %i] with peak flux > %.3g Jy"%(len(ListIslandsFiltered),len(ListIslands),Threshold), file=log)
         if len(ListIslandsFiltered)==0:
             return "NoIslands"
         ListIslands=ListIslandsFiltered
-        #ListIslands=[np.load("errIsland_000524.npy").tolist()]
-
-        if not self.GD["SSD3"]["UniqueIsland"]:
-            ListIslands=IslandDistanceMachine.CalcCrossIslandFlux(ListIslands)
-            if self.GD["SSD3"]["ConvexifyIslands"]:
-                ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
-            
-        #ListIslands=IslandDistanceMachine.MergeIslands(ListIslands)
-        ListIslands=IslandDistanceMachine.BreakLargeIslands(ListIslands)
+        # #############################
         
         ListIslands,ListSpacialWeight=IslandDistanceMachine.IncreaseIslands(ListIslands)
 
-        self.LabelIslandsImage=IslandDistanceMachine.CalcLabelImage(ListIslands)
+        self.LabelIslandsImage=None#IslandDistanceMachine.CalcLabelImage(ListIslands)
 
         self.ListIslands=ListIslands
         
@@ -546,7 +533,7 @@ class ClassImageDeconvMachine():
         
 
         
-        logger.setSilent(["AsyncProcessPool"])
+        #logger.setSilent(["AsyncProcessPool"])
         self.GAMachine=ClassEvolveGA(self)
         self.GAMachine.runGA_AllIslands()
         del(self.GAMachine)
@@ -560,7 +547,7 @@ class ClassImageDeconvMachine():
             self.SteinMachine.runStein_AllIslands()
             del(self.SteinMachine)
         
-        logger.setLoud(["AsyncProcessPool"])
+        #logger.setLoud(["AsyncProcessPool"])
         
         allIslandModelDict.delete()
         self.DicoDicoInitIndiv.delete()

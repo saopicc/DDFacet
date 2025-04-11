@@ -75,24 +75,28 @@ class ClassIslandDistanceMachine():
         else:
             self.NCPU=psutil.cpu_count()
         self.IdSharedMem=IdSharedMem
+        self.DicoAPP={}
 
 
-    def startWorkers(self):
-        self.APP_Islands=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_Islands",
+    def startWorkers(self,Name=""):
+        APP_Islands=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_Islands%s"%Name,
                                                                 ncpu=self.GD["Parallel"]["NCPU"],
                                                                 affinity="disable",#self.GD["Parallel"]["Affinity"],
                                                                 #parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
                                                                 #verbose=self.GD["Debug"]["APPVerbose"],
                                                                 #pause_on_start=self.GD["Debug"]["PauseWorkers"]
                                                                 )
-        self.APP_Islands.registerJobHandlers(self)
-        self.APP_Islands.startWorkers()
+        APP_Islands.registerJobHandlers(self)
+        APP_Islands.startWorkers()
+
+        self.DicoAPP[Name]=APP_Islands
         
-    def killWorkers(self):
-        APP=self.APP_Islands
+        
+    def killWorkers(self,Name=""):
+        APP=self.DicoAPP[Name]
         APP.terminate()
         APP.shutdown()
-        del(self.APP_Islands)
+        del(self.DicoAPP[Name])
         
     def SearchIslands(self,Threshold,Image=None):
         print("Searching Islands", file=log)
@@ -103,6 +107,7 @@ class ClassIslandDistanceMachine():
 
         # ###########################
         if self.GD["SSD3"]["UniqueIsland"]:
+            log.print(ModColor.Str("!!! Selection the entire image as a single island !!!"))
             nx,ny=Dirty.shape[-2:]
             xx,yy=np.mgrid[0:nx,0:ny]
             SingleIsland=np.array([xx.ravel(),yy.ravel()]).T.tolist()
@@ -137,12 +142,11 @@ class ClassIslandDistanceMachine():
         self.ListIslands=ListIslands
         logger.setSilent(["AsyncProcessPool"])
         self.startWorkers()
-        APP=self.APP_Islands
+        APP=self.DicoAPP[""]
         for iIsland in range(len(ListIslands)):#self.NIslands):
-            
             APP.runJob("runIncreaseIsland.%i"%(iIsland),
                        self._increaseSingleIslands,
-                       args=(iIsland,), serial=True)
+                       args=(iIsland,))#, serial=True)
         LDicoResults=APP.awaitJobResults("runIncreaseIsland.*", progress="Increase Islands")
         DicoResult={}
         for L in LDicoResults:
@@ -199,40 +203,52 @@ class ClassIslandDistanceMachine():
                     print("    breaking islands #%i into %i islands"%(iIsland,nn), file=log)
                     xb=np.int64(np.mgrid[x0:x1:(nx+1)*1j])
                     yb=np.int64(np.mgrid[y0:y1:(ny+1)*1j])
-                    xb=xb.flatten()
-                    yb=yb.flatten()
+                    self.xIsland=x
+                    self.yIsland=y
+                    # xb=xb.flatten()
+                    # yb=yb.flatten()
+                    key="_%i"%iIsland
+                    self.startWorkers(key)
+                    APP=self.DicoAPP[key]
                     for ix in range(nx):
-                        print("%i/%i"%(ix,nx))
                         for iy in range(ny):
-                            xs=x.copy()
-                            ys=y.copy()
-                            #ind=np.where((xs>xb[ix])&(xs<=xb[ix+1])&(ys>yb[iy])&(ys<=yb[iy+1]))[0]
-                            #if ind.size==0: continue
-                            
-                            ind=np.where(xs>xb[ix])[0]
-                            if ind.size==0: continue
-                            xs=xs[ind]; ys=ys[ind]
-                            
-                            ind=np.where(xs<=xb[ix+1])[0]
-                            if ind.size==0: continue
-                            xs=xs[ind]; ys=ys[ind]
-                            
-                            ind=np.where(ys>yb[iy])[0]
-                            if ind.size==0: continue
-                            xs=xs[ind]; ys=ys[ind]
-                            
-                            ind=np.where(ys<=yb[iy+1])[0]
-                            if ind.size==0: continue
-                            xs=xs[ind]; ys=ys[ind]
-                            
-                            II=np.zeros((ind.size,2),x.dtype)
-                            II[:,0]=xs
-                            II[:,1]=ys
-                            LOut.append(II)
+                            APP.runJob("selSubIsland.%i.%i.%i"%(iIsland,ix,iy),
+                                       self._selSubIsland,
+                                       args=(xb[ix],xb[ix+1],yb[iy],yb[iy+1]))#, serial=True)
 
+                    ThisIslandLOut=APP.awaitJobResults("selSubIsland.*", progress="Split island #%i"%iIsland)
+                    ThisIslandLOut=[l for l in ThisIslandLOut if l is not None]
+                    self.killWorkers(key)
+                    LOut+=ThisIslandLOut
             return LOut
+        
         else:
             return ListIslands
+
+
+    def _selSubIsland(self,x0,x1,y0,y1):
+        xs,ys=self.xIsland,self.yIsland
+        ind=np.where(xs>x0)[0]
+        if ind.size==0: return None
+        xs=xs[ind]; ys=ys[ind]
+        
+        ind=np.where(xs<=x1)[0]
+        if ind.size==0: return None
+        xs=xs[ind]; ys=ys[ind]
+        
+        ind=np.where(ys>y0)[0]
+        if ind.size==0: return None
+        xs=xs[ind]; ys=ys[ind]
+        
+        ind=np.where(ys<=y1)[0]
+        if ind.size==0: return None
+        xs=xs[ind]; ys=ys[ind]
+        
+        II=np.zeros((ind.size,2),xs.dtype)
+        II[:,0]=xs[:]
+        II[:,1]=ys[:]
+
+        return II
                         
     def CalcCrossIslandPSF(self,ListIslands):
         print("  calculating global islands cross-contamination", file=log)

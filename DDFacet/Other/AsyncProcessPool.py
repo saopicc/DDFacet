@@ -424,7 +424,7 @@ class AsyncProcessPool (object):
                 nres,LJobs = self._checkResultQueue()
                 if nres:
                     print("collected %d outstanding results from the queue: %s" % (nres,str(LJobs)), file=log)
-                print("waiting for worker processes to start up", file=log)
+                print("[%s] waiting for worker processes to start up"%self.Name, file=log)
                 self._workers_started_event.wait(10)
 
     def _startBulba (self):
