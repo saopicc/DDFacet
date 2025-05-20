@@ -1314,14 +1314,11 @@ class ClassImagerDeconv():
                 repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
 
                 if self.GD["Deconv"]["Mode"]=="SSD3":
-                    DicoComp=self.ModelMachine.DicoComp
+                    DicoComp=self.ModelMachine.DicoSMStacked["Comp"]
                     NParms,nx,ny=DicoComp["Vals"].shape
                     for iCoef in range(NParms):
                         ThisCoefImage=DicoComp["Vals"][iCoef,:,:].reshape((1,1,nx,ny))
-                        self.FacetMachine.ToCasaImage(ThisCoefImage,
-                                                      ImageName="%s.Taylor%i"%(self.BaseName,iMajor),
-                                                      Stokes=self.VS.StokesConverter.RequiredStokesProducts(),
-                                                      Fits=True)
+                        self.FacetMachine.ToCasaImage(ThisCoefImage,ImageName="%s.%2.2i.Taylor%i"%(self.BaseName,iMajor,iCoef),Stokes=self.VS.StokesConverter.RequiredStokesProducts(),Fits=True)
 
                 
             # Broadcast metadata regarding the state of Deconvolution form the master MPI process
