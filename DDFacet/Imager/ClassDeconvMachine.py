@@ -847,6 +847,8 @@ class ClassImagerDeconv():
                 self.DicoDirty = self.FacetMachine.FacetsToIm(NormJones=True)
                 self.FacetMachine.releaseGrids()
 
+
+                
                 self.SaveDirtyProducts()
 
                 # dump dirty to cache
@@ -1263,6 +1265,9 @@ class ClassImagerDeconv():
             # eventually Reset()s its HMP machine, releasing memory)
             # we have to give the PSF to the image-noise machine since it may have to run an HMP deconvolution
             self.ImageNoiseMachine.setPSF(self.DicoImagesPSF)
+
+
+            
             # now update the mask - it will eventually call for ImageNoiseMachine to compute a noise image
             # May be done by all the mpi processes if we want to distribute SSD2 computation using MPI
             self.MaskMachine.updateMask(self.DicoDirty)
@@ -1307,6 +1312,17 @@ class ClassImagerDeconv():
             repMinor, continue_deconv, update_model = None, None, None
             if MPIManager.rank == 0:
                 repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
+
+                if self.GD["Deconv"]["Mode"]=="SSD3":
+                    DicoComp=self.ModelMachine.DicoComp
+                    NParms,nx,ny=DicoComp["Vals"].shape
+                    for iCoef in range(NParms):
+                        ThisCoefImage=DicoComp["Vals"][iCoef,:,:].reshape((1,1,nx,ny))
+                        self.FacetMachine.ToCasaImage(ThisCoefImage,
+                                                      ImageName="%s.Taylor%i"%(self.BaseName,iMajor),
+                                                      Stokes=self.VS.StokesConverter.RequiredStokesProducts(),
+                                                      Fits=True)
+
                 
             # Broadcast metadata regarding the state of Deconvolution form the master MPI process
             # to all the other MPI processes.
@@ -1557,6 +1573,12 @@ class ClassImagerDeconv():
                 if "e" in self._saveims:
                     self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.residual%2.2i"%(self.BaseName,iMajor),
                                                 Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                if "r" in self._savecubes:
+                    self.FacetMachine.ToCasaImage(self.DicoDirty["ImageCube"],
+                                                  ImageName="%s.cube.residual%2.2i"%(self.BaseName,iMajor),
+                                                  Fits=True,
+                                                  Freqs=self.VS.FreqBandCenters,
+                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
             # write out current model, using final or intermediate name
             if MPIManager.rank == 0:

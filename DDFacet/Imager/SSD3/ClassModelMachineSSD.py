@@ -47,6 +47,8 @@ from SkyModel.Sky import ClassSM
 import os
 import copy
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
+from collections import deque
+import scipy.stats
 
 class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def __init__(self,*args,**kwargs):
@@ -63,8 +65,16 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.RefFreq=None
         self.DicoSMStacked={}
         self.DicoSMStacked["Type"]="SSD3"
-
-
+        self.NDeque=3
+        self.PastModels=deque([],self.NDeque)
+        self.PastModels_Resid=deque([],self.NDeque)
+        #self.PastModels_STD=deque([],self.NDeque)
+        self.Alpha=1.
+        self.AAlpha=None
+        self.xrRand=None
+        self.LSTD=[]
+        self.LResid1D=[]
+        
     def setParams(self):
         NOrderPoly=self.GD["SSD3"]["PolyFreqOrder"]
         SolveParamType=self.GD["SSD3"]["SolvePars"]
@@ -106,10 +116,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         D["ModelShape"]=self.ModelShape
         D["Type"]="SSD3"
         D["SolveParam"]=self.SolveParam
+        D["PastModels"]=self.PastModels
+        D["PastModels_Resid"]=self.PastModels_Resid
 
         MyPickle.Save(D,FileName)
 
     def ChangeNPix(self,NPixOut):
+        stop
         NPix=self.ModelShape[-1]
         NPixOut, _ = EstimateNpix(float(NPixOut), Padding=1)
         NPix0, _ = EstimateNpix(float(NPix), Padding=1)
@@ -147,26 +160,18 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
 
     def FromDico(self,DicoSMStacked):
-        if "Comp" not in DicoSMStacked.keys():
-            NComp = 0
-        else:
-            NComp=len(DicoSMStacked["Comp"])
-        #self.PM=self.DicoSMStacked["PM"]
-        print("Reading dico model from dico with %i components"%NComp, file=log)
+        print("Reading dico model from dico ", file=log)
         self.DicoSMStacked=DicoSMStacked
         self.RefFreq=self.DicoSMStacked["RefFreq"]
         self.ModelShape=self.DicoSMStacked["ModelShape"]
         self.SolveParam=self.DicoSMStacked["SolveParam"]
-        # try:
-        #     self.SolveParam=self.DicoSMStacked["SolveParam"]
-        # except:
-        #     print>>log, "SolveParam is not in the keyword lists of DicoSMStacked"
-        #     print>>log, "  setting SolveParam to [S, Alpha]"
-        #     self.SolveParam=["S","Alpha"]
+        self.PastModels=self.DicoSMStacked["PastModels"]
+        self.PastModels_Resid=self.DicoSMStacked["PastModels_Resid"]
             
         self.NParam=len(self.SolveParam)
 
     def GiveConvertedSolveParamDico(self,SolveParam1):
+        stop
         SolveParam0=self.DicoSMStacked["SolveParam"]
         print("Converting SSD3 model %s into %s..."%(str(SolveParam0),str(SolveParam1)), file=log)
         DicoOut=copy.deepcopy(self.DicoSMStacked)
@@ -201,23 +206,27 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         
     def GiveIndividual(self,ListPixParms):
         NParms=self.NParam
-        OutArr=np.zeros((NParms,len(ListPixParms)),np.float32)
         try:
             DicoComp=self.DicoSMStacked["Comp"]
         except:
             self.DicoSMStacked["Comp"]={}
             DicoComp=self.DicoSMStacked["Comp"]
 
-        for iPix in range(len(ListPixParms)):
-            x,y=ListPixParms[iPix]
+        if "Vals" in DicoComp.keys():
+            x,y=np.array(ListPixParms).T
+            OutArr=np.array([DicoComp["Vals"][iParam][x,y] for iParam in range(self.NParam)])
+        else:
+            OutArr=np.zeros((NParms,len(ListPixParms)),np.float32)
+            
+        # for iPix in range(len(ListPixParms)):
 
-            xy=x,y
-            try:
-                Vals=DicoComp[xy]["Vals"][0]
-                OutArr[:,iPix]=Vals[:]
-                #del(DicoComp[xy])
-            except:
-                pass
+        #     xy=x,y
+        #     try:
+        #         Vals=DicoComp[xy]["Vals"][0]
+        #         OutArr[:,iPix]=Vals[:]
+        #         #del(DicoComp[xy])
+        #     except:
+        #         pass
 
         return OutArr.flatten()
 
@@ -227,47 +236,51 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         Vr=V.reshape((self.NParam,V.size//self.NParam))
         NPixListParms=len(ListPixParms)
 
-        
-        #S=self.PM.ArrayToSubArray(V,Type="S")
-
-        #S[np.abs(S)<self.Th]=0
-        #S-=self.Th*np.sign(S)
-        SolveParam=np.array(self.SolveParam)
-        iS=np.where(SolveParam=="Poly0")[0][0]
-        S=Vr[iS]
-        #S*=self.GainMachine.GiveGain()
-
-        if JonesNorm is not None:
-            Vr[iS,:]/=np.sqrt(JonesNorm).flat[0]
-
-            print("NORM!!!!!!!!!!!!!!!!!!!!!!!!!!!",np.sqrt(JonesNorm))
-
-        for (x,y),iComp in zip(ListPix,range(NPixListParms)):
-            #if S[iComp]==0: continue
-            Vals=np.array(Vr[:,iComp]).copy()
-            self.AppendComponentToDictStacked((x,y),Vals,W=W[iComp])
+        DicoComp=self.DicoSMStacked["Comp"]
+        ListPixParms
+        x,y=np.array(ListPix).T
+        for iParam in range(self.NParam):
+            DicoComp["Vals"][iParam][x,y]+=W[:]*Vr[iParam]
+        DicoComp["Weights"][x,y]+=W[:]
 
 
+    def giveMask_nonZeroModel(self):
+        Mask=np.zeros(self.ModelShape,np.bool_)
+        if "Comp" in self.DicoSMStacked.keys():
+            ImTaylor0=self.DicoSMStacked["Comp"]["Vals"][0]
+            Mask[0,0].flat[:]=(ImTaylor0!=0).flat[:]
+        return Mask
+            
     def reinitIslands(self,ListIslands):
         if "Comp" not in self.DicoSMStacked.keys():
             self.DicoSMStacked["Comp"]={}
+            DicoComp=self.DicoSMStacked["Comp"]
+            _,_,nx,ny=self.ModelShape
+            DicoComp["Vals"]=np.zeros((self.NParam,nx,ny),np.float32)
+            DicoComp["Weights"]=np.zeros((nx,ny),np.float32)
             
         DicoComp=self.DicoSMStacked["Comp"]
+        
             
         for Island in ListIslands:
-            for key in Island:
-                key=tuple(key)
-                try:
-                    del(DicoComp[key]["Vals"])
-                    del(DicoComp[key]["Weights"])
-                except:
-                    pass
-                DicoComp[key]={}
-                DicoComp[key]["Vals"]=[]
-                DicoComp[key]["Weights"]=[]
+            x,y=np.array(Island).T
+            for iParam in range(self.NParam):
+                DicoComp["Vals"][iParam][x,y]=0
+                DicoComp["Weights"][x,y]=0
+                
+            # for key in Island:
+            #     key=tuple(key)
+            #     try:
+            #         del(DicoComp[key]["Vals"])
+            #         del(DicoComp[key]["Weights"])
+            #     except:
+            #         pass
+            #     DicoComp[key]={}
+            #     DicoComp[key]["Vals"]=[]
+            #     DicoComp[key]["Weights"]=[]
 
     def AppendComponentToDictStacked(self,key,Vals,W=None):
-        
+        stop
         DicoComp=self.DicoSMStacked["Comp"]
         DicoComp[key]["Vals"].append(Vals)
         if W is None:
@@ -275,24 +288,143 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         else:
             DicoComp[key]["Weights"].append(W)
             
+    def updateAlpha(self,MeanDirty):
+        nch,_,nx,ny=MeanDirty.shape
+        if nch!=1: stop
+        if self.xrRand is None:
+            Nr=10000
+            xr=np.int64(np.random.rand(Nr)*nx)
+            yr=np.int64(np.random.rand(Nr)*nx)
+            self.xryr=(xr,yr)
+        xr,yr = self.xryr
+        Resid1D=MeanDirty.flat[xr*ny+yr]
+        STD = scipy.stats.median_abs_deviation(Resid1D,axis=None,scale="normal")
+        
+        self.PastModels_Resid.append(MeanDirty.copy())
+        self.LSTD.append(STD)
+        #self.PastModels_STD.append(STD)
+        
+        if len(self.LSTD)>0:
+            CSTD=(STD>0.75*self.LSTD[-1])
+            if CSTD:
+                STD0,STD1=self.LSTD[-1],STD
+                Alpha=self.Alpha/2
+                log.print("Reducing Alpha %.2f -> %.2f [std = %f vs %f Jy]"%(self.Alpha,Alpha,STD0,STD1))
+                
+                self.Alpha=Alpha
+        self.LResid1D.append( Resid1D.copy() )
+        
+            
     def RenormaliseMultiEstimatesPerPixel(self):
         DicoComp=self.DicoSMStacked["Comp"]
-        for x,y in DicoComp.keys():
-            ListSols=DicoComp[(x,y)]["Vals"]
-            if len(ListSols)==1: continue
-            #Vals=np.array(DicoComp[(x,y)]["Vals"]).mean(axis=0)
-            W=np.array(DicoComp[(x,y)]["Weights"]).reshape((-1,1))
-            W/=np.sum(W)
-            Vals=np.sum(np.array(DicoComp[(x,y)]["Vals"])*W,axis=0)
-            DicoComp[(x,y)]["Vals"]=[Vals]
-            DicoComp[(x,y)]["Weights"]=[1.]
+
+                
+        x,y=np.where(DicoComp["Vals"][0]!=0)
+
+        for iParam in range(self.NParam):
+            DicoComp["Vals"][iParam][x,y]/=DicoComp["Weights"][x,y]
+        DicoComp["Weights"][x,y]=1
+
+        # ThisModel=DicoComp["Vals"][0]
+        # if len(self.PastModels)>1:
+        #     sgn0=np.sign(self.PastModels[1][0]-self.PastModels[0][0])
+        #     sgn1=np.sign(ThisModel-self.PastModels[1][0])
+        #     C0=True#(self.PastModels[0][0]!=0)
+        #     C1=True#(self.PastModels[1][0]!=0)
+        #     C2=True#(ThisModel!=0)
+        #     Cs=(sgn0!=sgn1)
+        #     x,y=np.where(C0 & C1 & C2 & Cs)
+        #     # # ThisModel[x,y] = (self.PastModels[-1][x,y]+ThisModel[x,y])/2
+        # #     dThisModel = ThisModel[x,y]-self.PastModels[-1][x,y]
+        # #     ThisModel[x,y]=self.PastModels[-1][x,y]+dThisModel/4
+        # #     log.print("  Have rescaled %.2f%% of oscilating componants"%(100*x.size/ThisModel.size))
+        # # self.PastModels.append(ThisModel.copy())
+        #     DicoComp["Vals"][:,x,y]=(self.PastModels[-1][:,x,y]+DicoComp["Vals"][:,x,y])/2
+        #     log.print("  Have rescaled %.2f%% of oscilating componants"%(100*x.size/ThisModel.size))
+        # self.PastModels.append(DicoComp["Vals"].copy())
+
+        nParms,nx,ny=DicoComp["Vals"].shape
+        if self.AAlpha is None:
+            self.AAlpha=np.ones((1,nx,ny),np.float32)
+        ThisModel_mean=DicoComp["Vals"][0]
+
+        
+        if len(self.PastModels)>1:
+            log.print("Use %i past models to update..."%len(self.PastModels))
+            # sgn0=np.sign(self.PastModels[1][0]-self.PastModels[0][0])
+            # sgn1=np.sign(ThisModel_mean-self.PastModels[1][0])
+            # C0=True#(self.PastModels[0][0]!=0)
+            # C1=True#(self.PastModels[1][0]!=0)
+            # C2=True#(ThisModel!=0)
+            # Cs=(sgn0!=sgn1)
+            # x,y=np.where(C0 & C1 & C2 & Cs)
+            # self.AAlpha[0,x,y]=self.AAlpha[0,x,y]/2TestMay19_AlphaIsBack_Deque.mean_model06.fits
+            # dThisModel = DicoComp["Vals"][:]-self.PastModels[-1][:]
+            # DicoComp["Vals"][:] = self.PastModels[-1][:] + self.AAlpha * dThisModel
+            # ##################
+            
+            # self.PastModels_Resid: NDeque,1,1,nx,ny
+            # self.PastModels: NDeque,nParm,nx,ny
+            PastModels_Resid=np.array(self.PastModels_Resid).copy()
+            PastModels=np.array(self.PastModels)
+            NDeque,nParm,nx,ny=PastModels.shape
+            
+            
+            PastModels_Resid=PastModels_Resid[-NDeque:].reshape((NDeque,1,nx,ny))
+            PastModels=PastModels.reshape((NDeque,self.NParam,nx,ny))
+            #STD=np.array(self.PastModels_STD[-NDeque:]).reshape((NDeque,1,1,1))
+
+            LSTD=[]
+            xr,yr = self.xryr
+            for ThisResid in PastModels_Resid:
+                Resid1D=ThisResid.flat[xr*ny+yr]
+                LSTD.append(scipy.stats.median_abs_deviation(Resid1D,axis=None,scale="normal"))
+            STD=np.array(LSTD)
+            
+            aPastModels_Resid=np.abs(PastModels_Resid)
+            Th=0.5*STD
+            
+            for iModel in range(NDeque):
+                M=(aPastModels_Resid[iModel,0]<Th[iModel])
+                indx,indy=np.where(M)
+                aPastModels_Resid[iModel,0,indx,indy]=Th[iModel]
+            W=1./aPastModels_Resid**2#**2
+            S0=PastModels[:,0:1]
+            W[S0==0]=0
+            
+            Ws=np.sum(W,axis=0)
+            Ws[Ws==0]=1.
+            MeanModelPast=np.sum(W*PastModels,axis=0)/Ws
+
+            Wa=np.ones((1,nx,ny),np.float32)
+            Wa[MeanModelPast[0:1]==0]=0
+            Wb=np.ones((1,nx,ny),np.float32)
+            DicoComp["Vals"][:] = (Wa*MeanModelPast + Wb*DicoComp["Vals"][:])/(Wa+Wb)
+            
+            
+            
+            # ##################
+
+            
+            #DicoComp["Vals"][:] = self.PastModels[-1][:] + self.Alpha * dThisModel
+            #log.print("  Have rescaled model using Alpha = %.2f"%(self.Alpha))
+
+        self.PastModels.append(DicoComp["Vals"].copy())
+        
+        if self.GD["SSD3"]["ForcePositiveModel"]:
+            x,y=np.where(DicoComp["Vals"][0]<0)
+            for iParam in range(self.NParam):
+                DicoComp["Vals"][iParam][x,y]=0
+        
+        
         
     def GiveModelImage(self,FreqIn=None,out=None):
-        
         
         RefFreq=self.DicoSMStacked["RefFreq"]
         if FreqIn is None:
             FreqIn=np.array([RefFreq])
+            
+        log.print("Compute model image at %s MHz..."%str((FreqIn/1e6).tolist()))
 
         #if type(FreqIn)==float:
         #    FreqIn=np.array([FreqIn]).flatten()
@@ -320,87 +452,21 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         DicoSM={}
         SolveParam=np.array(self.SolveParam)
-        for x,y in DicoComp.keys():
-            ListSols=DicoComp[(x,y)]["Vals"]#/self.DicoSMStacked[key]["SumWeights"]
-#            print "pixel %i,%i len(listsol):"%(x,y),len(ListSols)
-            for iDirJones in range(len(ListSols)):
-                ThisSol=ListSols[iDirJones]
 
-                #print>>log,((x,y),iDirJones,ThisSol)
+        C=DicoComp["Vals"]
+        x,y=np.where(C[0]!=0)
+        logS=np.zeros((nx,ny),np.float32)
+        for ich in range(nchan):
+            S0=C[0]#np.zeros((ind.size,),np.float32)
+            ThisFreq=FreqIn[ich]
+            logS.fill(0)
+            for iCoef in range(1,self.NParam):
+                logS+=C[iCoef]*(np.log(ThisFreq/RefFreq))**iCoef
 
-                iS=np.where(SolveParam=="Poly0")[0]
-                S=ThisSol[iS]
-                if S==0: continue
-
-                iGSig=np.where(SolveParam=="GSig")[0]
-                ThisGSig=0.
-                if iGSig.size!=0:
-                    ThisGSig=ThisSol[iGSig]
-
-                
-                p=ThisSol[:].copy()
-                p[0]=0.
-                logS=np.poly1d(p[::-1])(np.log(FreqIn/RefFreq))
-                SFreq=S*np.exp(logS)
-                
-
-                    
-                for ch in range(nchan):
-                    
-                    Flux=SFreq[ch]
-                    
-                    sig=np.abs(ThisGSig)
-                    Sum=0
-                    #print "Flux,Sig",Flux,sig
-                    if sig!=0:#>0.5:
-                        marg=round(5*sig)
-                        if marg%2==0: marg+=1
-                        xx,yy=np.mgrid[-marg:marg:(2*marg+1)*1j,-marg:marg:(2*marg+1)*1j]
-                        d=np.sqrt(xx**2+yy**2)
-                        a=Flux/(2.*np.pi*sig**2)
-                        v=a*np.exp(-d**2/(2.*sig**2))
-                        for pol in range(npol):
-                            indx=x+xx.flatten()
-                            indy=y+yy.flatten()
-                            #ModelImage[ch,pol,np.int32(indx),np.int32(indy)]+=v.ravel()
-
-                            for iPix in range(indx.size):
-                                try:
-                                    _=DicoComp[(indx[iPix],indy[iPix])]["Vals"]
-                                    ModelImage[ch,pol,np.int32(indx[iPix]),np.int32(indy[iPix])]+=v.ravel()[iPix]
-
-                                    Sum+=v.ravel()[iPix]
-#                                    print "Added pix ",np.int32(indx[iPix]),np.int32(indy[iPix]),v.ravel()[iPix]
-                                except:
-                                    pass
-#                        print "ThisSum",Sum
-                                    #print "SUM MM:",np.sum(v)/Flux
-                    else:
-                        for pol in range(npol):
-                            ModelImage[ch,pol,x,y]+=Flux
-
-        
-        #print "np.sum(ModelImage)",np.sum(ModelImage[0])
-#        stop
-        # vmin,vmax=np.min(self._MeanDirtyOrig[0,0]),np.max(self._MeanDirtyOrig[0,0])
-        # vmin,vmax=-1,1
-        # #vmin,vmax=np.min(ModelImage),np.max(ModelImage)
-        # pylab.clf()
-        # ax=pylab.subplot(1,3,1)
-        # pylab.imshow(self._MeanDirtyOrig[0,0],interpolation="nearest",vmin=vmin,vmax=vmax)
-        # pylab.subplot(1,3,2,sharex=ax,sharey=ax)
-        # pylab.imshow(self._MeanDirty[0,0],interpolation="nearest",vmin=vmin,vmax=vmax)
-        # pylab.colorbar()
-        # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
-        # pylab.imshow( ModelImage[0,0],interpolation="nearest",vmin=vmin,vmax=vmax)
-        # pylab.colorbar()
-        # pylab.draw()
-        # pylab.show(False)
-        # print np.max(ModelImage[0,0])
-        # # stop
-
- 
+            ModelImage[ich,0]=S0*np.exp(logS)
+            
         return ModelImage
+                
         
 
         
@@ -464,6 +530,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         
     def RemoveNegComponants(self):
         print("Cleaning model dictionary from negative components", file=log)
+        stop
         ModelImage=self.GiveModelImage(self.DicoSMStacked["RefFreq"])[0,0]
         
         Lx,Ly=np.where(ModelImage<0)
@@ -476,6 +543,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 print("  Component at (%i, %i) not in dict "%key, file=log)
 
     def FilterNegComponants(self,box=20,sig=3,RemoveNeg=True):
+        stop
         print("Cleaning model dictionary from negative components with (box, sig) = (%i, %i)"%(box,sig), file=log)
         
         print("  Number of components before filtering: %i"%len(self.DicoSMStacked["Comp"]), file=log)
@@ -502,6 +570,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
 
     def CleanMaskedComponants(self,MaskName,InvertMask=False):
+        stop
         print("Cleaning model dictionary from masked components using %s [%i components]"%(MaskName,len(self.DicoSMStacked["Comp"])), file=log)
 
         im=image(MaskName)
@@ -583,11 +652,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.AnalyticSourceCat=ClassSM.ClassSM(SkyModel)
 
     def DelAllComp(self):
+        stop
         for key in self.DicoSMStacked["Comp"].keys():
             del(self.DicoSMStacked["Comp"][key])
 
 
     def PutBackSubsComps(self):
+        stop
         #if self.GD["Data"]["RestoreDico"] is None: return
 
         SolsFile=self.GD["DDESolutions"]["DDSols"]

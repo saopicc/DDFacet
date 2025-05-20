@@ -68,6 +68,7 @@ from DDFacet.Other import MyPickle
 from DDFacet.Array import ModLinAlg
 from astropy.coordinates import SkyCoord
 import astropy.units as u
+from DDFacet.Imager import ClassMaskMachine
 
 from DDFacet.Other import MPIManager
 
@@ -1431,6 +1432,7 @@ class ClassFacetMachine():
             else:
                 DicoImages["MeanImage"] = DicoImages["ImageCube"]
 
+            
             DicoImages["FacetNorm"] = FacetNorm
             DicoImages["JonesNorm"] = JonesNorm
             
@@ -1447,10 +1449,6 @@ class ClassFacetMachine():
 
 
 
-
-
-            
-            return DicoImages
 
         # else build Dirty (residual) image
         else:
@@ -1478,7 +1476,13 @@ class ClassFacetMachine():
             DicoImages["MeanImage"] = MeanResidual
             DicoImages["FacetNorm"] = FacetNorm  # grid-correcting map
             DicoImages["JonesNorm"] = JonesNorm
-            return DicoImages
+            
+        DicoImages["ImageInfo"]["WBAND"]=WBAND
+        if not self.DoPSF and self.GD["Mask"]["ThFilterRFI"]:
+            FilterMachine=ClassMaskMachine.ClassFilterMachine()
+            FilterMachine.filterCube(DicoImages,ThFilterRFI=self.GD["Mask"]["ThFilterRFI"])
+            
+        return DicoImages
 
     def toSingleFacet(self):
         log.print("Convert FacetMachine to single facet-like...")

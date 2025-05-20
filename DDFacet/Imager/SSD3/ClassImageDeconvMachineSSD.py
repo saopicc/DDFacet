@@ -222,7 +222,7 @@ class ClassImageDeconvMachine():
                     InitMachine.InitMachine.DeconvMachine.SetPSF(self.DicoVariablePSF)
                     
                 #print(self.DicoVariablePSF.keys())
-
+                
             self._init_machine_initialized = True
 
     def _reset_InitMachine(self):
@@ -282,8 +282,12 @@ class ClassImageDeconvMachine():
         if self.MaskMachine.CurrentNegMask is None:
             raise RuntimeError("SSD requires either a user supplied FITS mask or automasking to be enabled. Check your options.")
 
+        ModelMask=self.ModelMachine.giveMask_nonZeroModel()
+        #Mask = (self.MaskMachine.CurrentMask | ModelMask)
+        #NegMask = (Mask==0)
+        NegMask=self.MaskMachine.CurrentNegMask
         IslandDistanceMachine=ClassIslandDistanceMachine.ClassIslandDistanceMachine(self.GD,
-                                                                                    self.MaskMachine.CurrentNegMask,
+                                                                                    NegMask,#self.MaskMachine.CurrentNegMask,
                                                                                     self.PSFServer,
                                                                                     self.DicoDirty,
                                                                                     IdSharedMem=self.IdSharedMem)
@@ -315,22 +319,29 @@ class ClassImageDeconvMachine():
             if self.GD["SSD3"]["ConvexifyIslands"]:
                 ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
             
-        #ListIslands=IslandDistanceMachine.MergeIslands(ListIslands)
+        # ListIslands=IslandDistanceMachine.MergeIslands(ListIslands)
         ListIslands=IslandDistanceMachine.BreakLargeIslands(ListIslands)
 
         # #############################
         # Filter by peak flux 
         ListIslandsFiltered=[]
         Dirty=self.DicoDirty["MeanImage"]
+        log.print("Filter islands...")
+        N_PixelInCurrentModel,N_Th=0,0
+        
         for iIsland in range(len(ListIslands)):
             x,y=np.array(ListIslands[iIsland]).T
             PixVals=Dirty[0,0,x,y]
+            ModelMaskVals=ModelMask[0,0,x,y]
             DoThisOne=False
-            
             MaxIsland=np.max(np.abs(PixVals))
-            if (MaxIsland>Threshold):
+            C_PixelInCurrentModel=ModelMaskVals.any()
+            C_Th=(MaxIsland>Threshold)
+            N_PixelInCurrentModel+=C_PixelInCurrentModel
+            N_Th+=C_Th
+            if C_Th or C_PixelInCurrentModel:
                 ListIslandsFiltered.append(ListIslands[iIsland])
-        print("  selected %i islands [out of %i] with peak flux > %.3g Jy"%(len(ListIslandsFiltered),len(ListIslands),Threshold), file=log)
+        print("  selected %i islands [out of %i] with peak flux > %.3g Jy [%i], or with pixel in previous ModelMachine [%i]"%(len(ListIslandsFiltered),len(ListIslands),Threshold, N_Th, N_PixelInCurrentModel), file=log)
         if len(ListIslandsFiltered)==0:
             return "NoIslands"
         ListIslands=ListIslandsFiltered
@@ -349,6 +360,9 @@ class ClassImageDeconvMachine():
         #print ":::::::::::::::::"
         ind=np.argsort(Sz)[::-1]
 
+        # sorted_indices = sorted(range(len(data)), key=lambda i: (data[i][1], data[i][0]))
+        # stop
+        
         ListIslandsOut=[self.ListIslands[i] for i in ind]
         self.ListIslands=ListIslandsOut#[100::10][0:1]
         self.ListSpacialWeight=[ListSpacialWeight[i] for i in ind]
@@ -377,7 +391,7 @@ class ClassImageDeconvMachine():
         npol,_,_=self.Dirty.shape
 
         m0,m1=self.Dirty[0].min(),self.Dirty[0].max()
-
+        
         DoAbs=int(self.GD["Deconv"]["AllowNegative"])
         print("  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter,self.MaxMinorIter,DoAbs), file=log)
 
@@ -387,7 +401,18 @@ class ClassImageDeconvMachine():
         RMS=np.std(np.real(self.Dirty.ravel()[RandomInd]))
         #print "::::::::::::::::::::::"
         self.RMS=RMS
+        
+        self.DicoDirty["RMS"]=RMS
 
+
+        LRMS=[]
+        nch=self.DicoDirty["ImageCube"].shape[0]
+        for ich in range(nch):
+            ThisRMS=np.std(np.real(self.DicoDirty["ImageCube"][ich].flat[RandomInd]))
+            ThisRMS=1.
+            LRMS.append(ThisRMS)
+        self.DicoDirty["LRMS"]=LRMS
+        
         #self.GainMachine.SetRMS(RMS)
         
         Fluxlimit_RMS = self.RMSFactor*RMS
@@ -412,25 +437,17 @@ class ClassImageDeconvMachine():
         print("      Sidelobe-based threshold = %10.6f Jy [sidelobe  = %.3f of peak; cycle factor %.1f]"%(Fluxlimit_Sidelobe,self.SideLobeLevel,self.CycleFactor), file=log)
         print("      Peak-based threshold     = %10.6f Jy [%.3f of peak]"%(Fluxlimit_Peak,self.PeakFactor), file=log)
         print("      Absolute threshold       = %10.6f Jy"%(self.FluxThreshold), file=log)
-
-
-        DoZeroTh=False
-        if self.GD["SSD3"]["NLastCyclesDeconvAll"]==-1:
-            DoZeroTh=True
-        
-        if self._CurrentMajorIter>(self.MaxMajorIter-NLastCyclesDeconvAll):
-            DoZeroTh=True
-
-        if DoZeroTh:
+        self.ThSpectralFit=None
+        #self.ThSpectralFit=1.
+        if self.GD["SSD3"]["NLastCyclesDeconvAll"]==-1 or (self._CurrentMajorIter > (self.MaxMajorIter-NLastCyclesDeconvAll)) :
             print(ModColor.Str("    ... overwriting these values with zero",col="green"), file=log)
             StopFlux=0.
-            
+            #self.ThSpectralFit=3.
         print("    Stopping flux              = %10.6f Jy [%.3f of peak ]"%(StopFlux,StopFlux/MaxDirty), file=log)
 
+        self.ModelMachine.updateAlpha(self._MeanDirty)
         
-        MaxModelInit=np.max(np.abs(self.ModelImage))
-
-        
+        # MaxModelInit=np.max(np.abs(self.ModelImage))
         # Fact=4
         # self.BookKeepShape=(npix/Fact,npix/Fact)
         # BookKeep=np.zeros(self.BookKeepShape,np.float32)
@@ -467,8 +484,11 @@ class ClassImageDeconvMachine():
             
         allIslandModelDict  = shared_dict.create("DeconvListIslands%s"%self.StrField)
         for iIsland,Island in enumerate(self.ListIslands):
+            Island=np.array(Island)
             allIslandModelDict.addSubdict(iIsland)
-            allIslandModelDict[iIsland]["Island"]=Island
+            allIslandModelDict[iIsland].addSharedArray("Island", Island.shape, np.int32)
+            allIslandModelDict[iIsland]["Island"][:]=Island[:]
+            
 
         self.DicoDicoInitIndiv  = shared_dict.create("DicoDicoInitIndiv%s"%self.StrField)
         for iMachine,InitMachine in enumerate(self.ListInitMachine):
@@ -497,25 +517,31 @@ class ClassImageDeconvMachine():
         DoAbs=int(self.GD["Deconv"]["AllowNegative"])
         # print("  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter,self.MaxMinorIter,DoAbs), file=log)
         
-
+        
         
 
         #print("  selected %i islands larger than %i pixels for initialisation"%(np.count_nonzero(ListDoIslandsInit),self.GD["GAClean"]["MinSizeInit"]), file=log)
 
         for iIsland,Island in enumerate(self.ListIslands):
+            #print("SDLFSLJFJS",iIsland,len(Island))
             APP.runJob("initIsland.%i"%(iIsland),
                        self._initIsland,
                        args=(#self.ListIslands,
-                             iIsland,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs), serial=SERIAL)
+                             iIsland,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs,self.ThSpectralFit), serial=SERIAL)
         LDicoResults=APP.awaitJobResults("initIsland.*", progress="Init Islands")
 
         DTime={}
+        LNSpectralFit=[]
         for DicoResult in LDicoResults:
             if DicoResult is None: continue
             for InitType in DicoResult.keys():
                 L=DTime.get(InitType,[])
-                L.append(DicoResult[InitType])
+                L.append(DicoResult[InitType]["Time"])
                 DTime[InitType]=L
+
+                NSpectralFit=DicoResult[InitType].get("NSpectralFit",None)
+                if NSpectralFit is not None:
+                    LNSpectralFit.append(NSpectralFit)
 
         Lkey=list(DTime.keys())
         Ttot=[np.sum(DTime[InitType]) for InitType in Lkey]
@@ -527,6 +553,11 @@ class ClassImageDeconvMachine():
         ss="Initialisation times: %s"%(", ".join(Lss))
         log.print(ss)
         
+        NSpectralFit=np.array(LNSpectralFit)
+        if NSpectralFit.size>0:
+            nPixFit,nPixTot=np.sum(NSpectralFit,axis=0)
+            if nPixTot>0: log.print("MultiScale initialisation: spectral fit for %.2f%% of the pixels"%(100*nPixFit/nPixTot))
+            
         if self.GD["Misc"]["ConserveMemory"]:
             self._reset_InitMachine()
         self.Reset()#_reset_InitMachine()
@@ -572,16 +603,18 @@ class ClassImageDeconvMachine():
     
     def _initIsland(self,
                     #ListIslands,
-                    iIsland,DicoDirty_path,GridFreqs,DegridFreqs):
+                    iIsland,DicoDirty_path,GridFreqs,DegridFreqs,ThSpectralFit):
 
         self.DicoInitIndiv={}
-        
+
         if self.GD["GAClean"]["MinSizeInit"]==-1: return
 
+        self.ThSpectralFit=ThSpectralFit
 
         
         LSilent=["ClassInitSSDModelHMP", "ClassMultiScaleMachine", "ClassInitSSDModelMultiSlice", "ClassImageDeconvMachineMSMF"]
         logger.setSilent(LSilent)
+        
         self.ListSizeIslands=[]
         #ThisPixList=ListIslands[iIsland]
         allIslandModelDict  = shared_dict.attach("DeconvListIslands%s"%self.StrField)
@@ -603,23 +636,30 @@ class ClassImageDeconvMachine():
         DicoInitModel  = shared_dict.attach("DicoDicoInitIndiv%s"%self.StrField)
 
         t0=time.time()
-        DTime={}
+        DInfo={}
         for iMachine,InitMachine in enumerate(self.ListInitMachine):
             rep = InitMachine.giveDicoInitIndiv(Island=ThisPixList,
                                                 #ListIslands=ListIslands,
-                                                #iIsland=iIsland,
+                                                iIsland=iIsland,
                                                 ModelImage=self.ModelImage,
-                                                DicoDirty=self.DicoDirty)
+                                                DicoDirty=self.DicoDirty,
+                                                ThSpectralFit=self.ThSpectralFit)
             #InitMachine.Reset()
             #print("SDKSDFKJSFKLJSF",rep,type(rep))
             #self.DicoDicoInitIndiv[iMachine].addSubdict(iIsland)
             t1=time.time()
-            DTime[InitMachine.Type]=t1-t0
+            DInfo[InitMachine.Type]={}
+            DInfo[InitMachine.Type]["Time"]=t1-t0
+            if InitMachine.Type=="MultiSlice":
+                rep,NSpectralFit=rep
+                DInfo[InitMachine.Type]["NSpectralFit"]=NSpectralFit
+                
             t0=t1
             DicoInitModel[iMachine][iIsland] = rep
+
         logger.setLoud(LSilent)
 
-        return DTime
+        return DInfo
 
 
 

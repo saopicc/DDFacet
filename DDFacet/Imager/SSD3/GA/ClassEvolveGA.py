@@ -56,21 +56,39 @@ class ClassEvolveGA():
         
     def runGA_AllIslands(self):
         APP=self.APP_GA
+            
+        # Model from initialisation
+        DicoDicoInitIndiv  = shared_dict.attach("DicoDicoInitIndiv%s"%self.StrField)
 
-        log.print("Running GA algorithm")
-        T=ClassTimeIt.ClassTimeIt("runGA_AllIslands")
-        T.disable()
-        for iIsland,Island in enumerate(self.ListIslands):
-            #IslandBestIndiv=self.ModelMachine.GiveIndividual(self.ListIslands[iIsland])
-            APP.runJob("runGA.%i"%(iIsland),
-                             self._runGA,
-                             args=(#self.ListIslands,
-                                   iIsland,
-                                   #IslandBestIndiv,
-                                   self.DicoDirty.path,self.GridFreqs,self.DegridFreqs), serial=SERIAL)
-        LDicoResults=APP.awaitJobResults("runGA.*", progress="Genetic Alg.")
-        T.timeit("runGA")
-
+        NGen=self.GD["GAClean"]["NMaxGen"]
+        
+        if NGen>0:
+            log.print("Running GA algorithm")
+            T=ClassTimeIt.ClassTimeIt("runGA_AllIslands")
+            T.disable()
+            
+            for iIsland,Island in enumerate(self.ListIslands):
+                # IslandBestIndiv=self.ModelMachine.GiveIndividual(self.ListIslands[iIsland])
+                APP.runJob("runGA.%i"%(iIsland),
+                           self._runGA,
+                           args=(#self.ListIslands,
+                                 iIsland,
+                                 #IslandBestIndiv,
+                                 self.DicoDirty.path,self.GridFreqs,self.DegridFreqs), serial=SERIAL)
+            LDicoResults=APP.awaitJobResults("runGA.*", progress="Genetic Alg.")
+            T.timeit("runGA")
+        else:
+            if len(DicoDicoInitIndiv.keys())>1: stop
+            LDicoResults=[]
+            allIslandModelDict  = shared_dict.attach("DeconvListIslands%s"%self.StrField)
+            allIslandModelDict.reload()
+            for iIsland,Island in enumerate(self.ListIslands):
+                LDicoResults.append({'Success':1,
+                                     'iIsland':iIsland,
+                                     'HasError':0})
+                allIslandModelDict[iIsland]['Model']=DicoDicoInitIndiv[0][iIsland].flatten()
+                 
+        # GA final estimate    
         allIslandModelDict  = shared_dict.attach("DeconvListIslands%s"%self.StrField)
         allIslandModelDict.reload()
         
@@ -79,10 +97,13 @@ class ClassEvolveGA():
         
         log.print("  Update islands...")
         for iRes,DicoResult in enumerate(LDicoResults):
+            if not DicoResult["Success"]:
+                continue
             iIsland=DicoResult["iIsland"]
             ThisIslandModelDict = allIslandModelDict[iIsland]
             ThisIslandModelDict.reload()
             self.ModelMachine.AppendIsland(self.ListIslands[iIsland], ThisIslandModelDict["Model"].copy(),W=self.ListSpacialWeight[iIsland])
+            # self.ModelMachine.setFromFromOtherModelInit()
             if DicoResult["HasError"]:
                 self.ErrorModelMachine.AppendIsland(ListIslands[iIsland], ThisIslandModelDict["sModel"].copy())
         log.print("  Renormalise...")
@@ -103,8 +124,11 @@ class ClassEvolveGA():
         #from pympler import tracker
         #tr=tracker.SummaryTracker()
 
+        # if iIsland<2700:
+        #     return {"Success":False,"iIsland":iIsland,"HasError":False}
         
         IslandBestIndiv=self.ModelMachine.GiveIndividual(self.ListIslands[iIsland])
+        #print("FLFJDLFJ",iIsland,np.array(IslandBestIndiv).size)
         #del(self.ModelMachine)
         
         #tr.print_diff()
@@ -138,7 +162,11 @@ class ClassEvolveGA():
         FacetID=self.PSFServer.giveFacetID2(xm,ym)
         T.timeit("FacetID")
 
-        ThisIslandModelDict["BestIndiv"] = IslandBestIndiv
+
+        if "BestIndiv" not in list(ThisIslandModelDict.keys()):
+            ThisIslandModelDict.addSharedArray("BestIndiv", IslandBestIndiv.shape, IslandBestIndiv.dtype)
+
+        ThisIslandModelDict["BestIndiv"][:] = IslandBestIndiv[:]
         
         # ListOrder=[iIsland,FacetID,JonesNorm.flat[0],self.RMS**2,island_dict.path,iIslandInit]
         # ##############################################
@@ -211,19 +239,32 @@ class ClassEvolveGA():
                                        iIsland=iIsland,
                                        island_dict=ThisIslandModelDict,
                                        ParallelFitness=False)
+        
         Model=self.CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
         
+        #return {"Success":False,"iIsland":iIsland,"HasError":False}
+        
         #tr.print_diff()
-        ThisIslandModelDict["Model"] = np.array(Model)
+        #from sys import getsizeof
+        #print("DLKSDLSDFLSDF",np.array(Model).shape,getsizeof(np.array(Model)))
+        if "Model" not in  list(ThisIslandModelDict.keys()):
+            ThisIslandModelDict.addSharedArray("Model", Model.shape, np.float32)
+        ThisIslandModelDict["Model"][:] = np.array(Model)[:]
 
+        
+        # del(self.CEv)
+        # import gc
+        # gc.collect()
         # from pympler import muppy, summary
+        # print("==================================")
+        # print("========= %i"%iIsland)
         # def print_object_summary():
         #     all_objects = muppy.get_objects()
         #     sum_obj = summary.summarize(all_objects)
         #     summary.print_(sum_obj[:10])  # Top 10 object types
         # print_object_summary()
+        # print("==================================")
         
-        del(self.CEv)
         return {"Success":True,"iIsland":iIsland,"HasError":False}
     
 
@@ -297,6 +338,7 @@ class ClassEvolveGA_SingleIsland():
         T=ClassTimeIt.ClassTimeIt("   GA: Main")
         T.disable()
         self.setDEAP()
+
         toolbox=self.toolbox
         self.pop = toolbox.population(n=NIndiv)
         self.hof = tools.HallOfFame(1, similar=numpy.array_equal)
@@ -470,10 +512,12 @@ class ClassEvolveGA_SingleIsland():
                 self.pop=pop1+pop0
 
         T.timeit("Init pop")
-
+    
         _=self.ArrayMethodsMachine.GiveFitnessPop(self.pop)
         T.timeit("Init Givefitness")
 
+        #print("LKLFJDFKJG [%i]"%self.iIsland,np.array(self.pop).size)
+        #print("SDFLJSDFLJ",np.array(self.pop).shape)
         self.pop, log= algorithms.eaSimple(self.pop, toolbox, cxpb=0.3, mutpb=0.5, ngen=NGen, 
                                            halloffame=self.hof, 
                                            #stats=stats,
@@ -487,6 +531,7 @@ class ClassEvolveGA_SingleIsland():
         #self.ArrayMethodsMachine.KillWorkers()
 
         V = tools.selBest(self.pop, 1)[0]
+
         
 
         return V

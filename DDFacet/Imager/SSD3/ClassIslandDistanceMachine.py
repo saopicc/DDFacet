@@ -19,6 +19,7 @@ from scipy.spatial import ConvexHull
 from matplotlib.path import Path
 import psutil
 import DDFacet.Other.AsyncProcessPool
+from DDFacet.Array import shared_dict
 
 
 class Island(object):
@@ -107,7 +108,7 @@ class ClassIslandDistanceMachine():
 
         # ###########################
         if self.GD["SSD3"]["UniqueIsland"]:
-            log.print(ModColor.Str("!!! Selection the entire image as a single island !!!"))
+            log.print(ModColor.Str("!!! Selecting the entire image as a single island !!!"))
             nx,ny=Dirty.shape[-2:]
             xx,yy=np.mgrid[0:nx,0:ny]
             SingleIsland=np.array([xx.ravel(),yy.ravel()]).T.tolist()
@@ -141,6 +142,8 @@ class ClassIslandDistanceMachine():
         print("  increase their sizes by %i pixels"%dx, file=log)
         self.ListIslands=ListIslands
         logger.setSilent(["AsyncProcessPool"])
+        increaseIslandDict  = shared_dict.create("increaseIslandDict")
+            
         self.startWorkers()
         APP=self.DicoAPP[""]
         for iIsland in range(len(ListIslands)):#self.NIslands):
@@ -148,16 +151,26 @@ class ClassIslandDistanceMachine():
                        self._increaseSingleIslands,
                        args=(iIsland,))#, serial=True)
         LDicoResults=APP.awaitJobResults("runIncreaseIsland.*", progress="Increase Islands")
-        DicoResult={}
-        for L in LDicoResults:
-            iIsland,Island,W=L
-            DicoResult[iIsland]=(Island,W)
-        
-        ListIslands=[DicoResult[iIsland][0] for iIsland in range(len(DicoResult)) if len(DicoResult[iIsland][0])>0]
-        ListW=[DicoResult[iIsland][1] for iIsland in range(len(DicoResult)) if len(DicoResult[iIsland][0])>0]
         self.killWorkers()
+        #DicoResult={}
+        #for L in LDicoResults:
+        #    iIsland,Island,W=L
+        #    DicoResult[iIsland]=(Island,W)
+        #ListIslands=[DicoResult[iIsland][0] for iIsland in range(len(DicoResult)) if len(DicoResult[iIsland][0])>0]
+        #ListW=[DicoResult[iIsland][1] for iIsland in range(len(DicoResult)) if len(DicoResult[iIsland][0])>0]
+        
+        increaseIslandDict.reload()
+        ListIslands=[]
+        ListW=[]
+        for iIsland in sorted(list(increaseIslandDict.keys())):
+            #print(iIsland)
+            ListIslands.append(increaseIslandDict[iIsland]["ListOut"].copy())
+            ListW.append(increaseIslandDict[iIsland]["W"].copy())
+            
         logger.setLoud(["AsyncProcessPool"])
-
+        increaseIslandDict.delete()
+        shared_dict.delDict("increaseIslandDict")
+        
         return ListIslands,ListW
 
     def _increaseSingleIslands(self,iIsland):
@@ -165,14 +178,23 @@ class ClassIslandDistanceMachine():
         IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland(self._MaskArray)
         NIn=len(self.ListIslands[iIsland])
         ListOut,W=IncreaseIslandMachine.IncreaseIsland(self.ListIslands[iIsland],
-                                                     dx=dx,
-                                                     AllowMasked=False)
+                                                       dx=dx,
+                                                       AllowMasked=False)
         # NOut=len(ListOut)
         
         #print("#%i: %i -> %i"%(iIsland,NIn,NOut))
         #print("#%i: %i -> %i"%(iIsland,NIn,NOut))
-
-        return [iIsland,ListOut,W]
+        ListOut=np.array(ListOut)
+        W=np.array(W)
+        
+        increaseIslandDict  = shared_dict.attach("increaseIslandDict")
+        increaseIslandDict.addSubdict(iIsland)
+        increaseIslandDict[iIsland].addSharedArray("ListOut", ListOut.shape, ListOut.dtype)
+        increaseIslandDict[iIsland].addSharedArray("W", W.shape, W.dtype)
+        increaseIslandDict[iIsland]["ListOut"][:]=ListOut[:]
+        increaseIslandDict[iIsland]["W"][:]=W[:]
+        
+        return 
     
     def CalcLabelImage(self,ListIslands):
         print("  calculating label image", file=log)

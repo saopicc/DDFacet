@@ -74,11 +74,15 @@ class ClassInitSSDModelParallel():
         #self.InitMachine.Reset()
         return PolyModel
 
-    def giveDicoInitIndiv(self, ListIslands=None, iIsland=None, ModelImage=None, DicoDirty=None):
+    def giveDicoInitIndiv(self, Island=None,ListIslands=None, iIsland=None,
+                          ModelImage=None, DicoDirty=None):
         #DicoInitIndiv = shared_dict.attach("DicoInitIslandHMP%s"%self.StrField)
-        ParmDict = shared_dict.attach("ParmDict%s"%self.StrField)
+
+        if Island is None:
+            Island=ListIslands[iIsland]
         
-        Island=ListIslands[iIsland]
+        ParmDict = shared_dict.attach("ParmDict%s"%self.StrField)
+
         PolyModel = self._initIsland_worker(iIsland, 
                                             Island,
                                             self.DicoVariablePSF, 
