@@ -156,8 +156,8 @@ class ClassImageDeconvMachine():
                 #Ldal=[2,1,0.1,1,2]
                 #Lal=[-10,-2,2,10]
                 #Ldal=[1,0.1,1]
-                Lal=[-20, -10 , -5,   -1  , 1,    2, 5]
-                Ldal=  [  2 ,  1, 0.1, 0.05, 0.1,  1]
+                Lal=[-20, -10 , -7,  -5,   -1   , 1,    2,   5]
+                Ldal=  [  2 , 1,  0.2,  0.1, 0.05,  0.1,  1]
                 LL=[]
                 for ii,dal in enumerate(Ldal):
                     al0,al1=Lal[ii],Lal[ii+1]
