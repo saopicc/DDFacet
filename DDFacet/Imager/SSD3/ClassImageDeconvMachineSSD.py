@@ -279,13 +279,18 @@ class ClassImageDeconvMachine():
 
     def SearchIslands(self,Threshold):
 
-        if self.MaskMachine.CurrentNegMask is None:
-            raise RuntimeError("SSD requires either a user supplied FITS mask or automasking to be enabled. Check your options.")
+        # if self.MaskMachine.CurrentNegMask is None:
+        #     raise RuntimeError("SSD requires either a user supplied FITS mask or automasking to be enabled. Check your options.")
 
+        if self.GD["SSD3"]["UniqueIsland"]:
+            NegMask=np.zeros((self.DicoDirty["MeanImage"].shape),bool)
+        else:
+            #Mask = (self.MaskMachine.CurrentMask | ModelMask)
+            #NegMask = (Mask==0)
+            NegMask=self.MaskMachine.CurrentNegMask
         ModelMask=self.ModelMachine.giveMask_nonZeroModel()
-        #Mask = (self.MaskMachine.CurrentMask | ModelMask)
-        #NegMask = (Mask==0)
-        NegMask=self.MaskMachine.CurrentNegMask
+            
+        
         IslandDistanceMachine=ClassIslandDistanceMachine.ClassIslandDistanceMachine(self.GD,
                                                                                     NegMask,#self.MaskMachine.CurrentNegMask,
                                                                                     self.PSFServer,
@@ -473,7 +478,7 @@ class ClassImageDeconvMachine():
         
         FreqsModel=np.array([np.mean(self.DicoVariablePSF["freqs"][iBand]) for iBand in range(len(self.DicoVariablePSF["freqs"]))])
         ModelImage=self.ModelMachine.GiveModelImage(FreqsModel)
-        ModelImage*=np.sqrt(self.DicoDirty["JonesNorm"])
+        ModelImageApp=ModelImage*np.sqrt(self.DicoDirty["JonesNorm"])
         
         #self.DicoModelImage  = shared_dict.create("DicoModelImage%s"%self.StrField)
         #self.DicoModelImage["ModelImage"]=ModelImage
@@ -496,10 +501,12 @@ class ClassImageDeconvMachine():
             
         #DicoInitIndivHMP = shared_dict.create("DicoInitIslandHMP%s"%self.StrField) # DicoInitIndiv
         ParmDict = shared_dict.create("ParmDict%s"%self.StrField) # ParmDict
-        ParmDict["ModelImage"] = ModelImage
+        ParmDict["ModelImageInt"] = ModelImage
+        ParmDict["ModelImageApp"] = ModelImageApp
         ParmDict["GridFreqs"] = self.GridFreqs
         ParmDict["DegridFreqs"] = self.DegridFreqs
         ParmDict["RMS"] = RMS
+        ParmDict["iMajor"] = self._CurrentMajorIter
         
         #DicoInitIndivMultiSlice = shared_dict.create("DicoInitIslandMultiSlice%s"%self.StrField)
         #ParmDictMultiSlice = shared_dict.create("InitSSDModelMultiSlice%s"%self.StrField) # ParmDict
@@ -592,7 +599,8 @@ class ClassImageDeconvMachine():
         self.DicoDirty=DicoDirty
         self.iMajorCycle=self.DicoDirty["iMajorCycle"]
         
-        self.ModelImage = shared_dict.attach("ParmDict%s"%self.StrField)["ModelImage"]
+        self.ModelImageApp = shared_dict.attach("ParmDict%s"%self.StrField)["ModelImageApp"]
+        self.ModelImageInt = shared_dict.attach("ParmDict%s"%self.StrField)["ModelImageInt"]
         self.DicoVariablePSF = shared_dict.attach("AllImages_FMPSF")
         self.SetPSF(self.DicoVariablePSF)
 
@@ -638,12 +646,16 @@ class ClassImageDeconvMachine():
         t0=time.time()
         DInfo={}
         for iMachine,InitMachine in enumerate(self.ListInitMachine):
+            kwargs={}
+            if InitMachine.Type=="MultiSlice":
+                kwargs["ThSpectralFit"]=self.ThSpectralFit
+                
             rep = InitMachine.giveDicoInitIndiv(Island=ThisPixList,
                                                 #ListIslands=ListIslands,
                                                 iIsland=iIsland,
-                                                ModelImage=self.ModelImage,
+                                                #ModelImage=ModelImage,
                                                 DicoDirty=self.DicoDirty,
-                                                ThSpectralFit=self.ThSpectralFit)
+                                                **kwargs)
             #InitMachine.Reset()
             #print("SDKSDFKJSFKLJSF",rep,type(rep))
             #self.DicoDicoInitIndiv[iMachine].addSubdict(iIsland)

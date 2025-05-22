@@ -296,23 +296,22 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             xr=np.int64(np.random.rand(Nr)*nx)
             yr=np.int64(np.random.rand(Nr)*nx)
             self.xryr=(xr,yr)
-        xr,yr = self.xryr
-        Resid1D=MeanDirty.flat[xr*ny+yr]
-        STD = scipy.stats.median_abs_deviation(Resid1D,axis=None,scale="normal")
         
         self.PastModels_Resid.append(MeanDirty.copy())
-        self.LSTD.append(STD)
-        #self.PastModels_STD.append(STD)
         
-        if len(self.LSTD)>0:
-            CSTD=(STD>0.75*self.LSTD[-1])
-            if CSTD:
-                STD0,STD1=self.LSTD[-1],STD
-                Alpha=self.Alpha/2
-                log.print("Reducing Alpha %.2f -> %.2f [std = %f vs %f Jy]"%(self.Alpha,Alpha,STD0,STD1))
-                
-                self.Alpha=Alpha
-        self.LResid1D.append( Resid1D.copy() )
+        # xr,yr = self.xryr
+        # Resid1D=MeanDirty.flat[xr*ny+yr]
+        # STD = scipy.stats.median_abs_deviation(Resid1D,axis=None,scale="normal")
+        # self.LSTD.append(STD)
+        # #self.PastModels_STD.append(STD)
+        # if len(self.LSTD)>0:
+        #     CSTD=(STD>0.75*self.LSTD[-1])
+        #     if CSTD:
+        #         STD0,STD1=self.LSTD[-1],STD
+        #         Alpha=self.Alpha/2
+        #         log.print("Reducing Alpha %.2f -> %.2f [std = %f vs %f Jy]"%(self.Alpha,Alpha,STD0,STD1))
+        #         self.Alpha=Alpha
+        # self.LResid1D.append( Resid1D.copy() )
         
             
     def RenormaliseMultiEstimatesPerPixel(self):
@@ -495,12 +494,17 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         M0=self.GiveModelImage(f0)
         M1=self.GiveModelImage(f1)
         if DoConv:
+            CellSizeRad_x,CellSizeRad_y=CellSizeRad
+            FWHMFact = 2. * np.sqrt(2. * np.log(2.))
+            FWHMdeg=GaussPars[0][0]
+            FWHMrad=FWHMdeg*np.pi/180
+            Sig=FWHMrad/FWHMFact/CellSizeRad_x
             #M0=ModFFTW.ConvolveGaussian(M0,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
             #M1=ModFFTW.ConvolveGaussian(M1,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
             #M0,_=ModFFTW.ConvolveGaussianWrapper(M0,Sig=GaussPars[0][0]/CellSizeRad)
             #M1,_=ModFFTW.ConvolveGaussianWrapper(M1,Sig=GaussPars[0][0]/CellSizeRad)
-            M0,_=ModFFTW.ConvolveGaussianScipy(M0,Sig=GaussPars[0][0]/CellSizeRad)
-            M1,_=ModFFTW.ConvolveGaussianScipy(M1,Sig=GaussPars[0][0]/CellSizeRad)
+            M0,_=ModFFTW.ConvolveGaussianScipy(M0,Sig=Sig)
+            M1,_=ModFFTW.ConvolveGaussianScipy(M1,Sig=Sig)
 
             
         # compute threshold for alpha computation by rounding DR threshold to .1 digits (i.e. 1.65e-6 rounds to 1.7e-6)

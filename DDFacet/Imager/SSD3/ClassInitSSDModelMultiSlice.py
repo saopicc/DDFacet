@@ -84,7 +84,7 @@ class ClassInitSSDModelParallel():
         self.InitMachine.setDirty(DicoDirty)
         self.T.timeit("_initIsland_worker:setDirty")
         # self.InitMachine.DeconvMachine.setNCPU(NCPU)
-        self.InitMachine.setSSDModelImage(DicoParm["ModelImage"])
+        self.InitMachine.setSSDModelImage(DicoParm["ModelImageInt"])
         self.T.timeit("_initIsland_worker:setSSD")
 
 
@@ -110,7 +110,9 @@ class ClassInitSSDModelParallel():
         return ModelImageIsland,NSpectralFit
         # self.InitMachine.Reset()
 
-    def giveDicoInitIndiv(self, Island=None,ListIslands=None, iIsland=None, ModelImage=None, DicoDirty=None, ThSpectralFit=True):
+    def giveDicoInitIndiv(self, Island=None,ListIslands=None, iIsland=None,
+                          #ModelImage=None,
+                          DicoDirty=None, ThSpectralFit=True):
         #DicoInitIndiv = shared_dict.attach("DicoInitIslandMultiSlice%s"%self.StrField)
         ParmDict = shared_dict.attach("ParmDict%s"%self.StrField)
         if Island is None:

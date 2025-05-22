@@ -2307,7 +2307,7 @@ class ClassImagerDeconv():
                 _images['alphamap'], _images["alphastdmap"] = ModelMachine.GiveSpectralIndexMap(GaussPars=self.FWHMBeam[0], ResidCube=apprescube())
                 return _images['alphamap'], _images["alphastdmap"]
             else:
-                _images['alphamap'] = ModelMachine.GiveSpectralIndexMap()
+                _images['alphamap'] = ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.FWHMBeamAvg])
 
                 return _images['alphamap'], None
 

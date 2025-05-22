@@ -52,7 +52,7 @@ class ClassInitSSDModelParallel():
         self.InitMachine.Init(DicoVariablePSF, DicoParm["GridFreqs"], DicoParm["DegridFreqs"], facetcache=FacetCache)
         self.InitMachine.setDirty(DicoDirty)
         # self.InitMachine.DeconvMachine.setNCPU(NCPU)
-        self.InitMachine.setSSDModelImage(DicoParm["ModelImage"])
+        self.InitMachine.setSSDModelImage(DicoParm["ModelImageApp"])
 
         #print ":::::::::::::::::::::::",iIsland
 
@@ -74,8 +74,11 @@ class ClassInitSSDModelParallel():
         #self.InitMachine.Reset()
         return PolyModel
 
-    def giveDicoInitIndiv(self, Island=None,ListIslands=None, iIsland=None,
-                          ModelImage=None, DicoDirty=None):
+    def giveDicoInitIndiv(self, Island=None,
+                          ListIslands=None,
+                          iIsland=None,
+                          #ModelImage=None,
+                          DicoDirty=None):
         #DicoInitIndiv = shared_dict.attach("DicoInitIslandHMP%s"%self.StrField)
 
         if Island is None:
