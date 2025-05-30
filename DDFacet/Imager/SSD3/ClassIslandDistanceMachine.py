@@ -20,7 +20,7 @@ from matplotlib.path import Path
 import psutil
 import DDFacet.Other.AsyncProcessPool
 from DDFacet.Array import shared_dict
-
+from . import ClassBreakIslands
 
 class Island(object):
     '''
@@ -209,70 +209,16 @@ class ClassIslandDistanceMachine():
         return Labels.reshape((1,1,nx,ny))
 
     def BreakLargeIslands(self,ListIslands):
-        if self.GD["SSDClean"]["MaxIslandSize"]:
-            LOut=[]
-            NN=int(self.GD["SSDClean"]["MaxIslandSize"])
-            print("  breaking islands with linear size larger than %i pixels into smaller ones"%self.GD["SSDClean"]["MaxIslandSize"], file=log)
-            for iIsland,ThisIsland in enumerate(ListIslands):
-                x,y=np.array(ThisIsland).T
-                x0,x1=x.min(),x.max()
-                y0,y1=y.min(),y.max()
-                Lx,Ly=x1-x0+1,y1-y0+1
-                nx=Lx//self.GD["SSDClean"]["MaxIslandSize"]+1
-                ny=Ly//self.GD["SSDClean"]["MaxIslandSize"]+1
-                nn=nx*ny
-                if nn==1:
-                    LOut.append(ThisIsland)
-                else:
-                    print("    breaking islands #%i into %i islands"%(iIsland,nn), file=log)
-                    xb=np.int64(np.mgrid[x0:x1:(nx+1)*1j])
-                    yb=np.int64(np.mgrid[y0:y1:(ny+1)*1j])
-                    self.xIsland=x
-                    self.yIsland=y
-                    # xb=xb.flatten()
-                    # yb=yb.flatten()
-                    key="_%i"%iIsland
-                    self.startWorkers(key)
-                    APP=self.DicoAPP[key]
-                    for ix in range(nx):
-                        for iy in range(ny):
-                            APP.runJob("selSubIsland.%i.%i.%i"%(iIsland,ix,iy),
-                                       self._selSubIsland,
-                                       args=(xb[ix],xb[ix+1],yb[iy],yb[iy+1]))#, serial=True)
-
-                    ThisIslandLOut=APP.awaitJobResults("selSubIsland.*", progress="Split island #%i"%iIsland)
-                    ThisIslandLOut=[l for l in ThisIslandLOut if l is not None]
-                    self.killWorkers(key)
-                    LOut+=ThisIslandLOut
-            return LOut
         
-        else:
-            return ListIslands
+        CBI=ClassBreakIslands.ClassBreakIslands(self.GD,self._MaskArray,self.PSFServer,self.DicoDirty)
+        
+        #return CBI.BreakLargeIslands(ListIslands)
+        #return CBI.BreakLargeIslandsFacets(ListIslands)
+        return CBI.BreakLargeIslandsFacetsPolygon(ListIslands)
+    
+        
 
 
-    def _selSubIsland(self,x0,x1,y0,y1):
-        xs,ys=self.xIsland,self.yIsland
-        ind=np.where(xs>x0)[0]
-        if ind.size==0: return None
-        xs=xs[ind]; ys=ys[ind]
-        
-        ind=np.where(xs<=x1)[0]
-        if ind.size==0: return None
-        xs=xs[ind]; ys=ys[ind]
-        
-        ind=np.where(ys>y0)[0]
-        if ind.size==0: return None
-        xs=xs[ind]; ys=ys[ind]
-        
-        ind=np.where(ys<=y1)[0]
-        if ind.size==0: return None
-        xs=xs[ind]; ys=ys[ind]
-        
-        II=np.zeros((ind.size,2),xs.dtype)
-        II[:,0]=xs[:]
-        II[:,1]=ys[:]
-
-        return II
                         
     def CalcCrossIslandPSF(self,ListIslands):
         print("  calculating global islands cross-contamination", file=log)

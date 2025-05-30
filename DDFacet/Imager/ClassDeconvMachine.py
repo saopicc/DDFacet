@@ -845,6 +845,7 @@ class ClassImagerDeconv():
                         self.FacetMachine.DicoImager[iFacet]["SumJones"] = MPIManager.COMM_WORLD.allreduce(self.FacetMachine.DicoImager[iFacet]["SumJones"], MPIManager.SUM)
                 # stitch facets and release grids
                 self.DicoDirty = self.FacetMachine.FacetsToIm(NormJones=True)
+                
                 self.FacetMachine.releaseGrids()
 
 
@@ -869,6 +870,18 @@ class ClassImagerDeconv():
         # This call needs to be here to attach the cached smooth beam to FacetMachine if it exists
         # and if dirty has been initialised from cache
         self.FacetMachine.finaliseSmoothBeam()
+
+        # SSD3 need to access SmoothJonesNorm, this is a hack to make it available to anyone, but it's more elegant this way 
+        if self.FacetMachine.SmoothJonesNorm is not None:
+            self.DicoDirty.addSharedArray("SmoothJonesNorm",
+                                           self.FacetMachine.SmoothJonesNorm.shape,
+                                           self.FacetMachine.SmoothJonesNorm.dtype)
+            self.DicoDirty["SmoothJonesNorm"][:]=self.FacetMachine.SmoothJonesNorm[:]
+            self.DicoDirty.addSharedArray("MeanSmoothJonesNorm",
+                                           self.FacetMachine.MeanSmoothJonesNorm.shape,
+                                           self.FacetMachine.MeanSmoothJonesNorm.dtype)
+            self.DicoDirty["MeanSmoothJonesNorm"][:]=self.FacetMachine.MeanSmoothJonesNorm[:]
+
 
         # If we have used InitDicoModel to substracted to the original dirty,
         # no need to anymore in the subsequent call to GiveDirty
@@ -1319,6 +1332,8 @@ class ClassImagerDeconv():
                     for iCoef in range(NParms):
                         ThisCoefImage=DicoComp["Vals"][iCoef,:,:].reshape((1,1,nx,ny))
                         self.FacetMachine.ToCasaImage(ThisCoefImage,ImageName="%s.%2.2i.Taylor%i"%(self.BaseName,iMajor,iCoef),Stokes=self.VS.StokesConverter.RequiredStokesProducts(),Fits=True)
+                    ThisCoefImage=DicoComp["Weights"].reshape((1,1,nx,ny))
+                    self.FacetMachine.ToCasaImage(ThisCoefImage,ImageName="%s.%2.2i.TaylorW"%(self.BaseName,iMajor),Stokes=self.VS.StokesConverter.RequiredStokesProducts(),Fits=True)
 
                 
             # Broadcast metadata regarding the state of Deconvolution form the master MPI process

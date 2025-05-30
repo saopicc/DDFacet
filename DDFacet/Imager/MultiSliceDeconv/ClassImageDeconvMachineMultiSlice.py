@@ -49,6 +49,7 @@ from scipy.signal import fftconvolve
 import scipy.stats
 MAD=scipy.stats.median_abs_deviation
 from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
+from SkyModel.Sky import ModRegFile
 
 
 def pad_to_square(A):
@@ -342,6 +343,7 @@ class ClassImageDeconvMachine():
             
         dirty=self._Dirty
         self.IsPadded=False
+        nch,npol,nx,ny=dirty.shape
         if self._Dirty.shape[-1]!=self._Dirty.shape[-2]:
             nch,npol,_,_=dirty.shape
             original_shape = self._Dirty[0,0].shape
@@ -367,9 +369,12 @@ class ClassImageDeconvMachine():
         nch,npol,_,_=dirty.shape
         Model=np.zeros_like(dirty)
 
-        _,_,xp,yp=np.where(self._MeanDirty==np.max(self._MeanDirty))
-        xp=xp[0]
-        yp=yp[0]
+        # _,_,xp,yp=np.where(self._MeanDirty==np.max(self._MeanDirty))
+        # xp=xp[0]
+        # yp=yp[0]
+        
+        xp,yp=nx//2,ny//2
+        
         self.PSFServer.setLocation(xp,yp)
         self.iFacet=self.PSFServer.iFacet
 
@@ -651,10 +656,10 @@ class ClassImageDeconvMachine():
         CoefImage2[:,0]*=meanMM.ravel()
         CoefImage2[indZero,:]=0
         CoefImage2=CoefImage2.T.reshape((NParm,1,nx,ny))
-
+        
         CoefImage=CoefImage2
-
-
+        
+        
         
         # #######################
         self.ModelMachine.setModel(CoefImage.copy(),FluxScale=self.FitFluxScale)
@@ -717,6 +722,9 @@ class ClassImageDeconvMachine():
 
         # ###
         xcc,ycc=self.xcyc
+        
+        
+        
         A,B=dirty[:,0,s_dirty_cut,s_dirty_cut].copy(), psf[:,0,s_psf_cut,s_psf_cut].copy()
         import os
         os.system("mkdir -p FIG")
@@ -742,7 +750,10 @@ class ClassImageDeconvMachine():
                  )
 
 
+        rac,decc=self.PSFServer.iFacet_radec_in
+        ModRegFile.radecRad2Reg("FIG/AB_Major%i_%i_%i.reg"%(iMajor,xcc,ycc),rac,decc,label=["Isl_%i_%i_PSF%i"%(xcc,ycc,self.PSFServer.iFacet)])
 
+        return "MaxIter", True, True   # stop deconvolution but do update model
         
         import pylab
         fig=pylab.figure()

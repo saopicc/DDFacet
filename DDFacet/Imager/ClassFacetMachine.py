@@ -1220,6 +1220,7 @@ class ClassFacetMachine():
         DicoImages.addSubdict("ImageInfo")
         DicoImages["ImageInfo"]["CellSizeRad"]=self.CellSizeRad
         DicoImages["ImageInfo"]["OutImShape"]=self.OutImShape
+        DicoImages["ImageInfo"]["RaDecPhaseCenter"]=self.RaDecPhaseCenter
         
 
         # Assume all facets have the same weight sums.
@@ -1481,7 +1482,6 @@ class ClassFacetMachine():
         if not self.DoPSF and self.GD["Mask"]["ThFilterRFI"]:
             FilterMachine=ClassMaskMachine.ClassFilterMachine()
             FilterMachine.filterCube(DicoImages,ThFilterRFI=self.GD["Mask"]["ThFilterRFI"])
-            
         return DicoImages
 
     def toSingleFacet(self):
@@ -1595,7 +1595,8 @@ class ClassFacetMachine():
                     Npix_y=self.OutImShape[-1]
                     self.AverageBeamMachine.SmoothBeam=self.SmoothJonesNorm.reshape((self.VS.NFreqBands,1,Npix_x,Npix_x))
                     self.AverageBeamMachine.MeanSmoothBeam=np.mean(self.AverageBeamMachine.SmoothBeam,axis=0).reshape((1,1,Npix_x,Npix_x))
-
+                stop
+                    
             FacetNorm = DicoImages["FacetNorm"]
             FacetNormReShape = DicoImages["FacetNorm"].reshape([1,1,
                                                                 FacetNorm.shape[0],

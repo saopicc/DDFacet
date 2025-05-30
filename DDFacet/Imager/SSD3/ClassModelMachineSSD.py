@@ -65,7 +65,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.RefFreq=None
         self.DicoSMStacked={}
         self.DicoSMStacked["Type"]="SSD3"
-        self.NDeque=3
+        self.NDeque=4
         self.PastModels=deque([],self.NDeque)
         self.PastModels_Resid=deque([],self.NDeque)
         #self.PastModels_STD=deque([],self.NDeque)
@@ -240,6 +240,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         ListPixParms
         x,y=np.array(ListPix).T
         for iParam in range(self.NParam):
+            #Vr[iParam].fill(1)
             DicoComp["Vals"][iParam][x,y]+=W[:]*Vr[iParam]
         DicoComp["Weights"][x,y]+=W[:]
 
@@ -322,7 +323,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         for iParam in range(self.NParam):
             DicoComp["Vals"][iParam][x,y]/=DicoComp["Weights"][x,y]
-        DicoComp["Weights"][x,y]=1
+        # DicoComp["Weights"][x,y]=1
 
         # ThisModel=DicoComp["Vals"][0]
         # if len(self.PastModels)>1:
@@ -348,7 +349,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         ThisModel_mean=DicoComp["Vals"][0]
 
         
-        if len(self.PastModels)>1:
+        if len(self.PastModels)>=2:
             log.print("Use %i past models to update..."%len(self.PastModels))
             # sgn0=np.sign(self.PastModels[1][0]-self.PastModels[0][0])
             # sgn1=np.sign(ThisModel_mean-self.PastModels[1][0])
@@ -357,7 +358,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             # C2=True#(ThisModel!=0)
             # Cs=(sgn0!=sgn1)
             # x,y=np.where(C0 & C1 & C2 & Cs)
-            # self.AAlpha[0,x,y]=self.AAlpha[0,x,y]/2TestMay19_AlphaIsBack_Deque.mean_model06.fits
+            # self.AAlpha[0,x,y]=self.AAlpha[0,x,y]/2
             # dThisModel = DicoComp["Vals"][:]-self.PastModels[-1][:]
             # DicoComp["Vals"][:] = self.PastModels[-1][:] + self.AAlpha * dThisModel
             # ##################
@@ -381,27 +382,54 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             STD=np.array(LSTD)
             
             aPastModels_Resid=np.abs(PastModels_Resid)
-            Th=0.5*STD
-            
+
+
+            Th=0.1*STD
             for iModel in range(NDeque):
                 M=(aPastModels_Resid[iModel,0]<Th[iModel])
                 indx,indy=np.where(M)
                 aPastModels_Resid[iModel,0,indx,indy]=Th[iModel]
-            W=1./aPastModels_Resid**2#**2
+            W=1./aPastModels_Resid#**2#**2
+            
             S0=PastModels[:,0:1]
             W[S0==0]=0
             
             Ws=np.sum(W,axis=0)
             Ws[Ws==0]=1.
-            MeanModelPast=np.sum(W*PastModels,axis=0)/Ws
+            MeanModelPast0=np.sum(W*PastModels,axis=0)/Ws
 
-            Wa=np.ones((1,nx,ny),np.float32)
-            Wa[MeanModelPast[0:1]==0]=0
-            Wb=np.ones((1,nx,ny),np.float32)
-            DicoComp["Vals"][:] = (Wa*MeanModelPast + Wb*DicoComp["Vals"][:])/(Wa+Wb)
+            # weight parameters others than the flux by the flux
+            MeanModelPast=np.zeros((PastModels[0].shape),PastModels.dtype)
+            for iTerm in range(self.NParam):
+                wt=W
+                if iTerm!=0:
+                    wt=W*np.abs(S0)
+                Sm=np.sum(wt*PastModels[:,iTerm:iTerm+1],axis=0)
+                Sw=np.sum(wt,axis=0)
+                Sw[Sw==0]=1
+                Sm=Sm/Sw
+                MeanModelPast[iTerm]=Sm[0]
+
+            # Wa=np.ones((1,nx,ny),np.float32)
+            # Wa[MeanModelPast[0:1]==0]=0
+            # Wb=np.ones((1,nx,ny),np.float32)
+            # #DicoComp["Vals"][:] = MeanModelPast[:]
+            # DicoComp["Vals"][:] = (Wa*MeanModelPast + Wb*DicoComp["Vals"][:])/(Wa+Wb)
+
+            Wa=np.ones((self.NParam,nx,ny),np.float32)
+            Wb=np.ones((self.NParam,nx,ny),np.float32)
+            for iTerm in range(1,self.NParam):
+                Wa[iTerm]*=np.abs(MeanModelPast[0])
+                Wb[iTerm]*=np.abs(DicoComp["Vals"][0])
+            
+            Sw=Wa+Wb
+            Sw[Sw==0]=1
+            #Wa[MeanModelPast[0:1]==0]=0
+            DicoComp["Vals"][:] = (Wa*MeanModelPast + Wb*DicoComp["Vals"][:])/Sw#(Wa+Wb)
+
             
             
-            
+
             # ##################
 
             

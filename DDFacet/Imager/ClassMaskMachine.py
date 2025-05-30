@@ -118,18 +118,18 @@ class ClassFilterMachine():
             log2.print("  [ch #%i] found %i masked pixels (~%.2f%%)"%(ich,nn,100*(nn/Mask_ch.size)))
 
             
-            MM=Mask[nx//2-NMax:nx//2+NMax+1,ny//2-NMax:ny//2+NMax+1]
             # ########################
+            # MM=Mask[nx//2-NMax:nx//2+NMax+1,ny//2-NMax:ny//2+NMax+1]
             # Mask[nx//2-NMax:nx//2+NMax+1,ny//2-NMax:ny//2+NMax+1]=(MM|Mask_ch)[:,:]
             # ########################
             Mask.fill(0)
             Mask[nx//2-NMax:nx//2+NMax+1,ny//2-NMax:ny//2+NMax+1]=(Mask_ch)[:,:]
             # ########################
-
+            factBias=(Mask.size-nn)/Mask.size
             fAs[Mask]=0
             sfAs=np.fft.ifftshift(fAs)
             fsfAs=np.fft.ifft2(sfAs)
-            ResidualCube[ich,0,:,:]=fsfAs[:,:].real
+            ResidualCube[ich,0,:,:]=fsfAs[:,:].real/factBias
 
 
 

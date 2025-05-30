@@ -237,7 +237,8 @@ class ClassInitSSDModel():
         self.xy0=xc0,yc0
 
         self.DeconvMachine.PSFServer.setLocation(*self.xy0)
-
+        
+        
         N1=Size
         xc1=yc1=N1//2
         Aedge,Bedge=GiveEdgesDissymetric(xc0,yc0,N0x,N0y,xc1,yc1,N1,N1)

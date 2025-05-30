@@ -354,6 +354,15 @@ class ClassImageDeconvMachine():
         
         ListIslands,ListSpacialWeight=IslandDistanceMachine.IncreaseIslands(ListIslands)
 
+        #ListSpacialWeight_App=[]
+        for Island,W in zip(ListIslands,ListSpacialWeight):
+            x,y=Island.T
+            xc=int(np.mean(x))
+            yc=int(np.mean(y))
+            W[:]*=self.MeanJonesNorm[0,x,y].flat[:]
+            # W[:]*=self.MeanJonesNorm[0,xc,yc]
+            
+        
         self.LabelIslandsImage=None#IslandDistanceMachine.CalcLabelImage(ListIslands)
 
         self.ListIslands=ListIslands
@@ -468,6 +477,19 @@ class ClassImageDeconvMachine():
             print(ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done here" % (ThisFlux),col="green" ), file=log)
             return "FluxThreshold", False, False
 
+        
+        FreqsModel=np.array([np.mean(self.DicoVariablePSF["freqs"][iBand]) for iBand in range(len(self.DicoVariablePSF["freqs"]))])
+        ModelImage=self.ModelMachine.GiveModelImage(FreqsModel)
+        if "SmoothJonesNorm" in self.DicoDirty.keys():
+            MeanJonesNorm=np.mean(self.DicoDirty["SmoothJonesNorm"],axis=0)
+            ModelImageApp=ModelImage*np.sqrt(self.DicoDirty["SmoothJonesNorm"])
+        else:
+            ModelImageApp=ModelImage*np.sqrt(self.DicoDirty["JonesNorm"])
+            MeanJonesNorm=np.mean(self.DicoDirty["JonesNorm"],axis=0)
+        self.ModelImageApp=ModelImageApp
+        self.MeanJonesNorm=MeanJonesNorm
+
+        
         ###########################
         rep=self.SearchIslands(StopFlux)
         if rep=="NoIslands":
@@ -476,9 +498,7 @@ class ClassImageDeconvMachine():
 
 
         
-        FreqsModel=np.array([np.mean(self.DicoVariablePSF["freqs"][iBand]) for iBand in range(len(self.DicoVariablePSF["freqs"]))])
-        ModelImage=self.ModelMachine.GiveModelImage(FreqsModel)
-        ModelImageApp=ModelImage*np.sqrt(self.DicoDirty["JonesNorm"])
+
         
         #self.DicoModelImage  = shared_dict.create("DicoModelImage%s"%self.StrField)
         #self.DicoModelImage["ModelImage"]=ModelImage
