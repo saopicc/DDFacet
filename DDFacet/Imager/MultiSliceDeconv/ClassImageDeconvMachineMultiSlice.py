@@ -144,8 +144,8 @@ class ClassImageDeconvMachine():
                 #     LL.append(np.arange(al0,al1,dal))
                 # ThisParm=np.concatenate(LL).flatten()
 
-                LL=(10**np.linspace(np.log10(0.1),np.log10(100),30)).tolist()
-                #LL=(10**np.linspace(np.log10(0.1),np.log10(300),10)).tolist()
+                #LL=(10**np.linspace(np.log10(0.1),np.log10(100),30)).tolist()
+                LL=(10**np.linspace(np.log10(0.1),np.log10(100),20)).tolist()
                 LL.append(1.)
                 LL=sorted(list(set(LL)))
                 ThisParm=np.array(LL).flatten()
@@ -159,6 +159,10 @@ class ClassImageDeconvMachine():
                 #Ldal=[1,0.1,1]
                 Lal=[-20, -10 , -7,  -5,   -1   , 1,    2,   5]
                 Ldal=  [  2 , 1,  0.2,  0.1, 0.05,  0.1,  1]
+                
+                Lal=[-7,  -5,   -1   , 1,    2]
+                Ldal=  [  0.2,  0.1, 0.05,  0.1]
+                
                 LL=[]
                 for ii,dal in enumerate(Ldal):
                     al0,al1=Lal[ii],Lal[ii+1]

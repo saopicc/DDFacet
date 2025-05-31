@@ -255,12 +255,14 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def reinitIslands(self,ListIslands):
         if "Comp" not in self.DicoSMStacked.keys():
             self.DicoSMStacked["Comp"]={}
-            DicoComp=self.DicoSMStacked["Comp"]
+            
+        DicoComp=self.DicoSMStacked["Comp"]
+
+        if DicoComp.get("Vals",None) is None:
             _,_,nx,ny=self.ModelShape
             DicoComp["Vals"]=np.zeros((self.NParam,nx,ny),np.float32)
             DicoComp["Weights"]=np.zeros((nx,ny),np.float32)
             
-        DicoComp=self.DicoSMStacked["Comp"]
         
             
         for Island in ListIslands:

@@ -110,13 +110,14 @@ class ClassPSFServer():
 
 
     def setLocation(self,xp,yp):
-        self.iFacet,self.iFacet_lm=self.giveFacetID2(xp,yp)
-        l,m=self.iFacet_lm
-        self.iFacet_radec=self.CoordMachine.lm2radec(l,m)
         
-        l,m=self.iFacet_lm_in
-        self.iFacet_radec_in=self.CoordMachine.lm2radec(np.array([l]),np.array([m]))
-        #print "ifacet:",self.iFacet
+        self.iFacet=self.giveFacetID2(xp,yp)
+        # self.iFacet,self.iFacet_lm=self.giveFacetID2(xp,yp)
+        # l,m=self.iFacet_lm
+        # self.iFacet_radec=self.CoordMachine.lm2radec(l,m)
+        # l,m=self.iFacet_lm_in
+        # self.iFacet_radec_in=self.CoordMachine.lm2radec(np.array([l]),np.array([m]))
+        # #print "ifacet:",self.iFacet
 
     def giveFacetID(self,xp,yp):
         dmin=1e6
@@ -195,7 +196,7 @@ class ClassPSFServer():
         #ClosestFacet=ClosestFacet0
         
         #print(ClosestFacet,iDirJones)
-        return ClosestFacet,LlmSol[ClosestFacet]
+        return ClosestFacet#,LlmSol[ClosestFacet]
 
 
     
