@@ -391,7 +391,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 M=(aPastModels_Resid[iModel,0]<Th[iModel])
                 indx,indy=np.where(M)
                 aPastModels_Resid[iModel,0,indx,indy]=Th[iModel]
-            W=1./aPastModels_Resid#**2#**2
+            W=1./aPastModels_Resid**2#**2
             
             S0=PastModels[:,0:1]
             W[S0==0]=0

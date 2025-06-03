@@ -27,15 +27,15 @@ from tqdm import tqdm
 
 
 def test2():
-    S=np.load("FIG/AB_3236_3236.npz",allow_pickle=1)
+    S=np.load("FIG/AB_Major2_3230_3327.npz",allow_pickle=1)
 
     A=S["A"]#[0]
     B=S["B"]#[0]
     A=B.copy()
     
-    Asave=S["Asave"]#[0]
-    Bsave=S["Bsave"]#[0]
-    Asave=Bsave.copy()
+    # Asave=S["Asave"]#[0]
+    # Bsave=S["Bsave"]#[0]
+    # Asave=Bsave.copy()
 
     Model=S["Model"]
     nch=S["nch"][()]
@@ -83,7 +83,7 @@ def test2():
     import scipy.stats
 
     pylab.figure("test",figsize=(20,10))
-    nx,ny=6,3
+    nx,ny=3,4
     iPlot=1
     pylab.clf()
     LScaleDirty=[]
@@ -118,41 +118,43 @@ def test2():
     Model.fill(0)
     for ich in range(nch):
         pylab.subplot(nx, ny, iPlot,sharex=ax,sharey=ax); iPlot+=1
-        CO=ClassOrieux(A[ich],B[ich])
+        CO=ClassOrieux(A[ich].copy(),B[ich].copy())
         C=CO.Deconv(hyper=50.0,
                     sq=0.1,
                     c=10,
                     niter=20)
-        print(Model.max())
+        #print(Model.max())
         
-        Model[ich,0,s_dirty_cut,s_dirty_cut]=np.roll(C[:,:],(1,-1))
+        Model[ich,0,s_dirty_cut,s_dirty_cut]=np.roll(C[:,:],(1,-1), axis=(0, 1))
         #Model[ich,0,s_dirty_cut,s_dirty_cut]=C[:,:]
 
-        v0,v1=0.,Model[0].max()
+        v0,v1=0.,C.max()
         LScaleModel.append((v0,v1))
-        pylab.imshow(Model[ich][0],vmin=v0,vmax=v1)
-        pylab.title("npzModel [ch#%i]"%ich)
-    
-    for ich in range(nch):
-        Dty=fftconvolve(Model[ich][0],B[ich], mode='same')#[s_dirty_cut,s_dirty_cut]
-        pylab.subplot(nx, ny, iPlot,sharex=ax,sharey=ax); iPlot+=1
-        v0,v1=LScaleDirty[ich]
-        pylab.imshow(Asave[ich,0]-Dty,vmin=v0,vmax=v1)
-        #pylab.imshow(Asave[ich,0],vmin=v0,vmax=v1)
-        pylab.title("D-P*npzModel [ch#%i]"%ich)
+        #pylab.imshow(Model[ich][0],vmin=v0,vmax=v1)
+        #pylab.imshow(np.roll(C[:,:],(100,-100), axis=(0, 1)),vmin=v0,vmax=v1)
+        pylab.title("Model [ch#%i]"%ich)
+        
 
-    # ModelF=ModelMachine.GiveModelImage(S["GridFreqs"])
-    for ich in range(nch):
-        pylab.subplot(nx, ny, iPlot,sharex=ax,sharey=ax); iPlot+=1
-        v0,v1=LScaleModel[ich]
-        pylab.imshow(ModelFit[ich][0],vmin=v0,vmax=v1)
-        pylab.title("npzModelFit [ch#%i]"%ich)
-    for ich in range(nch):
-        Dty=fftconvolve(ModelFit[ich][0],B[ich], mode='same')#[s_dirty_cut,s_dirty_cut]
-        pylab.subplot(nx, ny, iPlot,sharex=ax,sharey=ax); iPlot+=1
-        v0,v1=LScaleDirty[ich]
-        pylab.imshow(Asave[ich,0]-Dty,vmin=v0,vmax=v1)
-        pylab.title("D-P*npzModelFit [ch#%i]"%ich)
+    # for ich in range(nch):
+    #     ModelConv=fftconvolve(Model[ich][0],B[ich], mode='same')[s_dirty_cut,s_dirty_cut]
+    #     pylab.subplot(nx, ny, iPlot,sharex=ax,sharey=ax); iPlot+=1
+    #     v0,v1=LScaleDirty[ich]
+    #     pylab.imshow(A[ich]-ModelConv,vmin=v0,vmax=v1)
+    #     #pylab.imshow(Asave[ich,0],vmin=v0,vmax=v1)
+    #     pylab.title("D-P*Model [ch#%i]"%ich)
+
+    # # ModelF=ModelMachine.GiveModelImage(S["GridFreqs"])
+    # for ich in range(nch):
+    #     pylab.subplot(nx, ny, iPlot,sharex=ax,sharey=ax); iPlot+=1
+    #     v0,v1=LScaleModel[ich]
+    #     pylab.imshow(ModelFit[ich][0],vmin=v0,vmax=v1)
+    #     pylab.title("npzModelFit [ch#%i]"%ich)
+    # for ich in range(nch):
+    #     Dty=fftconvolve(ModelFit[ich][0],B[ich], mode='same')#[s_dirty_cut,s_dirty_cut]
+    #     pylab.subplot(nx, ny, iPlot,sharex=ax,sharey=ax); iPlot+=1
+    #     v0,v1=LScaleDirty[ich]
+    #     pylab.imshow(Asave[ich,0]-Dty,vmin=v0,vmax=v1)
+    #     pylab.title("D-P*npzModelFit [ch#%i]"%ich)
 
 
     
