@@ -351,7 +351,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         ThisModel_mean=DicoComp["Vals"][0]
 
         
-        if len(self.PastModels)>=2:
+        if len(self.PastModels)>=self.GD["Deconv"]["MaxMajorIter"]//2:
             log.print("Use %i past models to update..."%len(self.PastModels))
             # sgn0=np.sign(self.PastModels[1][0]-self.PastModels[0][0])
             # sgn1=np.sign(ThisModel_mean-self.PastModels[1][0])
