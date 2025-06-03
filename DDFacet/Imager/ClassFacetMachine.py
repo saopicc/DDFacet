@@ -981,24 +981,24 @@ class ClassFacetMachine():
                 except:
                     pass
 
-        # try:
-        #     print(ImageIn.shape)
-        # except:
-        #     stop
+            # try:
+            #     print(ImageIn.shape)
+            # except:
+            #     stop
             
-        self.setCasaImage(ImageName=ImageName, Shape=ImageIn.shape,
-                          Freqs=Freqs, Stokes=Stokes)
+            self.setCasaImage(ImageName=ImageName, Shape=ImageIn.shape,
+                              Freqs=Freqs, Stokes=Stokes)
 
-        self.CasaImage.setdata(ImageIn, CorrT=True)
+            self.CasaImage.setdata(ImageIn, CorrT=True)
 
-        if Fits:
-            if beam is not None:
-                self.CasaImage.setBeam(beam, beamcube=beamcube)
-            self.CasaImage.ToFits()
-        else:
-            raise RuntimeError('Fits = False not supported')
-        self.CasaImage.close()
-        self.CasaImage = None
+            if Fits:
+                if beam is not None:
+                    self.CasaImage.setBeam(beam, beamcube=beamcube)
+                    self.CasaImage.ToFits()
+            else:
+                raise RuntimeError('Fits = False not supported')
+            self.CasaImage.close()
+            self.CasaImage = None
 
     def GiveEmptyMainField(self):
         """
