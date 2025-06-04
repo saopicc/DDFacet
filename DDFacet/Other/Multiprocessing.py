@@ -80,13 +80,19 @@ def cleanupShm ():
     # above statement don't work for directories and subdirectories
     os.system("rm -rf /dev/shm/%s"%getShmPrefix())
 
+def getShmLockFile():
+    shm_lock_file = "%s.%s.%s" % ("ddf.clean", _pid, "lock")
+    return os.path.join(tempfile.gettempdir(), shm_lock_file)
+
 def cleanupStaleShm ():
     """
     Cleans up "stale" shared memory from previous runs of DDF
     """
+
     # BH possible race condition if MPI processes are running on the same node
     # use POSIX lock mechanism to force synchronize MPI-created processes
-    with MPIManager.InterProcessLock(os.path.join(tempfile.gettempdir(), "ddf.clean.lock")):
+    shm_lock_file = getShmLockFile()
+    with MPIManager.InterProcessLock(shm_lock_file):
         # check for stale shared memory
         uid = os.getuid()
         # list of all files in /dev/shm/ matching ddf.PID.* and belonging to us
@@ -115,6 +121,8 @@ def cleanupStaleShm ():
                 os.unlink(path)
             os.system("rm -fr " + " ".join(dirs))
 
+    if os.path.exists(shm_lock_file):
+        os.remove(shm_lock_file)
 
 def getShmURL(name, **kw):
     """
