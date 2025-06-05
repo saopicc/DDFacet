@@ -114,7 +114,9 @@ class ClassEveryBeam():
         # initialise internal beam matrix shape
         Beam=np.zeros((nd,self.MS.na,self.MS.NSPWChan,2,2),dtype=float)
         # load the telescope; everybeam automatically finds the appropriate setup for the provided dataset
-        obs = everybeam.load_telescope(self.MS.MSName)
+        obs = everybeam.load_telescope(self.MS.MSName,
+                                       use_differential_beam=False,
+                                       element_response_model = "skala40_wave")
         # calculate the array response
         for iant in range(self.MS.na):
             obs_coords_xyz  = radec_to_xyz(self.MS.PointingRadec[0] * u.rad, self.MS.PointingRadec[1] * u.rad, time, self.AntLocs[iant])
@@ -122,7 +124,21 @@ class ClassEveryBeam():
                 # calculate the observation coords and phase coord for this station's XYZ position
                 phase_xyz = radec_to_xyz(ras[idir] * u.rad, decs[idir] * u.rad, time, self.AntLocs[iant])
                 for ifreq,freq in enumerate(freqs):
-                    Beam[idir,iant,ifreq,:,:] = obs.array_factor(time, iant, freq, phase_xyz, obs_coords_xyz)
+                    # documentation: need to calculate array factor and element response separately.
+                    #                This is despite the fact that the station response function exists.
+                    #                It expects an everybeam type of PHASED_ARRAY rather than OSKAR and
+                    #                therefore breaks. The faster call is left for future reference
+                    #                to be implemented once the function works properly.
+                    #stat_resp  = obs.station_response(time=time,
+                    #                                  station_idx=iant,
+                    #                                  freq=freq,
+                    #                                  direction=phase_xyz,
+                    #                                  station0_direction=obs_coords_xyz,
+                    #                                  )
+                    arr_factor = obs.array_factor(time, iant, freq, phase_xyz, obs_coords_xyz)
+                    elem_resp  = obs.array_factor(time, iant, freq, phase_xyz, obs_coords_xyz)
+                    stat_resp  = np.matmul(arr_factor, elem_resp)
+                    Beam[idir,iant,ifreq,:,:] = stat_resp
         # initialise average beam over frequency chunk
         MeanBeam=np.zeros((nd,self.MS.na,self.NChanJones,2,2),dtype=Beam.dtype)
         # calculate the average beam
