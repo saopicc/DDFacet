@@ -123,25 +123,27 @@ def test2():
                     sq=0.1,
                     c=10,
                     niter=20)
-        #print(Model.max())
         
-        Model[ich,0,s_dirty_cut,s_dirty_cut]=np.roll(C[:,:],(1,-1), axis=(0, 1))
-        #Model[ich,0,s_dirty_cut,s_dirty_cut]=C[:,:]
+        #Model[ich,0,s_dirty_cut,s_dirty_cut]=np.roll(C[:,:],(1,-1), axis=(0, 1))
+        Model[ich,0,s_dirty_cut,s_dirty_cut]=C[:,:]
+        print(Model.max())
 
         v0,v1=0.,C.max()
         LScaleModel.append((v0,v1))
-        #pylab.imshow(Model[ich][0],vmin=v0,vmax=v1)
+        pylab.imshow(Model[ich][0],vmin=v0,vmax=v1)
         #pylab.imshow(np.roll(C[:,:],(100,-100), axis=(0, 1)),vmin=v0,vmax=v1)
         pylab.title("Model [ch#%i]"%ich)
         
 
-    # for ich in range(nch):
-    #     ModelConv=fftconvolve(Model[ich][0],B[ich], mode='same')[s_dirty_cut,s_dirty_cut]
-    #     pylab.subplot(nx, ny, iPlot,sharex=ax,sharey=ax); iPlot+=1
-    #     v0,v1=LScaleDirty[ich]
-    #     pylab.imshow(A[ich]-ModelConv,vmin=v0,vmax=v1)
-    #     #pylab.imshow(Asave[ich,0],vmin=v0,vmax=v1)
-    #     pylab.title("D-P*Model [ch#%i]"%ich)
+    for ich in range(nch):
+        ModelConv=fftconvolve(Model[ich][0][s_dirty_cut,s_dirty_cut],B[ich], mode='same')
+        stop
+        pylab.subplot(nx, ny, iPlot,sharex=ax,sharey=ax); iPlot+=1
+        v0,v1=LScaleDirty[ich]
+        #pylab.imshow(A[ich]-ModelConv,vmin=v0,vmax=v1)
+        pylab.imshow(ModelConv,vmin=v0,vmax=v1)
+        #pylab.imshow(Asave[ich,0],vmin=v0,vmax=v1)
+        pylab.title("D-P*Model [ch#%i]"%ich)
 
     # # ModelF=ModelMachine.GiveModelImage(S["GridFreqs"])
     # for ich in range(nch):

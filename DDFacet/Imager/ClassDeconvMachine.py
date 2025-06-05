@@ -210,7 +210,7 @@ class ClassImagerDeconv():
             
 
         self.NMajor=self.GD["Deconv"]["MaxMajorIter"]
-        del(self.GD["Deconv"]["MaxMajorIter"])
+        # del(self.GD["Deconv"]["MaxMajorIter"])
         # If we do the deconvolution construct a model according to what is in MinorCycleConfig
         MinorCycleConfig=dict(self.GD["Deconv"])
         MinorCycleConfig["NCPU"] = self.GD["Parallel"]["NCPU"]
