@@ -165,6 +165,9 @@ class ClassImageDeconvMachine():
                 Lal=[-7,  -5,   -1   , 1,    2]
                 Ldal=  [  0.2,  0.1, 0.05,  0.1]
                 
+                # Lal=[-0.7,-0.5]
+                # Ldal=  [  0.05]
+                
                 LL=[]
                 for ii,dal in enumerate(Ldal):
                     al0,al1=Lal[ii],Lal[ii+1]
@@ -401,6 +404,8 @@ class ClassImageDeconvMachine():
         Nout=np.min([dirty.shape[-1],psf.shape[-1]])
         if Nout%2!=0: Nout-=1
 
+        LRMS=self.DicoDirty["LRMS"]
+        ARMS=np.array(LRMS,dtype=np.float32)
             
         # from skimage import restoration
         T.timeit("Init")
@@ -457,8 +462,21 @@ class ClassImageDeconvMachine():
                 #A=B.copy()
                 CO=ClassOrieux.ClassOrieux(A,B)
                 #CO=ClassOrieux.ClassOrieux(dirty[ch,0,:,:], psf[ch,0,:,:])
+                ThisRMS=ARMS[ch]
+                ThisSNR=A.max()/ThisRMS
+                SNR0=5
+                SNR1=20
+                hyper0=10000
+                hyper1=5
+                a=(hyper0-hyper1)/(SNR0-SNR1)
+                b=hyper0-a*SNR0
+                hyp=lambda SNR: a*SNR+b
+                hyper=hyp(ThisSNR)
+                hyper=np.max([SNR0,hyper])
+                hyper=np.min([SNR1,hyper])
+                
                 model=CO.Deconv(niter=20,
-                                #hyper=1e3,
+                                hyper=hyper,
                                 )
                 # model = restoration.richardson_lucy(dirty[ch,0,s_dirty_cut,s_dirty_cut], psf[ch,0,s_psf_cut,s_psf_cut], iterations=30)
 
@@ -616,8 +634,6 @@ class ClassImageDeconvMachine():
         T.timeit("Cut")
         
 
-        LRMS=self.DicoDirty["LRMS"]
-        ARMS=np.array(LRMS,dtype=np.float32)
         # Initialise x0
         nx,ny=Model.shape[-2:]
         MM=Model.copy().reshape((nch,nx*ny)).T

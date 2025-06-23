@@ -1331,9 +1331,9 @@ class ClassImagerDeconv():
                     NParms,nx,ny=DicoComp["Vals"].shape
                     for iCoef in range(NParms):
                         ThisCoefImage=DicoComp["Vals"][iCoef,:,:].reshape((1,1,nx,ny))
-                        self.FacetMachine.ToCasaImage(ThisCoefImage,ImageName="%s.%2.2i.Taylor%i"%(self.BaseName,iMajor,iCoef),Stokes=self.VS.StokesConverter.RequiredStokesProducts(),Fits=True)
+                        self.FacetMachine.ToCasaImage(ThisCoefImage,ImageName="%s.Taylor%i.%2.2i"%(self.BaseName,iCoef,iMajor),Stokes=self.VS.StokesConverter.RequiredStokesProducts(),Fits=True)
                     ThisCoefImage=DicoComp["Weights"].reshape((1,1,nx,ny))
-                    self.FacetMachine.ToCasaImage(ThisCoefImage,ImageName="%s.%2.2i.TaylorW"%(self.BaseName,iMajor),Stokes=self.VS.StokesConverter.RequiredStokesProducts(),Fits=True)
+                    self.FacetMachine.ToCasaImage(ThisCoefImage,ImageName="%s.TaylorW.%2.2i"%(self.BaseName,iMajor),Stokes=self.VS.StokesConverter.RequiredStokesProducts(),Fits=True)
 
                 
             # Broadcast metadata regarding the state of Deconvolution form the master MPI process

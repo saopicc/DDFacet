@@ -49,6 +49,20 @@ import copy
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 from collections import deque
 import scipy.stats
+from . import ClassFitPreviousModels
+def fMyScale(x,RMS=1.): return np.arcsinh((x/RMS)/2)/np.log(10)
+def inv_fMyScale(x,RMS=1.): return RMS*np.sinh(x*np.log(10))*2
+
+# def fMyScale(x,RMS=1.):
+#     x[x<=0]=1e-10
+#     return np.log10(x/RMS)
+# def inv_fMyScale(x,RMS=1.): return RMS*10**x
+
+
+
+
+
+
 
 class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def __init__(self,*args,**kwargs):
@@ -351,7 +365,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         ThisModel_mean=DicoComp["Vals"][0]
 
         
-        if len(self.PastModels)>=self.GD["Deconv"]["MaxMajorIter"]//2:
+        #if len(self.PastModels)>=self.GD["Deconv"]["MaxMajorIter"]//2:
+        if len(self.PastModels)>=2:
             log.print("Use %i past models to update..."%len(self.PastModels))
             # sgn0=np.sign(self.PastModels[1][0]-self.PastModels[0][0])
             # sgn1=np.sign(ThisModel_mean-self.PastModels[1][0])
@@ -384,8 +399,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             STD=np.array(LSTD)
             
             aPastModels_Resid=np.abs(PastModels_Resid)
-
-
+            
+            
             Th=0.1*STD
             for iModel in range(NDeque):
                 M=(aPastModels_Resid[iModel,0]<Th[iModel])
@@ -424,10 +439,16 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 Wa[iTerm]*=np.abs(MeanModelPast[0])
                 Wb[iTerm]*=np.abs(DicoComp["Vals"][0])
             
+            CFPM=ClassFitPreviousModels.ClassFitPreviousModels(self)
+            MeanModelPast=CFPM.avgWeighted()
+            
+            Wa.fill(1)
+            
             Sw=Wa+Wb
             Sw[Sw==0]=1
             #Wa[MeanModelPast[0:1]==0]=0
-            DicoComp["Vals"][:] = (Wa*MeanModelPast + Wb*DicoComp["Vals"][:])/Sw#(Wa+Wb)
+            #DicoComp["Vals"][:] = (Wa*MeanModelPast + Wb*DicoComp["Vals"][:])/Sw#(Wa+Wb)
+            DicoComp["Vals"][:] = MeanModelPast[:]
 
             
             
@@ -447,7 +468,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         
         
         
-    def GiveModelImage(self,FreqIn=None,out=None):
+    def GiveModelImage(self,FreqIn=None,out=None,InModelParms=None):
         
         RefFreq=self.DicoSMStacked["RefFreq"]
         if FreqIn is None:
@@ -475,14 +496,18 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         if "Comp" not in  self.DicoSMStacked.keys():
             return ModelImage
-
-        DicoComp=self.DicoSMStacked["Comp"]
+        
+        if InModelParms is None:
+            DicoComp=self.DicoSMStacked["Comp"]
+            C=DicoComp["Vals"]
+        else:
+            C=InModelParms
+        
         N0=nx
 
         DicoSM={}
         SolveParam=np.array(self.SolveParam)
 
-        C=DicoComp["Vals"]
         x,y=np.where(C[0]!=0)
         logS=np.zeros((nx,ny),np.float32)
         for ich in range(nchan):
@@ -491,7 +516,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             logS.fill(0)
             for iCoef in range(1,self.NParam):
                 logS+=C[iCoef]*(np.log(ThisFreq/RefFreq))**iCoef
-
+                
             ModelImage[ich,0]=S0*np.exp(logS)
             
         return ModelImage
