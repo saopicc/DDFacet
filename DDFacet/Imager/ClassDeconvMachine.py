@@ -1319,11 +1319,11 @@ class ClassImagerDeconv():
                 restart_time = time.time()
 
             self.DicoDirty["iMajorCycle"]=iMajor
-            self.DeconvMachine.Update(self.DicoDirty)
-
-
             repMinor, continue_deconv, update_model = None, None, None
             if MPIManager.rank == 0:
+                self.DeconvMachine.Update(self.DicoDirty)
+
+
                 repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
 
                 if self.GD["Deconv"]["Mode"]=="SSD3":
@@ -1345,7 +1345,7 @@ class ClassImagerDeconv():
                 self.HasDeconvolved             = MPIManager.COMM_WORLD.bcast(self.HasDeconvolved, root=0)
                 
             if MPIManager.rank == 0:
-                    self.ModelMachine.ToFile(self.DicoModelName)
+                self.ModelMachine.ToFile(self.DicoModelName)
             if MPIManager.useMPI:
                 DicoSMStacked                   = MPIManager.COMM_WORLD.bcast(self.ModelMachine.DicoSMStacked, root=0)
 
