@@ -18,6 +18,7 @@ import time as timemod
 from . import terminal
 from DDFacet.Other import ModColor
 
+from DDFacet.Other import MPIManager
 
 def disableBars():
     ProgressBar.silent = 1
@@ -72,6 +73,8 @@ class ProgressBar(object):
         self.progress = None
         self.lines = 0
 
+        if MPIManager.useMPI:
+            Title="[Rank %i] %i"%(MPIManager.rank,Title)
         self.Title=Title
         
         self.HasRendered=False

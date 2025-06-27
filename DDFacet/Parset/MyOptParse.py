@@ -34,6 +34,7 @@ from collections import OrderedDict
 from DDFacet.Parset import ReadCFG
 from DDFacet.Other import ClassPrint
 from DDFacet.Other import ModColor
+from DDFacet.Other import MPIManager
 
 
 #global Parset
@@ -157,6 +158,7 @@ class MyOptParse():
 
 
     def Print(self, RejectGroups=[], dest=sys.stdout):
+        if MPIManager.rank != 0: return
         P= ClassPrint.ClassPrint(HW=50)
         print(ModColor.Str(" Selected Options:"), file=dest)
     

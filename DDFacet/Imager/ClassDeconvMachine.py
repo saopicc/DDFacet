@@ -210,7 +210,7 @@ class ClassImagerDeconv():
             
 
         self.NMajor=self.GD["Deconv"]["MaxMajorIter"]
-        del(self.GD["Deconv"]["MaxMajorIter"])
+        # del(self.GD["Deconv"]["MaxMajorIter"])
         # If we do the deconvolution construct a model according to what is in MinorCycleConfig
         MinorCycleConfig=dict(self.GD["Deconv"])
         MinorCycleConfig["NCPU"] = self.GD["Parallel"]["NCPU"]
@@ -294,6 +294,20 @@ class ClassImagerDeconv():
                 print("Using SSD2 with %s Minor Cycle algorithm"%self.GD["SSDClean"]["IslandDeconvMode"], file=log)
                 if self.NMajor>3:
                     print(ModColor.Str("  Your number of major iterations (%i) seem too high for SSD2, we advice using a maximum of 3..."%self.NMajor), file=log)
+            elif self.GD["Deconv"]["Mode"]=="SSD3":
+                if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
+                    raise NotImplementedError("Multi-polarization is not supported in SSD")
+                from DDFacet.Imager.SSD3 import ClassImageDeconvMachineSSD
+                self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(MainCache=self.VS.maincache,
+                                                                                      MinorCycleConfig=MinorCycleConfig,
+                                                                                      **MinorCycleConfig)
+                self.DeconvMachine.setMaxMajorIter(self.NMajor)
+                print("Using SSD3 with %s Minor Cycle algorithm"%self.GD["SSDClean"]["IslandDeconvMode"], file=log)
+                if self.NMajor>3:
+                    print(ModColor.Str("  Your number of major iterations (%i) seem too high for SSD3, we advice using a maximum of 3..."%self.NMajor), file=log)
+                
+                APP.registerJobHandlers(self.DeconvMachine)
+                
             elif self.GD["Deconv"]["Mode"] == "Hogbom":
                 from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
                 self.DeconvMachine=ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(**MinorCycleConfig)
@@ -332,7 +346,8 @@ class ClassImagerDeconv():
             self.FacetMachine.setAverageBeamMachine(AverageBeamMachine)
             if self.StokesFacetMachine:
                 self.StokesFacetMachine.setAverageBeamMachine(AverageBeamMachine)
-                
+        
+        
         APP.startWorkers()
         self.VS.CalcWeightsBackground()
         self.InitCF()
@@ -830,8 +845,11 @@ class ClassImagerDeconv():
                         self.FacetMachine.DicoImager[iFacet]["SumJones"] = MPIManager.COMM_WORLD.allreduce(self.FacetMachine.DicoImager[iFacet]["SumJones"], MPIManager.SUM)
                 # stitch facets and release grids
                 self.DicoDirty = self.FacetMachine.FacetsToIm(NormJones=True)
+                
                 self.FacetMachine.releaseGrids()
 
+
+                
                 self.SaveDirtyProducts()
 
                 # dump dirty to cache
@@ -852,6 +870,18 @@ class ClassImagerDeconv():
         # This call needs to be here to attach the cached smooth beam to FacetMachine if it exists
         # and if dirty has been initialised from cache
         self.FacetMachine.finaliseSmoothBeam()
+
+        # SSD3 need to access SmoothJonesNorm, this is a hack to make it available to anyone, but it's more elegant this way 
+        if self.FacetMachine.SmoothJonesNorm is not None:
+            self.DicoDirty.addSharedArray("SmoothJonesNorm",
+                                           self.FacetMachine.SmoothJonesNorm.shape,
+                                           self.FacetMachine.SmoothJonesNorm.dtype)
+            self.DicoDirty["SmoothJonesNorm"][:]=self.FacetMachine.SmoothJonesNorm[:]
+            self.DicoDirty.addSharedArray("MeanSmoothJonesNorm",
+                                           self.FacetMachine.MeanSmoothJonesNorm.shape,
+                                           self.FacetMachine.MeanSmoothJonesNorm.dtype)
+            self.DicoDirty["MeanSmoothJonesNorm"][:]=self.FacetMachine.MeanSmoothJonesNorm[:]
+
 
         # If we have used InitDicoModel to substracted to the original dirty,
         # no need to anymore in the subsequent call to GiveDirty
@@ -1248,6 +1278,9 @@ class ClassImagerDeconv():
             # eventually Reset()s its HMP machine, releasing memory)
             # we have to give the PSF to the image-noise machine since it may have to run an HMP deconvolution
             self.ImageNoiseMachine.setPSF(self.DicoImagesPSF)
+
+
+            
             # now update the mask - it will eventually call for ImageNoiseMachine to compute a noise image
             # May be done by all the mpi processes if we want to distribute SSD2 computation using MPI
             self.MaskMachine.updateMask(self.DicoDirty)
@@ -1285,12 +1318,23 @@ class ClassImagerDeconv():
                 APP.restartWorkers()
                 restart_time = time.time()
 
+            self.DicoDirty["iMajorCycle"]=iMajor
             self.DeconvMachine.Update(self.DicoDirty)
 
 
             repMinor, continue_deconv, update_model = None, None, None
             if MPIManager.rank == 0:
                 repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
+
+                if self.GD["Deconv"]["Mode"]=="SSD3":
+                    DicoComp=self.ModelMachine.DicoSMStacked["Comp"]
+                    NParms,nx,ny=DicoComp["Vals"].shape
+                    for iCoef in range(NParms):
+                        ThisCoefImage=DicoComp["Vals"][iCoef,:,:].reshape((1,1,nx,ny))
+                        self.FacetMachine.ToCasaImage(ThisCoefImage,ImageName="%s.Taylor%i.%2.2i"%(self.BaseName,iCoef,iMajor),Stokes=self.VS.StokesConverter.RequiredStokesProducts(),Fits=True)
+                    ThisCoefImage=DicoComp["Weights"].reshape((1,1,nx,ny))
+                    self.FacetMachine.ToCasaImage(ThisCoefImage,ImageName="%s.TaylorW.%2.2i"%(self.BaseName,iMajor),Stokes=self.VS.StokesConverter.RequiredStokesProducts(),Fits=True)
+
                 
             # Broadcast metadata regarding the state of Deconvolution form the master MPI process
             # to all the other MPI processes.
@@ -1541,6 +1585,12 @@ class ClassImagerDeconv():
                 if "e" in self._saveims:
                     self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.residual%2.2i"%(self.BaseName,iMajor),
                                                 Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                if "r" in self._savecubes:
+                    self.FacetMachine.ToCasaImage(self.DicoDirty["ImageCube"],
+                                                  ImageName="%s.cube.residual%2.2i"%(self.BaseName,iMajor),
+                                                  Fits=True,
+                                                  Freqs=self.VS.FreqBandCenters,
+                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
             # write out current model, using final or intermediate name
             if MPIManager.rank == 0:
@@ -1574,6 +1624,13 @@ class ClassImagerDeconv():
 
         self.FacetMachine.finaliseSmoothBeam()
 
+        if self.ModelMachine.DicoSMStacked["Type"]=="SSD3" and self.DeconvMachine.SteinModelMachine is not None: 
+            mod_image = self.DeconvMachine.SteinModelMachine.GiveModelImage()
+            self.FacetMachine.ToCasaImage(mod_image,ImageName="%s.model.mean_posterior.int"%self.BaseName,Fits=True)
+            mod_image = self.DeconvMachine.ModelMachine.GiveModelImage()
+            self.FacetMachine.ToCasaImage(mod_image,ImageName="%s.model.best_individual.int"%self.BaseName,Fits=True)
+            
+                    
         # dump dirty to cache
         if self.GD["Cache"]["LastResidual"] and self.DicoDirty is not None:
             cachepath, valid = self.VS.maincache.checkCache("LastResidual",
@@ -2265,7 +2322,7 @@ class ClassImagerDeconv():
                 _images['alphamap'], _images["alphastdmap"] = ModelMachine.GiveSpectralIndexMap(GaussPars=self.FWHMBeam[0], ResidCube=apprescube())
                 return _images['alphamap'], _images["alphastdmap"]
             else:
-                _images['alphamap'] = ModelMachine.GiveSpectralIndexMap()
+                _images['alphamap'] = ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.FWHMBeamAvg])
 
                 return _images['alphamap'], None
 

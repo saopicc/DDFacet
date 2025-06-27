@@ -994,7 +994,7 @@ class ClassFacetMachine():
             if Fits:
                 if beam is not None:
                     self.CasaImage.setBeam(beam, beamcube=beamcube)
-                    self.CasaImage.ToFits()
+                self.CasaImage.ToFits()
             else:
                 raise RuntimeError('Fits = False not supported')
             self.CasaImage.close()
