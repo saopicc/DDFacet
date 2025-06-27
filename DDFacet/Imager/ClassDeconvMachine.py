@@ -895,6 +895,7 @@ class ClassImagerDeconv():
         return self.DicoDirty["MeanImage"]
 
     def SaveDirtyProducts(self):
+        log.print("Save Dirty products...")
         if MPIManager.rank == 0: #only if master node or not MPI
             if "d" in self._saveims:
                 self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty"%self.BaseName,Fits=True,
@@ -1228,7 +1229,7 @@ class ClassImagerDeconv():
 
         # if running in NMajor=0 mode, then we simply want to subtract/predict the model probably
         self.GiveDirty(psf=True, sparsify=sparsify, last_cycle=(NMajor==0))
-
+        
         self.DicoImagesPSF.reload()
         self.DicoImagesPSF["DicoImager"]=copy.deepcopy((self.FacetMachinePSF.DicoImager or self.FacetMachine.DicoImager))
 
