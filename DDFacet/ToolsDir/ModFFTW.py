@@ -726,23 +726,34 @@ def GiveGauss(NpixIn,CellSizeRad=None,GaussPars=(0.,0.,0.),dtype=np.float32,para
     return Gauss
 
 def ConvolveGaussianScipy(Ain0,Sig=1.,GaussPar=None):
-  #warnings.warn("deprecated: this wont work for small ffts...",
-  #              DeprecationWarning)
-  Npix=int(2*8*Sig)
-  if Npix%2==0: Npix+=1
-  x0=Npix//2
-  x,y=np.mgrid[-x0:x0:Npix*1j,-x0:x0:Npix*1j]
-  #in2=np.exp(-(x**2+y**2)/(2.*Sig**2))
-  if GaussPar is None:
-      GaussPar=(Sig,Sig,0)
-  in2=Gaussian.Gaussian2D(x,y,GaussPar=GaussPar)
+    #warnings.warn("deprecated: this wont work for small ffts...",
+    #              DeprecationWarning)
 
-  nch,npol,_,_=Ain0.shape
-  Out=np.zeros_like(Ain0)
-  for ch in range(nch):
-      in1=Ain0[ch,0]
-      Out[ch,0,:,:]=scipy.signal.fftconvolve(in1, in2, mode='same').real
-  return Out,in2
+    if type(Sig)==int or type(Sig)==float:
+        Sig=(Sig,Sig)
+    
+    
+    Sig_x,Sig_y=Sig
+    Npix_x,Npix_y=int(2*8*Sig_x),int(2*8*Sig_y)
+    
+    if Npix_x%2==0: Npix_x+=1
+    x0=Npix_x//2
+
+    if Npix_y%2==0: Npix_y+=1
+    y0=Npix_y//2
+    
+    x,y=np.mgrid[-x0:x0:Npix_x*1j,-y0:y0:Npix_y*1j]
+    #in2=np.exp(-(x**2+y**2)/(2.*Sig**2))
+    if GaussPar is None:
+        GaussPar=(Sig_x,Sig_y,0)
+    in2=Gaussian.Gaussian2D(x,y,GaussPar=GaussPar)
+  
+    nch,npol,_,_=Ain0.shape
+    Out=np.zeros_like(Ain0)
+    for ch in range(nch):
+        in1=Ain0[ch,0]
+        Out[ch,0,:,:]=scipy.signal.fftconvolve(in1, in2, mode='same').real
+    return Out,in2
 
 def ConvolveGaussianWrapper(Ain0,Sig=1.0,GaussPar=None,Out=None,Gauss=None):
     # a drop-in replacement for ConvolveGaussianScipy which uses
@@ -750,6 +761,12 @@ def ConvolveGaussianWrapper(Ain0,Sig=1.0,GaussPar=None,Out=None,Gauss=None):
     # size' is a fudge to make the two routines agree: the
     # Gaussian/Gaussian2D code appears to be missing the factor 2 on
     # the denominator of the Gaussian function it computes
+
+
+    # if type(Sig)==int or type(Sig)==float:
+    #     Sig=(Sig,Sig)
+    # Sig=Sig[0]
+    
     nch,npol,_,_=Ain0.shape
     if Out is None:
         Out = np.zeros_like(Ain0)
