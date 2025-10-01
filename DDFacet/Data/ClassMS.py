@@ -1916,7 +1916,7 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
     MSName can be a single filename, or a list of filenames, or a *.txt file (in which case a list
     of filenames will be read from the text file).
     
-    Each filename in the list can be suffixed with :hostname to select the host name where the filename
+    Each filename in the list can be prefixed with hostname: to select the host name where the filename
     will be loaded.
 
     Furthermore, each filename in the list can contain wildcards (*?) to select multiple MSs, and
@@ -1951,8 +1951,12 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
         regrp = "(([0-9]+)|([0-9]+)([~:])([0-9]+)|(\*))"   # regex matching N or N:M or N~M or *
         # match :F and :D suffixes, if present. Don't regexes make your brain melt
         terms = msspec.split("//")
-        host = terms[0].split(':')[1:][0] if terms[0].split(':')[1:] else None
-        msname = terms[0].split(':')[0]
+        host=None
+        msname = terms[0]
+        if ":" in terms:
+            host = terms[0].split(':')[0]
+            msname = terms[0].split(':')[1:]
+            
         #msname = terms[0]
         ddid_match = [ re.match("D("+regrp+")$", x) for x in terms[1:] ]
         field_match = [ re.match("F("+regrp+")$", x) for x in terms[1:] ]
