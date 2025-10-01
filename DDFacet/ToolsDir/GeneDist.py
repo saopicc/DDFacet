@@ -44,7 +44,9 @@ def GiveNonRedundantSample(Weight,N):
     indices=np.arange(Weight.size)
     S=Weight.copy()
     Nsel=N
-
+    if Weight.size==N:
+        return np.int64(np.arange(N)).tolist()
+    
     IList=[]
     SSel=S.copy()
     for iSel in range(Nsel ):
