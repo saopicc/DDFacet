@@ -2,15 +2,20 @@ size = 1 # number of mpi processes
 rank = 0 # local process ID
 useMPI=False
 
-try:
-    from mpi4py.MPI import *
-    
-    useMPI = True
-    size = COMM_WORLD.size
-    
-    rank = COMM_WORLD.rank
-except ModuleNotFoundError:
-    pass
+import os
+DDF_USE_MPI=os.environ.get("DDF_USE_MPI", "1") == "1"
+print(f"MPIManager: DDF_USE_MPI={DDF_USE_MPI}")
+
+if DDF_USE_MPI:
+    try:
+        from mpi4py.MPI import *
+
+        useMPI = True
+        size = COMM_WORLD.size
+
+        rank = COMM_WORLD.rank
+    except ModuleNotFoundError:
+        pass
 
 try:
     from fasteners import InterProcessLock
