@@ -136,8 +136,12 @@ class ClassEveryBeam():
                     #                                  station0_direction=obs_coords_xyz,
                     #                                  )
                     arr_factor = obs.array_factor(time, iant, freq, phase_xyz, obs_coords_xyz)
-                    elem_resp  = obs.array_factor(time, iant, freq, phase_xyz, obs_coords_xyz)
-                    stat_resp  = np.matmul(arr_factor, elem_resp)
+                    if "E" in self.GD["PhasedArrayMode"]:
+                        elem_resp  = obs.array_factor(time, iant, freq, phase_xyz, obs_coords_xyz)
+                        stat_resp  = np.matmul(arr_factor, elem_resp)
+                    else:
+                        stat_resp  = arr_factor
+                        
                     Beam[idir,iant,ifreq,:,:] = stat_resp
         # initialise average beam over frequency chunk
         MeanBeam=np.zeros((nd,self.MS.na,self.NChanJones,2,2),dtype=Beam.dtype)
