@@ -64,6 +64,8 @@ log = logger.getLogger("ClassVisServer")
 
 _cc = 299792458
 
+SERIAL=True
+SERIAL=False
 
 def test():
     MSName = "/media/tasse/data/killMS_Pack/killMS2/Test/0000.MS"
@@ -440,7 +442,7 @@ class ClassVisServer():
         iMS, iChunk = DATA["iMS"], DATA["iChunk"]
         self._put_vis_column_label = "%d.%d" % (iMS+1, iChunk+1)
         self._put_vis_column_job_id = "PutData:%d:%d" % (iMS, iChunk)
-        APP.runJob(self._put_vis_column_job_id, self. visPutColumnHandler, args=(DATA.readonly(), field, column, likecol), io=0)#,serial=True)
+        APP.runJob(self._put_vis_column_job_id, self. visPutColumnHandler, args=(DATA.readonly(), field, column, likecol), io=0,serial=SERIAL)
 
     def visPutColumnHandler (self, DATA, field, column, likecol):
         iMS, iChunk = DATA["iMS"], DATA["iChunk"]
@@ -495,7 +497,7 @@ class ClassVisServer():
                 # tell the IO thread to start loading the chunk
                 APP.runJob(self._next_chunk_name, self._handler_LoadVisChunk,
                            args=(self._next_chunk_name, self.iCurrentMS, self.iCurrentChunk), 
-                           io=0)#,serial=True)
+                           io=0,serial=SERIAL)
             return self._next_chunk_label
 
     def collectLoadedChunk(self, start_next=True, last_cycle=False):
