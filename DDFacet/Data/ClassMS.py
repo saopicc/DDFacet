@@ -719,7 +719,8 @@ class ClassMS():
 
             
         if self.zero_flag and visdata is not None:
-            visdata[flags] = 1e10
+            # visdata[flags] = 1e10 # Problem when flag of data and predict are not the same (for calibration)
+            visdata[flags] = 0
 
         # print "count",np.count_nonzero(flag_all),np.count_nonzero(np.isnan(vis_all))
             visdata[np.isnan(visdata)] = 0.
