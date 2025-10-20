@@ -145,8 +145,9 @@ class ClassSpectralFunctions():
 
         return FreqBandsFlux.ravel()
 
-    def IntExpFuncPoly(self,PolyArray,iChannel=0,iFacet=0,FluxScale="Exp"):#, S0=1.,Alpha=0.):
-        
+    def IntExpFuncPoly(self,PolyArray,iChannel=0,iFacet=0,FluxScale="Exp",ScaleS0="linear"):#, S0=1.,Alpha=0.):
+
+
         RefFreq=self.RefFreq
 
         ThisFreqs=np.array(self.DicoMappingDesc["freqs"][iChannel])
@@ -180,6 +181,9 @@ class ClassSpectralFunctions():
         #     SUnityFreq[iPix,:]=np.exp(logS)
         
         Npix,NOrder=PolyArray.shape
+
+        
+        
         n=np.arange(NOrder)
         n=n.reshape((1,1,NOrder))
         f=ThisFreqs.reshape((1,-1,1))
@@ -199,7 +203,12 @@ class ClassSpectralFunctions():
         
         S0=S0.reshape((Npix,))
         if FluxScale=="Exp":
-            FreqBandsFlux*=S0
-            
+            if ScaleS0=="log":
+                FreqBandsFlux*=10**S0
+            elif ScaleS0=="linear":
+                FreqBandsFlux*=S0
+            else:
+                print(ScaleS0)
+                stop
         return FreqBandsFlux.ravel()
     

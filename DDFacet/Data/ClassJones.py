@@ -1083,12 +1083,16 @@ class ClassJones():
         elif GD["Beam"]["Model"] == "ATCA":
             self.BeamMachine = ClassATCABeam.ClassATCABeam(self.MS,GD["Beam"])
             self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam
-        elif GD["Beam"]["Model"] == "NENUFAR":
+        elif GD["Beam"]["Model"].lower() == "nenufar":
             from DDFacet.Data import ClassNenuBeam as ClassNenuBeam
             self.BeamMachine = ClassNenuBeam.ClassNenuBeam(self.MS,GD["Beam"])
             self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam
+        elif GD["Beam"]["Model"].lower().startswith("everybeam"):
+            from DDFacet.Data import ClassEveryBeam as ClassEveryBeam
+            self.BeamMachine = ClassEveryBeam.ClassEveryBeam(self.MS,GD["Beam"])
+            self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam
         else:
-            raise ValueError("Unknown keyword for Beam-Model. Only accepts 'FITS', 'LOFAR', 'GMRT', 'ATCA' or 'NENUFAR'")
+            raise ValueError("Unknown keyword for Beam-Model. Only accepts 'FITS', 'LOFAR', 'GMRT', 'ATCA', 'NENUFAR' or 'Everybeam'.")
 
     def GiveBeam(self, times, quiet=False,RaDec=None):
         GD = self.GD

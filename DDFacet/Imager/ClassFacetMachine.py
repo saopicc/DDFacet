@@ -68,6 +68,7 @@ from DDFacet.Other import MyPickle
 from DDFacet.Array import ModLinAlg
 from astropy.coordinates import SkyCoord
 import astropy.units as u
+from DDFacet.Imager import ClassMaskMachine
 
 from DDFacet.Other import MPIManager
 
@@ -1219,6 +1220,7 @@ class ClassFacetMachine():
         DicoImages.addSubdict("ImageInfo")
         DicoImages["ImageInfo"]["CellSizeRad"]=self.CellSizeRad
         DicoImages["ImageInfo"]["OutImShape"]=self.OutImShape
+        DicoImages["ImageInfo"]["RaDecPhaseCenter"]=self.RaDecPhaseCenter
         
 
         # Assume all facets have the same weight sums.
@@ -1431,6 +1433,7 @@ class ClassFacetMachine():
             else:
                 DicoImages["MeanImage"] = DicoImages["ImageCube"]
 
+            
             DicoImages["FacetNorm"] = FacetNorm
             DicoImages["JonesNorm"] = JonesNorm
             
@@ -1447,10 +1450,6 @@ class ClassFacetMachine():
 
 
 
-
-
-            
-            return DicoImages
 
         # else build Dirty (residual) image
         else:
@@ -1478,7 +1477,12 @@ class ClassFacetMachine():
             DicoImages["MeanImage"] = MeanResidual
             DicoImages["FacetNorm"] = FacetNorm  # grid-correcting map
             DicoImages["JonesNorm"] = JonesNorm
-            return DicoImages
+            
+        DicoImages["ImageInfo"]["WBAND"]=WBAND
+        if not self.DoPSF and self.GD["Mask"]["ThFilterRFI"]:
+            FilterMachine=ClassMaskMachine.ClassFilterMachine()
+            FilterMachine.filterCube(DicoImages,ThFilterRFI=self.GD["Mask"]["ThFilterRFI"])
+        return DicoImages
 
     def toSingleFacet(self):
         log.print("Convert FacetMachine to single facet-like...")
@@ -1591,7 +1595,8 @@ class ClassFacetMachine():
                     Npix_y=self.OutImShape[-1]
                     self.AverageBeamMachine.SmoothBeam=self.SmoothJonesNorm.reshape((self.VS.NFreqBands,1,Npix_x,Npix_x))
                     self.AverageBeamMachine.MeanSmoothBeam=np.mean(self.AverageBeamMachine.SmoothBeam,axis=0).reshape((1,1,Npix_x,Npix_x))
-
+                stop
+                    
             FacetNorm = DicoImages["FacetNorm"]
             FacetNormReShape = DicoImages["FacetNorm"].reshape([1,1,
                                                                 FacetNorm.shape[0],

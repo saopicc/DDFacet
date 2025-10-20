@@ -35,6 +35,45 @@ def test():
     DM.setRefSample(X,W)
     DM.GiveSample(1000)
 
+
+def weighted_quantile(values, quantiles, sample_weight=None, 
+                      values_sorted=False, old_style=False):
+    """ Very close to numpy.percentile, but supports weights.
+    NOTE: quantiles should be in [0, 1]!
+    :param values: numpy.array with data
+    :param quantiles: array-like with many quantiles needed
+    :param sample_weight: array-like of the same length as `array`
+    :param values_sorted: bool, if True, then will avoid sorting of
+        initial array
+    :param old_style: if True, will correct output to be consistent
+        with numpy.percentile.
+    :return: numpy.array with computed quantiles.
+    """
+    values = np.array(values)
+    quantiles = np.array(quantiles)
+    if sample_weight is None:
+        sample_weight = np.ones(len(values))
+    sample_weight = np.array(sample_weight)
+    assert np.all(quantiles >= 0) and np.all(quantiles <= 1), \
+        'quantiles should be in [0, 1]'
+
+    if not values_sorted:
+        sorter = np.argsort(values)
+        values = values[sorter]
+        sample_weight = sample_weight[sorter]
+
+    weighted_quantiles = np.cumsum(sample_weight) - 0.5 * sample_weight
+    if old_style:
+        # To be convenient with numpy.percentile
+        weighted_quantiles -= weighted_quantiles[0]
+        weighted_quantiles /= weighted_quantiles[-1]
+    else:
+        weighted_quantiles /= np.sum(sample_weight)
+    return np.interp(quantiles, weighted_quantiles, values)
+
+
+
+    
 def GiveNonRedundantSample(Weight,N):
     # Ngen=1000
     # indices=np.arange(Ngen)
@@ -123,7 +162,21 @@ class ClassDistMachine():
         xm=(x[0:-1]+x[1::])/2.
         return xm,D
 
-    #def InterpDist(self):
+    def giveQuartile(self,q,DoPlot=False):
+        xd,yd=self.xyCumulD
+        xp=np.interp(q, yd, xd, left=None, right=None)
+        if DoPlot:
+            import pylab
+            print(xp)
+            #x,y=self.giveCumulDist(xp,Ns=10)
+            pylab.clf()
+            pylab.plot(xd,yd)
+            #pylab.plot(x,y)
+            pylab.draw()
+            pylab.show()
+
+        
+        return xp
         
 
 
@@ -131,7 +184,7 @@ class ClassDistMachine():
         ys=np.random.rand(N)
         xd,yd=self.xyCumulD
         xp=np.interp(ys, yd, xd, left=None, right=None)
-
+        
         # x,y=self.giveCumulDist(xp,Ns=10)
         # pylab.clf()
         # pylab.plot(xd,yd)

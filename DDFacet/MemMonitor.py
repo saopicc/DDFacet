@@ -95,6 +95,14 @@ class ClassMemMonitor():
 
     def plot(self):
         pylab.clf()
+        ax = pylab.subplot(111)
+        self.plotOne(N=None,ax=ax,NMax=1000)
+        pylab.draw()
+        pylab.show(block=False)
+        pylab.pause(0.1)
+
+    def plotUpDown(self):
+        pylab.clf()
         ax = pylab.subplot(2,1,1)
         self.plotOne(N=self.NMax,ax=ax)
         ax = pylab.subplot(2,1,2)
@@ -102,6 +110,7 @@ class ClassMemMonitor():
         pylab.draw()
         pylab.show(block=False)
         pylab.pause(0.1)
+
         
     def plotOne(self,N=None,ax=None,NMax=None):
 
@@ -176,7 +185,7 @@ class ClassMemMonitor():
         #ax2.set_ylim(0, 35)
         ax.set_xlim(np.min(LT),np.max(LT))
         ax.set_ylim(0,1.1*np.max(LMemTotal))
-        ax2.set_ylim(0,100)
+        ax2.set_ylim(0,110)
         
         #ax2.legend(loc=0)
         
@@ -187,7 +196,7 @@ class ClassMemMonitor():
             while True:
                 self.update()
                 if time.time()-t0>5: break
-                time.sleep(0.05)
+                time.sleep(0.2)
             self.plot()
 
 

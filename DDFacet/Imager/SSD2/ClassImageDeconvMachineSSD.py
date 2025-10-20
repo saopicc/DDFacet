@@ -581,6 +581,7 @@ class ClassImageDeconvMachine():
         # Parallel=False
         # NCPU=1
         # StopWhenQueueEmpty=True
+        # print("KJGKJDKDGJKJ")
         # # ##################
         
 

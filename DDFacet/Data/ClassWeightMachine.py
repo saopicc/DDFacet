@@ -530,7 +530,7 @@ class ClassWeightMachine():
         # stop
         # if we're in per-band weighting mode, then adjust the index to refer to each band's grid
         if nbands > 1:
-            index += self.DicoMSChanMapping[ims][np.newaxis, :] * npix
+            index += np.uint32(self.DicoMSChanMapping[ims][np.newaxis, :]) * npix
         # zero weight refers to zero cell (otherwise it may end up outside the grid, since grid is
         # only big enough to accommodate the *unflagged* uv-points)
         index[weights == 0] = 0
@@ -638,6 +638,7 @@ class ClassWeightMachine():
 
                 np.save(msw["cachepath"], weight)
                 np.save("%s.sgn.npy"%msw["cachepath"], msw["sgnweight"])
+                np.save("%s.grid.npy"%msw["cachepath"], grid)
                 msw.delete_item("weight")
                 msw.delete_item("sgnweight")
                 msw.delete_item("uv")

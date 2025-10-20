@@ -13,6 +13,7 @@ from .edwin.criterions import Huber
 # from edwin.criterions import Huber
 # #from edwin.udft import urdft2 as dft
 # #from edwin.udft import uirdft2 as idft
+from scipy.signal import fftconvolve
 
 from numpy.fft import rfftn
 from numpy.fft import irfftn
@@ -23,6 +24,164 @@ def idft(var, shape=None):
 
 import astropy.io.fits as pyfits
 from tqdm import tqdm
+
+
+def test2():
+    S=np.load("FIG/AB_Major2_3230_3327.npz",allow_pickle=1)
+
+    A=S["A"]#[0]
+    B=S["B"]#[0]
+    A=B.copy()
+    
+    # Asave=S["Asave"]#[0]
+    # Bsave=S["Bsave"]#[0]
+    # Asave=Bsave.copy()
+
+    Model=S["Model"]
+    nch=S["nch"][()]
+    FreqBandToTaylor_ParmVec=S["FreqBandToTaylor_ParmVec"]
+    FreqBandToTaylor_FluxVec=S["FreqBandToTaylor_FluxVec"]
+    ModelMachine=S["ModelMachine"][()]
+    ModelFit=S["ModelFit"]
+    s_dirty_cut=S["s_dirty_cut"][()]
+    s_psf_cut=S["s_psf_cut"][()]
+
+
+
+    
+    # nx,ny=Model.shape[-2:]
+    # MM=Model.copy().reshape((nch,nx*ny)).T
+    # meanMM=MM.mean(axis=-1).reshape((-1,1))
+    # indZero=np.where(meanMM==0)[0]
+    # meanMM[indZero]=1
+    # MM=MM/meanMM
+        
+    # MM=MM.reshape((1,nx*ny,nch))
+    # FF=FreqBandToTaylor_FluxVec
+    # NComb,NParm=FreqBandToTaylor_ParmVec.shape
+    # FF=FF.reshape((NComb,1,nch))
+    # indComb=np.argmin(np.sum((MM-FF)**2,axis=-1),axis=0)
+        
+        
+    # CoefImage2=FreqBandToTaylor_ParmVec[indComb].copy()
+    # CoefImage2[:,0]=meanMM.ravel()
+    # CoefImage2[indZero,:]=0
+    # CoefImage2=CoefImage2.T.reshape((NParm,1,nx,ny))
+    
+    # CoefImage=CoefImage2
+
+    CoefImage=S["CoefImage"]
+
+    
+    #Model=CoefImage#-Model
+
+    #A=A+A.T
+    #A=B+B.T
+    
+
+    import pylab
+    import scipy.stats
+
+    pylab.figure("test",figsize=(20,10))
+    nx,ny=3,4
+    iPlot=1
+    pylab.clf()
+    LScaleDirty=[]
+    for ich in range(nch):
+        print(ich)
+        if iPlot==1:
+            ax=pylab.subplot(nx,ny, iPlot); iPlot+=1
+        else:
+            pylab.subplot(nx,ny, iPlot,sharex=ax,sharey=ax); iPlot+=1
+            
+        STD = scipy.stats.median_abs_deviation(A[A!=0],axis=None,scale="normal")
+        v0,v1=-10*STD,A[ich].max()#50*STD
+        LScaleDirty.append((v0,v1))
+        pylab.imshow(A[ich],vmin=v0,vmax=v1)
+        pylab.title("Dirty [ch#%i]"%ich)
+    
+    # for ich in range(nch):
+    #     CO=ClassOrieux(A[ich],B[ich])
+    #     C=CO.Deconv(hyper=1,
+    #                 niter=20)
+    #     pylab.subplot(nx, ny, iPlot,sharex=ax,sharey=ax); iPlot+=1
+    #     pylab.imshow(C)#,vmin=0,vmax=2e-3)
+    #     pylab.title("ThisModel [ch#%i]"%ich)
+        
+    # for ich in range(nch):
+    #     Dty=fftconvolve(C,B[ich], mode='same')#[s_dirty_cut,s_dirty_cut]
+    #     pylab.subplot(nx, ny, iPlot,sharex=ax,sharey=ax); iPlot+=1
+    #     pylab.imshow(A[ich]-Dty,vmin=-2*STD,vmax=10*STD)
+    #     pylab.title("D-P*ThisModel [ch#%i]"%ich)
+    
+    LScaleModel=[]
+    Model.fill(0)
+    for ich in range(nch):
+        pylab.subplot(nx, ny, iPlot,sharex=ax,sharey=ax); iPlot+=1
+        CO=ClassOrieux(A[ich].copy(),B[ich].copy())
+        C=CO.Deconv(hyper=50.0,
+                    sq=0.1,
+                    c=10,
+                    niter=20)
+        
+        #Model[ich,0,s_dirty_cut,s_dirty_cut]=np.roll(C[:,:],(1,-1), axis=(0, 1))
+        Model[ich,0,s_dirty_cut,s_dirty_cut]=C[:,:]
+        print(Model.max())
+
+        v0,v1=0.,C.max()
+        LScaleModel.append((v0,v1))
+        pylab.imshow(Model[ich][0],vmin=v0,vmax=v1)
+        #pylab.imshow(np.roll(C[:,:],(100,-100), axis=(0, 1)),vmin=v0,vmax=v1)
+        pylab.title("Model [ch#%i]"%ich)
+        
+
+    for ich in range(nch):
+        ModelConv=fftconvolve(Model[ich][0][s_dirty_cut,s_dirty_cut],B[ich], mode='same')
+        stop
+        pylab.subplot(nx, ny, iPlot,sharex=ax,sharey=ax); iPlot+=1
+        v0,v1=LScaleDirty[ich]
+        #pylab.imshow(A[ich]-ModelConv,vmin=v0,vmax=v1)
+        pylab.imshow(ModelConv,vmin=v0,vmax=v1)
+        #pylab.imshow(Asave[ich,0],vmin=v0,vmax=v1)
+        pylab.title("D-P*Model [ch#%i]"%ich)
+
+    # # ModelF=ModelMachine.GiveModelImage(S["GridFreqs"])
+    # for ich in range(nch):
+    #     pylab.subplot(nx, ny, iPlot,sharex=ax,sharey=ax); iPlot+=1
+    #     v0,v1=LScaleModel[ich]
+    #     pylab.imshow(ModelFit[ich][0],vmin=v0,vmax=v1)
+    #     pylab.title("npzModelFit [ch#%i]"%ich)
+    # for ich in range(nch):
+    #     Dty=fftconvolve(ModelFit[ich][0],B[ich], mode='same')#[s_dirty_cut,s_dirty_cut]
+    #     pylab.subplot(nx, ny, iPlot,sharex=ax,sharey=ax); iPlot+=1
+    #     v0,v1=LScaleDirty[ich]
+    #     pylab.imshow(Asave[ich,0]-Dty,vmin=v0,vmax=v1)
+    #     pylab.title("D-P*npzModelFit [ch#%i]"%ich)
+
+
+    
+    # for iParm in range(NParm):
+    #     pylab.subplot(nx, ny, iPlot,sharex=ax,sharey=ax); iPlot+=1
+    #     pylab.imshow(CoefImage[iParm][0])#,vmin=0,vmax=2e-3)#,vmin=-2*STD,vmax=10*STD)
+    #     pylab.title("CoefImage [p#%i]"%iParm)
+        
+    
+    
+        #pylab.colorbar()
+    pylab.tight_layout()
+    pylab.draw()
+    pylab.show(block=False)
+    pylab.pause(0.1)
+    
+    # import pylab
+    # pylab.clf()
+    # pylab.imshow(A,interpolation="nearest")
+    # pylab.imshow(B,interpolation="nearest")
+    # pylab.draw()
+    # pylab.show()
+    
+
+
 
 
 
@@ -74,13 +233,16 @@ class ClassOrieux():
         self.fr = udft.ir2fr(psf, dirty.shape)
         # fr = udft.ir2fr(idft(np.abs(dft(psf))**2), dirty.shape)
         
-    def Deconv(self,niter=20):
+    def Deconv(self,hyper=5.0,
+               sq=0.001,
+               c=10,
+               niter=20):
         #%% Run pos
         deconv, aux_r, aux_c = self.deconv_huber_rc_pos(self.dirty,
                                                         self.fr,
-                                                        hyper=5.0,
-                                                        sq=0.001,
-                                                        c=10,
+                                                        hyper=hyper,
+                                                        sq=sq,
+                                                        c=c,
                                                         n_iter=niter)
         return deconv
 
@@ -228,7 +390,7 @@ class ClassOrieux():
 # plt.subplot(2, 3, 2)
 # plt.imshow(deconv[0][gauss])
 # plt.title('D')
-# plt.subplot(2, 3, 3)
+# plt.subplot(2, ny, ny)
 # plt.imshow(deconv[1][gauss])
 # plt.title('P')
 # plt.subplot(2, 3, 4)

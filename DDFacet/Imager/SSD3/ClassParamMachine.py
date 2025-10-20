@@ -36,7 +36,8 @@ from DDFacet.ToolsDir import ClassSpectralFunctions
 class ClassParamMachine():
     def __init__(self,ListPixParms,ListPixData,FreqsInfo,iFacet=0,
                  NOrderPoly=2,
-                 SolveParamType=["Poly"]):
+                 SolveParamType=["Poly"],
+                 ScaleS0=None):
 
         self.ListPixParms=ListPixParms
         self.ListPixData=ListPixData
@@ -53,7 +54,8 @@ class ClassParamMachine():
         self.PolyOrder=NOrderPoly#np.sum([("Poly" in key) for key in SolveParam])
         
         self.SolveParam=SolveParam
-
+        self.ScaleS0=ScaleS0
+        if self.ScaleS0 is None: stop
         
         self.MultiFreqMode=False
         if self.PolyOrder>1:
@@ -130,7 +132,9 @@ class ClassParamMachine():
     #    def ReinitPop(self,pop,SModelArray,AlphaModel=None,GSigModel=None,PutNoise=True):
     def ReinitPop(self,pop,ListPolyModelArray,GSigModel=None,PutNoise=True):
         T=ClassTimeIt.ClassTimeIt("ReinitPop")
+        T2=ClassTimeIt.ClassTimeIt("ReinitPopAll")
         T.disable()
+        T2.disable()
         
         for Type in self.SolveParam:
             
@@ -152,8 +156,9 @@ class ClassParamMachine():
                     SigVal=DicoSigma["Value"]
                 elif DicoSigma["Type"]=="PeakFlux":
                     SigVal=DicoSigma["Value"]*np.max(np.abs(SModelArray))
-
                 T.timeit("SigVal")
+
+
                 
                 SubArray=self.ArrayToSubArray(indiv,Type=Type)
                 if Type=="Poly0":
@@ -213,6 +218,7 @@ class ClassParamMachine():
 
                     # SubArray[:]=np.zeros_like(AlphaModel)[:]#+np.random.randn(SModelArray.size)*SigVal
                     # print SubArray[:]
+                    T.timeit("GSig")
 
                 # SubArray=self.ArrayToSubArray(indiv,Type="S")
                 # SubArray.fill(0)
@@ -220,7 +226,7 @@ class ClassParamMachine():
                 # SubArray=self.ArrayToSubArray(indiv,Type="GSig")
                 # SubArray.fill(0)
                 # SubArray[49]=1.
-
+        T2.timeit("All")
                 
     def giveIndexParm(self,Type):
         return self.DicoIParm[Type]["iSlice"]
@@ -361,9 +367,11 @@ class ClassParamMachine():
         PolyArray=np.zeros((self.NPixListParms,self.PolyOrder),np.float32)
         for iOrder in range(self.PolyOrder):
             PolyArray[:,iOrder]=self.ArrayToSubArray(A,"Poly%i"%iOrder)
-            
+
+        
+        
         for iBand in range(self.NFreqBands):
-            MA[iBand]=self.SpectralFunctionsMachine.IntExpFuncPoly(PolyArray,iChannel=iBand,iFacet=self.iFacet)
+            MA[iBand]=self.SpectralFunctionsMachine.IntExpFuncPoly(PolyArray,iChannel=iBand,iFacet=self.iFacet,ScaleS0=self.ScaleS0)
 
 
 

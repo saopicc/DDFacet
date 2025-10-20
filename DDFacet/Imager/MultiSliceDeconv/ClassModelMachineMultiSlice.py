@@ -118,7 +118,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             #S0=self.DicoModel["CoefImage"][0,:,:,:]
             self.DicoModel["CoefImage"][:,:,:,:]+=Image[:,:,:,:]
             
-            
+    def resetModel(self):
+        if "CoefImage" in self.DicoModel.keys():
+            del(self.DicoModel["CoefImage"])
 
 
     def GiveModelImage(self,FreqIn=None,out=None):
