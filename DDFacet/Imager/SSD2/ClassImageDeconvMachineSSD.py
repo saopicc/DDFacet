@@ -148,11 +148,14 @@ class ClassImageDeconvMachine():
                 GD["MultiSliceDeconv"]["Type"]=SubType
                 from . import ClassInitSSDModelMultiSlice
                 print(ModColor.Str("Initialisation of sourcekins using MultiSlice/%s"%GD["MultiSliceDeconv"]["Type"],col="blue"),file=log)
-                self.ListInitMachine.append( ClassInitSSDModelMultiSlice.ClassInitSSDModelParallel(GD,
-                                                                                                   NFreqBands, RefFreq,
-                                                                                                   NCPU=self.NCPU,
-                                                                                                   MainCache=self.maincache,
-                                                                                                   IdSharedMem=self.IdSharedMem) )
+
+                InitMachine=ClassInitSSDModelMultiSlice.ClassInitSSDModelParallel(GD,
+                                                                                  NFreqBands, RefFreq,
+                                                                                  NCPU=self.NCPU,
+                                                                                  MainCache=self.maincache,
+                                                                                  IdSharedMem=self.IdSharedMem)
+
+                self.ListInitMachine.append( InitMachine )
                 
             else:
                 raise ValueError("InitType should be HMP or MultiSlice or MORESANE")
@@ -194,12 +197,33 @@ class ClassImageDeconvMachine():
 
         #self.PSFServer.RefFreq=self.ModelMachine.RefFreq
 
-    def _init_InitMachine(self):
+    def _init_InitMachine(self,useCachedHMP=False):
         if not self._init_machine_initialized:
             for InitMachine in self.ListInitMachine:
-                InitMachine.Init(self.DicoVariablePSF, self.GridFreqs, self.DegridFreqs)
+                kwargs={}
+                if InitMachine.Type=="HMP" and useCachedHMP:
+                    facetcache=shared_dict.attach("HMP_InitSSD")
+                    # print("SDKSFKNSDFKS",facetcache.keys())
+                    kwargs={"facetcache":facetcache}
+                InitMachine.Init(self.DicoVariablePSF, self.GridFreqs, self.DegridFreqs,**kwargs)
+
+                if InitMachine.Type.startswith("MultiSlice"):
+                    # cache Taylor term grid
+                    InitMachine.InitMachine.DeconvMachine.SetPSF(self.DicoVariablePSF)
+                    
+                #print(self.DicoVariablePSF.keys())
                 
-        self._init_machine_initialized = True
+            self._init_machine_initialized = True
+    # def _init_InitMachine(self):
+    #     if not self._init_machine_initialized:
+    #         for InitMachine in self.ListInitMachine:
+    #             InitMachine.Init(self.DicoVariablePSF, self.GridFreqs, self.DegridFreqs,**kwargs)
+
+    #             if InitMachine.Type.startswith("MultiSlice"):
+    #                 # cache Taylor term grid
+    #                 InitMachine.InitMachine.DeconvMachine.SetPSF(self.DicoVariablePSF)
+                
+    #     self._init_machine_initialized = True
 
     def _reset_InitMachine(self):
         if self._init_machine_initialized:
@@ -887,7 +911,7 @@ class WorkerDeconvIsland(multiprocessing.Process):
             dx=self.GD["SSDClean"]["NEnlargeData"]
             if dx>0:
                 IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
-                ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=dx)
+                ListPixData,W=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=dx)
 
 
             # ################################
