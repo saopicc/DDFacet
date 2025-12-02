@@ -14,9 +14,25 @@ import numpy as np
 import traceback
 import collections
 import glob
+from pathlib import Path
+from DDFacet.Other import ModColor
+from DDFacet.Other import logger
+log=logger.getLogger("shared_dict")
 
 SHM_PREFIX = "/dev/shm/"
 SHM_PREFIX_LEN = len(SHM_PREFIX)
+global BASENAME
+BASENAME=None
+
+def setBaseName(BaseName=None):
+    global BASENAME
+    if BaseName is None:
+        BASENAME=("ddf."+str(os.getpid()))
+        log.print(ModColor.Str("setBaseName from pid: %s"%BASENAME))
+    else:
+        log.print(ModColor.Str("setBaseName from ext: %s"%BaseName))
+        BASENAME=BaseName
+        
 
 def _to_shm (path):
     """Helper function, converts /dev/shm/name to shm://name"""
@@ -45,6 +61,7 @@ def attach(name, load=True, readwrite=True):
     return SharedDict(name, reset=False, load=load, readwrite=readwrite)
 
 def create(name):
+    #print("SDKQJQSDKJ Create ",name)
     return SharedDict(name, reset=True)
 
 def dict_to_shm(name, D):
@@ -57,7 +74,7 @@ def dict_to_shm(name, D):
 def delDict(Name):
     D=attach(Name)
     if D is not None:
-        #print("DDDDDDDDDDDDDD")
+        # log.print(ModColor.Str("Delete: %s"%D.path))
         D.delete()
         os.system("rm -fr %s" % D.path)
 
@@ -80,6 +97,7 @@ class SharedDict (collections.OrderedDict):
         def __init__(self, path, exc_info):
             RuntimeError.__init__(self, "Error loading SharedDict item %s"%path)
             self.path = path
+            print("DICOPath",self.path)
             self.exc_info = exc_info
 
     class ItemProxy(object):
@@ -114,10 +132,11 @@ class SharedDict (collections.OrderedDict):
     _proxy_class_map = dict(a=SharedArrayProxy, d=SubdictProxy,  p=PickleProxy) # l=ListProxy,
 
     @staticmethod
-    def setBaseName(name):
-        SharedDict.basepath = os.path.join(SHM_PREFIX, name)
+    def setBasePath(basename):
+        SharedDict.basepath = os.path.join(SHM_PREFIX, basename)
         if not os.path.exists(SharedDict.basepath):
             os.mkdir(SharedDict.basepath)
+            log.print(ModColor.Str("Create shm dict: %s"%SharedDict.basepath,col="green"))
 
     def __init__ (self, path, reset=True, load=True, readwrite=True):
         collections.OrderedDict.__init__(self)
@@ -131,8 +150,10 @@ class SharedDict (collections.OrderedDict):
             #        self._path_fd = os.open(self.path, os.O_RDONLY)  # for sync purposes
         Exists=os.path.exists(self.path)
         if reset or not Exists:
-            #print("INITTTT r=%i %i %s"%(reset,Exists,self.path))
+            # print("INITTTT r=%i %i %s %s"%(reset,Exists,self.path,path))
             self.delete()
+            if BASENAME is None: setBaseName()
+            self.setBasePath(BASENAME)
         elif load:
             self.reload()
 
@@ -171,11 +192,24 @@ class SharedDict (collections.OrderedDict):
             os.system("rm -fr %s" % self.path)
         try:
             #print("mkdir %s"%self.path)
-            os.mkdir(self.path)
+            #os.mkdir(self.path)
+            path = Path(self.path)
+            path.mkdir(parents=True)
+
+            
         except FileNotFoundError:
             # suppress error message that can only occur if
             # parent directory has already been deleted
             pass
+
+        # print("========================")
+        # ss="mkdir %s"%self.path
+        # print(ss)
+        # os.system(ss)
+        # ss="ls %s"%self.path
+        # print(ss)
+        # os.system(ss)
+        # if "APP_MC" in self.path: stop
 
     def clear(self):
         if self._delete_items:
@@ -343,7 +377,6 @@ class SharedDict (collections.OrderedDict):
         collections.OrderedDict.__setitem__(self, item, array)
         return array
 
-SharedDict.setBaseName("shared_dict:"+str(os.getpid()))
 
 def testSharedDict ():
     dic = SharedDict("foo")
@@ -366,6 +399,6 @@ def testSharedDict ():
     print(other_view)
 
 
-SharedDict.setBaseName("ddf."+str(os.getpid()))
+SharedDict.setBasePath("ddf."+str(os.getpid()))
 
 

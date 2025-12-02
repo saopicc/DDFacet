@@ -59,7 +59,7 @@ def getShmPrefix():
     return "ddf.%d" % _pid
 
 # init SharedDict with the same base name
-shared_dict.SharedDict.setBaseName(getShmPrefix())
+shared_dict.SharedDict.setBasePath(getShmPrefix())
 
 def getShmName(name, **kw):
     """
