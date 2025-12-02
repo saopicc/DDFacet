@@ -48,6 +48,7 @@ class ClassInitSSDModelParallel():
         self.NCPU = NCPU
         self.IdSharedMem=IdSharedMem
         self.NFreqBands=NFreqBands
+        self.Type="MultiSlice"
         
         self.InitMachine = ClassInitSSDModel(self.GD, NFreqBands, RefFreq, MainCache, IdSharedMem)
         self.NCPU=(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
@@ -80,7 +81,7 @@ class ClassInitSSDModelParallel():
         try:
             ModelImageIsland = self.InitMachine.giveModel(Island)
         except:
-            if not self.GD["GAClean"]["ParallelInitHMP"]:
+            if not self.GD["GAClean"]["ParallelInit"]:
                 raise
             print(traceback.format_exc(), file=log)
             FileOut = "errIsland_%6.6i.npy" % iIsland
@@ -344,6 +345,7 @@ class ClassInitSSDModel():
         self.SubMask=Mask
 
 
+        self.DeconvMachine.setXY(*self.xy0)
         if self.SSDModelImage is not None:
             self.SubSSDModelImage=self.SSDModelImage[:,:,x0d:x1d,y0d:y1d].copy()
             for ch in range(self.NFreqBands):

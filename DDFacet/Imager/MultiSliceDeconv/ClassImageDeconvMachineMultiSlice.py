@@ -404,7 +404,7 @@ class ClassImageDeconvMachine():
         Nout=np.min([dirty.shape[-1],psf.shape[-1]])
         if Nout%2!=0: Nout-=1
 
-        LRMS=self.DicoDirty["LRMS"]
+        LRMS=self.DicoDirty.get("LRMS",np.ones((nch,),np.float32))
         ARMS=np.array(LRMS,dtype=np.float32)
             
         # from skimage import restoration
@@ -826,7 +826,8 @@ class ClassImageDeconvMachine():
     def DoSpectralFit(self,Model,X0Model=None,Resid=None,ThSpectralFit=None):
         log.print("Fitting MultiSlice model cube...")
         NOrder=self.GD["MultiSliceDeconv"]["PolyFitOrder"]
-        LRMS=self.DicoDirty["LRMS"]
+        nch=Model.shape[0]
+        LRMS=self.DicoDirty.get("LRMS",np.ones((nch,),np.float32))
         ARMS=np.array(LRMS,dtype=np.float32)
         
         if NOrder==0:

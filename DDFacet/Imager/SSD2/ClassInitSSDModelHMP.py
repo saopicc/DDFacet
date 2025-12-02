@@ -29,7 +29,7 @@ class ClassInitSSDModelParallel():
         self.NCPU=(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
         from DDFacet.Imager.MultiFields.AppendSubFieldInfo import AppendSubFieldInfo
         AppendSubFieldInfo(self)
-        
+        self.Type="HMP"
         APP.registerJobHandlers(self)
 
     def Init(self, DicoVariablePSF, GridFreqs, DegridFreqs):
@@ -57,7 +57,7 @@ class ClassInitSSDModelParallel():
         try:
             SModel, AModel = self.InitMachine.giveModel(Island)
         except:
-            if not self.GD["GAClean"]["ParallelInitHMP"]:
+            if not self.GD["GAClean"]["ParallelInit"]:
                 raise
             print(traceback.format_exc(), file=log)
             FileOut = "errIsland_%6.6i.npy" % iIsland
