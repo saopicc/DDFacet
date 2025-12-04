@@ -865,7 +865,7 @@ class ClassImageDeconvMachine():
         indx,indy=np.where((Model[:,0,:,:]!=0).any(axis=0))
         iDone=0
         for iPix,jPix in zip(indx.tolist(),indy.tolist()):
-            #log.print("%i/%i:[%i, %i]"%(iDone,indx.size,iPix,jPix))
+            # log.print("%i/%i:[%i, %i]"%(iDone,indx.size,iPix,jPix))
             if Resid[iPix,jPix]==0 or np.abs(Resid[iPix,jPix])<ThSpectralFit:
                 CoefImage[:,0,iPix,jPix]=X0Model[:,0,iPix,jPix]
                 continue

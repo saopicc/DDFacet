@@ -312,6 +312,7 @@ class AsyncProcessPool (object):
         else:
             print(ModColor.Str("Worker processes fixed to vthreads %s" % (','.join([str(x) for x in cores])),
                                       col="green"), file=log)
+        # log.print("Cores %s"%str(cores))
         self._compute_workers = []
         self._io_workers = []
         self._compute_queue   = multiprocessing.Queue()
@@ -624,7 +625,7 @@ class AsyncProcessPool (object):
                 self._io_queues[io].put(jobitem)
         # serial mode: process job in this process, and raise any exceptions up
         else:
-            #print("enqueueing job %s: %s"%(job_id, handler_desc), file=log)
+            print("enqueueing job %s: %s"%(job_id, handler_desc), file=log)
             self._dispatch_job(jobitem, reraise=True)
 
     def awaitJobCounter (self, counter, progress=None, total=None, timeout=10):
