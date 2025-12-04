@@ -438,7 +438,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             for iTerm in range(1,self.NParam):
                 Wa[iTerm]*=np.abs(MeanModelPast[0])
                 Wb[iTerm]*=np.abs(DicoComp["Vals"][0])
-            
+
+
+
+            self.CurrentModel = DicoComp["Vals"][:]
             CFPM=ClassFitPreviousModels.ClassFitPreviousModels(self)
             MeanModelPast=CFPM.avgWeighted()
             
@@ -507,7 +510,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         DicoSM={}
         SolveParam=np.array(self.SolveParam)
-
+        
         x,y=np.where(C[0]!=0)
         logS=np.zeros((nx,ny),np.float32)
         for ich in range(nchan):
@@ -516,11 +519,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             logS.fill(0)
             for iCoef in range(1,self.NParam):
                 logS+=C[iCoef]*(np.log(ThisFreq/RefFreq))**iCoef
-                
             ModelImage[ich,0]=S0*np.exp(logS)
-            
+        
         return ModelImage
-                
+    
         
 
         
