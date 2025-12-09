@@ -53,7 +53,7 @@ class MakeCatalog():
         
 
         if self.NCPU==0:
-            self.NCPU=psutil.cpu_count()-1
+            self.NCPU=len(psutil.Process().cpu_affinity())-1
 
         self.bdsm_rms_box=[int(i) for i in self.bdsm_rms_box.split(",")]
         Files=[self.RestoredIm]

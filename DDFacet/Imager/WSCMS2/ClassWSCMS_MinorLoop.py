@@ -88,9 +88,9 @@ class ClassWSCMS_MinorLoop():
         if NCPU is None:
             self.NCPU = self.GD['Parallel'][NCPU]
             if self.NCPU == 0:
-                import multiprocessing
+                import psutil
 
-                self.NCPU = multiprocessing.cpu_count()
+                self.NCPU = len(psutil.Process().cpu_affinity())
         else:
              self.NCPU = NCPU
 

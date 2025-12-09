@@ -193,20 +193,20 @@ class AsyncProcessPool (object):
         """
         self.affinity = affinity
         self.verbose = verbose
-        
+
         self.pause_on_start = pause_on_start
 
         if isinstance(self.affinity, int):
             self.cpustep = abs(self.affinity) or 1
-            maxcpu = psutil.cpu_count() // self.cpustep
+            maxcpu = len(psutil.Process().cpu_affinity()) // self.cpustep
             self.ncpu = ncpu or maxcpu
             self.parent_affinity = parent_affinity
         elif isinstance(self.affinity, list):
             if any(map(lambda x: x < 0, self.affinity)):
                 raise RuntimeError("Affinities must be list of positive numbers")
-            if psutil.cpu_count() < max(self.affinity):
+            if len(psutil.Process().cpu_affinity()) < max(self.affinity):
                 raise RuntimeError("There are %d virtual threads on this system. Some elements of the affinity map are "
-                                   "higher than this. Check parset." % psutil.cpu_count())
+                                   "higher than this. Check parset." % len(psutil.Process().cpu_affinity()))
             self.ncpu = ncpu or len(self.affinity)
             if self.ncpu != len(self.affinity):
                 print(ModColor.Str("Warning: NCPU does not match affinity list length. Falling back to "
@@ -217,7 +217,7 @@ class AsyncProcessPool (object):
         elif isinstance(self.affinity, str) and str(self.affinity) == "enable_ht":
             self.affinity = 1
             self.cpustep = 1
-            maxcpu = psutil.cpu_count() // self.cpustep
+            maxcpu = len(psutil.Process().cpu_affinity()) // self.cpustep
             self.ncpu = ncpu or maxcpu
             self.parent_affinity = parent_affinity
         elif isinstance(self.affinity, str) and str(self.affinity) == "disable_ht":
@@ -260,7 +260,7 @@ class AsyncProcessPool (object):
             self.ncpu = self.ncpu if self.ncpu <= len(self.affinity) else len(self.affinity)
             maxcpu = max(self.affinity) + 1  # zero indexed list
 
-            unused = [x for x in range(psutil.cpu_count()) if x not in self.affinity]
+            unused = [x for x in range(len(psutil.Process().cpu_affinity())) if x not in self.affinity]
             if len(unused) == 0:
                 print(ModColor.Str("No unassigned vthreads to use as parent IO thread, I will use thread 0"), file=log)
                 self.parent_affinity = 0 # none unused (HT is probably disabled BIOS level)
@@ -270,7 +270,7 @@ class AsyncProcessPool (object):
             self.affinity = None
             self.parent_affinity = None
             self.cpustep = 1
-            maxcpu = psutil.cpu_count()
+            maxcpu = len(psutil.Process().cpu_affinity())
             self.ncpu = ncpu or maxcpu
         else:
             raise RuntimeError("Invalid option for Parallel.Affinity. Expected cpu step (int), list, "
@@ -286,7 +286,7 @@ class AsyncProcessPool (object):
             self.ncpu = maxcpu
         elif self.ncpu > maxcpu:
             print(ModColor.Str("NCPU=%d is too high for this setup (%d cores, affinity %s)" %
-                                    (self.ncpu, psutil.cpu_count(),
+                                    (self.ncpu, len(psutil.Process().cpu_affinity()),
                                      str(self.affinity) if isinstance(self.affinity, int)
                                      else ",".join(map(str, self.affinity)) if isinstance(self.affinity, list)
                                      else "disabled")), file=log)
@@ -376,7 +376,7 @@ class AsyncProcessPool (object):
             self._taras_bulba.start()
         self._started = True
 
-        
+
     def _checkResultQueue(self):
         """
         Check the result queue for any unread results, read them off and move them to the result map.
@@ -693,7 +693,7 @@ class AsyncProcessPool (object):
         if os.getpid() != parent_pid and not self.silent_warning:
             # raise RuntimeError("This method can only be called in the parent process. This is a bug.")
             log.print(ModColor.Str("awaitJobResults: In principle this method can only be called in the parent process. This could be a bug."))
-        
+
         if type(jobspecs) is str:
             jobspecs = [ jobspecs ]
         # make a dict of all jobs still outstanding
@@ -718,7 +718,7 @@ class AsyncProcessPool (object):
                     job_results[jobspec][1].append(job.result)
                     complete_jobs += 1
                 if not job.singleton:
-                    delmap.append(job_id)            
+                    delmap.append(job_id)
                 deljobs.append(job_id)
         for job_id in delmap:
             del self._results_map[job_id]
@@ -891,7 +891,7 @@ class AsyncProcessPool (object):
             #     Largs.append(rr)
             # args=Largs
             args = [ arg.instantiate() if type(arg) is shared_dict.SharedDictRepresentation else arg for arg in args ]
-            
+
             for key in kwargs.keys():
                 if type(kwargs[key]) is shared_dict.SharedDictRepresentation:
                     kwargs[key] = kwargs[key].instantiate()
@@ -916,7 +916,7 @@ class AsyncProcessPool (object):
         except KeyboardInterrupt:
             raise
         except Exception as exc:
-            
+
             if reraise:
                 raise
 
@@ -968,7 +968,7 @@ class AsyncProcessPool (object):
 
 def _init_default(force=False):
     APP = AsyncProcessPool()
-    APP.init(psutil.cpu_count(), affinity=0, num_io_processes=1, verbose=0)
+    APP.init(len(psutil.Process().cpu_affinity()), affinity=0, num_io_processes=1, verbose=0)
 
 
 #_init_default()
