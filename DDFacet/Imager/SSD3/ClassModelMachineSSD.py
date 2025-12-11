@@ -438,21 +438,21 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             for iTerm in range(1,self.NParam):
                 Wa[iTerm]*=np.abs(MeanModelPast[0])
                 Wb[iTerm]*=np.abs(DicoComp["Vals"][0])
-            
-            CFPM=ClassFitPreviousModels.ClassFitPreviousModels(self)
-            MeanModelPast=CFPM.avgWeighted()
-            
-            Wa.fill(1)
-            
-            Sw=Wa+Wb
-            Sw[Sw==0]=1
-            #Wa[MeanModelPast[0:1]==0]=0
-            #DicoComp["Vals"][:] = (Wa*MeanModelPast + Wb*DicoComp["Vals"][:])/Sw#(Wa+Wb)
-            DicoComp["Vals"][:] = MeanModelPast[:]
 
-            
-            
 
+
+            # ####################
+            # self.CurrentModel = DicoComp["Vals"][:]
+            # CFPM=ClassFitPreviousModels.ClassFitPreviousModels(self)
+            # MeanModelPast=CFPM.avgWeighted()
+            
+            # Wa.fill(1)
+            
+            # Sw=Wa+Wb
+            # Sw[Sw==0]=1
+            # #Wa[MeanModelPast[0:1]==0]=0
+            # #DicoComp["Vals"][:] = (Wa*MeanModelPast + Wb*DicoComp["Vals"][:])/Sw#(Wa+Wb)
+            # DicoComp["Vals"][:] = MeanModelPast[:]
             # ##################
 
             
@@ -507,7 +507,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         DicoSM={}
         SolveParam=np.array(self.SolveParam)
-
+        
         x,y=np.where(C[0]!=0)
         logS=np.zeros((nx,ny),np.float32)
         for ich in range(nchan):
@@ -516,11 +516,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             logS.fill(0)
             for iCoef in range(1,self.NParam):
                 logS+=C[iCoef]*(np.log(ThisFreq/RefFreq))**iCoef
-                
             ModelImage[ich,0]=S0*np.exp(logS)
-            
+        
         return ModelImage
-                
+    
         
 
         
@@ -558,8 +557,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             #M1=ModFFTW.ConvolveGaussian(M1,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
             #M0,_=ModFFTW.ConvolveGaussianWrapper(M0,Sig=GaussPars[0][0]/CellSizeRad)
             #M1,_=ModFFTW.ConvolveGaussianWrapper(M1,Sig=GaussPars[0][0]/CellSizeRad)
-            M0,_=ModFFTW.ConvolveGaussianScipy(M0,Sig=Sig)
-            M1,_=ModFFTW.ConvolveGaussianScipy(M1,Sig=Sig)
+            M0,_=ModFFTW.ConvolveGaussianScipy(M0,Sig=(Sig,Sig))
+            M1,_=ModFFTW.ConvolveGaussianScipy(M1,Sig=(Sig,Sig))
 
             
         # compute threshold for alpha computation by rounding DR threshold to .1 digits (i.e. 1.65e-6 rounds to 1.7e-6)

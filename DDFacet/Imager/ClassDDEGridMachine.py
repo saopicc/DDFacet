@@ -864,6 +864,7 @@ class ClassDDEGridMachine():
         SinglePSF=self.GD["Facets"]["SinglePSF"]
         DoPSF=int(DoPSF)
         
+        os.environ["OMP_NUM_THREADS"] = "6"
         if False: # # self.GD["Comp"]["GridMode"] == 0:  # really deprecated for now
             raise RuntimeError("Deprecated flag. Please use BDA gridder")
         elif self.GD["RIME"]["BackwardMode"] == "BDA-grid":

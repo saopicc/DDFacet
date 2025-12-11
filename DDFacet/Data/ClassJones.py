@@ -1196,7 +1196,15 @@ class ClassJones():
             Bxx[np.abs(Bxx)<1e-6]=1e-6
             Byy=Beam[...,1,1]
             Byy[np.abs(Byy)<1e-6]=1e-6
-            
+
+            if self.GD["Beam"]["ForceScalar"]:
+                log.print("Scararify Jones matrices of the beam...")
+                Bxx=Beam[...,0,0]
+                Byy=Beam[...,1,1]
+                Ba=(np.abs(Bxx)+np.abs(Byy))/2
+                Beam.fill(0)
+                Beam[...,0,0]=Ba[...]
+                Beam[...,1,1]=Ba[...]
             
             # import pylab
             # pylab.clf()

@@ -1107,7 +1107,8 @@ class ClassFacetMachine():
         if np.max(SumJonesNorm) > 0.:
             ThisW = ThisW * SumJonesNorm.reshape((self.VS.NFreqBands, 1, 1, 1))
             
-        ThisDirty = np.where(ThisW > 0, dirty.real / ThisW, dirty.real)
+        #ThisDirty = np.where(ThisW > 0, dirty.real / ThisW, dirty.real)
+        ThisDirty = np.divide(dirty.real, ThisW, out=dirty.real.copy(), where=(ThisW > 0))
         fmr = fmr_dict.addSharedArray(iFacet, (1, npol, npix_x, npix_y), ThisDirty.dtype)
         fmr[:] = np.sum(ThisDirty * WBAND, axis=0).reshape((1, npol, npix_x, npix_y))
         fmr /= cf_dict[iFacet]["Sphe"]
@@ -2109,7 +2110,7 @@ class ClassFacetMachine():
             # note that this FFTs in-place
             GridMachine.GridToIm(Grid)
             if MTilde is not None:
-                # print("Apply [%i] "%iFacet)
+                log.print("Apply MTilde [%i] "%iFacet)
                 self._applyMTilde(Grid,MTilde)
             
         return {"iFacet": iFacet}

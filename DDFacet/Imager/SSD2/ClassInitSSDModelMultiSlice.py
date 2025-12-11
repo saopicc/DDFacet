@@ -35,6 +35,9 @@ SilentModules=["ClassPSFServer",
                #"ClassTaylorToPower",
                "ClassModelMachineSSD"]
 
+SERIAL=True
+SERIAL=False
+
 class ClassInitSSDModelParallel():
     def __init__(self, GD, NFreqBands, RefFreq, NCPU, MainCache=None,IdSharedMem=""):
         self.GD = copy.deepcopy(GD)
@@ -78,17 +81,21 @@ class ClassInitSSDModelParallel():
 
         #print ":::::::::::::::::::::::",iIsland
 
-        try:
+        if SERIAL:
             ModelImageIsland = self.InitMachine.giveModel(Island)
-        except:
-            if not self.GD["GAClean"]["ParallelInit"]:
-                raise
-            print(traceback.format_exc(), file=log)
-            FileOut = "errIsland_%6.6i.npy" % iIsland
-            print(ModColor.Str("...... error on island %i, saving to file %s" % (iIsland, FileOut)), file=log)
-            np.save(FileOut, np.array(Island))
-            self.InitMachine.Reset()
-            return
+        else:
+            try:
+                ModelImageIsland = self.InitMachine.giveModel(Island)
+            except:
+                if not self.GD["GAClean"]["ParallelInit"]:
+                    raise
+                print(traceback.format_exc(), file=log)
+                FileOut = "errIsland_%6.6i.npy" % iIsland
+                print(ModColor.Str("...... error on island %i, saving to file %s" % (iIsland, FileOut)), file=log)
+                np.save(FileOut, np.array(Island))
+                self.InitMachine.Reset()
+                return
+            
         DicoOut["PolyModel"] = ModelImageIsland
         
         self.InitMachine.Reset()
@@ -112,7 +119,7 @@ class ClassInitSSDModelParallel():
                                      self.DicoVariablePSF.readonly(), 
                                      DicoDirty.readonly(),
                                      ParmDict.readonly(), 
-                                     1))
+                                     1),serial=SERIAL)
             APP.awaitJobResults("InitIsland:*", progress="Init islands MultiSlice")
         else:
             for iIsland,Island in enumerate(ListIslands):

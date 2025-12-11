@@ -56,7 +56,8 @@ _pid = os.getpid()
 
 def getShmPrefix():
     """Returns prefix used for shared memory arrays. ddf.PID is the convention"""
-    return "ddf.%d" % _pid
+    ss="ddf.%d" % _pid
+    return ss
 
 # init SharedDict with the same base name
 shared_dict.SharedDict.setBasePath(getShmPrefix())
@@ -78,7 +79,9 @@ def cleanupShm ():
     """
     NpShared.DelAll(getShmPrefix())
     # above statement don't work for directories and subdirectories
-    os.system("rm -rf /dev/shm/%s"%getShmPrefix())
+    ss="rm -rf /dev/shm/%s"%getShmPrefix()
+    log.print(ss)
+    os.system(ss)
 
 def getShmLockFile():
     shm_lock_file = "%s.%s.%s" % ("ddf.clean", _pid, "lock")

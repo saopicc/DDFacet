@@ -384,7 +384,7 @@ class ClassImageDeconvMachine():
         
         xp,yp=nx//2,ny//2
         
-        self.PSFServer.setLocation(xp,yp)
+        self.PSFServer.setLocation(xc,yc)
         self.iFacet=self.PSFServer.iFacet
 
         if self.CurrentNegMask is not None:
@@ -492,7 +492,7 @@ class ClassImageDeconvMachine():
                 #     stop = None if s.stop is None else s.stop + offset
                 #     return slice(start, stop, s.step)
                 
-                Model[ch,0,s_dirty_cut,s_dirty_cut]=np.roll(model[:,:],(1,-1))
+                Model[ch,0,s_dirty_cut,s_dirty_cut]=model[:,:]#np.roll(model[:,:],(1,-1))
                 Asave[ch,0,s_dirty_cut,s_dirty_cut]=A[:,:]
                 Bsave[ch,0,s_dirty_cut,s_dirty_cut]=B[:,:]
                 
@@ -544,33 +544,36 @@ class ClassImageDeconvMachine():
             # # print(dirty[ch,0,s_dirty_cut,s_dirty_cut].max(), psf[ch,0,s_psf_cut,s_psf_cut].max(),np.sum(model))
             
         # import scipy.signal
-        # Dty=scipy.signal.convolve2d(model,B, mode='same')
         # import pylab
-        # pylab.clf(),s_dirty_cut,s_dirty_cut
-        # ax=pylab.subplot(2,2,1)
-        # pylab.imshow(A,interpolation="nearest")
-        # #pylab.imshow(CurrentNegMask[0,0,s_dirty_cut,s_dirty_cut],interpolation="nearest")
-        # pylab.colorbar()
-        # pylab.title("Dirty")
-        # pylab.subplot(2,2,2,sharex=ax,sharey=ax)
-        # pylab.imshow(B,interpolation="nearest")
-        # pylab.colorbar()
-        # pylab.title("PSF")
-        # pylab.subplot(2,2,3,sharex=ax,sharey=ax)
-        # pylab.imshow((Model[ch,0,s_dirty_cut,s_dirty_cut]),interpolation="nearest")#,vmin=-0.1,vmax=0.1)
-        # pylab.colorbar()
-        # pylab.title("Model")
-        # pylab.subplot(2,2,4,sharex=ax,sharey=ax)
-        # pylab.imshow(A-Dty,interpolation="nearest")
-        # pylab.colorbar()
-        # pylab.title("Dirty-Model*PSF")
-        # # pylab.subplot(2,2,4)
-        # # pylab.imshow(resid,interpolation="nearest")
-        # # pylab.colorbar()
-        # pylab.draw()
-        # pylab.show()#block=False)
-        # pylab.pause(0.1)
-        # stop
+        # for ich,A,B,model,indx,indy in LAB:
+        #     fig=pylab.figure("ch=%i"%ich)
+        #     Dty=scipy.signal.convolve2d(model,B, mode='same')
+        #     pylab.clf()
+        #     ax=pylab.subplot(2,2,1)
+        #     pylab.imshow(A,interpolation="nearest")
+        #     #pylab.imshow(CurrentNegMask[0,0,s_dirty_cut,s_dirty_cut],interpolation="nearest")
+        #     pylab.colorbar()
+        #     pylab.title("Dirty")
+        #     pylab.subplot(2,2,2,sharex=ax,sharey=ax)
+        #     pylab.imshow(B,interpolation="nearest")
+        #     pylab.colorbar()
+        #     pylab.title("PSF")
+        #     pylab.subplot(2,2,3,sharex=ax,sharey=ax)
+        #     pylab.imshow((Model[ch,0,s_dirty_cut,s_dirty_cut]),interpolation="nearest")#,vmin=-0.1,vmax=0.1)
+        #     pylab.colorbar()
+        #     pylab.title("Model")
+        #     pylab.subplot(2,2,4,sharex=ax,sharey=ax)
+        #     pylab.imshow(A-Dty,interpolation="nearest")
+        #     pylab.colorbar()
+        #     pylab.title("Dirty-Model*PSF")
+        #     # pylab.subplot(2,2,4)
+        #     # pylab.imshow(resid,interpolation="nearest")
+        #     # pylab.colorbar()
+        #     pylab.draw()
+        #     pylab.show()#block=False)
+        #     pylab.pause(0.1)
+        #     fig.savefig("BeforeFit_ch%i.png"%ich)
+
         
         # print 
         # print np.max(np.max(Model,axis=-1),axis=-1)
@@ -686,28 +689,28 @@ class ClassImageDeconvMachine():
         # #######################
         self.ModelMachine.setModel(CoefImage.copy(),FluxScale=self.FitFluxScale)
         # #######################
-        self.NSpectralFit=(0,0)        
-        return "MaxIter", True, True
+        self.NSpectralFit=(0,0)
+        # return "MaxIter", True, True
     
         # # # Compute stats of the fit
         # # from scipy.stats import chi2
         ModelFit=self.ModelMachine.GiveModelImage(self.GridFreqs)
-        # Chi2=0.
-        # nChi2=0
-        # LResid=[]
-        # iPlot=1
+        Chi2=0.
+        nChi2=0
+        LResid=[]
+        iPlot=1
         LMc=[]
-        # for ich,A,B,m,indx,indy in LAB:
-        #     Mc=fftconvolve(ModelFit[ch,0,s_dirty_cut,s_dirty_cut],B, mode='same')#[s_dirty_cut,s_dirty_cut]
-        #     if self.IsPadded:            
-        #         A = unpad_to_original(A, self.blc_trc)
-        #     LMc.append(Mc)
-        #     Resid=A-Mc
-        #     Resid[Mc==0]=0
-        #     Resid/=LRMS[ich]
-        #     LResid.append(Resid)
-        #     nChi2+=indx.size
-        #     Chi2+=np.sum((Resid)**2)
+        for ich,A,B,m,indx,indy in LAB:
+            Mc=fftconvolve(ModelFit[ch,0,s_dirty_cut,s_dirty_cut],B, mode='same')#[s_dirty_cut,s_dirty_cut]
+            if self.IsPadded:            
+                A = unpad_to_original(A, self.blc_trc)
+            LMc.append(Mc)
+            Resid=A-Mc
+            Resid[Mc==0]=0
+            Resid/=LRMS[ich]
+            LResid.append(Resid)
+            nChi2+=indx.size
+            Chi2+=np.sum((Resid)**2)
             
         # #     import pylab
         # #     pylab.subplot(3,3,iPlot); iPlot+=1
@@ -725,21 +728,22 @@ class ClassImageDeconvMachine():
         # p = 1 - chi2.cdf(Chi2, k)
         # #######################
         
-        # Resid=np.max(np.abs(LResid),axis=0)
+        Resid=np.max(np.abs(LResid),axis=0)
         
-        #print("PPPPPPPP",xc,yc,Chi2,Chi2red,p,(Chi2-k)/np.sqrt(2*k),(Chi2-k)/np.sqrt(2),(Chi2red-k)/np.sqrt(2*k))
-        #print("SDFLJSDFLJFD1",self.ModelMachine.DicoModel["CoefImage"].max())
+        # print("PPPPPPPP",xc,yc,Chi2,Chi2red,p,(Chi2-k)/np.sqrt(2*k),(Chi2-k)/np.sqrt(2),(Chi2red-k)/np.sqrt(2*k))
+        # print("SDFLJSDFLJFD1",self.ModelMachine.DicoModel["CoefImage"].max())
 
         self.NSpectralFit=(0,0)        
-
-        if (ThSpectralFit is not False) and (ThSpectralFit is not None) and (ThSpectralFit!=0.):#p<0.5:
+        if True:#(ThSpectralFit is not False) and (ThSpectralFit is not None) and (ThSpectralFit!=0.):#p<0.5:
             # Do spectral fit
+            ThSpectralFit=0.
             CoefImage=self.DoSpectralFit(Model,X0Model=CoefImage,Resid=Resid,ThSpectralFit=ThSpectralFit)
             self.ModelMachine.resetModel()
             self.ModelMachine.setModel(CoefImage,FluxScale=self.FitFluxScale)
             # T.timeit("DoSpectralFit")
             # print()
             T.timeit("DoSpectralFit")
+            
         #print("SDFLJSDFLJFD2",self.ModelMachine.DicoModel["CoefImage"].max())
 
         # ###
@@ -750,53 +754,84 @@ class ClassImageDeconvMachine():
         A,B=dirty[:,0,s_dirty_cut,s_dirty_cut].copy(), psf[:,0,s_psf_cut,s_psf_cut].copy()
         import os
         os.system("mkdir -p FIG")
-        iMajor=shared_dict.attach("ParmDict")["iMajor"]
-        np.savez("FIG/AB_Major%i_%i_%i.npz"%(iMajor,xcc,ycc),
-                 A=A,B=B,
-                 Asave=Asave,Bsave=Bsave,
-                 s_dirty_cut=s_dirty_cut,
-                 s_psf_cut=s_psf_cut,
-                 Model=Model,
-                 ModelFit=ModelFit,
-                 nch=nch,
-                 FreqBandToTaylor_ParmVec=self.DicoFreqBandToTaylor["FreqBandToTaylor_ParmVec"],
-                 FreqBandToTaylor_FluxVec=self.DicoFreqBandToTaylor["FreqBandToTaylor_FluxVec"][self.iFacet],
-                 CoefImage2=CoefImage2,
-                 CoefImage=CoefImage,
-                 ModelMachine=self.ModelMachine,
-                 #LResid=LResid,
-                 GridFreqs=self.GridFreqs,
-                 DegridFreqs=self.DegridFreqs,
-                 ARMS=ARMS,
-                 LMc=LMc
-                 )
-
-
+        
+        iMajor=0#shared_dict.attach("ParmDict")["iMajor"]
+        # np.savez("FIG/AB_Major%i_%i_%i.npz"%(iMajor,xcc,ycc),
+        #          A=A,B=B,
+        #          Asave=Asave,Bsave=Bsave,
+        #          s_dirty_cut=s_dirty_cut,
+        #          s_psf_cut=s_psf_cut,
+        #          Model=Model,
+        #          ModelFit=ModelFit,
+        #          nch=nch,
+        #          FreqBandToTaylor_ParmVec=self.DicoFreqBandToTaylor["FreqBandToTaylor_ParmVec"],
+        #          FreqBandToTaylor_FluxVec=self.DicoFreqBandToTaylor["FreqBandToTaylor_FluxVec"][self.iFacet],
+        #          CoefImage2=CoefImage2,
+        #          CoefImage=CoefImage,
+        #          ModelMachine=self.ModelMachine,
+        #          #LResid=LResid,
+        #          GridFreqs=self.GridFreqs,
+        #          DegridFreqs=self.DegridFreqs,
+        #          ARMS=ARMS,
+        #          LMc=LMc
+        #          )
         rac,decc=self.PSFServer.iFacet_radec_in
-        ModRegFile.radecRad2Reg("FIG/AB_Major%i_%i_%i.reg"%(iMajor,xcc,ycc),rac,decc,label=["Isl_%i_%i_PSF%i"%(xcc,ycc,self.PSFServer.iFacet)])
+        ModRegFile.radecRad2Reg("FIG/AB_Major%i_%i_%i.reg"%(iMajor,xcc,ycc),
+                                rac,decc,label=["Isl_%i_%i_PSF%i"%(xcc,ycc,self.PSFServer.iFacet)])
 
-        return "MaxIter", True, True   # stop deconvolution but do update model
+        # return "MaxIter", True, True   # stop deconvolution but do update model
         
         import pylab
-        fig=pylab.figure()
+        fig=pylab.figure(figsize=(17,7))
         pylab.clf()
         iPlot=1
-        for ch in range(2):
-            pylab.subplot(2,3,iPlot); iPlot+=1
-            pylab.imshow(Asave[ch,0,s_dirty_cut,s_dirty_cut],interpolation="nearest")
+        nx,ny=2,6
+        for ich,A,B,model,indx,indy in LAB:
+
+            ff=np.array(self.DicoVariablePSF["freqs"][ich])
+            f0,f1=ff.min(),ff.max()
+            ModelFit=self.ModelMachine.GiveModelImage(np.linspace(f0,f1,10))
+            Mf=ModelFit.mean(axis=0)[0,s_dirty_cut,s_dirty_cut]
+            Mfc=fftconvolve(Mf,B, mode='same')#[s_dirty_cut,s_dirty_cut]
+            
+            Mc=fftconvolve(model,B, mode='same')#[s_dirty_cut,s_dirty_cut]
+
+            pylab.subplot(nx,ny,iPlot); iPlot+=1
+            pylab.imshow(A,interpolation="nearest")
+            pylab.title("Dirty")
             pylab.colorbar()
-            pylab.subplot(2,3,iPlot); iPlot+=1
-            pylab.imshow(Bsave[ch,0,s_psf_cut,s_psf_cut],interpolation="nearest")
+
+            pylab.subplot(nx,ny,iPlot); iPlot+=1
+            pylab.imshow(B,interpolation="nearest")
+            pylab.title("PSF")
             pylab.colorbar()
-            pylab.subplot(2,3,iPlot); iPlot+=1
-            pylab.imshow(Model[ch,0,s_dirty_cut,s_dirty_cut],interpolation="nearest")
+
+            pylab.subplot(nx,ny,iPlot); iPlot+=1
+            pylab.imshow(model,interpolation="nearest")
+            pylab.title("Slice model")
             pylab.colorbar()
+
+            pylab.subplot(nx,ny,iPlot); iPlot+=1
+            pylab.imshow(A-Mc,interpolation="nearest")
+            pylab.title("Dty-Mc*PSF")
+            pylab.colorbar()
+            
+            pylab.subplot(nx,ny,iPlot); iPlot+=1
+            pylab.imshow(Mf,interpolation="nearest")
+            pylab.title("Fitted model")
+            pylab.colorbar()
+            
+            pylab.subplot(nx,ny,iPlot); iPlot+=1
+            pylab.imshow(A-Mfc,interpolation="nearest")
+            pylab.title("Dty-Mf*PSF")
+            pylab.colorbar()
+            
         pylab.draw()
-        fig.savefig("FIG/FIG_Major%i_%i_%i.png"%(iMajor,xcc,ycc))
+        FName="FIG/FIG_Major%i_%i_%i.png"%(iMajor,xcc,ycc)
+        print(FName)
+        fig.savefig(FName)
         pylab.close(fig)
-        # #pylab.show()
-        # "FreqMappingDegrid"
-        # stop
+        stop
         
         T.timeit("DoSpectralFit2")
 
@@ -874,7 +909,7 @@ class ClassImageDeconvMachine():
             iFacet=self.PSFServer.iFacet
             
             F=(Model[:,0,iPix,jPix]).astype(np.float64).copy()
-            # print(iPix,jPix,iFacet,F)
+            print(iPix,jPix,iFacet,F)
             
             #JonesNorm=(self.DicoDirty["JonesNorm"][:,:,iPix,jPix]).reshape((-1,1,1,1))
             #W=self.DicoDirty["WeightChansImages"]
@@ -900,8 +935,13 @@ class ClassImageDeconvMachine():
             
             
             Fit=np.zeros_like(F)
+            F0=np.zeros_like(F)
             for iBand in range(F.size):
                 Fit[iBand]=self.SpectralFunctionsMachine.IntExpFuncPoly(x.reshape((1,NOrder)),
+                                                                        iChannel=iBand,
+                                                                        iFacet=iFacet,
+                                                                        FluxScale=self.FitFluxScale)
+                F0[iBand]=self.SpectralFunctionsMachine.IntExpFuncPoly(x0.reshape((1,NOrder)),
                                                                         iChannel=iBand,
                                                                         iFacet=iFacet,
                                                                         FluxScale=self.FitFluxScale)
@@ -912,12 +952,13 @@ class ClassImageDeconvMachine():
             #if Chi2Ratio>Chi2Cut:
             #    x.fill(0)
                 
-            # if Chi2Ratio<0.2:
+            # if F.max()>1e-4:#Chi2Ratio<0.2:
             #     #Fit[Fit<0]*=100.
             #     import pylab
             #     pylab.clf()
-            #     pylab.plot(F)
-            #     pylab.plot(Fit)
+            #     pylab.scatter(np.arange(F.size),F,color="black",marker="o")
+            #     pylab.scatter(np.arange(F0.size),F0,color="red",ls="--")
+            #     pylab.plot(np.arange(Fit.size),Fit,color="black")
             #     pylab.title(Chi2Ratio)
             #     pylab.draw()
             #     pylab.show(block=False)

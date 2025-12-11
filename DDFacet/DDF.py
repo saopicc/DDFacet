@@ -35,7 +35,8 @@ from DDFacet.compatibility import range
 import os
 # somewhere some library is trying to be too clever for its own good
 # we will set our own settings up later on
-os.environ["OMP_NUM_THREADS"] = "1"
+
+#os.environ["OMP_NUM_THREADS"] = "1"
 
 # dirty hack to fix what seems to be an easy install problem
 # see https://stackoverflow.com/questions/5984523/eggs-in-path-before-pythonpath-environment-variable

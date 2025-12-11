@@ -583,17 +583,17 @@ class ClassImagerDeconv():
                                             Fits=True, beam=self.FWHMBeamAvg,
                                             Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
-                NormImage=self.DicoImagesPSF["JonesNorm"]
-                PSFCorr = self.DicoImagesPSF["ImageCube"]/np.sqrt(NormImage)
-                FacetMachinePSF.ToCasaImage(PSFCorr, ImageName="%s%s.psf.corr" % (self.BaseName, cycle_label),
-                                            Fits=True, beam=self.FWHMBeamAvg,
-                                            Stokes=self.VS.StokesConverter.RequiredStokesProducts())
                 
             if "P" in self._savecubes or "p" in self._savecubes:
                 FacetMachinePSF.ToCasaImage(self._psfcube,
                                               ImageName="%s%s.cube.psf" % (self.BaseName, cycle_label),
                                               Fits=True, beam=self.FWHMBeamAvg, Freqs=self.VS.FreqBandCenters,
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                NormImage=self.DicoImagesPSF["JonesNorm"]
+                PSFCorr = self.DicoImagesPSF["ImageCube"]/np.sqrt(NormImage)
+                FacetMachinePSF.ToCasaImage(PSFCorr, ImageName="%s%s.cube.psf.corr" % (self.BaseName, cycle_label),
+                                            Fits=True, beam=self.FWHMBeamAvg,
+                                            Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         try:
             if self.fit_stat is not None:
                 raise self.fit_stat
@@ -902,7 +902,7 @@ class ClassImagerDeconv():
                                             Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             if "d" in self._savecubes:
                 self.FacetMachine.ToCasaImage(self.DicoDirty["ImageCube"],ImageName="%s.cube.dirty"%self.BaseName,
-                                            Fits=True,Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                                              Fits=True,Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
             if "n" in self._saveims:
                 FacetNormReShape = self.FacetMachine.getNormDict()["FacetNormReShape"]
