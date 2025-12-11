@@ -349,7 +349,7 @@ class ClassVisServer():
             self.DicoMSChanMapping[iMS] = np.array(bands)
             self.DicoMSChanMappingChan[iMS] = np.array(
                 [freq_to_grid_band_chan[freq] for freq in MS.ChanFreq])
-
+            #stop
             # OMS: new option, DegridBandMHz specifies degridding band step. If
             # 0, fall back to NChanDegridPerMS
             degrid_bw = self.GD["Freq"]["DegridBandMHz"]*1e+6

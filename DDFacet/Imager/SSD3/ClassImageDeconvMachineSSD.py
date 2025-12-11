@@ -487,20 +487,20 @@ class ClassImageDeconvMachine():
             MeanJonesNorm=np.mean(self.DicoDirty["JonesNorm"],axis=0)
         self.ModelImageApp=ModelImageApp
         self.MeanJonesNorm=MeanJonesNorm
-
+        
         
         ###########################
         rep=self.SearchIslands(StopFlux)
         if rep=="NoIslands":
             return "FluxThreshold", False, False
         ###########################
-
-
         
-
         
-        #self.DicoModelImage  = shared_dict.create("DicoModelImage%s"%self.StrField)
-        #self.DicoModelImage["ModelImage"]=ModelImage
+        
+        
+        
+        # self.DicoModelImage  = shared_dict.create("DicoModelImage%s"%self.StrField)
+        # self.DicoModelImage["ModelImage"]=ModelImage
         
         
         if self.DicoDicoInitIndiv is not None:
@@ -512,8 +512,8 @@ class ClassImageDeconvMachine():
             allIslandModelDict.addSubdict(iIsland)
             allIslandModelDict[iIsland].addSharedArray("Island", Island.shape, np.int32)
             allIslandModelDict[iIsland]["Island"][:]=Island[:]
-            
-
+        
+        
         self.DicoDicoInitIndiv  = shared_dict.create("DicoDicoInitIndiv%s"%self.StrField)
         for iMachine,InitMachine in enumerate(self.ListInitMachine):
             self.DicoDicoInitIndiv.addSubdict(iMachine)

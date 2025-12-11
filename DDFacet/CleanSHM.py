@@ -79,6 +79,12 @@ def driver():
     ll = filter(lambda x: os.access(x, os.W_OK),ll)
     for f in ll:
         shutil.rmtree(f)
+        
+    ll=glob.glob("/dev/shm/ddf.*")
+    ll = filter(lambda x: os.access(x, os.W_OK),ll)
+    #print(ll)
+    for f in ll:
+        shutil.rmtree(f)
 
 if __name__=="__main__":
     # do not place any other code here --- cannot be called as a package entrypoint otherwise, see:
