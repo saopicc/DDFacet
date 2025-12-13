@@ -15,39 +15,40 @@ license = {file = "LICENSE.md"}
 readme = "README.rst"
 requires-python = ">=3.8,<3.12"
 dependencies = [
-    "Cython >= 0.25.2, <= 0.29.30; python_version >= '3.8' and python_version < '3.12'", 
+    "Cython >= 0.25.2, <= 0.29.30; python_version >= '3.8' and python_version < '3.12'",
     "numpy >= 1.15.1, <= 1.22.4; python_version >= '3.10' and python_version < '3.12'",
     "numpy >= 1.15.1, <= 1.22.4; python_version >= '3.8' and python_version < '3.10'",
     "sharedarray >= 3.2.0, <= 3.2.4; python_version >= '3.10' and python_version < '3.12'",
-    "sharedarray >= 3.2.0, <= 3.2.1; python_version >= '3.8' and python_version < '3.10'", 
-    "Polygon3 >= 3.0.8,<=3.0.9.1; python_version >= '3.8' and python_version < '3.12'", 
-    "pyFFTW", 
-    "astropy >= 3.0,<=5.3.4; python_version >= '3.8' and python_version < '3.12'", 
+    "sharedarray >= 3.2.0, <= 3.2.1; python_version >= '3.8' and python_version < '3.10'",
+    "Polygon3 >= 3.0.8,<=3.0.9.1; python_version >= '3.8' and python_version < '3.12'",
+    "pyFFTW",
+    "astropy >= 3.0,<=5.3.4; python_version >= '3.8' and python_version < '3.12'",
     "deap >= 1.0.1,<=1.4.1; python_version >= '3.8' and python_version < '3.12'",
-    "ptyprocess>=0.5,<=0.7.0; python_version >= '3.8' and python_version < '3.12'", 
-    "ipdb >= 0.10.3,<=0.13.13; python_version >= '3.8' and python_version < '3.12'", 
-    "python-casacore >= 3.0.0, <=3.5.2; python_version >= '3.8' and python_version < '3.12'", 
+    "ptyprocess>=0.5,<=0.7.0; python_version >= '3.8' and python_version < '3.12'",
+    "ipdb >= 0.10.3,<=0.13.13; python_version >= '3.8' and python_version < '3.12'",
+    "python-casacore >= 3.0.0, <=3.5.2; python_version >= '3.8' and python_version < '3.12'",
     "ephem >= 3.7.6.0; python_version >= '3.8' and python_version < '3.12'",
     "numexpr >= 2.6.2,<=2.9.0; python_version >= '3.8' and python_version < '3.12'",
-    "matplotlib >= 2.0.0,<=3.8.2; python_version >= '3.8' and python_version < '3.12'", 
-    "scipy >= 1.3.3,<=1.11.4; python_version >= '3.8' and python_version < '3.12'", 
-    "astLib >= 0.8.0,<=0.11.10; python_version >= '3.8' and python_version < '3.12'",                     
-    "psutil >= 5.2.2,<=5.9.8; python_version >= '3.8' and python_version < '3.12'", 
-    "py-cpuinfo >= 3.2.0,<=9.0.0; python_version >= '3.8' and python_version < '3.12'", 
-    "tables >= 3.6.0,<=3.9.2; python_version >= '3.8' and python_version < '3.12'", 
-    "prettytable >= 0.7.2,<=3.9.0; python_version >= '3.8' and python_version < '3.12'", 
-    "pybind11 >= 2.2.2,<=2.11.1; python_version >= '3.8' and python_version < '3.12'", 
-    "configparser >= 3.7.1,<=6.0.0; python_version >= '3.8' and python_version < '3.12'", 
-    "pandas >=0.23.3,<=2.0.3; python_version >= '3.8' and python_version < '3.12'", 
-    "ruamel.yaml >= 0.15.92,<=0.18.6; python_version >= '3.8' and python_version < '3.12'", 
-    "pylru >= 1.1.0,<=1.2.1; python_version >= '3.8' and python_version < '3.12'", 
-    "six >= 1.12.0,<=1.16.0; python_version >= '3.8' and python_version < '3.12'", 
-    "dask[array]<= 2023.5.0; python_version >= '3.8' and python_version < '3.12'", 
-    "codex-africanus[dask]<=0.3.5; python_version >= '3.8' and python_version < '3.12'", 
+    "matplotlib >= 2.0.0,<=3.8.2; python_version >= '3.8' and python_version < '3.12'",
+    "scipy >= 1.3.3,<=1.11.4; python_version >= '3.8' and python_version < '3.12'",
+    "astLib >= 0.8.0,<=0.11.10; python_version >= '3.8' and python_version < '3.12'",
+    "psutil >= 5.2.2,<=5.9.8; python_version >= '3.8' and python_version < '3.12'",
+    "py-cpuinfo >= 3.2.0,<=9.0.0; python_version >= '3.8' and python_version < '3.12'",
+    "tables >= 3.6.0,<=3.9.2; python_version >= '3.8' and python_version < '3.12'",
+    "prettytable >= 0.7.2,<=3.9.0; python_version >= '3.8' and python_version < '3.12'",
+    "pybind11 >= 2.2.2,<=2.11.1; python_version >= '3.8' and python_version < '3.12'",
+    "configparser >= 3.7.1,<=6.0.0; python_version >= '3.8' and python_version < '3.12'",
+    "pandas >=0.23.3,<=2.0.3; python_version >= '3.8' and python_version < '3.12'",
+    "ruamel.yaml >= 0.15.92,<=0.18.6; python_version >= '3.8' and python_version < '3.12'",
+    "pylru >= 1.1.0,<=1.2.1; python_version >= '3.8' and python_version < '3.12'",
+    "six >= 1.12.0,<=1.16.0; python_version >= '3.8' and python_version < '3.12'",
+    "dask[array]<= 2023.5.0; python_version >= '3.8' and python_version < '3.12'",
+    "codex-africanus[dask]<=0.3.5; python_version >= '3.8' and python_version < '3.12'",
     "regions<=0.5; python_version >= '3.8' and python_version < '3.12'",
     "pywavelets<=1.4.1; python_version >= '3.8' and python_version < '3.12'",
     "tqdm<=4.64.0; python_version >= '3.8' and python_version < '3.12'",
     "skyproj<=1.2.3; python_version >= '3.8' and python_version < '3.12'",
+    "toml>=0.10.2",
 ]
 authors = [{ name = "Cyril Tasse", email = "cyril.tasse@obspm.fr" }]
 maintainers = [{ name = "Benjamin Hugo", email = "bhugo@sarao.ac.za" }]
@@ -239,6 +240,9 @@ editable.rebuild = false
 # The components to install. If empty, all default components are installed.
 install.components = []
 
+# Whether to strip the binaries. True for scikit-build-core 0.5+
+install.strip = false
+
 # List dynamic metadata fields and hook locations in this table.
 metadata = {}
 
@@ -254,6 +258,3 @@ minimum-version = "0.8"  # current version
 
 # The build directory. Defaults to a temporary directory, but can be set.
 build-dir = "DDFacet/cbuild"
-
-# Whether to strip the binaries. True for scikit-build-core 0.5+
-install.strip = false
