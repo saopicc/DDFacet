@@ -176,7 +176,6 @@
             python
             pkgs.uv
             pkgs.openmpi
-            pkgs.glibc
           ];
           env =
             {
@@ -184,6 +183,7 @@
               UV_PYTHON_DOWNLOADS = "never";
               # Force uv to use nixpkgs Python interpreter
               UV_PYTHON = python.interpreter;
+              ENVRC = "impure";
             }
             // lib.optionalAttrs pkgs.stdenv.isLinux {
               # Python libraries often load native shared objects using dlopen(3).
@@ -256,7 +256,15 @@
             # Enable all optional dependencies for development.
             virtualenv = editablePythonSet.mkVirtualEnv "ddfacet-dev-env" (workspace.deps.default 
                                                                            // {
-                                                                             ddfacet = builtins.trace "ddfacet[mpi-support]" [ "mpi-support" ];
+                                                                             #ddfacet = builtins.trace "ddfacet[mpi-support]" [ "mpi-support" ];
+                                                                             ddfacet = [
+                                                                               "moresane-support"
+                                                                               "fits-beam-support"
+                                                                               "kms-support"
+                                                                               "mpi-support"
+                                                                               "alternate-data-backends"
+                                                                               "testing-requirements"
+                                                                             ];
                                                                            });
 
           in
@@ -275,6 +283,8 @@
 
               # Prevent uv from downloading managed Python's
               UV_PYTHON_DOWNLOADS = "never";
+
+              ENVRC = "uv2nix";
             };
 
             shellHook = ''
