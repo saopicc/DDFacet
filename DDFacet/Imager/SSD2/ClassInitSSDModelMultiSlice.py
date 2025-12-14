@@ -78,6 +78,11 @@ class ClassInitSSDModelParallel():
         self.InitMachine.setDirty(DicoDirty)
         # self.InitMachine.DeconvMachine.setNCPU(NCPU)
         self.InitMachine.setSSDModelImage(DicoParm["ModelImage"])
+        # nch,_,_,_=DicoParm["ModelImage"].shape
+        # print("SDLKJDSFKJ MODEL",np.max(DicoParm["ModelImage"].reshape((nch,-1)),axis=-1))
+        # print("SDLKJDSFKJ MODEL",np.max(DicoParm["ModelImage"].reshape((nch,-1)),axis=-1))
+        # print("SDLKJDSFKJ MODEL",np.max(DicoParm["ModelImage"].reshape((nch,-1)),axis=-1))
+        # print("SDLKJDSFKJ MODEL",np.max(DicoParm["ModelImage"].reshape((nch,-1)),axis=-1))
 
         #print ":::::::::::::::::::::::",iIsland
 
@@ -354,10 +359,12 @@ class ClassInitSSDModel():
 
         self.DeconvMachine.setXY(*self.xy0)
         if self.SSDModelImage is not None:
+            
             self.SubSSDModelImage=self.SSDModelImage[:,:,x0d:x1d,y0d:y1d].copy()
             for ch in range(self.NFreqBands):
                 self.SubSSDModelImage[ch,0][np.logical_not(self.SubMask)]=0
             self.addSubModelToSubDirty()
+            
         T.timeit("2")
 
 
@@ -366,7 +373,11 @@ class ClassInitSSDModel():
 
     def giveConvModel(self,SubModelImage):
 
-        PSF,MeanPSF=self.DeconvMachine.PSFServer.GivePSF()
+        # Here PSFServer is in **not** peak-normalised mode
+        # so we need to get the peak-normalised psf
+        # SubModelImage is apparant
+        iFacet=self.DeconvMachine.PSFServer.iFacet
+        PSF=self.DeconvMachine.PSFServer.DicoVariablePSF["PeakNormed_CubeVariablePSF"][iFacet]
         ConvModel=ClassConvMachineImages(PSF).giveConvModel(SubModelImage)
 
         # ConvModel=np.zeros_like(SubModelImage)
@@ -388,12 +399,19 @@ class ClassInitSSDModel():
     
 
     def addSubModelToSubDirty(self):
+        
         T=ClassTimeIt.ClassTimeIt("InitSSD.addSubModelToSubDirty")
         T.disable()
         ConvModel=self.giveConvModel(self.SubSSDModelImage)
-        _,_,N0x,N0y=ConvModel.shape
-        MeanConvModel=np.mean(ConvModel,axis=0).reshape((1,1,N0x,N0y))
+        nch,_,N0x,N0y=ConvModel.shape
+        MeanConvModel=np.mean(ConvModel,axis=0)
         self.DicoSubDirty["ImageCube"]+=ConvModel
+        # print("FDSLKJSDLJFLSDFJ ADDDD",np.max(self.SubSSDModelImage.reshape((nch,-1)),axis=-1))
+        # print("FDSLKJSDLJFLSDFJ ADDDD",np.max(self.SubSSDModelImage.reshape((nch,-1)),axis=-1))
+        # print("FDSLKJSDLJFLSDFJ ADDDD",np.max(ConvModel.reshape((nch,-1)),axis=-1))
+        # print("FDSLKJSDLJFLSDFJ ADDDD",np.max(ConvModel.reshape((nch,-1)),axis=-1))
+
+        
         self.DicoSubDirty['MeanImage']+=MeanConvModel
         #print "MAX=",np.max(self.DicoSubDirty['MeanImage'])
         T.timeit("2")
@@ -409,7 +427,7 @@ class ClassInitSSDModel():
         # pylab.draw()
         # pylab.show(False)
         # pylab.pause(0.1)
-
+        
             
     def giveModel(self,ListPixParms):
         T=ClassTimeIt.ClassTimeIt("giveModel")

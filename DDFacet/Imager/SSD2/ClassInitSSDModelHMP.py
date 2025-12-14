@@ -47,11 +47,18 @@ class ClassInitSSDModelParallel():
     def _initIsland_worker(self, DicoOut, iIsland, Island,
                            DicoVariablePSF, DicoDirty, DicoParm, FacetCache,NCPU):
         logger.setSilent(["ClassImageDeconvMachineMSMF", "ClassPSFServer", "ClassMultiScaleMachine", "GiveModelMachine", "ClassModelMachineMSMF"])
+        #logger.setLoud(["ClassImageDeconvMachineMSMF", "ClassPSFServer", "ClassMultiScaleMachine", "GiveModelMachine", "ClassModelMachineMSMF"])
         self.InitMachine.Init(DicoVariablePSF, DicoParm["GridFreqs"], DicoParm["DegridFreqs"], facetcache=FacetCache)
         self.InitMachine.setDirty(DicoDirty)
         # self.InitMachine.DeconvMachine.setNCPU(NCPU)
         self.InitMachine.setSSDModelImage(DicoParm["ModelImage"])
-
+        # nch,_,_,_=DicoParm["ModelImage"].shape
+        # print("SDLKJDSFKJ MODEL",np.max(DicoParm["ModelImage"].reshape((nch,-1)),axis=-1))
+        # print("SDLKJDSFKJ MODEL",np.max(DicoParm["ModelImage"].reshape((nch,-1)),axis=-1))
+        # print("SDLKJDSFKJ MODEL",np.max(DicoParm["ModelImage"].reshape((nch,-1)),axis=-1))
+        # print("SDLKJDSFKJ MODEL",np.max(DicoParm["ModelImage"].reshape((nch,-1)),axis=-1))
+        
+        
         #print ":::::::::::::::::::::::",iIsland
 
         try:
@@ -185,6 +192,7 @@ class ClassInitSSDModel():
         self.GD["Deconv"]["Mode"] = "HMP"
         self.GD["Deconv"]["CycleFactor"] = 0
         self.GD["Deconv"]["PeakFactor"] = 0.0
+        self.GD["Deconv"]["Threshold"] = 0.0
         self.GD["Deconv"]["RMSFactor"] = self.GD["GAClean"]["RMSFactorInitHMP"]
         self.GD["Deconv"]["Gain"] = self.GD["GAClean"]["GainInitHMP"]
         self.GD["Deconv"]["AllowNegative"] = self.GD["GAClean"]["AllowNegativeInitHMP"]
@@ -348,6 +356,8 @@ class ClassInitSSDModel():
 
     def giveConvModel(self,SubModelImage):
 
+        # Here PSFServer is in peak-normalised mode
+        # SubModelImage is apparant
         PSF,MeanPSF=self.DeconvMachine.PSFServer.GivePSF()
         ConvModel=ClassConvMachineImages(PSF).giveConvModel(SubModelImage)
 
@@ -373,7 +383,12 @@ class ClassInitSSDModel():
         T=ClassTimeIt.ClassTimeIt("InitSSD.addSubModelToSubDirty")
         T.disable()
         ConvModel=self.giveConvModel(self.SubSSDModelImage)
-        _,_,N0x,N0y=ConvModel.shape
+        nch,_,N0x,N0y=ConvModel.shape
+        # print("FDSLKJSDLJFLSDFJ ADDDD",np.max(self.SubSSDModelImage.reshape((nch,-1)),axis=-1))
+        # print("FDSLKJSDLJFLSDFJ ADDDD",np.max(self.SubSSDModelImage.reshape((nch,-1)),axis=-1))
+        # print("FDSLKJSDLJFLSDFJ ADDDD",np.max(ConvModel.reshape((nch,-1)),axis=-1))
+        # print("FDSLKJSDLJFLSDFJ ADDDD",np.max(ConvModel.reshape((nch,-1)),axis=-1))
+        
         MeanConvModel=np.mean(ConvModel,axis=0).reshape((1,1,N0x,N0y))
         self.DicoSubDirty["ImageCube"]+=ConvModel
         #self.DicoSubDirty['MeanImage']+=MeanConvModel

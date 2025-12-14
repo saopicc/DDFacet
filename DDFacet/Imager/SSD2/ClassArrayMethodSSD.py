@@ -698,10 +698,8 @@ class ClassArrayMethodSSD():
         Dirty=self.PM.ModelToSquareArray(self.DirtyArray,TypeInOut=("Data","Data"))
 
 
-        vmin,vmax=np.min([Dirty.min(),0]),Dirty.max()
+        vmin,vmax=np.min([Dirty[iChannel].min(),0]),Dirty[iChannel].max()
     
-        fig=pylab.figure(iChannel+1,figsize=(5,3))
-        pylab.clf()
     
         ax0=pylab.subplot(2,3,1)
         im0=pylab.imshow(Dirty[iChannel,0],interpolation="nearest",vmin=vmin,vmax=vmax)
@@ -761,7 +759,7 @@ class ClassArrayMethodSSD():
         pylab.colorbar(im4, cax=cax4)
 
         PSF=self.PSF
-        vmin,vmax=PSF.min(),PSF.max()
+        vmin,vmax=PSF[iChannel,0].min(),PSF[iChannel,0].max()
         ax5=pylab.subplot(2,3,6)
         im5=pylab.imshow(PSF[iChannel,0],interpolation="nearest",vmin=vmin,vmax=vmax)
         ax5.axes.get_xaxis().set_visible(False)
@@ -775,10 +773,10 @@ class ClassArrayMethodSSD():
         pylab.suptitle('Population generation %i [%f]'%(iGen,best_ind.fitness.values[0]),size=16)
         #pylab.tight_layout()
         pylab.draw()
-        pylab.show(False)
+        pylab.show(block=False)
         pylab.pause(0.1)
-        fig.savefig("png/fig%2.2i_%4.4i.png"%(iChannel,iGen))
-        stop
+        # fig.savefig("png/fig%2.2i_%4.4i.png"%(iChannel,iGen))
+
 # #################################################################"    
 # #################################################################"    
 # #################################################################"    

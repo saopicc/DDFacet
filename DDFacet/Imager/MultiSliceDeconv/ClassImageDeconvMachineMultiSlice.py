@@ -50,6 +50,7 @@ import scipy.stats
 MAD=scipy.stats.median_abs_deviation
 from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 from SkyModel.Sky import ModRegFile
+from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 
 
 def pad_to_square(A):
@@ -93,8 +94,8 @@ class ClassImageDeconvMachine():
             raise ValueError("ModelMachine Type should be MultiSlice")
         self.MultiFreqMode=(self.GD["Freq"]["NBand"]>1)
         self.CurrentNegMask=None
-        self.FitFluxScale="Linear"
         self.FitFluxScale="Exp"
+        self.ScaleS0="linear"
         self.MaskMachine=None
         self.CacheFileName=CacheFileName
         
@@ -116,7 +117,9 @@ class ClassImageDeconvMachine():
     def setFreqs(self,DicoMappingDesc):
         self.DicoMappingDesc=DicoMappingDesc
         if self.DicoMappingDesc is None: return
-        self.SpectralFunctionsMachine=ClassSpectralFunctions.ClassSpectralFunctions(self.DicoMappingDesc,RefFreq=self.DicoMappingDesc["RefFreq"])#,BeamEnable=False)
+        self.SpectralFunctionsMachine=ClassSpectralFunctions.ClassSpectralFunctions(self.DicoMappingDesc,
+                                                                                    RefFreq=self.DicoMappingDesc["RefFreq"],
+                                                                                    BeamEnable=False)
         self.SpectralFunctionsMachine.CalcFluxBands()
         self.DicoVariablePSF.reload()
         self.DicoFreqBandToTaylor=shared_dict.attach("DicoFreqBandToTaylor")#["CubeVariablePSF"]
@@ -381,12 +384,13 @@ class ClassImageDeconvMachine():
         # _,_,xp,yp=np.where(self._MeanDirty==np.max(self._MeanDirty))
         # xp=xp[0]
         # yp=yp[0]
-        
-        xp,yp=nx//2,ny//2
-        
-        self.PSFServer.setLocation(xc,yc)
-        self.iFacet=self.PSFServer.iFacet
 
+        # we've set self.PSFServer.blc elsewhere
+        xp,yp=nx//2,ny//2
+        self.PSFServer.setLocation(xp,yp)
+        self.iFacet=self.PSFServer.iFacet
+        #print(xc,yc,self.PSFServer.iFacet)
+        
         if self.CurrentNegMask is not None:
             print("  using externally defined Mask (self.CurrentNegMask)", file=log)
             CurrentNegMask=self.CurrentNegMask
@@ -399,8 +403,9 @@ class ClassImageDeconvMachine():
         else:
             print("  not using a mask", file=log)
             CurrentNegMask=None
-            
+
         psf,_=self.PSFServer.GivePSF()
+
         Nout=np.min([dirty.shape[-1],psf.shape[-1]])
         if Nout%2!=0: Nout-=1
 
@@ -491,6 +496,11 @@ class ClassImageDeconvMachine():
                 #     start = 0 if s.start is None else s.start + offset
                 #     stop = None if s.stop is None else s.stop + offset
                 #     return slice(start, stop, s.step)
+
+                # model.fill(0)
+                # nxm,nym=model.shape
+                # model[nxm//2,nym//2]=1
+                
                 
                 Model[ch,0,s_dirty_cut,s_dirty_cut]=model[:,:]#np.roll(model[:,:],(1,-1))
                 Asave[ch,0,s_dirty_cut,s_dirty_cut]=A[:,:]
@@ -687,7 +697,9 @@ class ClassImageDeconvMachine():
         
         
         # #######################
-        self.ModelMachine.setModel(CoefImage.copy(),FluxScale=self.FitFluxScale)
+        self.ModelMachine.setModel(CoefImage.copy(),
+                                   FluxScale=self.FitFluxScale,
+                                   ScaleS0=self.ScaleS0)
         # #######################
         self.NSpectralFit=(0,0)
         # return "MaxIter", True, True
@@ -738,14 +750,17 @@ class ClassImageDeconvMachine():
             # Do spectral fit
             ThSpectralFit=0.
             CoefImage=self.DoSpectralFit(Model,X0Model=CoefImage,Resid=Resid,ThSpectralFit=ThSpectralFit)
+
             self.ModelMachine.resetModel()
-            self.ModelMachine.setModel(CoefImage,FluxScale=self.FitFluxScale)
+            self.ModelMachine.setModel(CoefImage,FluxScale=self.FitFluxScale,ScaleS0=self.ScaleS0)
             # T.timeit("DoSpectralFit")
             # print()
             T.timeit("DoSpectralFit")
             
         #print("SDFLJSDFLJFD2",self.ModelMachine.DicoModel["CoefImage"].max())
 
+        return "MaxIter", True, True   # stop deconvolution but do update model
+    
         # ###
         xcc,ycc=self.xcyc
         
@@ -779,7 +794,7 @@ class ClassImageDeconvMachine():
         ModRegFile.radecRad2Reg("FIG/AB_Major%i_%i_%i.reg"%(iMajor,xcc,ycc),
                                 rac,decc,label=["Isl_%i_%i_PSF%i"%(xcc,ycc,self.PSFServer.iFacet)])
 
-        # return "MaxIter", True, True   # stop deconvolution but do update model
+        #return "MaxIter", True, True   # stop deconvolution but do update model
         
         import pylab
         fig=pylab.figure(figsize=(17,7))
@@ -789,49 +804,69 @@ class ClassImageDeconvMachine():
         for ich,A,B,model,indx,indy in LAB:
 
             ff=np.array(self.DicoVariablePSF["freqs"][ich])
+            #ff=self.SpectralFunctionsMachine.DicoMappingDesc["freqs"]
             f0,f1=ff.min(),ff.max()
             ModelFit=self.ModelMachine.GiveModelImage(np.linspace(f0,f1,10))
+
+            X=self.ModelMachine.DicoModel["CoefImage"][...,33//2,33//2]
+            print(ModelFit[:,0,33//2,33//2])
+            print(X)
+            self.SpectralFunctionsMachine.IntExpFuncPoly(X.reshape((1,-1)),
+                                                         iChannel=ich,
+                                                         iFacet=self.iFacet,
+                                                         FluxScale=self.FitFluxScale,
+                                                         DoPrint=1)
+
+            
             Mf=ModelFit.mean(axis=0)[0,s_dirty_cut,s_dirty_cut]
             Mfc=fftconvolve(Mf,B, mode='same')#[s_dirty_cut,s_dirty_cut]
             
             Mc=fftconvolve(model,B, mode='same')#[s_dirty_cut,s_dirty_cut]
 
-            pylab.subplot(nx,ny,iPlot); iPlot+=1
+            if iPlot==1:
+                ax=pylab.subplot(nx,ny,iPlot); iPlot+=1
+            else:
+                pylab.subplot(nx,ny,iPlot,sharex=ax,sharey=ax); iPlot+=1
             pylab.imshow(A,interpolation="nearest")
             pylab.title("Dirty")
             pylab.colorbar()
 
-            pylab.subplot(nx,ny,iPlot); iPlot+=1
+            pylab.subplot(nx,ny,iPlot,sharex=ax,sharey=ax); iPlot+=1
             pylab.imshow(B,interpolation="nearest")
             pylab.title("PSF")
             pylab.colorbar()
 
-            pylab.subplot(nx,ny,iPlot); iPlot+=1
+            pylab.subplot(nx,ny,iPlot,sharex=ax,sharey=ax); iPlot+=1
             pylab.imshow(model,interpolation="nearest")
             pylab.title("Slice model")
             pylab.colorbar()
 
-            pylab.subplot(nx,ny,iPlot); iPlot+=1
+            pylab.subplot(nx,ny,iPlot,sharex=ax,sharey=ax); iPlot+=1
             pylab.imshow(A-Mc,interpolation="nearest")
             pylab.title("Dty-Mc*PSF")
             pylab.colorbar()
             
-            pylab.subplot(nx,ny,iPlot); iPlot+=1
+            pylab.subplot(nx,ny,iPlot,sharex=ax,sharey=ax); iPlot+=1
             pylab.imshow(Mf,interpolation="nearest")
             pylab.title("Fitted model")
             pylab.colorbar()
             
-            pylab.subplot(nx,ny,iPlot); iPlot+=1
+            pylab.subplot(nx,ny,iPlot,sharex=ax,sharey=ax); iPlot+=1
             pylab.imshow(A-Mfc,interpolation="nearest")
             pylab.title("Dty-Mf*PSF")
             pylab.colorbar()
+
+        rac,decc=self.PSFServer.iFacet_radec
+        sra=rad2hmsdms(rac,Type="ra")
+        sdec=rad2hmsdms(decc,Type="dec")
+        pylab.suptitle("xc,yc=[%i, %i] iFacet=%i, %s %s"%(xcc,ycc,self.iFacet,sra,sdec))
             
         pylab.draw()
+        pylab.show()
         FName="FIG/FIG_Major%i_%i_%i.png"%(iMajor,xcc,ycc)
         print(FName)
         fig.savefig(FName)
         pylab.close(fig)
-        stop
         
         T.timeit("DoSpectralFit2")
 
@@ -854,7 +889,6 @@ class ClassImageDeconvMachine():
         
         #print()
         T.timeit("setModel")
-
         
         return "MaxIter", True, True   # stop deconvolution but do update model
 
@@ -909,7 +943,6 @@ class ClassImageDeconvMachine():
             iFacet=self.PSFServer.iFacet
             
             F=(Model[:,0,iPix,jPix]).astype(np.float64).copy()
-            print(iPix,jPix,iFacet,F)
             
             #JonesNorm=(self.DicoDirty["JonesNorm"][:,:,iPix,jPix]).reshape((-1,1,1,1))
             #W=self.DicoDirty["WeightChansImages"]
@@ -945,7 +978,16 @@ class ClassImageDeconvMachine():
                                                                         iChannel=iBand,
                                                                         iFacet=iFacet,
                                                                         FluxScale=self.FitFluxScale)
-
+            # print()
+            # print("x0=",x0,X0Model[:,0,iPix,jPix])
+            # print("F0=",F0)
+            # print("R0=",R0)
+            # print("x1=",x)
+            # print("Fit=",Fit)
+            # print("R1=",R1)
+            # print()
+            # print()
+            
             Chi2Ratio=np.sum((F-Fit)**2)/np.sum(F**2)
             Chi2Cut=0.3
 
@@ -971,6 +1013,9 @@ class ClassImageDeconvMachine():
             
         log.print("   done...")
 
+
+
+        
         # S=CoefImage[0,0].flat[:]
         # A=CoefImage[1,0].flat[:]
         # ind=np.where(S!=0)[0]
@@ -980,8 +1025,6 @@ class ClassImageDeconvMachine():
         # pylab.draw()
         # pylab.show()
         
-        CoefImage[:,:,:,:]*=self.GD["Deconv"]["Gain"]
-
         #print("SDLSDLFJ NDone",self.xcyc,iDone/indx.size, self.GD["Deconv"]["Gain"])
         #print("SDLSDLFJ NDone",self.xcyc,iDone/indx.size, self.GD["Deconv"]["Gain"])
 

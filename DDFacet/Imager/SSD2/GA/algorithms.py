@@ -85,6 +85,14 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
     #fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
     fitnesses = ArrayMethodsMachine.GiveFitnessPop(population)[0]
 
+    #print("SDLSDFLSDKFLFSD")
+    #LFitnesses=[fitnesses.copy()]
+    # import pylab
+    # pylab.clf()
+    # pylab.plot(fitnesses)
+    # pylab.draw()
+    # pylab.show()
+    
     #print fitnesses[0]
     #stop
     for ind, fit in zip(invalid_ind, fitnesses):
@@ -119,6 +127,8 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
     if (ArrayMethodsMachine is not None)&(DoPlot):
         ArrayMethodsMachine.Plot(population,0)
     
+    # f0 = ArrayMethodsMachine.GiveFitnessPop(population)[0]
+    
     # Begin the generational process
     for gen in range(1, ngen+1):
         #print gen
@@ -136,7 +146,7 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
         invalid_ind = [ind for ind in offspring]# if not ind.fitness.valid]
         #fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
         fitnesses = ArrayMethodsMachine.GiveFitnessPop(invalid_ind)[0]
-
+        #LFitnesses.append(fitnesses.copy())
         T.timeit("fitness")
         for ind, fit in zip(invalid_ind, fitnesses):
             #print fit
@@ -194,8 +204,30 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
         logbook.record(gen=gen, nevals=len(invalid_ind), **record)
         T.timeit("record")
         if verbose:
-            print(logbook.stream)        
-
+            print(logbook.stream)
+            
+    # import pylab
+    # import numpy as np
+    # import os
+    # #os.system("rm -rf PNG")
+    # os.system("mkdir -p PNG")
+    # A=np.abs(np.array(LFitnesses))
+    # fig=pylab.figure("Fit")
+    # pylab.clf()
+    # pylab.imshow(np.log10(A),interpolation="nearest")
+    # pylab.colorbar()
+    # pylab.draw()
+    # iFile=0
+    # while True:
+    #     FName="PNG/FitNess_%i.png"%iFile
+    #     if not os.path.isfile(FName): break
+    #     iFile+=1
+    # print("FJSDKSJDFKSDF",FName)
+    # print("FJSDKSJDFKSDF",FName)
+    # print("FJSDKSJDFKSDF",FName)
+    # fig.savefig(FName)
+    # pylab.show()
+    
     #print "Best indiv1 fitness",best_ind.fitness
     return population, logbook
 

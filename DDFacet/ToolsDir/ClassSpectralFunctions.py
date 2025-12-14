@@ -145,7 +145,7 @@ class ClassSpectralFunctions():
 
         return FreqBandsFlux.ravel()
 
-    def IntExpFuncPoly(self,PolyArray,iChannel=0,iFacet=0,FluxScale="Exp",ScaleS0="linear"):#, S0=1.,Alpha=0.):
+    def IntExpFuncPoly(self,PolyArray,iChannel=0,iFacet=0,FluxScale="Exp",ScaleS0="linear",DoPrint=False):#, S0=1.,Alpha=0.):
 
 
         RefFreq=self.RefFreq
@@ -164,7 +164,8 @@ class ClassSpectralFunctions():
             MeanJonesBand=self.DicoMappingDesc["MeanJonesBand"][iFacet][iChannel]
         else:
             BeamFactor=1.
-            BeamFactorWeightSq=1.
+            # BeamFactorWeightSq=1.
+            BeamFactorWeightSq=np.ones((1,ThisFreqs.size),dtype=np.float32)
             MeanJonesBand=1.
 
 
@@ -201,11 +202,19 @@ class ClassSpectralFunctions():
         FreqBandsFlux=np.sqrt(np.sum(BeamFactor*( SUnityFreq )**2,axis=1))/np.sqrt(np.sum(BeamFactorWeightSq))
         FreqBandsFlux/=np.sqrt(MeanJonesBand)
         
+        # if DoPrint:
+        #     print("FreqBandsFlux",FreqBandsFlux)
+        #     print("FreqBandsFlux",FreqBandsFlux)
+        #     print("FreqBandsFlux",FreqBandsFlux)
+        #     stop
+            
         S0=S0.reshape((Npix,))
         if FluxScale=="Exp":
             if ScaleS0=="log":
+                # print("LOGFLIX Log",S0,FreqBandsFlux)
                 FreqBandsFlux*=10**S0
             elif ScaleS0=="linear":
+                # print("LOGFLIX Lin",S0,FreqBandsFlux)
                 FreqBandsFlux*=S0
             else:
                 print(ScaleS0)

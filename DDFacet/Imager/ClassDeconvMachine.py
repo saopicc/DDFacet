@@ -1268,6 +1268,7 @@ class ClassImagerDeconv():
 
         continue_deconv = True
 
+
         for iMajor in range(1, NMajor+1):
             # previous minor loop indicated it has reached bottom? Break out
             if not continue_deconv:
@@ -1329,7 +1330,7 @@ class ClassImagerDeconv():
 
 
                 repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
-
+                
                 if self.GD["Deconv"]["Mode"]=="SSD3":
                     DicoComp=self.ModelMachine.DicoSMStacked["Comp"]
                     NParms,nx,ny=DicoComp["Vals"].shape
