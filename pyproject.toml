@@ -41,7 +41,7 @@ dependencies = [
     "pandas >=0.23.3,<=2.0.3",
     "ruamel.yaml >= 0.15.92,<=0.18.6",
     "pylru >= 1.1.0,<=1.2.1",
-    "six >= 1.12.0,<=1.16.0",
+    "six >= 1.12.0",
     "dask[array]<= 2023.5.0",
     "codex-africanus[dask]<=0.3.5",
     "regions<=0.5",
