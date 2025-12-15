@@ -22,7 +22,7 @@ dependencies = [
     "sharedarray >= 3.2.0, <= 3.2.1; python_version >= '3.8' and python_version < '3.10'",
     "Polygon3 >= 3.0.8",
     "pyFFTW",
-    "astropy >= 3.0,<=5.3.4",
+    "astropy >= 3.0",
     "deap >= 1.0.1,<=1.4.1",
     "ptyprocess>=0.5,<=0.7.0",
     "ipdb >= 0.10.3,<=0.13.13",
