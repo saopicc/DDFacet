@@ -26,7 +26,7 @@ dependencies = [
     "deap >= 1.0.1,<=1.4.1",
     "ptyprocess>=0.5,<=0.7.0",
     "ipdb >= 0.10.3,<=0.13.13",
-    "python-casacore >= 3.0.0, <=3.5.2",
+    "python-casacore >= 3.0.0",
     "ephem >= 3.7.6.0",
     "numexpr >= 2.6.2,<=2.9.0",
     "matplotlib >= 2.0.0,<=3.8.2",
