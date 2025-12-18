@@ -294,7 +294,11 @@ class ClassInitSSDModel():
     def giveConvModel(self,SubModelImage):
         T=ClassTimeIt.ClassTimeIt("InitSSD.giveConvModel")
         T.disable()
-        PSF,MeanPSF=self.DeconvMachine.PSFServer.GivePSF()
+        # Here PSFServer is in **not** peak-normalised mode
+        # so we need to get the peak-normalised psf
+        # SubModelImage is apparant
+        iFacet=self.DeconvMachine.PSFServer.iFacet
+        PSF=self.DeconvMachine.PSFServer.DicoVariablePSF["PeakNormed_CubeVariablePSF"][iFacet]
         T.timeit("GivePSF")
         ConvModel=ClassConvMachineImages(PSF).giveConvModel(SubModelImage)
         T.timeit("ConvModel")

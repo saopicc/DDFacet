@@ -108,11 +108,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         
 
-    def setModel(self,Image,FluxScale="Linear"):
+    def setModel(self,Image,FluxScale=None,ScaleS0=None):
         if "CoefImage" not in self.DicoModel.keys():
             self.DicoModel["CoefImage"]=Image
             self.DicoModel["FluxScale"]=FluxScale
             self.FluxScale=FluxScale
+            self.DicoModel["ScaleS0"]=ScaleS0
+            self.ScaleS0=ScaleS0
         else:
             #self.DicoModel["CoefImage"][1::,:,:,:]+=Image[1::,:,:,:]
             #S0=self.DicoModel["CoefImage"][0,:,:,:]
@@ -121,6 +123,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def resetModel(self):
         if "CoefImage" in self.DicoModel.keys():
             del(self.DicoModel["CoefImage"])
+            del(self.DicoModel["FluxScale"])
+            del(self.DicoModel["ScaleS0"])
 
 
     def GiveModelImage(self,FreqIn=None,out=None):
@@ -180,14 +184,25 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         S0=PolyArray[:,0]
         a=(PolyArray.copy()).reshape((Npix,1,NOrder))
         nch=ThisFreqs.size
+
         
         if self.FluxScale=="Exp":
             a[:,:,0]=0.
             SUnityFreq0=a*(np.log(f/RefFreq))**n
             SUnityFreq0=np.exp(np.sum(SUnityFreq0,axis=-1))
             SUnityFreq=SUnityFreq0
-            S0=S0.reshape((Npix,1))*np.ones((1,nch))
-            SUnityFreq*=S0
+
+            if self.ScaleS0=="log":
+                #print("LOGFLIX Log",S0,FreqBandsFlux)
+                S0=S0.reshape((Npix,1))*np.ones((1,nch))
+                SUnityFreq*=10**S0
+            elif self.ScaleS0=="linear":
+                S0=S0.reshape((Npix,1))*np.ones((1,nch))
+                SUnityFreq*=S0
+            else:
+                stop
+
+            
         elif self.FluxScale=="Linear":
             SUnityFreq0=a*((f-RefFreq)/RefFreq)**n
             SUnityFreq0=np.sum(SUnityFreq0,axis=-1)

@@ -102,7 +102,11 @@ class ClassParamMachine():
     def setFreqs(self,DicoMappingDesc):
         self.DicoMappingDesc=DicoMappingDesc
         if self.DicoMappingDesc is None: return
-        self.SpectralFunctionsMachine=ClassSpectralFunctions.ClassSpectralFunctions(self.DicoMappingDesc,RefFreq=self.DicoMappingDesc["RefFreq"])#,BeamEnable=False)
+        self.SpectralFunctionsMachine=ClassSpectralFunctions.ClassSpectralFunctions(self.DicoMappingDesc,
+                                                                                    RefFreq=self.DicoMappingDesc["RefFreq"],
+                                                                                    #BeamEnable=False,
+                                                                                    BeamEnable=True,
+                                                                                    )
         
     def GiveIndivZero(self):
         return np.zeros((self.NParam,self.NPixListParms),np.float32)
@@ -128,9 +132,13 @@ class ClassParamMachine():
         return ListPars
 
     #    def ReinitPop(self,pop,SModelArray,AlphaModel=None,GSigModel=None,PutNoise=True):
-    def ReinitPop(self,pop,ListPolyModelArray,GSigModel=None,PutNoise=True):
+    def ReinitPop(self,pop,ListPolyModelArray,GSigModel=None,PutNoise=None):
         T=ClassTimeIt.ClassTimeIt("ReinitPop")
         T.disable()
+
+        if isinstance(PutNoise,bool):
+            PutNoise=PutNoise*np.ones((len(pop),),bool)
+            
         
         for Type in self.SolveParam:
             
@@ -162,7 +170,7 @@ class ClassParamMachine():
                     if np.max(S)>0:
                         S/=np.max(S)
                         
-                    if (i_indiv!=0) and PutNoise:
+                    if PutNoise[i_indiv]:
                         #SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
                         #SubArray[:]+=np.random.randn(SModelArray.size)*SigVal*(SubArray[:]!=0.) # will not put noise in zero-valued pixels
                         
@@ -181,7 +189,7 @@ class ClassParamMachine():
                     #     AlphaModel=MeanVal*np.ones((SModelArray.size,),np.float32)
                         
                     SubArray[:]=AlphaModel[:]
-                    if (i_indiv!=0) and PutNoise: 
+                    if PutNoise[i_indiv]:
                         SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
                     T.timeit("Poly")
 

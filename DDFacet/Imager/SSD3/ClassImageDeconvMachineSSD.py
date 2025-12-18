@@ -418,12 +418,10 @@ class ClassImageDeconvMachine():
         
         self.DicoDirty["RMS"]=RMS
 
-
         LRMS=[]
         nch=self.DicoDirty["ImageCube"].shape[0]
         for ich in range(nch):
             ThisRMS=np.std(np.real(self.DicoDirty["ImageCube"][ich].flat[RandomInd]))
-            ThisRMS=1.
             LRMS.append(ThisRMS)
         self.DicoDirty["LRMS"]=LRMS
         

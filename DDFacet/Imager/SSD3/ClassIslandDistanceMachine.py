@@ -140,6 +140,7 @@ class ClassIslandDistanceMachine():
         dx=self.GD["SSDClean"]["NEnlargePars"]
         if dx==0:
             ListW=[np.ones((len(Island),),np.float32) for Island in ListIslands]
+            ListIslands=[np.array(Island) for Island in ListIslands]
             return ListIslands,ListW
         print("  increase their sizes by %i pixels"%dx, file=log)
         self.ListIslands=ListIslands

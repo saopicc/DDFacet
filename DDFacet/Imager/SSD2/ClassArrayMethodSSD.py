@@ -81,10 +81,16 @@ class ClassArrayMethodSSD():
 
 
         #self.WeightMaxFunc["BIC"]=1.
+        
         self.WeightMaxFunc["MinFlux"]=100.
-        #self.WeightMaxFunc["MaxFlux"]=1.
-
+        print("FSDLSDFLJFSDLSDFJ")
+        print("FSDLSDFLJFSDLSDFJ")
+        print("FSDLSDFLJFSDLSDFJ")
+        del(self.WeightMaxFunc["MinFlux"])
+        
+        #self.WeightMaxFunc["L1"]=1.
         #self.WeightMaxFunc["L0"]=1.
+        
         self.MaxFunc=self.WeightMaxFunc.keys()
         
         self.NFuncMin=len(self.MaxFunc)
@@ -138,7 +144,7 @@ class ClassArrayMethodSSD():
         x0,y0=np.array(self.ListPixData).T
         for iBand in range(self.NFreqBands):
             self.DirtyArray[iBand,0,:]=Dirty[iBand,0,x0,y0]
-
+        self.ResidArray=self.DirtyArray.copy()
         ALPHA=1.
 
         import scipy.special
@@ -173,11 +179,16 @@ class ClassArrayMethodSSD():
                     # print "D",D
                     ALPHA=(1.-R/D)
                     ALPHA=np.max([1.,ALPHA])
+                # ALPHA=1
                 self.ALPHA=ALPHA
-                # print "ALPHA=",self.ALPHA
+                print("ALPHA=",self.ALPHA)
+                print("ALPHA=",self.ALPHA)
+                print("ALPHA=",self.ALPHA)
+                
                 
                 if self.GD["SSDClean"]["ArtifactRobust"]:
                     self.DirtyArray/=self.ALPHA
+                    
                 self.DirtyArray+=AddArray
         
         self.DirtyArrayMean=np.mean(self.DirtyArray,axis=0).reshape((1,1,self.NPixListData))
@@ -483,16 +494,15 @@ class ClassArrayMethodSSD():
             Chi2.append(DicoChi2[iIndividual])
         #print "finished"
 
-        self.BestChi2=np.min(Chi2)
-
-        iBestChi2=np.argmin(Chi2)
-        BestInidividual=pop[iBestChi2]
-        S=self.PM.ArrayToSubArray(BestInidividual,"Poly0")
-        St=np.sum(np.abs(S))[()].copy()
-        if St==0: St=1e-10
-        MaxEntropy=-St*np.log(St/self.NPixListParms)
-        MinEntropy=-St*np.log(St)
-        self.EntropyMinMax=MinEntropy,MaxEntropy
+        # self.BestChi2=np.min(Chi2)
+        # iBestChi2=np.argmin(Chi2)
+        # BestInidividual=pop[iBestChi2]
+        # S=self.PM.ArrayToSubArray(BestInidividual,"Poly0")
+        # St=np.sum(np.abs(S))[()].copy()
+        # if St==0: St=1e-10
+        # MaxEntropy=-St*np.log(St/self.NPixListParms)
+        # MinEntropy=-St*np.log(St)
+        # self.EntropyMinMax=MinEntropy,MaxEntropy
         
         #print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         #print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
@@ -661,23 +671,6 @@ class ClassArrayMethodSSD():
         # pylab.pause(0.1)
         
 
-    def GiveCompacity(self,S):
-        DM=ClassDistMachine()
-        #S.fill(1)
-        #S[0]=100
-        DM.setRefSample(np.arange(S.size),W=np.sort(S),Ns=100,xmm=[0,S.size-1])#,W=sAround,Ns=10)
-        #DM.setRefSample(S)#,W=sAround,Ns=10)
-        xs,ys=DM.xyCumulD
-        dx=xs[1]-xs[0]
-        I=2.*(S.size-np.sum(ys)*dx)/S.size-1.
-        return I
-        # pylab.figure(4,figsize=(5,3))
-        # pylab.plot(xp,yp)
-        # pylab.title("%f"%I)
-        # pylab.draw()
-        # pylab.show(False)
-        # pylab.pause(0.1)
-        # stop
 
 
     def PlotChannel(self,pop,iGen,iChannel=0):
@@ -696,16 +689,16 @@ class ClassArrayMethodSSD():
         ConvModelArray=self.ToConvArray(V)
         IM=self.PM.ModelToSquareArray(ConvModelArray,TypeInOut=("Data","Data"))
         Dirty=self.PM.ModelToSquareArray(self.DirtyArray,TypeInOut=("Data","Data"))
+        Resid=self.PM.ModelToSquareArray(self.ResidArray,TypeInOut=("Data","Data"))
 
 
-        vmin,vmax=np.min([Dirty.min(),0]),Dirty.max()
+        vmin,vmax=np.min([Dirty[iChannel].min(),0]),Dirty[iChannel].max()
     
-        fig=pylab.figure(iChannel+1,figsize=(5,3))
-        pylab.clf()
     
         ax0=pylab.subplot(2,3,1)
-        im0=pylab.imshow(Dirty[iChannel,0],interpolation="nearest",vmin=vmin,vmax=vmax)
-        pylab.title("Data")
+        AA=Dirty[iChannel,0]
+        im0=pylab.imshow(AA,interpolation="nearest",vmin=vmin,vmax=vmax)
+        pylab.title("Data\n(mm= %f %f)"%(AA.min(),AA.max()))
         ax0.axes.get_xaxis().set_visible(False)
         ax0.axes.get_yaxis().set_visible(False)
         divider0 = make_axes_locatable(ax0)
@@ -713,8 +706,9 @@ class ClassArrayMethodSSD():
         pylab.colorbar(im0, cax=cax0)
     
         ax1=pylab.subplot(2,3,2,sharex=ax0,sharey=ax0)
-        im1=pylab.imshow(IM[iChannel,0],interpolation="nearest")#,vmin=vmin,vmax=vmax)
-        pylab.title("Convolved Model")
+        AA=IM[iChannel,0]
+        im1=pylab.imshow(AA,interpolation="nearest")#,vmin=vmin,vmax=vmax)
+        pylab.title("Convolved Model\n%f %f"%(AA.min(),AA.max()))
         ax1.axes.get_xaxis().set_visible(False)
         ax1.axes.get_yaxis().set_visible(False)
         divider1 = make_axes_locatable(ax1)
@@ -726,47 +720,63 @@ class ClassArrayMethodSSD():
         im2=pylab.imshow(R,interpolation="nearest")#,vmin=vmin,vmax=vmax)
         ax2.axes.get_xaxis().set_visible(False)
         ax2.axes.get_yaxis().set_visible(False)
-        pylab.title("Residual Data")
+        pylab.title("Residual Data\n %f %f"%(R.min(),R.max()))
         divider2 = make_axes_locatable(ax2)
         cax2 = divider2.append_axes("right", size="5%", pad=0.05)
         pylab.colorbar(im2, cax=cax2)
-    
+        
     
         #pylab.colorbar()
         if self.DataTrue is not None:
             DataTrue=self.DataTrue
             vmin,vmax=DataTrue.min(),DataTrue.max()
             ax3=pylab.subplot(2,3,4)
-            im3=pylab.imshow(DataTrue[iChannel,0],interpolation="nearest",vmin=vmin,vmax=vmax)
+            AA=DataTrue[iChannel,0]
+            im3=pylab.imshow(AA,interpolation="nearest",vmin=vmin,vmax=vmax)
             ax3.axes.get_xaxis().set_visible(False)
             ax3.axes.get_yaxis().set_visible(False)
-            pylab.title("True Sky")
+            pylab.title("True Sky %f"%AA.max())
             divider3 = make_axes_locatable(ax3)
             cax3 = divider3.append_axes("right", size="5%", pad=0.05)
             pylab.colorbar(im3, cax=cax3)
     
-    
+        ax0=pylab.subplot(2,3,4)
+        AA=Resid[iChannel,0]
+        im0=pylab.imshow(AA,interpolation="nearest",vmin=vmin,vmax=vmax)
+        pylab.title("Resid\n(mm= %f %f)"%(AA.min(),AA.max()))
+        ax0.axes.get_xaxis().set_visible(False)
+        ax0.axes.get_yaxis().set_visible(False)
+        divider0 = make_axes_locatable(ax0)
+        cax0 = divider0.append_axes("right", size="5%", pad=0.05)
+        pylab.colorbar(im0, cax=cax0)
+
+            
         ax4=pylab.subplot(2,3,5,sharex=ax0,sharey=ax0)
         ModelArray=self.PM.GiveModelArray(V)
         IM=self.PM.ModelToSquareArray(ModelArray)
 
 
         #im4=pylab.imshow(IM[iChannel,0],interpolation="nearest",vmin=vmin-0.1,vmax=vmax)
-        im4=pylab.imshow(IM[iChannel,0],interpolation="nearest")#,vmin=vmin-0.1,vmax=1.5)
+        AA=IM[iChannel,0]
+        dx=AA.shape[0]
+        im4=pylab.imshow(AA,interpolation="nearest")#,vmin=vmin-0.1,vmax=1.5)
         ax4.axes.get_xaxis().set_visible(False)
         ax4.axes.get_yaxis().set_visible(False)
-        pylab.title("Best individual")
+        pylab.title("Model \n%f %f \n %s"%(AA.min(),AA.max(),np.sum(AA)))
         divider4 = make_axes_locatable(ax4)
         cax4 = divider4.append_axes("right", size="5%", pad=0.05)
         pylab.colorbar(im4, cax=cax4)
 
         PSF=self.PSF
-        vmin,vmax=PSF.min(),PSF.max()
+        vmin,vmax=PSF[iChannel,0].min(),PSF[iChannel,0].max()
+        nx,ny=PSF.shape[-2:]
         ax5=pylab.subplot(2,3,6)
-        im5=pylab.imshow(PSF[iChannel,0],interpolation="nearest",vmin=vmin,vmax=vmax)
+        AA=PSF[iChannel,0]
+        AA=AA[nx//2-dx//2:nx//2+dx//2+1,nx//2-dx//2:nx//2+dx//2+1]
+        im5=pylab.imshow(AA,interpolation="nearest",vmin=vmin,vmax=vmax)
         ax5.axes.get_xaxis().set_visible(False)
         ax5.axes.get_yaxis().set_visible(False)
-        pylab.title("PSF")
+        pylab.title("PSF %f"%AA.max())
         divider5 = make_axes_locatable(ax5)
         cax5 = divider5.append_axes("right", size="5%", pad=0.05)
         pylab.colorbar(im5, cax=cax5)
@@ -775,10 +785,10 @@ class ClassArrayMethodSSD():
         pylab.suptitle('Population generation %i [%f]'%(iGen,best_ind.fitness.values[0]),size=16)
         #pylab.tight_layout()
         pylab.draw()
-        pylab.show(False)
+        pylab.show(block=False)
         pylab.pause(0.1)
-        fig.savefig("png/fig%2.2i_%4.4i.png"%(iChannel,iGen))
-        stop
+        # fig.savefig("png/fig%2.2i_%4.4i.png"%(iChannel,iGen))
+
 # #################################################################"    
 # #################################################################"    
 # #################################################################"    
@@ -932,6 +942,26 @@ class WorkerFitness(multiprocessing.Process):
         self.T.timeit("done job: %s"%pid)
 
 
+    def GiveCompacity(self,S):
+        DM=ClassDistMachine()
+        #S.fill(1)
+        #S[0]=100
+        DM.setRefSample(np.arange(S.size),W=np.sort(S),Ns=100,xmm=[0,S.size-1])#,W=sAround,Ns=10)
+        xs,ys=DM.xyCumulD
+        dx=xs[1]-xs[0]
+        #I=2.*(S.size-np.sum(ys)*dx)/S.size-1.
+        # number between 1 (compact) and homogeneous 0
+        I=1.-np.sum(ys)*dx/(S.size/2)
+        
+        # import pylab
+        # pylab.figure(4,figsize=(5,3))
+        # pylab.plot(xs,ys)
+        # pylab.title("%f"%I)
+        # pylab.draw()
+        # pylab.show(block=False)
+        # pylab.pause(0.1)
+
+        return I
 
 
     def GiveFitness(self,individual,DoPlot=False):
@@ -965,14 +995,23 @@ class WorkerFitness(multiprocessing.Process):
         S=self.PM.ArrayToSubArray(individual,"Poly0")
         chi2=0.
         ContinuousFitNess=[]
+        PixVariance=self.PixVariance.reshape((nFreqBands,1,1))
+        Verbose=0
         for FuncType in self.MaxFunc:
             if FuncType=="Chi2":
                 # chi2=-np.sum(Weight*(Resid)**2)/(self.PixVariance*Resid.size)
-                chi2=np.sum((Resid)**2)/(self.PixVariance)
-                chi2_norm=chi2#/np.abs(self.BestChi2)
-                #print chi2_norm
+                chi2=np.sqrt(np.sum(((Resid)**2/PixVariance).reshape((nFreqBands,-1)),axis=-1))
+                if Verbose: print("chi=",np.sum(chi2),chi2.flatten())
+                chi2_norm=np.sum(chi2)
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(-chi2_norm*W)
+            if FuncType=="L1":
+                A=self.PM.GiveModelArray(individual)
+                l1=np.sum(A/np.sqrt(self.PixVariance.reshape((nFreqBands,1))),axis=1)
+                W=self.WeightMaxFunc[FuncType]
+                if Verbose: print("l1=",np.sum(l1),l1.flatten())
+                l1=np.sum(l1)
+                ContinuousFitNess.append(-l1*W)
             if FuncType=="Sum2":
                 # chi2=-np.sum(Weight*(Resid)**2)/(self.PixVariance*Resid.size)
                 chi2=np.sum((Resid)**2)
@@ -981,7 +1020,7 @@ class WorkerFitness(multiprocessing.Process):
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(-chi2_norm*W)
             if FuncType=="Chi2Th":
-                chi2=np.sum((Resid)**2)/(self.PixVariance)
+                chi2=np.sum((Resid)**2/PixVariance)
 
                 f=chi2/self.BestChi2
                 f=(chi2-self.BestChi2)/self.BestChi2
@@ -992,7 +1031,7 @@ class WorkerFitness(multiprocessing.Process):
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(-chi2Th*W)
             if FuncType=="BIC":
-                chi2=np.sum((Resid)**2)/(self.PixVariance)
+                chi2=np.sum((Resid)**2/PixVariance)
                 #chi2/=self.BestChi2
                 n=Resid.size
                 k=np.count_nonzero(S)
@@ -1001,9 +1040,9 @@ class WorkerFitness(multiprocessing.Process):
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(-BIC*W)
             if FuncType=="MEM":
-                chi2=np.sum((Resid)**2)/(self.PixVariance)
+                chi2=np.sum((Resid)**2/PixVariance)
                 if self.EntropyMinMax is None:
-                    print("Not computing entropy")
+                    if Verbose: print("Not computing entropy")
                     ContinuousFitNess.append(-chi2)
                     continue
                 aS=np.abs(self.ModelA)
@@ -1019,23 +1058,29 @@ class WorkerFitness(multiprocessing.Process):
                 #print chi2,chi2/self.BestChi2,self.BestChi2,E
                 ContinuousFitNess.append(E)
             if FuncType=="MaxFlux":
-                FMax=-np.max(np.abs(Resid))/(np.sqrt(self.PixVariance))
+                FMax=-np.max(np.abs(Resid)/np.sqrt(PixVariance))
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(FMax*W)
             if FuncType=="L0":
                 # ResidNonZero=S[S!=0]
                 # W=self.WeightMaxFunc[FuncType]
                 # l0=-(ResidNonZero.size)
-                l0=self.GiveCompacity(S)
+                l0=self.GiveCompacity(S)*Resid.size
+                if Verbose: print("l0=",l0)
                 ContinuousFitNess.append(l0*W)
             if FuncType=="MinFlux":
                 SNegArr=np.abs(S[S<0])[()]
-                FNeg=-np.sum(SNegArr**2)/((self.PixVariance))
+                rSNR=Resid/np.sqrt(PixVariance)
+                rSNR[rSNR>0]=0
+                nn=[np.max([1,np.count_nonzero(rSNR[ii])]) for ii in range(nFreqBands)]
+                FNeg=[np.sqrt(np.sum(rSNR[ii]**2))/nn[ii] for ii in range(nFreqBands)]
+                if Verbose: print("FNeg",np.sum(FNeg),FNeg)
+                sFNeg=np.sum(FNeg)
                 W=self.WeightMaxFunc[FuncType]
-                ContinuousFitNess.append(FNeg*W)
+                ContinuousFitNess.append(-sFNeg*W)
             if FuncType=="MinFluxNorm":
                 SNegArr=np.abs(S[S<0])[()]
-                FNeg=-np.sum(SNegArr**2)/((self.PixVariance))
+                FNeg=-np.sum(SNegArr**2/PixVariance)
                 FNeg/=np.abs(self.BestChi2)
                 if FNeg==0: continue
                 FNeg=np.sign(FNeg)*np.log10(np.abs(FNeg))
@@ -1043,7 +1088,9 @@ class WorkerFitness(multiprocessing.Process):
                 ContinuousFitNess.append(FNeg*W)
             
 
-        return (np.sum(ContinuousFitNess),),chi2
+        fit=np.sum(ContinuousFitNess)
+        if np.isnan(fit): stop
+        return (fit,),chi2
         #return (ContinuousFitNess,),chi2
 
 
