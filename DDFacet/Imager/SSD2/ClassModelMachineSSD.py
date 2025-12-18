@@ -290,7 +290,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         DicoComp=self.DicoSMStacked["Comp"]
         N0=nx
-
+        
         DicoSM={}
         SolveParam=np.array(self.SolveParam)
         for x,y in DicoComp.keys():
@@ -313,11 +313,23 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 
                 p=ThisSol[:].copy()
                 p[0]=0.
-                logS=np.poly1d(p[::-1])(np.log(FreqIn/RefFreq))
-                SFreq=S*np.exp(logS)
+                
+                # logS=np.poly1d(p[::-1])(np.log(FreqIn/RefFreq))
+                # SFreq=S*np.exp(logS)
+                
+                
+                S0=S
+                NOrder=p.size
+                n=np.arange(NOrder)
+                f=FreqIn.reshape((-1,1))
+                a=p.reshape((1,NOrder))
+                n=n.reshape((1,NOrder))
+                PolFreq=a*(np.log(f/RefFreq))**n
+                SFreq=S0*np.exp(np.sum(PolFreq,axis=1))
                 
 
-                    
+
+                
                 for ch in range(nchan):
                     
                     Flux=SFreq[ch]
@@ -335,8 +347,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                         for pol in range(npol):
                             indx=x+xx.flatten()
                             indy=y+yy.flatten()
-                            #ModelImage[ch,pol,np.int32(indx),np.int32(indy)]+=v.ravel()
-
+                            # ModelImage[ch,pol,np.int32(indx),np.int32(indy)]+=v.ravel()
+                            
                             for iPix in range(indx.size):
                                 try:
                                     _=DicoComp[(indx[iPix],indy[iPix])]["Vals"]

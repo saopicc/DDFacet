@@ -406,10 +406,12 @@ class ClassInitSSDModel():
         nch,_,N0x,N0y=ConvModel.shape
         MeanConvModel=np.mean(ConvModel,axis=0)
         self.DicoSubDirty["ImageCube"]+=ConvModel
-        # print("FDSLKJSDLJFLSDFJ ADDDD",np.max(self.SubSSDModelImage.reshape((nch,-1)),axis=-1))
-        # print("FDSLKJSDLJFLSDFJ ADDDD",np.max(self.SubSSDModelImage.reshape((nch,-1)),axis=-1))
-        # print("FDSLKJSDLJFLSDFJ ADDDD",np.max(ConvModel.reshape((nch,-1)),axis=-1))
-        # print("FDSLKJSDLJFLSDFJ ADDDD",np.max(ConvModel.reshape((nch,-1)),axis=-1))
+        print("FDSLKJSDLJFLSDFJ ADDDD Poly  ",np.max(self.SubSSDModelImage.reshape((nch,-1)),axis=-1))
+        print("FDSLKJSDLJFLSDFJ ADDDD Poly  ",np.max(self.SubSSDModelImage.reshape((nch,-1)),axis=-1))
+        print("FDSLKJSDLJFLSDFJ ADDDD Model ",np.max(ConvModel.reshape((nch,-1)),axis=-1))
+        print("FDSLKJSDLJFLSDFJ ADDDD Model ",np.max(ConvModel.reshape((nch,-1)),axis=-1))
+        print("FDSLKJSDLJFLSDFJ ADDDD Summed",np.max(self.DicoSubDirty["ImageCube"].reshape((nch,-1)),axis=-1))
+        print("FDSLKJSDLJFLSDFJ ADDDD Summed",np.max(self.DicoSubDirty["ImageCube"].reshape((nch,-1)),axis=-1))
 
         
         self.DicoSubDirty['MeanImage']+=MeanConvModel

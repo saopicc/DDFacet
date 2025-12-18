@@ -145,19 +145,22 @@ class ClassSpectralFunctions():
 
         return FreqBandsFlux.ravel()
 
-    def IntExpFuncPoly(self,PolyArray,iChannel=0,iFacet=0,FluxScale="Exp",ScaleS0="linear",DoPrint=False):#, S0=1.,Alpha=0.):
+    def IntExpFuncPoly(self,PolyArray,iChannel=0,iFacet=0,FluxScale="Exp",ScaleS0="linear",DoPrint=False,OutMode="int",BeamEnable=None):#, S0=1.,Alpha=0.):
 
 
+        if FluxScale!="Exp" or ScaleS0!="linear":
+            stop
         RefFreq=self.RefFreq
 
         ThisFreqs=np.array(self.DicoMappingDesc["freqs"][iChannel])
-        
+
         S0=np.array(PolyArray[:,0])
         Npix=S0.size
         
+        if BeamEnable is None:
+            BeamEnable=self.BeamEnable
             
-
-        if self.BeamEnable:
+        if BeamEnable:
             ListBeamFactor,ListBeamFactorWeightSq = self.GiveBeamFactorsFacet(iFacet)
             BeamFactor=ListBeamFactor[iChannel].reshape((1,ThisFreqs.size))
             BeamFactorWeightSq=ListBeamFactorWeightSq[iChannel].reshape((1,ThisFreqs.size))
@@ -200,8 +203,13 @@ class ClassSpectralFunctions():
         SUnityFreq=SUnityFreq0
         
         FreqBandsFlux=np.sqrt(np.sum(BeamFactor*( SUnityFreq )**2,axis=1))/np.sqrt(np.sum(BeamFactorWeightSq))
-        FreqBandsFlux/=np.sqrt(MeanJonesBand)
-        
+        if OutMode=="int":
+            FreqBandsFlux/=np.sqrt(MeanJonesBand)
+        elif OutMode=="app":
+            pass
+        else:
+            stop
+            
         # if DoPrint:
         #     print("FreqBandsFlux",FreqBandsFlux)
         #     print("FreqBandsFlux",FreqBandsFlux)

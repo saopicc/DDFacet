@@ -160,8 +160,8 @@ class ClassImageDeconvMachine():
             else:
                 raise ValueError("InitType should be HMP or MultiSlice or MORESANE")
 
-        if len(self.ListInitMachine)>1 and GD["GAClean"]["NMaxGen"]==0:
-            stop
+        # if len(self.ListInitMachine)>1 and GD["GAClean"]["NMaxGen"]==0:
+        #     stop
         self._init_machine_initialized = False
 
     def setMaxMajorIter(self,MaxMajorIter):
@@ -456,7 +456,14 @@ class ClassImageDeconvMachine():
         RMS=np.std(np.real(self.Dirty.ravel()[RandomInd]))
         #print "::::::::::::::::::::::"
         self.RMS=RMS
-
+        self.DicoDirty["RMS"]=RMS
+        LRMS=[]
+        nch=self.DicoDirty["ImageCube"].shape[0]
+        for ich in range(nch):
+            ThisRMS=np.std(np.real(self.DicoDirty["ImageCube"][ich].flat[RandomInd]))
+            LRMS.append(ThisRMS)
+        self.DicoDirty["LRMS"]=LRMS
+        
         #self.GainMachine.SetRMS(RMS)
         
         Fluxlimit_RMS = self.RMSFactor*RMS
@@ -496,6 +503,7 @@ class ClassImageDeconvMachine():
             
         print("    Stopping flux              = %10.6f Jy [%.3f of peak ]"%(StopFlux,StopFlux/MaxDirty), file=log)
 
+        
         
         MaxModelInit=np.max(np.abs(self.ModelImage))
 
@@ -647,7 +655,7 @@ class ClassImageDeconvMachine():
             
             iIslandInit=ListInitIslands[iIsland]
             
-            ListOrder=[iIsland,FacetID,JonesNorm.flat[0],self.RMS**2,island_dict.path,iIslandInit]
+            ListOrder=[iIsland,FacetID,JonesNorm.flat[0],np.array(self.DicoDirty["LRMS"])**2,island_dict.path,iIslandInit]
 
             work_queue.put(ListOrder)
             T.timeit("Put")

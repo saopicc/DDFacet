@@ -28,6 +28,7 @@ def FilterIslandsPix(ListIn,Npix_x,Npix_y):
             ListOut.append([x,y])
     return ListOut
 
+DOPLOT=False
 
 class ClassEvolveGA():
     def __init__(self,Dirty,PSF,FreqsInfo,ListPixData=None,ListPixParms=None,IslandBestIndiv=None,GD=None,
@@ -69,10 +70,9 @@ class ClassEvolveGA():
                                                                          island_dict=island_dict,
                                                                          ParallelFitness=ParallelFitness,
                                                                          NCPU=NCPU)
-
         self.InitEvolutionAlgo()
-        #self.ArrayMethodsMachine.testMovePix()
-        #stop
+        # self.ArrayMethodsMachine.testMovePix()
+        # stop
 
     def InitEvolutionAlgo(self):
         if "FitnessMax" not in dir(creator):
@@ -173,32 +173,33 @@ class ClassEvolveGA():
 
         def GiveListPolyArrayMP_LinComb(N):
             T.reinit()
-            # L=[GivePolyArrayMP_LinComb() for iIndiv in range(N)]
-            # DoPutNoise=np.ones((N,),bool)
-            # # T.timeit("GiveListPolyArrayMP_LinComb: L")
-            # NTypeInit=len(self.DicoDicoInitIndiv.keys())
-            # for iTypeInit in range(NTypeInit):
-            #     L[iTypeInit]=GivePolyArrayMP(iTypeInit=iTypeInit)
-            #     DoPutNoise[iTypeInit]=False
-                
-            # print("VLKFSDLKSFDL")
-            # iDone=0
-            L=[]
+            
+            L=[GivePolyArrayMP_LinComb() for iIndiv in range(N)]
             DoPutNoise=np.ones((N,),bool)
+            # T.timeit("GiveListPolyArrayMP_LinComb: L")
             NTypeInit=len(self.DicoDicoInitIndiv.keys())
-            LiTypeInit=np.int16(np.arange(0,NTypeInit,NTypeInit/N))
-            iCurrent=None
-            for ii,iTypeInit in enumerate(LiTypeInit):
-                if iTypeInit!=iCurrent:
-                    iCurrent=iTypeInit
-                    DoPutNoise[ii]=0
-                L.append(GivePolyArrayMP(iTypeInit=iTypeInit))
+            for iTypeInit in range(NTypeInit):
+                L[iTypeInit]=GivePolyArrayMP(iTypeInit=iTypeInit)
+                DoPutNoise[iTypeInit]=False
+                
+            # # print("VLKFSDLKSFDL")
+            # # iDone=0
+            # L=[]
+            # DoPutNoise=np.ones((N,),bool)
+            # NTypeInit=len(self.DicoDicoInitIndiv.keys())
+            # LiTypeInit=np.int16(np.arange(0,NTypeInit,NTypeInit/N))
+            # iCurrent=None
+            # for ii,iTypeInit in enumerate(LiTypeInit):
+            #     if iTypeInit!=iCurrent:
+            #         iCurrent=iTypeInit
+            #         DoPutNoise[ii]=0
+            #     L.append(GivePolyArrayMP(iTypeInit=iTypeInit))
             
             DoPutNoise=np.min(np.concatenate([DoPutNoise,
                                               np.int16(np.random.rand(N)*2)]).reshape((2,N)),
                               axis=0)
             #DoPutNoise=np.ones((len(L),),bool)
-            
+            #DoPutNoise.fill(0)
             T.timeit("GiveListPolyArrayMP_LinComb: for")
             #DoPutNoise=True
             return L,DoPutNoise
@@ -212,12 +213,33 @@ class ClassEvolveGA():
             else:
                 for iTypeInit in range(NTypeInit):
                     L.append(GivePolyArrayMP(iTypeInit=iTypeInit))
-            L.append(self.IslandBestIndiv_PolyModelArray)
+                    
+            if np.max(np.abs(self.IslandBestIndiv))!=0.:
+                L.append(self.IslandBestIndiv_PolyModelArray)
+                
             pop = toolbox.population(n=len(L))
             self.ArrayMethodsMachine.PM.ReinitPop(pop,L,PutNoise=False)
             fitnesses,_=self.ArrayMethodsMachine.GiveFitnessPop(pop)
             for ind, fit in zip(pop, fitnesses):
                 ind.fitness.values = fit
+
+            pop_init=pop
+            if DOPLOT:
+                os.system("mkdir PNG")
+                for iChannel in range(1):
+                    for iType in range(len(pop_init)):
+                        iIter=0
+                        fig=pylab.figure("Plot indiv",figsize=(10,6))
+                        pylab.clf()
+                        self.ArrayMethodsMachine.PlotChannel(pop_init[iType:iType+1],0,iChannel=iChannel)
+                        while True:
+                            FName="PNG/Fig_Ch%i_Type%i_Iter%i.png"%(iChannel,iType,iIter)
+                            if not os.path.isfile(FName):
+                                break
+                            iIter+=1
+                        fig.savefig(FName)
+                #stop
+                
             return pop
         
         def GivePolyArrayMP_LinComb():
@@ -249,8 +271,8 @@ class ClassEvolveGA():
             for iOrder in range(self.ArrayMethodsMachine.PM.NOrderPoly):
                 self.IslandBestIndiv_PolyModelArray[iOrder]=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"Poly%i"%iOrder)
             
-            #SModelArrayMP,Alpha=self.ArrayMethodsMachine.DeconvCLEAN()
-            #AModelArrayMP=None
+            # SModelArrayMP,Alpha=self.ArrayMethodsMachine.DeconvCLEAN()
+            # AModelArrayMP=None
             
             
             if NGen==0:
@@ -259,20 +281,26 @@ class ClassEvolveGA():
                 #self.ArrayMethodsMachine.PM.ReinitPop(self.pop,pop,PutNoise=PutNoise)
 
                 pop_init=GiveInitPop()
+                print("DSFLKFSLK")
+                print([ind.fitness.values for ind in pop_init])
+                print([ind.fitness.values for ind in pop_init])
+                print([ind.fitness.values for ind in pop_init])
                 V = tools.selBest(pop_init, 1)[0]
+
+                
                 self.ArrayMethodsMachine.KillWorkers()
                 return V
             T.timeit("N=0")
 
 
             if np.max(np.abs(self.IslandBestIndiv))==0:
-                print("NEW")
+                #print("NEW")
                 pop,PutNoise=GiveListPolyArrayMP_LinComb(len(self.pop))
                 #T.timeit("New0")
                 self.ArrayMethodsMachine.PM.ReinitPop(self.pop,pop,PutNoise=PutNoise)
                 #T.timeit("New")
             else:
-                print("MIX")
+                #print("MIX")
                 NIndiv=len(self.pop)//10
                 pop0=self.pop[0:NIndiv]
                 pop1=self.pop[NIndiv::]
@@ -394,20 +422,14 @@ class ClassEvolveGA():
                                            DoPlot=DoPlot,
                                            MutConfig=self.MutConfig)
 
-        # T.timeit("eaSimple")
         pop_init=GiveInitPop()
+        
+        # # ###############################
         # V = tools.selBest(pop_init, 1)[0]
         # F=[ind.fitness.values for ind in pop_init]
         # iind=np.argmax(F)
         # #for ii in range(len(pop_init)):
         # #    self.ArrayMethodsMachine.PlotChannel(pop_init[ii:ii+1],0,iChannel=0)
-        # os.system("mkdir PNG")
-        # fig=pylab.figure("Plot indiv",figsize=(10,6))
-        # for iType in range(len(pop_init)):
-        #     for iChannel in range(2):
-        #         pylab.clf()
-        #         self.ArrayMethodsMachine.PlotChannel(pop_init[iType:iType+1],0,iChannel=iChannel)
-        #         fig.savefig("PNG/Fig_Type%i_Ch%i.png"%(iType,iChannel))
         # return V
     
         pop_merge=pop_init+self.pop

@@ -123,6 +123,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def resetModel(self):
         if "CoefImage" in self.DicoModel.keys():
             del(self.DicoModel["CoefImage"])
+            del(self.DicoModel["FluxScale"])
+            del(self.DicoModel["ScaleS0"])
 
 
     def GiveModelImage(self,FreqIn=None,out=None):
