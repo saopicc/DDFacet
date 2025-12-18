@@ -995,7 +995,7 @@ class ClassImageDeconvMachine():
                 CoefImage[:,0,iPix,jPix]=X0Model[:,0,iPix,jPix]
                 continue
             self.PSFServer.setLocation(iPix,jPix)
-            print("FDLKDFLKFD",iPix,jPix,MeanResidSNR[iPix,jPix])
+            #print("FDLKDFLKFD",iPix,jPix,MeanResidSNR[iPix,jPix])
             iDone+=1
             iFacet=self.PSFServer.iFacet
             
@@ -1090,8 +1090,8 @@ class ClassImageDeconvMachine():
         # pylab.draw()
         # pylab.show()
         
-        print("SDLSDLFJ NDone",self.xcyc,iDone/indx.size, self.GD["Deconv"]["Gain"])
-        print("SDLSDLFJ NDone",self.xcyc,iDone/indx.size, self.GD["Deconv"]["Gain"])
+        # print("SDLSDLFJ NDone",self.xcyc,iDone/indx.size, self.GD["Deconv"]["Gain"])
+        # print("SDLSDLFJ NDone",self.xcyc,iDone/indx.size, self.GD["Deconv"]["Gain"])
 
         self.NSpectralFit=(iDone,indx.size)
 

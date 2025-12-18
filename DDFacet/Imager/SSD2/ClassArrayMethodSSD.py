@@ -82,11 +82,11 @@ class ClassArrayMethodSSD():
 
         #self.WeightMaxFunc["BIC"]=1.
         
-        self.WeightMaxFunc["MinFlux"]=100.
-        print("FSDLSDFLJFSDLSDFJ")
-        print("FSDLSDFLJFSDLSDFJ")
-        print("FSDLSDFLJFSDLSDFJ")
-        del(self.WeightMaxFunc["MinFlux"])
+        # self.WeightMaxFunc["MinFlux"]=100.
+        # print("FSDLSDFLJFSDLSDFJ")
+        # print("FSDLSDFLJFSDLSDFJ")
+        # print("FSDLSDFLJFSDLSDFJ")
+        # del(self.WeightMaxFunc["MinFlux"])
         
         #self.WeightMaxFunc["L1"]=1.
         #self.WeightMaxFunc["L0"]=1.
@@ -181,9 +181,9 @@ class ClassArrayMethodSSD():
                     ALPHA=np.max([1.,ALPHA])
                 # ALPHA=1
                 self.ALPHA=ALPHA
-                print("ALPHA=",self.ALPHA)
-                print("ALPHA=",self.ALPHA)
-                print("ALPHA=",self.ALPHA)
+                # print("ALPHA=",self.ALPHA)
+                # print("ALPHA=",self.ALPHA)
+                # print("ALPHA=",self.ALPHA)
                 
                 
                 if self.GD["SSDClean"]["ArtifactRobust"]:
