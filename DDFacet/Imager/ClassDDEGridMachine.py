@@ -1032,7 +1032,7 @@ class ClassDDEGridMachine():
         A0, A1 = A0A1
 
         T.timeit("0")
-
+        
         if ImToGrid:
             if np.max(np.abs(ModelImage)) == 0:
                 return vis
@@ -1212,7 +1212,8 @@ class ClassDDEGridMachine():
                 self.LSmear, np.int32(ChanMapping),
                 np.array(self.DataCorrelationFormat).astype(np.uint16),
                 np.array(self.ExpectedOutputStokes).astype(np.uint16))
-            vis[flag]=0
+            # # commented for compatibility with master
+            # vis[flag]=0
         elif self.GD["RIME"]["ForwardMode"]=="BDA-degrid-classic":
             OptimisationInfos = [
                 self.JonesType,

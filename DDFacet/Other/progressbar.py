@@ -149,12 +149,13 @@ class ProgressBar(object):
             # The length of the first line in the message
             inline_msg_len = len(message.splitlines()[0])+len(self.Title)
 
-        if inline_msg_len + self.width + self.PADDING > terminal.getValueChecked("COLUMNS"):
-            # The message is too long to fit in one line.
-            # Adjust the bar width to fit.
-            bar_width = terminal.getValueChecked("COLUMNS") - inline_msg_len - self.PADDING
-        else:
-            bar_width = self.width
+        # if inline_msg_len + self.width + self.PADDING > terminal.getValueChecked("COLUMNS"):
+        #     # The message is too long to fit in one line.
+        #     # Adjust the bar width to fit.
+        #     bar_width = terminal.getValueChecked("COLUMNS") - inline_msg_len - self.PADDING
+        # else:
+        #     bar_width = self.width
+        bar_width = self.width
  
         # Check if render is called for the first time
         if self.progress != None:

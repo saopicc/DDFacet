@@ -442,7 +442,7 @@ class ClassVisServer():
         iMS, iChunk = DATA["iMS"], DATA["iChunk"]
         self._put_vis_column_label = "%d.%d" % (iMS+1, iChunk+1)
         self._put_vis_column_job_id = "PutData:%d:%d" % (iMS, iChunk)
-        APP.runJob(self._put_vis_column_job_id, self. visPutColumnHandler, args=(DATA.readonly(), field, column, likecol), io=0,serial=SERIAL)
+        APP.runJob(self._put_vis_column_job_id, self.visPutColumnHandler, args=(DATA.readonly(), field, column, likecol), io=0,serial=SERIAL)
 
     def visPutColumnHandler (self, DATA, field, column, likecol):
         iMS, iChunk = DATA["iMS"], DATA["iChunk"]

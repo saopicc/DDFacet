@@ -1,22 +1,38 @@
+from DDFacet.Other import ModColor
+
 size = 1 # number of mpi processes
 rank = 0 # local process ID
 useMPI=False
 
+try:
+    from mpi4py.MPI import *
+    size = COMM_WORLD.size
+    rank = COMM_WORLD.rank
+    if size>1:
+        useMPI=True
+    else:
+        print(ModColor.Str(" mpi4py properly initialised, but size=1, not using MPI mode.",col="blue"))
+        
+except ModuleNotFoundError:
+    print(ModColor.Str(" Could not initialise mpi4py ",col="blue"))
+    pass
+
 import os
-DDF_USE_MPI=os.environ.get("DDF_USE_MPI", "1") == "1"
-print(f"MPIManager: DDF_USE_MPI={DDF_USE_MPI}")
+DDF_FORCE_NOT_USE_MPI=int(os.environ.get("DDF_FORCE_NOT_USE_MPI", "0"))
+W=60
+if useMPI and DDF_FORCE_NOT_USE_MPI:
+    useMPI=False
+    print(ModColor.Str("="*W,col="blue"))
+    print(ModColor.Str(" MPI mode disabled by DDF_FORCE_NOT_USE_MPI ".center(W,"="),col="blue"))
+    print(ModColor.Str("="*W,col="blue"))
+elif useMPI:
+    print(ModColor.Str("="*W,col="blue"))
+    print(ModColor.Str("  MPI mode enabled ".center(W,"="),col="blue"))
+    print(ModColor.Str(("  size=%i "%size).center(W,"="),col="blue"))
+    print(ModColor.Str("="*W,col="blue"))
 
-if DDF_USE_MPI:
-    try:
-        from mpi4py.MPI import *
 
-        useMPI = True
-        size = COMM_WORLD.size
-
-        rank = COMM_WORLD.rank
-    except ModuleNotFoundError:
-        pass
-
+    
 try:
     from fasteners import InterProcessLock
 except ModuleNotFoundError:

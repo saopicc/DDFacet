@@ -1398,9 +1398,11 @@ class ClassMS():
         
         row0, row1 = self._chunk_r0r1[ichunk]
         nrow = row1 - row0
-        if flags is not None:
-            vis=vis.copy()
-            vis[flags]=0
+
+        # # commented for master to give same results
+        # if flags is not None:
+        #     vis=vis.copy()
+        #     vis[flags]=0
             
         if self._reverse_channel_order:
             vis = vis[:,::-1,...]
