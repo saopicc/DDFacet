@@ -1950,17 +1950,20 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
         MSName = [MSName]
     # now, at this point each entry in the list can still contain wildcards, and ":Fx:Dx" groups. Process it
     mslist = []
-    for msspec in MSName:
+    for ThisMS in MSName:
+
+        if ":" in ThisMS:
+            host = ThisMS.split(':')[0]
+            msspec = ":".join(ThisMS.split(':')[1:])
+        else:
+            host=None
+            msspec = ThisMS
+        
         regrp = "(([0-9]+)|([0-9]+)([~:])([0-9]+)|(\*))"   # regex matching N or N:M or N~M or *
         # match :F and :D suffixes, if present. Don't regexes make your brain melt
         terms = msspec.split("//")
-        host=None
         msname = terms[0]
-        if ":" in terms:
-            host = terms[0].split(':')[0]
-            msname = terms[0].split(':')[1:]
-            
-        #msname = terms[0]
+
         ddid_match = [ re.match("D("+regrp+")$", x) for x in terms[1:] ]
         field_match = [ re.match("F("+regrp+")$", x) for x in terms[1:] ]
         col_match = [ re.match("(.*_DATA)$", x) for x in terms[1:]]
@@ -2031,7 +2034,7 @@ def splitMSList(MSList):
     # filter msfile with host defined
     mslist_with_host = list(filter(lambda x: x[1] == hostname, MSList))
     mslist_without_host = list(filter(lambda x: x[1] == None, MSList))
-
+    
     if len(mslist_with_host)*len(mslist_without_host) > 0:
         raise RuntimeError("You have not define a hostname for each MS File")
 
