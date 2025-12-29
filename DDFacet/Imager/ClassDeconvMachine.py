@@ -194,10 +194,14 @@ class ClassImagerDeconv():
                               verbose=self.GD["Debug"]["APPVerbose"],
                               pause_on_start=self.GD["Debug"]["PauseWorkers"])
 
-        mslist = ClassMS.expandMSList(self.GD["Data"]["MS"],
-                                      defaultDDID=self.GD["Selection"]["DDID"],
-                                      defaultField=self.GD["Selection"]["Field"],
-                                      defaultColumn=None)
+        mslist=None
+        if MPIManager.rank == 0:
+            mslist = ClassMS.expandMSList(self.GD["Data"]["MS"],
+                                          defaultDDID=self.GD["Selection"]["DDID"],
+                                          defaultField=self.GD["Selection"]["Field"],
+                                          defaultColumn=None)
+        if MPIManager.useMPI:
+            mslist = MPIManager.COMM_WORLD.bcast(mslist, root=0)
         
         self.VS = ClassVisServer.ClassVisServer(mslist,
                                                 ColName=self.GD["Data"]["ColName"] if self.do_readcol else None,
@@ -261,8 +265,9 @@ class ClassImagerDeconv():
                                                                              DegridFreqs=self.VS.FreqBandChannelsDegrid,
                                                                              GridFreqs=self.VS.FreqBandCenters,
                                                                              MainCache=self.VS.maincache)
-        self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
-        self.MaskMachine.setImageNoiseMachine(self.ImageNoiseMachine)
+        if MPIManager.rank == 0:
+            self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
+            self.MaskMachine.setImageNoiseMachine(self.ImageNoiseMachine)
 
         MinorCycleConfig["RefFreq"] = self.RefFreq
         MinorCycleConfig["ModelMachine"] = ModelMachine
@@ -336,7 +341,8 @@ class ClassImagerDeconv():
                 print("Using WSCMS2 algorithm", file=log)
             else:
                 raise NotImplementedError("Unknown --Deconvolution-Mode setting '%s'" % self.GD["Deconv"]["Mode"])
-            self.DeconvMachine.setMaskMachine(self.MaskMachine)
+            if MPIManager.rank == 0:
+                self.DeconvMachine.setMaskMachine(self.MaskMachine)
         self.CreateFacetMachines()
         self.VS.setFacetMachine(self.FacetMachine or self.FacetMachinePSF)
 
@@ -709,7 +715,7 @@ class ClassImagerDeconv():
                 self.MeanJonesNorm = None
                 self.JonesNorm = None
 
-            if self.DicoDirty.get("LastMask") is not None and self.GD["Mask"]["Auto"]:
+            if MPIManager.rank == 0 and self.DicoDirty.get("LastMask") is not None and self.GD["Mask"]["Auto"]:
                 self.MaskMachine.joinExternalMask(self.DicoDirty["LastMask"])
 
         if psf_valid:
@@ -1285,8 +1291,9 @@ class ClassImagerDeconv():
             
             # now update the mask - it will eventually call for ImageNoiseMachine to compute a noise image
             # May be done by all the mpi processes if we want to distribute SSD2 computation using MPI
-            self.MaskMachine.updateMask(self.DicoDirty)
-            if self.MaskMachine.CurrentMask is not None:
+            if MPIManager.rank == 0: self.MaskMachine.updateMask(self.DicoDirty)
+            
+            if MPIManager.rank == 0 and self.MaskMachine.CurrentMask is not None:
                 if "k" in self._saveims:
                     self.FacetMachine.ToCasaImage(np.float32(self.MaskMachine.CurrentMask),
                                                   ImageName="%s.mask%2.2i"%(self.BaseName,iMajor),Fits=True,
@@ -1570,7 +1577,8 @@ class ClassImagerDeconv():
             # create new residual image
             self.DicoDirty = self.FacetMachine.FacetsToIm(NormJones=True)
 
-            self.DicoDirty["LastMask"] = self.MaskMachine.CurrentMask
+            if MPIManager.rank == 0:
+                self.DicoDirty["LastMask"] = self.MaskMachine.CurrentMask
 
             # was PSF re-generated?
             if do_psf:

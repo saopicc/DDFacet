@@ -23,6 +23,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
+os.environ["DDF_FORCE_NOT_USE_MPI"] = "1"
+
 from DDFacet.compatibility import range
 
 import optparse

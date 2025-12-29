@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 from __future__ import division, absolute_import, print_function
 import sys,os
+os.environ["DDF_FORCE_NOT_USE_MPI"] = "1"
+
+
 if "PYTHONPATH_FIRST" in list(os.environ.keys()) and int(os.environ["PYTHONPATH_FIRST"]):
     sys.path = os.environ["PYTHONPATH"].split(":") + sys.path
 import os
