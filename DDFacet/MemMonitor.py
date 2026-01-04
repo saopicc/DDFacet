@@ -24,11 +24,33 @@ import time
 import numpy as np
 import psutil
 import pylab
-
+import socket
+import glob
 from collections import deque
 import sys
-
+import os
 #pylab.ion()
+import optparse
+import pickle
+
+SaveFile="last_MakeMask.obj"
+
+def read_options():
+    desc=""" """
+    opt = optparse.OptionParser(usage='Task to start a monitoring task, Usage: %prog <options>',version='%prog version 1.0',description=desc)
+    group = optparse.OptionGroup(opt, "* General options")
+    group.add_option('--Mode',type=str,help="Plot/Dump",default="Plot")
+    group.add_option('--Reset',type=int,help="Reset dump",default=0)
+    
+
+    opt.add_option_group(group)
+
+    
+    options, arguments = opt.parse_args()
+
+    f = open(SaveFile,"wb")
+    pickle.dump(options,f)
+
 
 def GivePolygon(x,y):
     if isinstance(x,deque):
@@ -46,53 +68,116 @@ def GivePolygon(x,y):
 
 
 class ClassMemMonitor():
-    def __init__(self,dt=0.5,NMax=None):
-        self.dt=dt
-        self.NMax=NMax
+    def __init__(self,options=None):
+        self.dt=0.5
+        self.Mode=options.Mode
+        self.HostName=socket.gethostname()
+        self.FileDump=os.path.expanduser("~/monitor.%s.csv"%self.HostName)
+        if options.Reset:
+            os.system("rm %s"%self.FileDump)
+
         
-        self.LMem=[]#deque(maxlen=NMax)
-        self.LSMem=[]#deque(maxlen=NMax)
-        self.LSMemAvail=[]#deque(maxlen=NMax)
-        self.LMemAvail=[]#deque(maxlen=NMax)
-        self.LMemTotal=[]#deque(maxlen=NMax)
-        self.LShared=[]#deque(maxlen=NMax)
-        self.LCPU=[]#deque(maxlen=NMax)
-        self.LT=[]#deque(maxlen=NMax)
-        self.t0=time.time()
-        self.Swap0=None
+        self.DicoProfile={}
         
+        self.dtype=[("time",np.float64),
+                    ("mem",np.float32),
+                    ("memAvail",np.float32),
+                    ("memTotal",np.float32),
+                    ("Swap_mem",np.float32),
+                    ("Swap_memAvail",np.float32),
+                    ("cpu",np.float32)]
+        
+        if self.Mode=="ReadAndPlot":
+            self.loadDumped()
+        else:
+            self.DicoProfile[self.HostName]={}
+            for f,_ in self.dtype:
+                self.DicoProfile[self.HostName][f]=[]
+            self.t0=time.time()
+            
+    def loadDumped(self):
+        ll=glob.glob(os.path.expanduser("~/monitor.*.csv"))
+        t0=None
+        for l in ll:
+            if "pipeline" in l:
+                self.Steps=np.genfromtxt(l,dtype=[("time",np.float64),
+                                                  ("Name","|S200"),
+                                                  ("Type","|S200")],
+                                         delimiter=",")
+
+            else:
+                host=l.split("monitor.")[1].split(".csv")[0]
+                A=np.genfromtxt(l,dtype=self.dtype,
+                                delimiter=",")
+                self.DicoProfile[host]={}
+                for f in A.dtype.fields:
+                    self.DicoProfile[host][f]=A[f].tolist()
+                if t0 is None:
+                    t0=self.DicoProfile[host]["time"][0]
+                else:
+                    t0=np.min([t0,self.DicoProfile[host]["time"][0]])
+        self.t0=t0
+
+                    
     def update(self):
         vmem=psutil.virtual_memory()
-        
         mem=vmem.used/float(2**20)/1024
-        self.LMem.append(mem)
-        
         memAvail=vmem.available/float(2**20)/1024
-        self.LMemAvail.append(memAvail)
-        
         memTotal=vmem.total/float(2**20)/1024
-        self.LMemTotal.append(memTotal)
-
-        smem=psutil.swap_memory()
-        Smem=smem.used/float(2**20)/1024
-        #print("!!!",smem)
-        if self.Swap0 is None:
-            self.Swap0=Smem
-        #self.LSMem.append(Smem-self.Swap0)
-        self.LSMem.append(Smem)
-
-        SmemAvail=smem.total/float(2**20)/1024
-        self.LSMemAvail.append(SmemAvail)
-
-        TotSeen=np.array(self.LMemAvail)+np.array(self.LMem)
-        Cache=TotSeen-np.array(self.LMemTotal)
-        
-        self.PureRAM=np.array(self.LMem)-Cache
+        swap_mem=psutil.swap_memory()
+        Swap_mem=swap_mem.used/float(2**20)/1024
+        # #print("!!!",smem)
+        # if self.Swap0 is None:
+        #     self.Swap0=Swap_mem
+        # #self.LSMem.append(Smem-self.Swap0)
+        Swap_memAvail=swap_mem.total/float(2**20)/1024
         
         cpu=psutil.cpu_percent()
-        self.LCPU.append(cpu)
-        self.LT.append((time.time()-self.t0)/60)
+        AbsTime=time.time()
+        
+        if self.Mode=="Plot":
+            host=self.HostName
+            self.DicoProfile[host]["mem"].append(mem)
+            self.DicoProfile[host]["memAvail"].append(memAvail)
+            self.DicoProfile[host]["memTotal"].append(memTotal)
+            self.DicoProfile[host]["Swap_mem"].append(Swap_mem)
+            self.DicoProfile[host]["Swap_memAvail"].append(Swap_memAvail)
+            self.DicoProfile[host]["time"].append(AbsTime)
+            self.DicoProfile[host]["cpu"].append(cpu)
+            
+        elif self.Mode=="Dump":
+            with open(self.FileDump, 'a') as file:
+                s=f"{AbsTime}, {mem}, {memAvail}, {memTotal}, {Swap_mem}, {Swap_memAvail}, {cpu}"
+                file.write('%s\n'%s)
+                
 
+    def plotDumped(self):
+        self.fig=pylab.figure("[%s]"%self.HostName)
+        while True:
+            self.loadDumped()
+            self.plotDumpedStep()
+            pylab.draw()
+            pylab.show(block=False)
+            pylab.pause(0.1)
+            time.sleep(5)
+
+                
+    def plotDumpedStep(self):
+        LHost=list(self.DicoProfile.keys())
+        ny=len(LHost)
+        pylab.clf()
+        for iPlot,host in enumerate(LHost):
+            ax = pylab.subplot(ny,1,iPlot+1)
+            _,ax2=self.plotOne(N=None,ax=ax,host=host)
+            for Step in self.Steps:
+                tt=(Step["time"]-self.t0)/60
+                Name=Step["Name"].decode("ascii").replace(" ","").replace("_"," ")
+                Type=Step["Type"]
+                ax2.plot([tt,tt],[0,100])
+                ax2.text(tt, 0, "[%s]"%Name, fontsize=7,
+                         rotation=90, rotation_mode='anchor',
+                         transform_rotates_text=True,color="red", weight="bold")
+                
     def plot(self):
         pylab.clf()
         ax = pylab.subplot(111)
@@ -100,7 +185,7 @@ class ClassMemMonitor():
         pylab.draw()
         pylab.show(block=False)
         pylab.pause(0.1)
-
+        
     def plotUpDown(self):
         pylab.clf()
         ax = pylab.subplot(2,1,1)
@@ -112,28 +197,36 @@ class ClassMemMonitor():
         pylab.pause(0.1)
 
         
-    def plotOne(self,N=None,ax=None,NMax=None):
+    def plotOne(self,N=None,ax=None,NMax=None,host=None):
+        if host==None:
+            host=self.HostName
 
+        
+        LMem=self.DicoProfile[host]["mem"]
+        LSMem=self.DicoProfile[host]["Swap_mem"]
+        LSMemAvail=self.DicoProfile[host]["Swap_memAvail"]
+        LMemAvail=self.DicoProfile[host]["memAvail"]
+        LMemTotal=self.DicoProfile[host]["memTotal"]
+        LCPU=self.DicoProfile[host]["cpu"]
+        LT=np.array(self.DicoProfile[host]["time"])
+        LT-=self.t0
+        LT/=60
+        LT=LT.tolist()
+        
+        TotSeen=np.array(LMemAvail)+np.array(LMem)
+        Cache=TotSeen-np.array(LMemTotal)
+        PureRAM=np.array(LMem)-Cache
+        
         if N is not None:
-            N=np.min([N,len(self.LMem)])
+            N=np.min([N,len(LMem)])
         else:
-            N=len(self.LMem)
+            N=len(LMem)
 
-        incr=1
-        if NMax is not None:
-            incr=int(np.max([1,N//NMax]))
-            
-        LMem=self.LMem[-N:][::incr]
-        LSMem=self.LSMem[-N:][::incr]
-        LSMemAvail=self.LSMemAvail[-N:][::incr]
-        LMemAvail=self.LMemAvail[-N:][::incr]
-        LMemTotal=self.LMemTotal[-N:][::incr]
-        LShared=self.LShared[-N:][::incr]
-        LCPU=self.LCPU[-N:][::incr]
-        PureRAM=self.PureRAM[-N:][::incr]
-        LT=self.LT[-N:][::incr]
+        # incr=1
+        # if NMax is not None:
+        #     incr=int(np.max([1,N//NMax]))
 
-        t0=self.t0
+        
         
         ax2 = ax.twinx()
 
@@ -170,7 +263,7 @@ class ClassMemMonitor():
         
         ax.plot(LT,np.array(LSMem),lw=2,ls=":",color="red")
         # ax.plot(LT,np.array(LSMemAvail),lw=2,ls=":",color="red")
-            
+        ax.set_title("[%s]"%host)
         # CPU
         ax2.plot(LT,LCPU, color="black",ls="--")
         
@@ -186,28 +279,35 @@ class ClassMemMonitor():
         ax.set_xlim(np.min(LT),np.max(LT))
         ax.set_ylim(0,1.1*np.max(LMemTotal))
         ax2.set_ylim(0,110)
-        
+        return ax,ax2
         #ax2.legend(loc=0)
         
         
-    def start(self):
+    def startMonitor(self):
+        self.fig=pylab.figure("[%s]"%self.HostName)
         while True:
             t0=time.time()
             while True:
                 self.update()
                 if time.time()-t0>5: break
                 time.sleep(0.2)
-            self.plot()
+            if self.Mode=="Plot":
+                self.plot()
 
-
-def driver(): 
+                
+def driver():
+    read_options()
+    f = open(SaveFile,'rb')
+    options = pickle.load(f)
     NMax=1000
-    if len(sys.argv)>1:
-        NMax=int(sys.argv[1])
-        
-    MM=ClassMemMonitor(NMax=NMax)
-    MM.start()
 
+    MM=ClassMemMonitor(options=options)
+    if options.Mode=="Plot" or options.Mode=="Dump":
+        MM.startMonitor()
+    elif options.Mode=="ReadAndPlot":
+        
+        MM.plotDumped()
+    
 if __name__=="__main__":
     # do not place any other code here --- cannot be called as a package entrypoint otherwise, see:
     # https://packaging.python.org/en/latest/specifications/entry-points/

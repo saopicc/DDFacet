@@ -66,7 +66,6 @@ from DDFacet.Other import logo
 from DDFacet.Array import NpParallel
 
 from DDFacet.Imager import ClassDeconvMachine
-
 from DDFacet.Imager.MultiFields import ClassDeconvMachineMultiField
 
 from DDFacet.Imager import ClassFacetMachine
@@ -420,7 +419,9 @@ def main(OP=None, messages=[]):
 def driver():
     #warnings.filterwarnings("default", category=DeprecationWarning)
     #os.system('clear')
-    logo.print_logo()
+    
+    if MPIManager.rank==0:
+        logo.print_logo()
 
     # work out DDFacet version
     version=report_version()

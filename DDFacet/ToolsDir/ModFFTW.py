@@ -732,7 +732,8 @@ def ConvolveGaussianScipy(Ain0,Sig=1.,GaussPar=None):
     if type(Sig)==int or type(Sig)==float:
         Sig=(Sig,Sig)
     
-    
+    #log.print(str(GaussPar))
+    #log.print(str(Sig))
     Sig_x,Sig_y=Sig
     Npix_x,Npix_y=int(2*8*Sig_x),int(2*8*Sig_y)
     
@@ -741,13 +742,15 @@ def ConvolveGaussianScipy(Ain0,Sig=1.,GaussPar=None):
 
     if Npix_y%2==0: Npix_y+=1
     y0=Npix_y//2
-    
+    #log.print("grid %i %i"%(x0,y0))
     x,y=np.mgrid[-x0:x0:Npix_x*1j,-y0:y0:Npix_y*1j]
     #in2=np.exp(-(x**2+y**2)/(2.*Sig**2))
     if GaussPar is None:
         GaussPar=(Sig_x,Sig_y,0)
+    #log.print("gauss 2D %s %s"%(str(x.shape),str(y.shape)))
     in2=Gaussian.Gaussian2D(x,y,GaussPar=GaussPar)
   
+    #log.print("fft")
     nch,npol,_,_=Ain0.shape
     Out=np.zeros_like(Ain0)
     for ch in range(nch):

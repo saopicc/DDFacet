@@ -17,7 +17,6 @@ import numpy as np
 import glob
 import os
 from SkyModel.Other import reformat
-SaveFile="last_MyCasapy2BBS.obj"
 import pickle
 import scipy.ndimage
 from SkyModel.Tools import ModFFTW
@@ -49,6 +48,7 @@ def PutDataInNewImage(oldfits,newfits,data):
     hdu[0].data=data
     hdu.writeto(outim,overwrite=True)
 
+SaveFile="last_MakeMask.obj"
 def read_options():
     desc=""" cyril.tasse@obspm.fr"""
     

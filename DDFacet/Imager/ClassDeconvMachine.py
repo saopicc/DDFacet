@@ -1826,14 +1826,14 @@ class ClassImagerDeconv():
         #fwhm = (bmaj * self.CellArcSec * FWHMFact / 3600.,
         #        bmin * self.CellArcSec * FWHMFact / 3600.,
         #        np.rad2deg(theta))
-        fwhm = (bmaj * PixToRad_maj*180/np.pi * FWHMFact,
+        fwhm_deg = (bmaj * PixToRad_maj*180/np.pi * FWHMFact,
                 bmin * PixToRad_min*180/np.pi * FWHMFact,
                 np.rad2deg(theta))
         
         #gausspars = (bmaj * self.CellSizeRad, bmin * self.CellSizeRad, theta)
 
 
-        gausspars = (bmaj * PixToRad_maj,
+        gausspars_rad = (bmaj * PixToRad_maj,
                      bmin * PixToRad_min,
                      theta)
         
@@ -1849,7 +1849,7 @@ class ClassImagerDeconv():
                                                                     bmin * FWHMFact,
                                                                     90-th), file=log)
         print("\tSecondary sidelobe at the level of %5.1f at a position of %i from the center" % sidelobes, file=log)
-        return fwhm, gausspars, sidelobes
+        return fwhm_deg, gausspars_rad, sidelobes
 
     def FitPSF(self):
         """
@@ -1876,8 +1876,8 @@ class ClassImagerDeconv():
                 forced_beam=[float(forced_beam),float(forced_beam),0]
             elif len(forced_beam)==1:
                 forced_beam=[forced_beam[0],forced_beam[0],0]
-            f_beam=(forced_beam[0]/3600.0,forced_beam[1]/3600.0,forced_beam[2])
-            f_gau=(np.deg2rad(f_beam[0])/FWHMFact,np.deg2rad(f_beam[1])/FWHMFact,np.deg2rad(f_beam[2]))
+            f_beam_deg=(forced_beam[0]/3600.0,forced_beam[1]/3600.0,forced_beam[2])
+            f_gau_rad=(np.deg2rad(f_beam_deg[0])/FWHMFact,np.deg2rad(f_beam_deg[1])/FWHMFact,np.deg2rad(f_beam_deg[2]))
             
         PSF = self.DicoImagesPSF["CubeVariablePSF"][self.FacetMachinePSF.iCentralFacet]
         meanPSF = self.DicoImagesPSF["CubeMeanVariablePSF"][self.FacetMachinePSF.iCentralFacet]
@@ -1885,20 +1885,20 @@ class ClassImagerDeconv():
         off=self.GD["Image"]["SidelobeSearchWindow"] // 2
         try:
             fit_err = None
-            beam, gausspars, sidelobes = self.fitSinglePSF(meanPSF[0,...], "mean")
+            beam_deg, gausspars_rad, sidelobes = self.fitSinglePSF(meanPSF[0,...], "mean")
         except Exception as e:
-            beam = (0,0,0)
-            gausspars = (0,0,0)
+            beam_deg = (0,0,0)
+            gausspars_rad = (0,0,0)
             sidelobes=(0,0)
             fit_err = e  # we need to bail if we can't fit the average psf
 
         if forced_beam is not None:
-            print('Will use user-specified beam: bmaj=%f, bmin=%f, bpa=%f degrees' % f_beam, file=log)
-            beam, gausspars = f_beam, f_gau
+            print('Will use user-specified beam: bmaj=%f, bmin=%f, bpa=%f degrees' % f_beam_deg, file=log)
+            beam_deg, gausspars_rad = f_beam_deg, f_gau_rad
             fit_err = None # don't care if user provided parameters
 
-        self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg = beam, gausspars, sidelobes
-
+        self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg = beam_deg, gausspars_rad, sidelobes
+        
         # MeanFacetPSF has a shape of 1,1,nx,ny, so need to cut that extra one off
         if self.VS.MultiFreqMode:
             self.FWHMBeam = []
@@ -1906,19 +1906,19 @@ class ClassImagerDeconv():
             self.PSFSidelobes = []
             for band in range(self.VS.NFreqBands):
                 try:
-                    beam, gausspars, sidelobes = self.fitSinglePSF(PSF[band,...],off,"band %d"%band)
+                    beam_deg, gausspars_rad, sidelobes = self.fitSinglePSF(PSF[band,...],off,"band %d"%band)
                 except Exception as e:
-                    beam = (0,0,0)
-                    gausspars = (0,0,0)
+                    beam_deg = (0,0,0)
+                    gausspars_rad = (0,0,0)
                     sidelobes=(0,0)
                     # LB - we don;t want to bail if we fall over in one of the bands
                     # fit_err = e # last error stored
 
-                if MPIManager.rank == 0:
-                    print("It %d , "%band, beam, gausspars, sidelobes)
+                # if MPIManager.rank == 0:
+                #     print("It %d , "%band_rad, beam_deg, gausspars, sidelobes)
                 if forced_beam is not None:
-                    beam = f_beam
-                    gausspars = f_gau
+                    beam = f_beam_deg
+                    gausspars = f_gau_rad
 
                 self.FWHMBeam.append(beam)
                 self.PSFGaussPars.append(gausspars)
@@ -2104,7 +2104,6 @@ class ClassImagerDeconv():
 
 
     def Restore(self):
-
 
         print("Create restored image", file=log)
         SERIAL_SAVE=True
@@ -2332,10 +2331,10 @@ class ClassImagerDeconv():
                 if "alphastdmap" not in _images:
                     _images.addSharedArray("alphastdmap", intmodel().shape, np.float32)
                 # LB - using apprescube since intrescube can have large unpgysical values
-                _images['alphamap'], _images["alphastdmap"] = ModelMachine.GiveSpectralIndexMap(GaussPars=self.FWHMBeam[0], ResidCube=apprescube())
+                _images['alphamap'], _images["alphastdmap"] = ModelMachine.GiveSpectralIndexMap(GaussPars=self.PSFGaussParsAvg[0], ResidCube=apprescube())
                 return _images['alphamap'], _images["alphastdmap"]
             else:
-                _images['alphamap'] = ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.FWHMBeamAvg])
+                _images['alphamap'] = ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussParsAvg])
 
                 return _images['alphamap'], None
 
@@ -2570,6 +2569,7 @@ class ClassImagerDeconv():
                    args=[_images.readwrite(), "appconvmodelcube", "apprescube"],serial=SERIAL_SAVE)
 
         APP.awaitJobResults(["save:*", "del:*"])
+        print("Create restored image: done", file=log)
 
     def testDegrid(self):
         import pylab
