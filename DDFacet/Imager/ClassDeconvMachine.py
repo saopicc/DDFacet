@@ -61,7 +61,7 @@ import numexpr
 from DDFacet.Imager import ClassImageNoiseMachine
 from DDFacet.Data import ClassStokes
 from DDFacet.Imager import ClassGainMachine
-
+import socket
 from DDFacet.Data.PointingProvider import PointingProvider
 
 from DDFacet.Other import MPIManager
@@ -195,13 +195,17 @@ class ClassImagerDeconv():
                               pause_on_start=self.GD["Debug"]["PauseWorkers"])
 
         mslist=None
-        if MPIManager.rank == 0:
-            mslist = ClassMS.expandMSList(self.GD["Data"]["MS"],
-                                          defaultDDID=self.GD["Selection"]["DDID"],
-                                          defaultField=self.GD["Selection"]["Field"],
-                                          defaultColumn=None)
+        MSName0=MSName=self.GD["Data"]["MS"]
         if MPIManager.useMPI:
-            mslist = MPIManager.COMM_WORLD.bcast(mslist, root=0)
+            if MPIManager.rank==0:
+                MSName = [ l.strip() for l in open(MSName).readlines() ]
+                print("list file %s contains %d MSs" % (MSName0, len(MSName)), file=log)
+            MSName = MPIManager.COMM_WORLD.bcast(MSName, root=0)
+            
+        mslist = ClassMS.expandMSList(MSName,
+                                      defaultDDID=self.GD["Selection"]["DDID"],
+                                      defaultField=self.GD["Selection"]["Field"],
+                                      defaultColumn=None)
         
         self.VS = ClassVisServer.ClassVisServer(mslist,
                                                 ColName=self.GD["Data"]["ColName"] if self.do_readcol else None,

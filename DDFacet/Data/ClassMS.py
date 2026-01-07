@@ -1935,7 +1935,7 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
     host is either a string or None and ddid and field are indices.
     """
     if isinstance(MSName,list):
-        print("multi-MS mode", file=log)
+        print("reading MSs from a python list", file=log)
     elif not isinstance(MSName,str):
         raise TypeError("MSName parameter must be a list or a filename")
     elif MSName.endswith(".txt"):

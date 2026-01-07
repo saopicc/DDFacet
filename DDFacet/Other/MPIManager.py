@@ -4,7 +4,6 @@ import os
 size = 1 # number of mpi processes
 rank = 0 # local process ID
 useMPI=False
-
 DDF_FORCE_NOT_USE_MPI=int(os.environ.get("DDF_FORCE_NOT_USE_MPI", "0"))
 
 if not DDF_FORCE_NOT_USE_MPI:
