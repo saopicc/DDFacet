@@ -45,7 +45,6 @@ from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 from DDFacet.ToolsDir.ClassAdaptShape import ClassAdaptShape
 import copy
 from DDFacet.Other import AsyncProcessPool
-from DDFacet.Other.AsyncProcessPool import APP
 import six
 import signal
 if six.PY3:
@@ -116,7 +115,8 @@ class ClassImagerDeconv():
                  PointingID=0,
                  #BaseName="ImageTest2",
                  ReplaceDico=None,
-                 predict_only=False, data=True, psf=True, readcol=True, deconvolve=True):
+                 predict_only=False, data=True, psf=True, readcol=True, deconvolve=True,
+                 APP=None):
         # if ParsetFile is not None:
         #     GD=ClassGlobalData(ParsetFile)
         #     self.GD=GD
@@ -186,6 +186,7 @@ class ClassImagerDeconv():
         ## disabling this, as it doesn't play nice with in-place FFTs
         # self._save_intermediate_grids = self.GD["Debug"]["SaveIntermediateDirtyImages"]
 
+        
         APP.registerJobHandlers(self)
         
         AsyncProcessPool.init(ncpu=self.GD["Parallel"]["NCPU"],
@@ -200,7 +201,11 @@ class ClassImagerDeconv():
             if MPIManager.rank==0:
                 MSName = [ l.strip() for l in open(MSName).readlines() ]
                 print("list file %s contains %d MSs" % (MSName0, len(MSName)), file=log)
+            print("FDKJSDKDSFKSDHFSD bcast",MPIManager.rank,MPIManager.size)
+            # MPIManager.COMM_WORLD.Barrier()
+            # time.sleep(1)
             MSName = MPIManager.COMM_WORLD.bcast(MSName, root=0)
+            print("FDKJSDKDSFKSDHFSD bcast ok")
             
         mslist = ClassMS.expandMSList(MSName,
                                       defaultDDID=self.GD["Selection"]["DDID"],

@@ -143,7 +143,7 @@ class JobCounterPool(object):
             # raise RuntimeError("This method can only be called in the parent process. This is a bug.")
             log.print(ModColor.Str("finalize: In principle this method can only be called in the parent process. This could be a bug."))
         if self._counters_array is not None:
-            raise RuntimeError("Workers already started. This is a bug.")
+            raise RuntimeError("Workers already started. This is a bug. (finalize)")
         self._counters_array = shared_dict.addSharedArray("Counters", (len(self._counters),), np.int32)
 
     def _register(self, counter):
@@ -154,7 +154,7 @@ class JobCounterPool(object):
             # raise RuntimeError("This method can only be called in the parent process. This is a bug.")
             log.print(ModColor.Str("_register: In principle this method can only be called in the parent process. This could be a bug."))
         if self._counters_array is not None:
-            raise RuntimeError("Workers already started. This is a bug.")
+            raise RuntimeError("Workers already started. This is a bug. (_register)")
         counter.index_in_pool = len(self._counters)
         self._counters[cid] = counter
 
@@ -343,7 +343,7 @@ class AsyncProcessPool (object):
             # raise RuntimeError("This method can only be called in the parent process. This is a bug.")
             log.print(ModColor.Str("registerJobHandlers: In principle this method can only be called in the parent process. This could be a bug."))
         if self._started:
-            raise RuntimeError("Workers already started. This is a bug.")
+            raise RuntimeError("Workers already started. This is a bug. (registerJobHandlers)")
         for handler in handlers:
             if not inspect.isfunction(handler) and not isinstance(handler, object):
                 raise RuntimeError("Job handler must be a function or object. This is a bug.")
@@ -354,7 +354,7 @@ class AsyncProcessPool (object):
             # raise RuntimeError("This method can only be called in the parent process. This is a bug.")
             log.print(ModColor.Str("createEvent: In principle this method can only be called in the parent process. This could be a bug."))
         if self._started:
-            raise RuntimeError("Workers already started. This is a bug.")
+            raise RuntimeError("Workers already started. This is a bug. (createEvent)")
         event = multiprocessing.Event()
         self._events[id(event)] = event, name
         return event
@@ -364,13 +364,13 @@ class AsyncProcessPool (object):
             # raise RuntimeError("This method can only be called in the parent process. This is a bug.")
             log.print(ModColor.Str("createJobCounter: In principle this method can only be called in the parent process. This could be a bug."))
         if self._started:
-            raise RuntimeError("Workers already started. This is a bug.")
+            raise RuntimeError("Workers already started. This is a bug. (createJobCounter)")
         return self._job_counters.new(name)
 
     def startWorkers(self):
         """Starts worker threads. All job handlers and events must be registered *BEFORE*"""
         self._shared_state = shared_dict.create(self.Name)
-        
+        print("FSDLSDLJDFLJDKLSFJSQKKSQFJ STARTTT")
         self._job_counters.finalize(self._shared_state)
         if self.ncpu > 1:
             self._taras_bulba.start()
@@ -820,7 +820,10 @@ class AsyncProcessPool (object):
         self._compute_queue.close()
         for queue in self._io_queues:
             queue.close()
-        shared_dict.delDict(self.Name)
+        try:
+            shared_dict.delDict(self.Name)
+        except:
+            pass
         if self.verbose > 1:
             print("shutdown complete", file=log)
 
@@ -955,7 +958,7 @@ def _init_default(force=False):
         APP = AsyncProcessPool()
         APP.init(psutil.cpu_count(), affinity=0, num_io_processes=1, verbose=0)
 
-_init_default()
+#_init_default()
 
 def init(ncpu=None, affinity=None, parent_affinity=0, num_io_processes=1, verbose=0, pause_on_start=False):
     global APP

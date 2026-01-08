@@ -32,6 +32,9 @@ elif useMPI:
     print(ModColor.Str(("  MPI mode enabled [n=%i]"%size).center(W,"="),col="blue"))
     #print(ModColor.Str("="*W,col="blue"))
 
+# print("FLKSDLDFSLKSFDLJ",useMPI,size,rank,DDF_FORCE_NOT_USE_MPI)
+    
+    
 
     
 try:

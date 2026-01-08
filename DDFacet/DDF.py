@@ -50,7 +50,7 @@ if "PYTHONPATH_FIRST" in os.environ.keys() and int(os.environ["PYTHONPATH_FIRST"
 
 #import matplotlib
 # matplotlib.use('agg')
-import optparse
+#import optparse
 import traceback
 import atexit
 SaveFile = "last_DDFacet.obj"
@@ -80,7 +80,8 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import Multiprocessing
 import SkyModel.Other.ModColor   # because it's duplicated there
 from DDFacet.Other import progressbar
-from DDFacet.Other.AsyncProcessPool import APP, WorkerProcessError
+import DDFacet.Other.AsyncProcessPool
+from DDFacet.Other.AsyncProcessPool import WorkerProcessError
 import six
 if six.PY3:
     from DDFacet.cbuild.Gridder import _pyArrays3x as _pyArrays
@@ -333,8 +334,8 @@ def main(OP=None, messages=[]):
     elif "RestoreAndShift" == Mode:
         Imager.RestoreAndShift()
 
-    APP.terminate()
-    APP.shutdown()
+    DDFacet.Other.AsyncProcessPool.APP.terminate()
+    DDFacet.Other.AsyncProcessPool.APP.shutdown()
     Multiprocessing.cleanupShm()
     # # open default viewer, these options should match those in
     # # ClassDeconvMachine if changed:
@@ -416,13 +417,15 @@ def main(OP=None, messages=[]):
     #             "\nDon't understand %s, not opening that image\n" %
     #             img, col="yellow")
 
-def driver():
+def driver(OP_IN=None):
     #warnings.filterwarnings("default", category=DeprecationWarning)
     #os.system('clear')
     
     if MPIManager.rank==0:
         logo.print_logo()
 
+    DDFacet.Other.AsyncProcessPool._init_default(force=True)
+    
     # work out DDFacet version
     version=report_version()
     traceback_msg = traceback.format_exc()
@@ -431,7 +434,11 @@ def driver():
     T = ClassTimeIt.ClassTimeIt()
 
     # parset should have been read in by now
-    OP = read_options()
+    if OP_IN is not None:
+        OP=OP_IN
+    else:
+        OP = read_options()
+        
     args = OP.GiveArguments()
     
     DicoConfig = OP.DicoConfig
@@ -487,8 +494,21 @@ def driver():
         OP.ExitWithError("Incorrect number of arguments. Use -h for help.")
         sys.exit(1)
 
-    retcode = report_error = 0
+    
+    if int(os.environ.get("DDF_SAVE_OPTIONS_AND_EXIT",0)):
+        SaveFile1 = "last_DDFacet.finalised.obj"
+        MyPickle.Save(OP, SaveFile1)
+        DDFacet.Other.AsyncProcessPool.APP.terminate()
+        DDFacet.Other.AsyncProcessPool.APP.shutdown()
+        del(DDFacet.Other.AsyncProcessPool.APP)
+        Multiprocessing.cleanupShm()
+        sys.exit(0)
+        
+    if OP_IN is not None:
+        OP=OP_IN
 
+    retcode = report_error = 0
+    
     try:
         main(OP, messages)
         print(ModColor.Str(
@@ -497,12 +517,12 @@ def driver():
     except KeyboardInterrupt:
         print(traceback.format_exc(), file=log)
         print(ModColor.Str("DDFacet interrupted by Ctrl+C", col="red"), file=log)
-        APP.terminate()
+        DDFacet.Other.AsyncProcessPool.APP.terminate()
         retcode = 1 #Should at least give the command line an indication of failure
     except Exceptions.UserInputError:
         print(ModColor.Str(sys.exc_info()[1], col="red"), file=log)
         print(ModColor.Str("There was a problem with some user input. See messages above for an indication."), file=log)
-        APP.terminate()
+        DDFacet.Other.AsyncProcessPool.APP.terminate()
         retcode = 1  # Should at least give the command line an indication of failure
     except WorkerProcessError:
         print(ModColor.Str("A worker process has died on us unexpectedly. This probably indicates a bug:"), file=log)
@@ -510,7 +530,7 @@ def driver():
         report_error = True
     except:
         if sys.exc_info()[0] is not WorkerProcessError and Exceptions.is_pdb_enabled():
-            APP.terminate()
+            DDFacet.Other.AsyncProcessPool.APP.terminate()
             raise
         else:
             print(traceback.format_exc(), file=log)
@@ -532,12 +552,27 @@ def driver():
             logfileName, col="red"), file=log)
         # print>>log, traceback_msg
         # Should at least give the command line an indication of failure
-        APP.terminate()
+        DDFacet.Other.AsyncProcessPool.APP.terminate()
         retcode = 1 # Should at least give the command line an indication of failure
 
-    APP.shutdown()
-    Multiprocessing.cleanupShm()
-    sys.exit(retcode)
+    try:
+        DDFacet.Other.AsyncProcessPool.APP.shutdown()
+    except:
+        pass
+
+    try:
+        DDFacet.Other.AsyncProcessPool.APP
+    except:
+        pass
+    
+    try:
+        Multiprocessing.cleanupShm()
+    except:
+        pass
+
+
+    if OP_IN is None:
+        sys.exit(retcode)
 
 if __name__ == "__main__":
     # do not place any other code here --- cannot be called as a package entrypoint otherwise, see:
