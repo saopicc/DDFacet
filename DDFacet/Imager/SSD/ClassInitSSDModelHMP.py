@@ -20,14 +20,16 @@ from DDFacet.Imager import ClassMaskMachine
 from DDFacet.Array import shared_dict
 import psutil
 from DDFacet.Other.progressbar import ProgressBar
-from DDFacet.Other.AsyncProcessPool import APP
+
 
 class ClassInitSSDModelParallel():
-    def __init__(self, GD, NFreqBands, RefFreq, MainCache=None, IdSharedMem=""):
+    def __init__(self, GD, NFreqBands, RefFreq, MainCache=None, IdSharedMem="",APP=None):
         self.GD=GD
-        self.InitMachine = ClassInitSSDModel(GD, NFreqBands, RefFreq, MainCache, IdSharedMem)
+        
+        self.InitMachine = ClassInitSSDModel(GD, NFreqBands, RefFreq, MainCache, IdSharedMem,APP=APP)
         self.NCPU=(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
-        APP.registerJobHandlers(self)
+        self.APP=APP
+        self.APP.registerJobHandlers(self)
 
     def Init(self, DicoVariablePSF, GridFreqs, DegridFreqs):
         self.DicoVariablePSF=DicoVariablePSF
@@ -94,7 +96,7 @@ class ClassInitSSDModelParallel():
 #         for iIsland,Island in enumerate(ListBigIslands):
 #             if not ListDoIsland or ListDoBigIsland[iIsland]:
 #                 subdict = DicoInitIndiv.addSubdict(iIsland)
-#                 # APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
+#                 # self.APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
 #                 #            args=(subdict.writeonly(), iIsland, Island,
 #                 #                  self.DicoVariablePSF.readonly(), DicoDirty.readonly(),
 #                 #                  ParmDict.readonly(), self.InitMachine.DeconvMachine.facetcache.readonly(),self.NCPU),serial=True)
@@ -104,16 +106,16 @@ class ClassInitSSDModelParallel():
 #                                         self.NCPU)
 #                 pBAR.render(nDone+1, NParallel)
 #                 nDone+=1
-# #        APP.awaitJobResults("InitIsland:*", progress="Init islands")
+# #        self.APP.awaitJobResults("InitIsland:*", progress="Init islands")
 #         print>>log,"Initialise small islands (parallelised over islands)"
 #         for iIsland,Island in enumerate(ListSmallIslands):
 #             if not ListDoIsland or ListDoSmallIsland[iIsland]:
 #                 subdict = DicoInitIndiv.addSubdict(iIsland)
-#                 APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
+#                 self.APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
 #                            args=(subdict.writeonly(), iIsland, Island,
 #                                  self.DicoVariablePSF.readonly(), DicoDirty.readonly(),
 #                                  ParmDict.readonly(), self.InitMachine.DeconvMachine.facetcache.readonly(),1))
-#         APP.awaitJobResults("InitIsland:*", progress="Init islands")
+#         self.APP.awaitJobResults("InitIsland:*", progress="Init islands")
 #         DicoInitIndiv.reload()
 
 
@@ -138,7 +140,7 @@ class ClassInitSSDModelParallel():
           for iIsland,Island in enumerate(ListIslands):
             if not ListDoIsland or ListDoIsland[iIsland]:
                 subdict = DicoInitIndiv.addSubdict(iIsland)
-                APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
+                self.APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
                            args=(subdict.writeonly(), 
                                  iIsland, 
                                  Island,
@@ -148,7 +150,7 @@ class ClassInitSSDModelParallel():
                                  self.InitMachine.DeconvMachine.facetcache.readonly() 
                                     if self.InitMachine.DeconvMachine.facetcache is not None else None,
                                  1))
-          APP.awaitJobResults("InitIsland:*", progress="Init islands")
+          self.APP.awaitJobResults("InitIsland:*", progress="Init islands")
           DicoInitIndiv.reload()
         
         ParmDict.delete()
@@ -165,12 +167,13 @@ class ClassInitSSDModel():
     The class is initialized once in the main process (to populate the HMP basis function cache),
     then re-initialized in the workers on a per-island basis.
     """
-    def __init__(self, GD, NFreqBands, RefFreq, MainCache=None, IdSharedMem=""):
+    def __init__(self, GD, NFreqBands, RefFreq, MainCache=None, IdSharedMem="",APP=None):
         """Constructs initializer. 
         Note that this should be called pretty much when setting up the imager,
         before APP workers are started, because the object registers APP handlers.
         """
         self.GD = copy.deepcopy(GD)
+        self.APP=APP
         self.GD["Parallel"]["NCPU"] = 1
         # self.GD["HMP"]["Alpha"]=[0,0,1]#-1.,1.,5]
         self.GD["HMP"]["Alpha"] = self.GD["GAClean"]["AlphaInitHMP"]
@@ -216,6 +219,7 @@ class ClassInitSSDModel():
                                                                                  CacheFileName="HMP_Init",
                                                                                  IdSharedMem=IdSharedMem,
                                                                                  GD=self.GD,
+                                                                                 APP=self.APP,
                                                                                  **MinorCycleConfig)
 
         self.GD["Mask"]["Auto"]=False

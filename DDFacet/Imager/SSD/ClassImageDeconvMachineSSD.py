@@ -57,9 +57,11 @@ class ClassImageDeconvMachine():
                  NFreqBands=1,
                  RefFreq=None,
                  MainCache=None,
+                 APP=None,
                  **kw    # absorb any unknown keywords arguments into this
                  ):
         #self.im=CasaImage
+        self.APP=APP
         self.maincache = MainCache
         self.SearchMaxAbs=SearchMaxAbs
         self.ModelImage=None
@@ -104,14 +106,14 @@ class ClassImageDeconvMachine():
             self.InitMachine = ClassInitSSDModelHMP.ClassInitSSDModelParallel(self.GD,
                                                                          NFreqBands,RefFreq,
                                                                          MainCache=self.maincache,
-                                                                         IdSharedMem=self.IdSharedMem)
+                                                                              IdSharedMem=self.IdSharedMem,APP=self.APP)
         elif InitType == "MORESANE":
             from . import ClassInitSSDModelMoresane
             self.InitMachine = ClassInitSSDModelMoresane.ClassInitSSDModelParallel(self.GD,
                                                                                    NFreqBands, RefFreq,
                                                                                    NCPU=self.NCPU,
                                                                                    MainCache=self.maincache,
-                                                                                   IdSharedMem=self.IdSharedMem)
+                                                                                   IdSharedMem=self.IdSharedMem,APP=self.APP)
         else:
             raise ValueError("InitType should be HMP or MORESANE")
         self._init_machine_initialized = False

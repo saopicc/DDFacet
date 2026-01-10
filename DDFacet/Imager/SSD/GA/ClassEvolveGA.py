@@ -71,10 +71,21 @@ class ClassEvolveGA():
         #stop
 
     def InitEvolutionAlgo(self):
+        creator.class_replacers.pop(base.Fitness, None)
+
+        for name in ("FitnessMax", "Individual"):
+            if hasattr(creator, name):
+                delattr(creator, name)
+            
+        weights = self.ArrayMethodsMachine.WeightsEA
+        if isinstance(weights, np.ndarray):
+            weights = tuple(weights.tolist())
+            
         if "FitnessMax" not in dir(creator):
-            creator.create("FitnessMax", base.Fitness, weights=self.ArrayMethodsMachine.WeightsEA)
+            creator.create("FitnessMax", base.Fitness, weights=weights)
         if "Individual" not in dir(creator):
             creator.create("Individual", numpy.ndarray, fitness=creator.FitnessMax)
+
 
         toolbox = base.Toolbox()
 

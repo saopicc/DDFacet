@@ -21,7 +21,7 @@ logger.setSilent(["NpShared"])
 from DDFacet.Data import ClassSmearMapping
 from DDFacet.Data import ClassJones
 from DDFacet.Array import shared_dict
-from DDFacet.Other.AsyncProcessPool import APP
+
 from DDFacet.Other import reformat
 import six
 import DDFacet.Other.PrintList
@@ -46,12 +46,13 @@ SERIAL=False
 class ClassWeightMachine():
     def __init__(self,VS):
         self.VS=VS
+        self.APP=self.VS.APP
         
-        self._weightjob_counter = APP.createJobCounter("VisWeights")
-        self._taperjob_counter = APP.createJobCounter("TaperWeights")
-        self._calcweights_event = APP.createEvent("VisWeights")
-        if APP is not None:
-            APP.registerJobHandlers(self)
+        self._weightjob_counter = self.APP.createJobCounter("VisWeights")
+        self._taperjob_counter = self.APP.createJobCounter("TaperWeights")
+        self._calcweights_event = self.APP.createEvent("VisWeights")
+        if self.APP is not None:
+            self.APP.registerJobHandlers(self)
             self._app_id = "WeightMachine"
 
         GD=self.GD=VS.GD
@@ -113,7 +114,7 @@ class ClassWeightMachine():
     def awaitWeights(self):
         if self.VisWeights is None:
             # ensure the background calculation is complete
-            APP.awaitEvents(self._calcweights_event)
+            self.APP.awaitEvents(self._calcweights_event)
             # load shared dict prepared in background thread
             self.VisWeights = shared_dict.attach("VisWeights")
             # check for errors
@@ -138,14 +139,14 @@ class ClassWeightMachine():
         """Starts parallel jobs to load weights in the background"""
         self.VisWeights = None
         if MPIManager.size > 1:
-            APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event, serial=True)
+            self.APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event, serial=True)
         else:
             if self.GD["Misc"]["ConserveMemory"]:
-                #APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event)
-                APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event, args=(iField,) ,serial=SERIAL)
+                #self.APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event)
+                self.APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event, args=(iField,) ,serial=SERIAL)
             else:
-                APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event, args=(iField,) ,serial=SERIAL)
-            # APP.awaitEvents(self._calcweights_event)
+                self.APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event, args=(iField,) ,serial=SERIAL)
+            # self.APP.awaitEvents(self._calcweights_event)
 
     def _sigtaper(self, msw, chanfreq, inner_cut, outer_cut, outer_taper_strength, inner_taper_strength): 
         u = msw["uv"][:, 0]
@@ -192,14 +193,14 @@ class ClassWeightMachine():
                 print("\t Inner Rolloff Strength {0:.2f}".format(self.SigmoidInRoll), file=log)
                 print("\t Outer Rolloff Strength {0:.2f}".format(self.SigmoidOutRoll), file=log)
                 self.HasPrintedTaperingSettings = True
-            # APP will handle any serialization if NCPU == 1
-            APP.runJob("SigmoidTaper:%d:%d" % (ims, ichunk), self._sigtaper,
+            # self.APP will handle any serialization if NCPU == 1
+            self.APP.runJob("SigmoidTaper:%d:%d" % (ims, ichunk), self._sigtaper,
                         args=(self._weight_dict[ims][ichunk].readwrite(),
                                 ms.ChanFreq,
                                 self.SigmoidInCut, self.SigmoidOutCut, 
                                 self.SigmoidOutRoll, self.SigmoidInRoll),
                         counter=self._weightjob_counter, collect_result=False,serial=SERIAL)
-            APP.awaitJobCounter(self._weightjob_counter, progress="Sigmoid Tapering")
+            self.APP.awaitJobCounter(self._weightjob_counter, progress="Sigmoid Tapering")
 
     def _CalcWeights_handler(self,iField=None):
         StrField=""
@@ -236,11 +237,11 @@ class ClassWeightMachine():
             msweights = self._weight_dict[ims]
             for ichunk in range(len(ms.getPerChunkRowCounts())):
                 msw = msweights[ichunk]
-                APP.runJob("LoadWeights:%d:%d%s"%(ims,ichunk,StrField), self._loadWeights_handler,
+                self.APP.runJob("LoadWeights:%d:%d%s"%(ims,ichunk,StrField), self._loadWeights_handler,
                            args=(msw.writeonly(), ims, ichunk, self._ignore_vis_weights),
                            counter=self._weightjob_counter, collect_result=False,serial=SERIAL)
         # wait for results
-        APP.awaitJobCounter(self._weightjob_counter, progress="Load weights")
+        self.APP.awaitJobCounter(self._weightjob_counter, progress="Load weights")
         self._weight_dict.reload()
         wmax = self._uvmax = 0
         num_valid_chunks = 0
@@ -338,7 +339,7 @@ class ClassWeightMachine():
             for ims, ms in enumerate(self.ListMS):
                 for ichunk in range(len(ms.getPerChunkRowCounts())):
                     if "weight" in self._weight_dict[ims][ichunk]:
-                        APP.runJob("AccumWeights:%d:%d%s" % (ims, ichunk,StrField), self._accumulateWeights_handler,
+                        self.APP.runJob("AccumWeights:%d:%d%s" % (ims, ichunk,StrField), self._accumulateWeights_handler,
                                    args=(self._weight_grid.readonly(),
                                          self._weight_dict[ims][ichunk].readwrite(),
                                          ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax, useSems,iGrid),
@@ -347,7 +348,7 @@ class ClassWeightMachine():
                             iGrid+=1
                             
             # wait for results
-            APP.awaitJobCounter(self._weightjob_counter, progress="Accumulate weights")
+            self.APP.awaitJobCounter(self._weightjob_counter, progress="Accumulate weights")
             self._weight_grid["grid"]=np.sum(gridJobs,axis=0)
             #self._weight_grid["gridJobs"].delete()
             grid0=self._weight_grid["grid"]
@@ -368,12 +369,12 @@ class ClassWeightMachine():
         for ims, ms in enumerate(self.ListMS):
             for ichunk in range(len(ms.getPerChunkRowCounts())):
                 self._CalcSigmoidTaper(ims, ms, ichunk)
-                APP.runJob("FinalizeWeights:%d:%d%s" % (ims, ichunk,StrField), self._finalizeWeights_handler,
+                self.APP.runJob("FinalizeWeights:%d:%d%s" % (ims, ichunk,StrField), self._finalizeWeights_handler,
                            args=(self._weight_grid.readonly(),
                                  self._weight_dict[ims][ichunk].readwrite(),
                                  ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax),
                            counter=self._weightjob_counter, collect_result=False,serial=SERIAL)
-        APP.awaitJobCounter(self._weightjob_counter, progress="Finalize weights")
+        self.APP.awaitJobCounter(self._weightjob_counter, progress="Finalize weights")
         # delete stuff
         if self._weight_grid is not None:
             self._weight_grid.delete()
