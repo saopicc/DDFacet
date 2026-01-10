@@ -154,12 +154,13 @@ def read_options():
 def test():
     options = read_options()
 
-
+global Imager
 def main(OP=None, messages=[]):
     if OP is None:
         OP = MyPickle.Load(SaveFile)
         print("Using settings from %s, then command line."%SaveFile)
 
+    global Imager
     DicoConfig = OP.DicoConfig
 
     ImageName = DicoConfig["Output"]["Name"]
@@ -334,89 +335,26 @@ def main(OP=None, messages=[]):
     elif "RestoreAndShift" == Mode:
         Imager.RestoreAndShift()
 
-    DDFacet.Other.AsyncProcessPool.APP.terminate()
-    DDFacet.Other.AsyncProcessPool.APP.shutdown()
-    Multiprocessing.cleanupShm()
-    # # open default viewer, these options should match those in
-    # # ClassDeconvMachine if changed:
-    # viewer = DicoConfig["Output"]["DefaultImageViewer"]
-    # for img in DicoConfig["Output"]["Open"]:
-    #     if img == "Dirty":
-    #         ret = subprocess.call(
-    #             "%s %s.dirty.fits" %
-    #             (viewer, DicoConfig["Output"]["Name"]),
-    #             shell=True)
-    #         if ret:
-    #             print>>log, ModColor.Str(
-    #                 "\nCan't open dirty image\n", col="yellow")
-    #     elif img == "DirtyCorr":
-    #         ret = subprocess.call(
-    #             "%s %s.dirty.corr.fits" %
-    #             (viewer, DicoConfig["Output"]["Name"]),
-    #             shell=True)
-    #         if ret:
-    #             print>>log, ModColor.Str(
-    #                 "\nCan't open dirtyCorr image\n", col="yellow")
-    #     elif img == "PSF":
-    #         ret = subprocess.call(
-    #             "%s %s.psf.fits" %
-    #             (viewer, DicoConfig["Output"]["Name"]), shell=True)
-    #         if ret:
-    #             print>>log, ModColor.Str(
-    #                 "\nCan't open PSF image\n", col="yellow")
-    #     elif img == "Model":
-    #         ret = subprocess.call(
-    #             "%s %s.model.fits" %
-    #             (viewer, DicoConfig["Output"]["Name"]),
-    #             shell=True)
-    #         if ret:
-    #             print>>log, ModColor.Str(
-    #                 "\nCan't open model image\n", col="yellow")
-    #     elif img == "Residual":
-    #         ret = subprocess.call(
-    #             "%s %s.residual.fits" %
-    #             (viewer, DicoConfig["Output"]["Name"]),
-    #             shell=True)
-    #         if ret:
-    #             print>>log, ModColor.Str(
-    #                 "\nCan't open residual image\n", col="yellow")
-    #     elif img == "Restored":
-    #         ret = subprocess.call(
-    #             "%s %s.restored.fits" %
-    #             (viewer, DicoConfig["Output"]["Name"]),
-    #             shell=True)
-    #         if ret:
-    #             print>>log, ModColor.Str(
-    #                 "\nCan't open restored image\n", col="yellow")
-    #     elif img == "Alpha":
-    #         ret = subprocess.call(
-    #             "%s %s.alpha.fits" %
-    #             (viewer, DicoConfig["Output"]["Name"]),
-    #             shell=True)
-    #         if ret:
-    #             print>>log, ModColor.Str(
-    #                 "\nCan't open alpha image\n", col="yellow")
-    #     elif img == "Norm":
-    #         ret = subprocess.call(
-    #             "%s %s.Norm.fits" %
-    #             (viewer, DicoConfig["Output"]["Name"]),
-    #             shell=True)
-    #         if ret:
-    #             print>>log, ModColor.Str(
-    #                 "\nCan't open norm image\n", col="yellow")
-    #     elif img == "NormFacets":
-    #         ret = subprocess.call(
-    #             "%s %s.NormFacets.fits" %
-    #             (viewer, DicoConfig["Output"]["Name"]),
-    #             shell=True)
-    #         if ret:
-    #             print>>log, ModColor.Str(
-    #                 "\nCan't open normfacets image\n", col="yellow")
-    #     else:
-    #         print>>log, ModColor.Str(
-    #             "\nDon't understand %s, not opening that image\n" %
-    #             img, col="yellow")
+    CleanupAPP()
+    
 
+
+def CleanupAPP():
+    global Imager
+    try:
+        Imager.APP.terminate()
+        Imager.APP.shutdown()
+        print(ModColor.Str("I have terminated and shutdown APP [%s]"%Imager.APP.Name), file=log)
+        del(Imager.APP)
+    except:
+        pass
+    
+    try:
+        Multiprocessing.cleanupShm()
+    except:
+        pass
+    
+    
 def driver(OP_IN=None):
     #warnings.filterwarnings("default", category=DeprecationWarning)
     #os.system('clear')
@@ -424,8 +362,6 @@ def driver(OP_IN=None):
     if MPIManager.rank==0:
         logo.print_logo()
 
-    DDFacet.Other.AsyncProcessPool._init_default(force=True)
-    
     # work out DDFacet version
     version=report_version()
     traceback_msg = traceback.format_exc()
@@ -498,10 +434,7 @@ def driver(OP_IN=None):
     if int(os.environ.get("DDF_SAVE_OPTIONS_AND_EXIT",0)):
         SaveFile1 = "last_DDFacet.finalised.obj"
         MyPickle.Save(OP, SaveFile1)
-        DDFacet.Other.AsyncProcessPool.APP.terminate()
-        DDFacet.Other.AsyncProcessPool.APP.shutdown()
-        del(DDFacet.Other.AsyncProcessPool.APP)
-        Multiprocessing.cleanupShm()
+        CleanupAPP()
         sys.exit(0)
         
     if OP_IN is not None:
@@ -517,12 +450,10 @@ def driver(OP_IN=None):
     except KeyboardInterrupt:
         print(traceback.format_exc(), file=log)
         print(ModColor.Str("DDFacet interrupted by Ctrl+C", col="red"), file=log)
-        DDFacet.Other.AsyncProcessPool.APP.terminate()
         retcode = 1 #Should at least give the command line an indication of failure
     except Exceptions.UserInputError:
         print(ModColor.Str(sys.exc_info()[1], col="red"), file=log)
         print(ModColor.Str("There was a problem with some user input. See messages above for an indication."), file=log)
-        DDFacet.Other.AsyncProcessPool.APP.terminate()
         retcode = 1  # Should at least give the command line an indication of failure
     except WorkerProcessError:
         print(ModColor.Str("A worker process has died on us unexpectedly. This probably indicates a bug:"), file=log)
@@ -530,12 +461,13 @@ def driver(OP_IN=None):
         report_error = True
     except:
         if sys.exc_info()[0] is not WorkerProcessError and Exceptions.is_pdb_enabled():
-            DDFacet.Other.AsyncProcessPool.APP.terminate()
+            CleanupAPP()
             raise
         else:
             print(traceback.format_exc(), file=log)
         report_error = True
 
+    CleanupAPP()
     if report_error:
         logfileName = logger.getLogFilename()
         logfileName = logfileName if logfileName is not None else "[file logging is not enabled]"
@@ -551,24 +483,8 @@ def driver(OP_IN=None):
             "Your logfile is available here: %s" %
             logfileName, col="red"), file=log)
         # print>>log, traceback_msg
-        # Should at least give the command line an indication of failure
-        DDFacet.Other.AsyncProcessPool.APP.terminate()
         retcode = 1 # Should at least give the command line an indication of failure
 
-    try:
-        DDFacet.Other.AsyncProcessPool.APP.shutdown()
-    except:
-        pass
-
-    try:
-        DDFacet.Other.AsyncProcessPool.APP
-    except:
-        pass
-    
-    try:
-        Multiprocessing.cleanupShm()
-    except:
-        pass
 
 
     if OP_IN is None:

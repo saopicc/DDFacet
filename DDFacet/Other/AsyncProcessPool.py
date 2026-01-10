@@ -370,7 +370,6 @@ class AsyncProcessPool (object):
     def startWorkers(self):
         """Starts worker threads. All job handlers and events must be registered *BEFORE*"""
         self._shared_state = shared_dict.create(self.Name)
-        print("FSDLSDLJDFLJDKLSFJSQKKSQFJ STARTTT")
         self._job_counters.finalize(self._shared_state)
         if self.ncpu > 1:
             self._taras_bulba.start()
@@ -820,10 +819,7 @@ class AsyncProcessPool (object):
         self._compute_queue.close()
         for queue in self._io_queues:
             queue.close()
-        try:
-            shared_dict.delDict(self.Name)
-        except:
-            pass
+        shared_dict.delDict(self.Name)
         if self.verbose > 1:
             print("shutdown complete", file=log)
 
@@ -950,22 +946,19 @@ class AsyncProcessPool (object):
     # CPU id. This will be None in the parent process, and a unique number in each worker process
     proc_id = None
 
-APP = None
+# APP = None
 
 def _init_default(force=False):
-    global APP
-    if APP is None or force:
-        APP = AsyncProcessPool()
-        APP.init(psutil.cpu_count(), affinity=0, num_io_processes=1, verbose=0)
+    APP = AsyncProcessPool()
+    APP.init(psutil.cpu_count(), affinity=0, num_io_processes=1, verbose=0)
 
 #_init_default()
 
 def init(ncpu=None, affinity=None, parent_affinity=0, num_io_processes=1, verbose=0, pause_on_start=False):
-    global APP
-    if APP is None:
-        APP = AsyncProcessPool()
+    APP = AsyncProcessPool()
     APP.init(ncpu, affinity, parent_affinity, num_io_processes, verbose, pause_on_start=pause_on_start)
-    
+    return APP
+
 def initNew(Name="APP2",ncpu=None, affinity=None, parent_affinity=0, num_io_processes=1, verbose=0, pause_on_start=False,silent_warning=False):
     APP = AsyncProcessPool(Name,silent_warning=silent_warning)
     APP.init(ncpu, affinity, parent_affinity, num_io_processes, verbose, pause_on_start=pause_on_start)
