@@ -115,8 +115,7 @@ class ClassImagerDeconv():
                  PointingID=0,
                  #BaseName="ImageTest2",
                  ReplaceDico=None,
-                 predict_only=False, data=True, psf=True, readcol=True, deconvolve=True,
-                 APP=None):
+                 predict_only=False, data=True, psf=True, readcol=True, deconvolve=True):
         # if ParsetFile is not None:
         #     GD=ClassGlobalData(ParsetFile)
         #     self.GD=GD

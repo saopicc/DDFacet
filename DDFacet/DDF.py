@@ -425,6 +425,7 @@ def driver(OP_IN=None):
         logo.print_logo()
 
     DDFacet.Other.AsyncProcessPool._init_default(force=True)
+    print(DDFacet.Other.AsyncProcessPool.APP)
     
     # work out DDFacet version
     version=report_version()
