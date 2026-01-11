@@ -39,7 +39,7 @@ def read_options():
     desc=""" """
     opt = optparse.OptionParser(usage='Task to start a monitoring task, Usage: %prog <options>',version='%prog version 1.0',description=desc)
     group = optparse.OptionGroup(opt, "* General options")
-    group.add_option('--Mode',type=str,help="Plot/Dump",default="Plot")
+    group.add_option('--Mode',type=str,help="Plot/Dump/ReadAndPlot",default="Plot")
     group.add_option('--Reset',type=int,help="Reset dump",default=0)
     
 
@@ -72,11 +72,11 @@ class ClassMemMonitor():
         self.dt=0.5
         self.Mode=options.Mode
         self.HostName=socket.gethostname()
-        self.FileDump=os.path.expanduser("~/monitor.%s.csv"%self.HostName)
+        self.FileDump=os.path.expanduser("~/DDF_monitor.%s.csv"%self.HostName)
         if options.Reset:
             os.system("rm %s"%self.FileDump)
 
-        
+        self.Steps=None
         self.DicoProfile={}
         
         self.dtype=[("time",np.float64),
@@ -96,7 +96,7 @@ class ClassMemMonitor():
             self.t0=time.time()
             
     def loadDumped(self):
-        ll=glob.glob(os.path.expanduser("~/monitor.*.csv"))
+        ll=glob.glob(os.path.expanduser("~/DDF_monitor.*.csv"))
         t0=None
         for l in ll:
             if "pipeline" in l:
@@ -106,7 +106,7 @@ class ClassMemMonitor():
                                          delimiter=",")
 
             else:
-                host=l.split("monitor.")[1].split(".csv")[0]
+                host=l.split("DDF_monitor.")[1].split(".csv")[0]
                 A=np.genfromtxt(l,dtype=self.dtype,
                                 delimiter=",")
                 self.DicoProfile[host]={}
@@ -153,9 +153,17 @@ class ClassMemMonitor():
 
     def plotDumped(self):
         self.fig=pylab.figure("[%s]"%self.HostName)
+        ModePlotMPI=1
+        if ":" in self.Mode:
+            ModePlotMPI=int(self.Mode.split(":")[1])
         while True:
+            
             self.loadDumped()
-            self.plotDumpedStep()
+            if ModePlotMPI==1:
+                self.plotDumpedStep()
+            elif ModePlotMPI==2:
+                self.plotSeparate()
+                
             pylab.draw()
             pylab.show(block=False)
             pylab.pause(0.1)
@@ -169,14 +177,15 @@ class ClassMemMonitor():
         for iPlot,host in enumerate(LHost):
             ax = pylab.subplot(ny,1,iPlot+1)
             _,ax2=self.plotOne(N=None,ax=ax,host=host)
-            for Step in self.Steps:
-                tt=(Step["time"]-self.t0)/60
-                Name=Step["Name"].decode("ascii").replace(" ","").replace("_"," ")
-                Type=Step["Type"]
-                ax2.plot([tt,tt],[0,100])
-                ax2.text(tt, 0, "[%s]"%Name, fontsize=7,
-                         rotation=90, rotation_mode='anchor',
-                         transform_rotates_text=True,color="red", weight="bold")
+            if self.Steps is not None:
+                for Step in self.Steps:
+                    tt=(Step["time"]-self.t0)/60
+                    Name=Step["Name"].decode("ascii").replace(" ","").replace("_"," ")
+                    Type=Step["Type"]
+                    ax2.plot([tt,tt],[0,100])
+                    ax2.text(tt, 0, "[%s]"%Name, fontsize=7,
+                             rotation=90, rotation_mode='anchor',
+                             transform_rotates_text=True,color="red", weight="bold")
                 
     def plot(self):
         pylab.clf()
@@ -283,6 +292,117 @@ class ClassMemMonitor():
         #ax2.legend(loc=0)
         
         
+        
+    def plotSeparate(self):
+
+        gridsize = (3, 2)
+        fig=self.fig
+        fig.clf()
+        # ax1 = pylab.subplot2grid(gridsize, (0, 0), colspan=2, rowspan=2)
+        # ax2 = pylab.subplot2grid(gridsize, (2, 0))
+        ax1 = pylab.subplot(4,1,1)
+        ax1b = pylab.subplot(4,1,2,sharex=ax1)
+        ax2 = pylab.subplot(4,1,3,sharex=ax1)
+        ax2b = pylab.subplot(4,1,4,sharex=ax1)
+        fig.subplots_adjust(hspace=0)
+        
+        N=None
+        NMax=None
+        host=None
+        if host==None:
+            host=self.HostName
+
+        
+        ImCPU=np.array(self.DicoProfile[host]["time"]).size
+        for ihost,host in enumerate(self.DicoProfile.keys()):
+            LMem=self.DicoProfile[host]["mem"]
+            LSMem=self.DicoProfile[host]["Swap_mem"]
+            LSMemAvail=self.DicoProfile[host]["Swap_memAvail"]
+            LMemAvail=self.DicoProfile[host]["memAvail"]
+            LMemTotal=self.DicoProfile[host]["memTotal"]
+            LCPU=self.DicoProfile[host]["cpu"]
+            LT=np.array(self.DicoProfile[host]["time"])
+            
+            LT-=self.t0
+            LT/=60
+            LT=LT.tolist()
+            
+            TotSeen=np.array(LMemAvail)+np.array(LMem)
+            Cache=TotSeen-np.array(LMemTotal)
+            PureRAM=np.array(LMem)-Cache
+            
+            N=len(LMem)
+            
+            if len(LMem)<2: return
+    
+            
+            # Total Available
+            x,y=GivePolygon(LT,LMemTotal)
+            ax2.fill(x,y,'black', alpha=0.1, edgecolor='black')
+    
+            # Cache
+            # ax.plot(LT,LMemTotal-np.array(LMem),lw=2,color="green")
+            x,y=GivePolygon(LT,np.array(LMem))
+            ax2.fill(x,y,'black', alpha=0.1, edgecolor='blue',lw=2)
+            
+            # Total used excluding cache
+            #x,y=GivePolygon(LT,np.array(LShared)+np.array(PureRAM))
+            x,y=GivePolygon(LT,np.array(PureRAM))
+            ax2.fill(x,y,'black', alpha=0.3, edgecolor='blue',lw=2)
+            
+            # memory
+            # ax.plot(LT,PureRAM,lw=2,color="blue")
+            x,y=GivePolygon(LT,PureRAM)
+            ax2.fill(x,y,'green', alpha=0.3, edgecolor='green',lw=2,hatch="//")
+    
+            # swap
+            LSMem=np.array(LSMem)/np.array(LSMemAvail)*np.max(LMemTotal)
+    
+            x,y=GivePolygon(LT,LSMem)
+            #print(y)
+            #ax.fill(x,y,'', alpha=1, edgecolor='red',lw=2,hatch="/")
+            #ax.fill(x,y,'gray', alpha=0.3, edgecolor='red',lw=1,hatch="*")
+            
+            ax2.plot(LT,np.array(LSMem),lw=2,ls=":",color="red")
+            # ax.plot(LT,np.array(LSMemAvail),lw=2,ls=":",color="red")
+            #ax.set_title("[%s]"%host)
+            # CPU
+            ax1.plot(LT,LCPU, color="black",ls="--")
+            
+            #ax.legend(loc=0)
+            ax1.grid()
+            ax2.grid()
+            
+            
+            ax2.set_ylabel("Mem [GB]")
+            ax1.set_ylabel("CPU [%]")
+            ax2.set_xlabel("Time [min.]")
+            #ax2.set_ylabel(r"Temperature ($^\circ$C)")
+            #ax2.set_ylim(0, 35)
+            ax1.set_xlim(np.min(LT),np.max(LT))
+            ax2.set_ylim(0,1.1*np.max(LMemTotal))
+            ax1.set_ylim(0,110)
+
+            LCPU=np.array(LCPU)
+            vs=LCPU
+            normal = pylab.Normalize(0,100)
+            colors = pylab.cm.jet(normal(vs))
+            LT=np.array(LT)
+            dt=np.median(LT[1:]-LT[:-1])
+            for itime in range(LT.size-1):
+                t0,t1=LT[itime],LT[itime+1]
+                x=(t0+t1)/2
+                y=ihost
+                h=1
+                w=t1-t0
+                rect = pylab.Rectangle((x,y),w,h,color=colors[itime])
+                ax1b.add_patch(rect)
+                
+            # import matplotlib.colorbar as cbar
+            # cax, _ = cbar.make_axes(ax1b) 
+            # cb2 = cbar.ColorbarBase(cax, cmap=pylab.cm.jet,norm=normal)       
+            
+        
     def startMonitor(self):
         self.fig=pylab.figure("[%s]"%self.HostName)
         while True:
@@ -304,8 +424,7 @@ def driver():
     MM=ClassMemMonitor(options=options)
     if options.Mode=="Plot" or options.Mode=="Dump":
         MM.startMonitor()
-    elif options.Mode=="ReadAndPlot":
-        
+    elif options.Mode.startswith("ReadAndPlot"):
         MM.plotDumped()
     
 if __name__=="__main__":
