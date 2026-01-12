@@ -42,6 +42,7 @@ import glob
 import re
 import numexpr
 import time
+import socket
 
 from DDFacet.Other import logger
 from DDFacet.Other import ClassTimeIt
@@ -396,7 +397,6 @@ class AsyncProcessPool (object):
             if job is None:
                 raise KeyError("Job '%s' was not enqueued. This is a logic error." % job_id)
             job.setResult(result)
-
     def restartWorkers(self):
         if self.ncpu > 1:
             if self._termination_event.is_set():
@@ -658,7 +658,8 @@ class AsyncProcessPool (object):
         from any of the background processes.
         """
         if self.verbose > 2:
-            print("checking for completion events on %s" % " ".join(events), file=log)
+            # print("checking for completion events on %s" % " ".join(events), file=log)
+            print("checking for completion events on")
         for event in events:
             name = self._events.get(id(event))
             while not event.is_set():
@@ -873,7 +874,24 @@ class AsyncProcessPool (object):
                     raise RuntimeError("Job %s: unknown counter %s. This is a bug." % (job_id, counter_id))
             # instantiate SharedDict arguments
 #            timer.timeit('init '+job_id)
+
+            # Largs=[  ]
+            # for arg in args:
+            #     if type(arg) is shared_dict.SharedDictRepresentation:
+            #         try:
+            #             rr=arg.instantiate()
+            #             if "FM_CF/int" in arg.path: print(socket.gethostname(),"OKKKKK %s OKKKK"%arg.path)
+            #         except:
+            #             import os
+            #             print(socket.gethostname(),"NOOO %s NOOO"%arg.path)
+            #             os.system("ls %s"%arg.path)
+            #             stop
+            #     else:
+            #         rr=arg
+            #     Largs.append(rr)
+            # args=Largs
             args = [ arg.instantiate() if type(arg) is shared_dict.SharedDictRepresentation else arg for arg in args ]
+            
             for key in kwargs.keys():
                 if type(kwargs[key]) is shared_dict.SharedDictRepresentation:
                     kwargs[key] = kwargs[key].instantiate()

@@ -110,6 +110,50 @@ def handle_user_stop_signal(signum, frame):
 
 signal.signal(signal.SIGUSR1, handler=handle_user_stop_signal)
 
+from DDFacet.Other.Verbose import VERBOSE_SHARED_DICT
+
+def CheckFM(ImagerDeconv,Message=""):
+    if not VERBOSE_SHARED_DICT: return 
+    print("=======================")
+    print("==== ",socket.gethostname(),"gc.collect")
+    import gc
+    PrintFM(ImagerDeconv,Message=Message)
+    gc.collect()
+    PrintFM(ImagerDeconv,Message=Message)
+    print("==== ",socket.gethostname(),"gc.collect end")
+    print("=======================")
+
+    
+
+def PrintFM(ImagerDeconv,Message=""):
+        L=[ImagerDeconv.FacetMachine,ImagerDeconv.FacetMachinePSF]
+        for FM,Name in zip(L,["FacetMachine","FacetMachinePSF"]):
+            if FM is None: continue
+            ss="(%s) %s, %s %s %s %s"%(Message,
+                                       socket.gethostname(),
+                                       Name,
+                                       str(type(FM)),
+                                       str(id(FM)),
+                                       str(FM._app_id))
+            CF=FM._CF
+            if CF is not None:
+                ss+=" %s %s"%(CF.path,str(list(CF.keys())))
+                ss+=" ["
+                for iFacet in sorted(list(CF.keys())):
+                    if iFacet in CF.keys():
+                        ss+=" %s"%str(list(CF[iFacet].keys()))
+                        if "SW" in CF[iFacet].keys():
+                            ss+=" %s %s"%(str(CF[iFacet]["SW"].shape),str(CF[iFacet]["SW"].dtype))
+                        else:
+                            ss+=" Nothing in SW!"
+                    else:
+                        ss+=" No %i key in CF.keys()!"%iFacet
+                ss+="]"
+            print(ss)
+                
+
+
+
 class ClassImagerDeconv():
     def __init__(self, GD=None,
                  PointingID=0,
@@ -185,27 +229,27 @@ class ClassImagerDeconv():
         ## disabling this, as it doesn't play nice with in-place FFTs
         # self._save_intermediate_grids = self.GD["Debug"]["SaveIntermediateDirtyImages"]
 
-        
-        
+        VerboseAPP=self.GD["Debug"]["APPVerbose"]
+        if VERBOSE_SHARED_DICT:
+            VerboseAPP=3
         self.APP=AsyncProcessPool.init(ncpu=self.GD["Parallel"]["NCPU"],
                                        affinity=self.GD["Parallel"]["Affinity"],
                                        parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
-                                       verbose=self.GD["Debug"]["APPVerbose"],
+                                       verbose=VerboseAPP,
                                        pause_on_start=self.GD["Debug"]["PauseWorkers"])
         
         self.APP.registerJobHandlers(self)
-
+        ModFFTW.registerAPP(self.APP)
+        
         mslist=None
         MSName0=MSName=self.GD["Data"]["MS"]
         if MPIManager.useMPI:
             if MPIManager.rank==0:
                 MSName = [ l.strip() for l in open(MSName).readlines() ]
                 print("list file %s contains %d MSs" % (MSName0, len(MSName)), file=log)
-            print("FDKJSDKDSFKSDHFSD bcast",MPIManager.rank,MPIManager.size)
             # MPIManager.COMM_WORLD.Barrier()
             # time.sleep(1)
             MSName = MPIManager.COMM_WORLD.bcast(MSName, root=0)
-            print("FDKJSDKDSFKSDHFSD bcast ok")
             
         mslist = ClassMS.expandMSList(MSName,
                                       defaultDDID=self.GD["Selection"]["DDID"],
@@ -357,7 +401,8 @@ class ClassImagerDeconv():
                 self.DeconvMachine.setMaskMachine(self.MaskMachine)
         self.CreateFacetMachines()
         self.VS.setFacetMachine(self.FacetMachine or self.FacetMachinePSF)
-
+        
+        
         self.DoSmoothBeam=(self.GD["Beam"]["Smooth"] and self.GD["Beam"]["Model"]) and self.FacetMachine is not None
         if self.DoSmoothBeam:
             AverageBeamMachine=ClassBeamMean.ClassBeamMean(self.VS)
@@ -365,9 +410,11 @@ class ClassImagerDeconv():
             if self.StokesFacetMachine:
                 self.StokesFacetMachine.setAverageBeamMachine(AverageBeamMachine)
         
-        
+        CheckFM(self,"before startWorkers")
         self.APP.startWorkers()
+        CheckFM(self,"after startWorkers")
         self.VS.CalcWeightsBackground()
+        CheckFM(self,"after startWorkers2")
         self.InitCF()
             
         # tell VisServer to not load weights
@@ -377,12 +424,14 @@ class ClassImagerDeconv():
     def InitCF(self):
         # all internal state initialized -- start the worker threads
         # and proceed with background tasks
+        CheckFM(self,"before InitCF")
         if self.FacetMachine is not None:
             self.FacetMachine.initCFInBackground()
 
         # FacetMachinePSF will skip CF init if they match those of FacetMachine
         if self.FacetMachinePSF is not None:
             self.FacetMachinePSF.initCFInBackground(other_fm=self.FacetMachine)
+        CheckFM(self,"after InitCF")
 
     def CreateFacetMachines (self):
         """Creates FacetMachines for data and/or PSF"""
@@ -811,8 +860,11 @@ class ClassImagerDeconv():
                     else:
                         print("reusing model image from previous chunk", file=log)
                     if not dirty_valid:
+                        CheckFM(self,"before getChunkInBackground")
                         self.FacetMachine.getChunkInBackground(DATA)
+                        CheckFM(self,"before collectDegriddingResults")
                         self.FacetMachine.collectDegriddingResults()
+                        CheckFM(self,"after collectDegriddingResults")
 
                     if predict_colname:
                         predict -= visdata
@@ -1246,7 +1298,9 @@ class ClassImagerDeconv():
             print("applying a sparsification factor of %f to data for dirty image" % sparsify, file=log)
 
         # if running in NMajor=0 mode, then we simply want to subtract/predict the model probably
+        CheckFM(self,"before GiveDirty")
         self.GiveDirty(psf=True, sparsify=sparsify, last_cycle=(NMajor==0))
+        CheckFM(self,"after GiveDirty")
         
         self.DicoImagesPSF.reload()
         self.DicoImagesPSF["DicoImager"]=copy.deepcopy((self.FacetMachinePSF.DicoImager or self.FacetMachine.DicoImager))
@@ -1272,9 +1326,11 @@ class ClassImagerDeconv():
         self._init_pointing_sols()
 
         # if we reached a sparsification of 1, we shan't be re-making the PSF
+        CheckFM(self,"before release")
         if not sparsify:
             self.FacetMachinePSF.releaseGrids()
             self.FacetMachinePSF = None
+            CheckFM(self,"after release")
 
         # if asked to conserve memory, DeconvMachine and ImageNoiseMachine
         # will be reset and reinitialized each major cycle (since they may have memory-hungry HDM dicts
@@ -1335,6 +1391,8 @@ class ClassImagerDeconv():
 
             # To make the package more robust against memory leaks, we restart the worker processes every now and then.
             # As a rule of thumb, we do this every major cycle, but no more often than every N minutes.
+
+            # print("FDSLSDFLSJJKFDSSDLKFJ")
             if time.time() > restart_time + 600:
                 self.APP.restartWorkers()
                 restart_time = time.time()
@@ -1343,6 +1401,7 @@ class ClassImagerDeconv():
             
             # self.DeconvMachine.Update(self.DicoDirty)
 
+            CheckFM(self,"deconv")
             repMinor, continue_deconv, update_model = None, None, None
             if MPIManager.rank == 0:
                 self.DeconvMachine.Update(self.DicoDirty)
@@ -1367,14 +1426,19 @@ class ClassImagerDeconv():
                 continue_deconv                 = MPIManager.COMM_WORLD.bcast(continue_deconv, root=0)
                 update_model                    = MPIManager.COMM_WORLD.bcast(update_model, root=0)
                 self.HasDeconvolved             = MPIManager.COMM_WORLD.bcast(self.HasDeconvolved, root=0)
-                
+
             if MPIManager.rank == 0:
                 self.ModelMachine.ToFile(self.DicoModelName)
+                
+            CheckFM(self,"collect")
+
+
+            
+            
             if MPIManager.useMPI:
                 DicoSMStacked                   = MPIManager.COMM_WORLD.bcast(self.ModelMachine.DicoSMStacked, root=0)
-
                 self.ModelMachine.FromDico(DicoSMStacked)
-
+                
             # ###
             model_freqs = np.array([self.RefFreq],np.float64)
             model_image = None
@@ -2310,7 +2374,8 @@ class ClassImagerDeconv():
                                                      field_in = "appmodelcube",
                                                      field_out = label,
                                                      CellSizeRad=self.CellSizeRad,
-                                                     GaussPars=self.PSFGaussPars)
+                                                     GaussPars=self.PSFGaussPars,
+                                                     APP=self.APP)
                     T.timeit(label)
                 else:
                     _images[label] = intconvmodelcube()
@@ -2323,10 +2388,12 @@ class ClassImagerDeconv():
                                                  field_in = "intmodelcube",
                                                  field_out =label,
                                                  CellSizeRad=self.CellSizeRad,
-                                                 GaussPars=self.PSFGaussPars)
+                                                 GaussPars=self.PSFGaussPars,
+                                                 APP=self.APP)
 
                 ModFFTW.ConvolveGaussianParallel(_images, 'intmodelcube', label,
-                                                 CellSizeRad=self.CellSizeRad, GaussPars=self.PSFGaussPars)
+                                                 CellSizeRad=self.CellSizeRad, GaussPars=self.PSFGaussPars,
+                                                     APP=self.APP)
                 T.timeit(label)
             return _images[label]
         def give_final_RMS():

@@ -47,7 +47,7 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdges,GiveEdgesDissymetric
 from DDFacet.Imager.ClassImToGrid import ClassImToGrid
 from DDFacet.Data.ClassStokes import ClassStokes
 log=logger.getLogger("ClassFacetMachine")
-
+import socket
 import numexpr
 import six
 if six.PY3:
@@ -69,6 +69,7 @@ from DDFacet.Array import ModLinAlg
 from astropy.coordinates import SkyCoord
 import astropy.units as u
 from DDFacet.Imager import ClassMaskMachine
+from DDFacet.Other.Verbose import VERBOSE_SHARED_DICT
 
 from DDFacet.Other import MPIManager
 
@@ -169,7 +170,7 @@ class ClassFacetMachine():
         self.SpheNorm = False
         self.Oversize = Oversize
 
-        self._CF = shared_dict.create("CFPSF" if self.DoPSF else "CF")
+        # self._CF = shared_dict.create("CFPSF" if self.DoPSF else "CF")
         
         DecorrMode=self.GD["RIME"]["DecorrMode"]
         if DecorrMode is not None and DecorrMode != "":
@@ -223,6 +224,7 @@ class ClassFacetMachine():
         # suppress harmless error message which occurs when
         # the Init routine that sets this attribute was not called
         if hasattr(self,"_delete_cf_in_destructor") and self._delete_cf_in_destructor:
+            if VERBOSE_SHARED_DICT: print(socket.gethostname(),"DELETE FLKDFSLKGLKFFDSL FACETMACHINE::!!!!!!!",self.DoPSF,self._app_id,self._delete_cf_in_destructor,id(self))
             self.releaseCFs()
 
     def releaseGrids(self):
@@ -235,6 +237,7 @@ class ClassFacetMachine():
 
     def releaseCFs(self):
         if self._CF is not None:
+            if VERBOSE_SHARED_DICT: print(socket.gethostname(),"RELEASE CF FLKDFSLKGLKFFDSL FACETMACHINE::!!!!!!!",self.DoPSF,self._app_id)
             self._CF.delete()
             self._CF = None
 
@@ -812,6 +815,7 @@ class ClassFacetMachine():
         self.setDicoSumJonesNorm()
         # if we have another FacetMachine supplied, check if the same CFs apply
         if other_fm and self.Oversize == other_fm.Oversize:
+            other_fm.awaitInitCompletion()
             self._CF = other_fm._CF
             self._delete_cf_in_destructor = False
             self.IsDDEGridMachineInit = True
@@ -933,7 +937,10 @@ class ClassFacetMachine():
     def awaitInitCompletion (self):
         if not self.IsDDEGridMachineInit:
             workers_res=self.APP.awaitJobResults("%s.InitCF.*"%self._app_id, progress="Init CFs%s"%self.CounterName)
+            
+            if VERBOSE_SHARED_DICT: print(socket.gethostname(),"DSFLJSDFLK self._CF",type(self._CF),id(self._CF),list(self._CF.keys()))
             self._CF.reload()
+            if VERBOSE_SHARED_DICT: print(socket.gethostname(),"DSFLJSDFLK bb self._CF",type(self._CF),id(self._CF),list(self._CF.keys()))
             # mark cache as safe
             for res in workers_res:
                 Type,path,iFacet=res
@@ -1644,7 +1651,9 @@ class ClassFacetMachine():
                                                     NpixFacet_x//2, NpixFacet_y//2, NpixFacet_x, NpixFacet_y)
                 x0d, x1d, y0d, y1d = Aedge
                 x0p, x1p, y0p, y1p = Bedge
-                
+
+                if VERBOSE_SHARED_DICT: print(socket.gethostname(),"   SDFLKDFKLKD",list(self._CF.keys()))
+                if VERBOSE_SHARED_DICT: print(socket.gethostname(),"   SDFLKDFKLKD list(self._CF[%i])"%iFacet,list(self._CF[iFacet].keys()))
                 SpacialWeigth = self._CF[iFacet]["SW"].T[::-1, :]
                 SW = SpacialWeigth[::-1, :].T[x0p:x1p, y0p:y1p]
                 

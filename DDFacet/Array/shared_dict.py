@@ -23,6 +23,7 @@ SHM_PREFIX = "/dev/shm/"
 SHM_PREFIX_LEN = len(SHM_PREFIX)
 global BASENAME
 BASENAME=None
+from DDFacet.Other.Verbose import VERBOSE_SHARED_DICT
 
 def setBaseName(BaseName=None):
     global BASENAME
@@ -71,10 +72,16 @@ def dict_to_shm(name, D):
         Ds[key]=D[key]
     return Ds
 
+import socket
+
 def delDict(Name):
     D=attach(Name)
     if D is not None:
-        # log.print(ModColor.Str("Delete: %s"%D.path))
+        if VERBOSE_SHARED_DICT:
+            log.print(ModColor.Str("Delete: %s"%D.path))
+            print(socket.gethostname(),ModColor.Str("(%s) Delete: %s"%(BASENAME,D.path)))
+        # if D.path.endswith("APP"):
+        #     stop
         D.delete()
         os.system("rm -fr %s" % D.path)
 
@@ -150,7 +157,7 @@ class SharedDict (collections.OrderedDict):
             #        self._path_fd = os.open(self.path, os.O_RDONLY)  # for sync purposes
         Exists=os.path.exists(self.path)
         if reset or not Exists:
-            # print("INITTTT r=%i %i %s %s"%(reset,Exists,self.path,path))
+            if VERBOSE_SHARED_DICT: print("%s INITTTT r=%i %i %s %s"%(socket.gethostname(),reset,Exists,self.path,path))
             self.delete()
             if BASENAME is None: setBaseName()
             self.setBasePath(BASENAME)
@@ -160,7 +167,7 @@ class SharedDict (collections.OrderedDict):
     def __del__(self):
  #       os.close(self._path_fd)
         if self._delete_items:
-            #print("__DEL__")
+            print("__DEL__")
             self.delete()
 
     def is_writeable(self):
@@ -188,10 +195,10 @@ class SharedDict (collections.OrderedDict):
             raise RuntimeError("SharedDict %s attached as read-only" % self.path)
         collections.OrderedDict.clear(self)
         if os.path.exists(self.path):
-            #print("del %s"%self.path)
+            if VERBOSE_SHARED_DICT: print(socket.gethostname(),"del %s"%self.path,type(self),id(self))
             os.system("rm -fr %s" % self.path)
         try:
-            #print("mkdir %s"%self.path)
+            if VERBOSE_SHARED_DICT: print(socket.gethostname(),"mkdir %s"%self.path)
             #os.mkdir(self.path)
             path = Path(self.path)
             path.mkdir(parents=True)
@@ -215,7 +222,7 @@ class SharedDict (collections.OrderedDict):
         if self._delete_items:
             if not self._readwrite:
                 raise RuntimeError("SharedDict %s attached as read-only" % self.path)
-            #print("CLEAR")
+            print("CLEAR")
             
             self.delete()
         else:
@@ -225,6 +232,7 @@ class SharedDict (collections.OrderedDict):
         os.system("tar cf %s -C %s ." % (filename, self.path))
 
     def restore(self, filename):
+        print("restore")
         self.delete()
         os.system("tar xf %s -C %s" % (filename, self.path))
         self.reload()

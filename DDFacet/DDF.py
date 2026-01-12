@@ -345,15 +345,26 @@ def CleanupAPP():
         Imager.APP.terminate()
         Imager.APP.shutdown()
         print(ModColor.Str("I have terminated and shutdown APP [%s]"%Imager.APP.Name), file=log)
+    except:
+        pass
+    
+    try:
         del(Imager.APP)
     except:
         pass
     
     try:
+        del(Imager)
+    except:
+        pass
+    Imager=None
+    
+    try:
         Multiprocessing.cleanupShm()
     except:
         pass
-    
+    import gc
+    gc.collect()
     
 def driver(OP_IN=None):
     #warnings.filterwarnings("default", category=DeprecationWarning)

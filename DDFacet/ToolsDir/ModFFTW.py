@@ -33,11 +33,6 @@ from DDFacet.Other import ClassTimeIt
 import psutil
 import numexpr
 
-try:
-    from DDFacet.Other.AsyncProcessPool import APP
-except ImportError:
-    APP = None
-    pass # not strictly necessary because it imports the backend
 from DDFacet.Array import shared_dict
 from DDFacet.Other import logger
 from DDFacet.ToolsDir import ModToolBox
@@ -164,7 +159,7 @@ class FFTW_Scale_Manager(object):
     """
     Keeps track of all things FFTW + scale related for the WSCMS minor cycle 
     """
-    def __init__(self, wisdom_file=None):
+    def __init__(self, wisdom_file=None,APP=None):
         """
         This call to init is just to register the relevant functions as job handlers for APP
         """
@@ -172,8 +167,9 @@ class FFTW_Scale_Manager(object):
             #wisdom = np.load(wisdom_file)
             pyfftw.import_wisdom(wisdom_file)
             self.has_wisdom = True
-
-        APP.registerJobHandlers(self)
+            
+        self.APP=APP
+        self.APP.registerJobHandlers(self)
 
     def Init(self, npix, npix_padded, npix_facet, npix_padded_facet, nchan=1, npol=1, nscales=1):
         """
@@ -275,15 +271,15 @@ class FFTW_Scale_Manager(object):
         elif mode=='Image':
             npad = self.npad
         for iSlice in range(nslices):
-            APP.runJob("fft2:%s" % iSlice, self._fft_worker_new,
+            self.APP.runJob("fft2:%s" % iSlice, self._fft_worker_new,
                        args=(iSlice, self.shared_dict.readonly(), mode, data, npad))
-        APP.awaitJobResults("fft2:*")
+        self.APP.awaitJobResults("fft2:*")
 
     def iFFT_new(self, nslices, unpad=True, mode='Facet'):
         for iSlice in range(nslices):
-            APP.runJob("ifft2:%s" % iSlice, self._ifft_worker_new,
+            self.APP.runJob("ifft2:%s" % iSlice, self._ifft_worker_new,
                        args=(iSlice, self.shared_dict.readonly(), mode))
-        APP.awaitJobResults("ifft2:*")
+        self.APP.awaitJobResults("ifft2:*")
         if mode == 'Facet':
             if unpad:
                 I = slice(self.psf_npad, self.npix_padded_facet - self.psf_npad)
@@ -305,10 +301,10 @@ class FFTW_Scale_Manager(object):
         nslices, npol, nx, ny = data.shape
         if mode=='Facet':
             for iSlice in range(nslices):
-                APP.runJob("fft:%s" % iSlice, self._fft_worker,
+                self.APP.runJob("fft:%s" % iSlice, self._fft_worker,
                            args=(iSlice, self.shared_dict.readonly(), mode, data,
                                  self.psf_npad))
-            APP.awaitJobResults("fft:*")
+            self.APP.awaitJobResults("fft:*")
             # Don't think it should ever be unpadded or Fsd
             # Also at the end of the calculation the data FT is in the relevant shared array so we
             # can operate directly on that. Hence no return
@@ -320,10 +316,10 @@ class FFTW_Scale_Manager(object):
             # return np.ascontiguousarray(self._PaddedFacetArray[0:nslices])
         elif mode=='Image':
             for iSlice in range(nslices):
-                APP.runJob("fft:%s" % iSlice, self._fft_worker,
+                self.APP.runJob("fft:%s" % iSlice, self._fft_worker,
                            args=(iSlice, self.shared_dict.readonly(), mode, data,
                                  self.npad))
-            APP.awaitJobResults("fft:*")
+            self.APP.awaitJobResults("fft:*")
             # see above comment
             # if unpad:
             #     I = slice(self.npad, self.npix_padded - self.npad)
@@ -338,9 +334,9 @@ class FFTW_Scale_Manager(object):
         """
         if mode=='Facet':
             for iSlice in range(nslices):
-                APP.runJob("ifft:%s" % iSlice, self._ifft_worker,
+                self.APP.runJob("ifft:%s" % iSlice, self._ifft_worker,
                            args=(iSlice, self.shared_dict.readonly(), mode))
-            APP.awaitJobResults("ifft:*")
+            self.APP.awaitJobResults("ifft:*")
             if unpad:
                 I = slice(self.psf_npad, self.npix_padded_facet - self.psf_npad)
                 return np.ascontiguousarray(self._PaddedFacetArray[0:nslices, :, I, I])
@@ -348,9 +344,9 @@ class FFTW_Scale_Manager(object):
                 return np.ascontiguousarray(self._PaddedFacetArray[0:nslices, :])
         elif mode=='Image':
             for iSlice in range(nslices):
-                APP.runJob("ifft:%s" % iSlice, self._ifft_worker,
+                self.APP.runJob("ifft:%s" % iSlice, self._ifft_worker,
                            args=(iSlice, self.shared_dict.readonly(), mode))
-            APP.awaitJobResults("ifft:*")
+            self.APP.awaitJobResults("ifft:*")
             if unpad:
                 I = slice(self.npad, self.npix_padded - self.npad)
                 return np.ascontiguousarray(self._PaddedImageArray[0:nslices, :, I, I])
@@ -850,6 +846,7 @@ def _convolveSingleGaussianFFTW(shareddict,
                                 GaussPars_ch,
                                 Gauss=None,
                                 Normalise = False,
+                                # ReturnValue=True,
                                 nthreads = 1,
                                 return_gaussian = False):
     """Convolves a single channel in a cube of nchan, npol, Ny, Nx
@@ -914,8 +911,7 @@ def _convolveSingleGaussianFFTW(shareddict,
 
     if return_gaussian:
         return Aout,PSF
-    else:
-        return Aout
+    return Aout
 
 # LAPACK / ATLAS-based convolution
 def _convolveSingleGaussianNP(shareddict, field_in, field_out, ch,
@@ -985,8 +981,8 @@ def _convolveSingleGaussianNP(shareddict, field_in, field_out, ch,
 
 ConvolveGaussian = _convolveSingleGaussianFFTW
 
-def ConvolveGaussianParallel(shareddict, field_in, field_out, CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=False):
-    """Convolves images held in a dict, using APP.
+def ConvolveGaussianParallel(shareddict, field_in, field_out, CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=False,APP=None):
+    """Convolves images held in a dict, using self.APP.
     """
     Ain0 = shareddict[field_in]
     nch,npol,_,_=Ain0.shape
@@ -998,13 +994,14 @@ def ConvolveGaussianParallel(shareddict, field_in, field_out, CellSizeRad=None,G
     jobid = "convolve:%s:%s:" % (field_in, field_out)
     for ch in range(nch):
         sd_rw = shareddict.readwrite()
-        APP.runJob(jobid+str(ch),_convolveSingleGaussianFFTW_noret, args=(sd_rw, field_in, field_out, ch, CellSizeRad, GaussPars[ch], None, Normalise))
+        #ReturnValue=False
+        APP.runJob(jobid+str(ch),_convolveSingleGaussianFFTW_noret, args=(sd_rw, field_in, field_out, ch, CellSizeRad, GaussPars[ch], None, Normalise))#,ReturnValue))
     APP.awaitJobResults(jobid+"*") #, progress="Convolving")
 
     return Aout
 
 
-# wrappers that discard return value for use with APP -- avoids wasteful stuffing of images into result queues
+# wrappers that discard return value for use with self.APP -- avoids wasteful stuffing of images into result queues
 def _convolveSingleGaussianFFTW_noret(*args,**kw):
     _convolveSingleGaussianFFTW(*args,**kw)
     return None
@@ -1012,8 +1009,13 @@ def _convolveSingleGaussianFFTW_noret(*args,**kw):
 def _convolveSingleGaussianNP_noret(*args,**kw):
     _convolveSingleGaussianNP(*args,**kw)
     return None
-if APP:
+
+def registerAPP(APP):
     APP.registerJobHandlers(_convolveSingleGaussianFFTW_noret, _convolveSingleGaussianNP_noret)
+
+    
+# if self.APP:
+#     self.APP.registerJobHandlers(_convolveSingleGaussianFFTW_noret, _convolveSingleGaussianNP_noret)
 
 ## FFTW version
 #def ConvolveGaussianFFTW(Ain0,
@@ -1289,8 +1291,8 @@ if APP:
 #    if parallel:
 #        learnFFTWWisdom(npix)
 #        T.timeit("learn")
-#        APP.registerJobHandlers(_convolveSingleGaussian)
-#        APP.startWorkers()
+#        self.APP.registerJobHandlers(_convolveSingleGaussian)
+#        self.APP.startWorkers()
 #    sd = shared_dict.attach("test")
 #    A = sd.addSharedArray("A", (nchan,1,npix,npix),np.float32)
 #    A[0,0,10,10]=1
@@ -1314,7 +1316,7 @@ if APP:
 #
 #    sd.delete()
 #    if parallel:
-#        APP.shutdown()
+#        self.APP.shutdown()
 
 #class FFTWnp():
 #   def __init__(self, A, ncores = 1):
