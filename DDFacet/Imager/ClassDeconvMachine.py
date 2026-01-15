@@ -620,6 +620,7 @@ class ClassImagerDeconv():
         self.HasFittedPSFBeam = False
         self.fit_stat = self.FitPSF()
         if cachepath:
+
             try:
                 self.DicoImagesPSF["FWHMBeam"]=self.FWHMBeam
                 self.DicoImagesPSF["PSFGaussPars"]=self.PSFGaussPars
@@ -627,7 +628,9 @@ class ClassImagerDeconv():
                 self.DicoImagesPSF["EstimatesAvgPSF"]=(self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg)
                 #cPickle.dump(self.DicoImagesPSF, open(self._psf_cachepath, 'w'), 2)
                 self.DicoImagesPSF.save(cachepath)
-                MyPickle.DicoNPToFile(self.DicoImagesPSF,"%s.DicoPickle"%cachepath)
+                print(cachepath)
+                #MyPickle.DicoNPToFile(self.DicoImagesPSF,"%s.DicoPickle"%cachepath)
+                #print("%s.DicoPickle"%cachepath)
                 self.VS.maincache.saveCache("PSF")
                 if self.fit_stat is not None:
                     raise self.fit_stat #delay fitting errors
@@ -965,59 +968,59 @@ class ClassImagerDeconv():
         return self.DicoDirty["MeanImage"]
 
     def SaveDirtyProducts(self):
+        if MPIManager.rank != 0: return
         log.print("Save Dirty products...")
-        if MPIManager.rank == 0: #only if master node or not MPI
-            if "d" in self._saveims:
-                self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty"%self.BaseName,Fits=True,
+        if "d" in self._saveims:
+            self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty"%self.BaseName,Fits=True,
+                                        Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+        if "d" in self._savecubes:
+            self.FacetMachine.ToCasaImage(self.DicoDirty["ImageCube"],ImageName="%s.cube.dirty"%self.BaseName,
+                                          Fits=True,Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+
+        if "n" in self._saveims:
+            FacetNormReShape = self.FacetMachine.getNormDict()["FacetNormReShape"]
+            self.FacetMachine.ToCasaImage(FacetNormReShape,
+                                        ImageName="%s.NormFacets"%self.BaseName,
+                                        Fits=True)
+
+        if self.DicoDirty["JonesNorm"] is not None:
+            NormImage=self.DicoDirty["JonesNorm"]
+
+            if self.DoSmoothBeam and self.FacetMachine.SmoothJonesNorm is not None:
+                NormImage=self.FacetMachine.SmoothJonesNorm
+
+            DirtyCorr = self.DicoDirty["ImageCube"]/np.sqrt(NormImage)
+
+            nch,npol,nx,ny = DirtyCorr.shape
+            if "D" in self._saveims:
+                MeanCorr = np.mean(DirtyCorr, axis=0).reshape((1, npol, nx, ny))
+                self.FacetMachine.ToCasaImage(MeanCorr,ImageName="%s.dirty.corr"%self.BaseName,Fits=True,
+                                                Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            if "D" in self._savecubes:
+                self.FacetMachine.ToCasaImage(DirtyCorr,ImageName="%s.cube.dirty.corr"%self.BaseName,
+                                            Fits=True,Freqs=self.VS.FreqBandCenters,
                                             Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-            if "d" in self._savecubes:
-                self.FacetMachine.ToCasaImage(self.DicoDirty["ImageCube"],ImageName="%s.cube.dirty"%self.BaseName,
-                                              Fits=True,Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
-            if "n" in self._saveims:
-                FacetNormReShape = self.FacetMachine.getNormDict()["FacetNormReShape"]
-                self.FacetMachine.ToCasaImage(FacetNormReShape,
-                                            ImageName="%s.NormFacets"%self.BaseName,
-                                            Fits=True)
+            self.JonesNorm = self.DicoDirty["JonesNorm"]
+            self.MeanJonesNorm = np.mean(self.JonesNorm,axis=0).reshape((1,npol,nx,ny))
 
-            if self.DicoDirty["JonesNorm"] is not None:
-                NormImage=self.DicoDirty["JonesNorm"]
-
-                if self.DoSmoothBeam and self.FacetMachine.SmoothJonesNorm is not None:
-                    NormImage=self.FacetMachine.SmoothJonesNorm
-
-                DirtyCorr = self.DicoDirty["ImageCube"]/np.sqrt(NormImage)
-
-                nch,npol,nx,ny = DirtyCorr.shape
-                if "D" in self._saveims:
-                    MeanCorr = np.mean(DirtyCorr, axis=0).reshape((1, npol, nx, ny))
-                    self.FacetMachine.ToCasaImage(MeanCorr,ImageName="%s.dirty.corr"%self.BaseName,Fits=True,
-                                                    Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-                if "D" in self._savecubes:
-                    self.FacetMachine.ToCasaImage(DirtyCorr,ImageName="%s.cube.dirty.corr"%self.BaseName,
-                                                Fits=True,Freqs=self.VS.FreqBandCenters,
-                                                Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-
-                self.JonesNorm = self.DicoDirty["JonesNorm"]
-                self.MeanJonesNorm = np.mean(self.JonesNorm,axis=0).reshape((1,npol,nx,ny))
-
-                if self.DoSmoothBeam and self.FacetMachine.SmoothJonesNorm is not None:
-                    self.FacetMachine.ToCasaImage(self.FacetMachine.MeanSmoothJonesNorm,ImageName="%s.MeanSmoothNorm"%self.BaseName,Fits=True,
-                                                Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-                    self.FacetMachine.ToCasaImage(self.FacetMachine.SmoothJonesNorm,ImageName="%s.SmoothNorm"%self.BaseName,Fits=True,
-                                                Stokes=self.VS.StokesConverter.RequiredStokesProducts(),
-                                                Freqs=self.VS.FreqBandCenters)
+            if self.DoSmoothBeam and self.FacetMachine.SmoothJonesNorm is not None:
+                self.FacetMachine.ToCasaImage(self.FacetMachine.MeanSmoothJonesNorm,ImageName="%s.MeanSmoothNorm"%self.BaseName,Fits=True,
+                                            Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                self.FacetMachine.ToCasaImage(self.FacetMachine.SmoothJonesNorm,ImageName="%s.SmoothNorm"%self.BaseName,Fits=True,
+                                            Stokes=self.VS.StokesConverter.RequiredStokesProducts(),
+                                            Freqs=self.VS.FreqBandCenters)
 
 
-                if "N" in self._saveims:
-                    self.FacetMachine.ToCasaImage(self.MeanJonesNorm,ImageName="%s.Norm"%self.BaseName,Fits=True,
-                                                Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-                if "N" in self._savecubes:
-                    self.FacetMachine.ToCasaImage(self.JonesNorm, ImageName="%s.cube.Norm" % self.BaseName,
-                                                Fits=True, Freqs=self.VS.FreqBandCenters,
-                                                Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-            else:
-                self.MeanJonesNorm = None
+            if "N" in self._saveims:
+                self.FacetMachine.ToCasaImage(self.MeanJonesNorm,ImageName="%s.Norm"%self.BaseName,Fits=True,
+                                            Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            if "N" in self._savecubes:
+                self.FacetMachine.ToCasaImage(self.JonesNorm, ImageName="%s.cube.Norm" % self.BaseName,
+                                            Fits=True, Freqs=self.VS.FreqBandCenters,
+                                            Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+        else:
+            self.MeanJonesNorm = None
 
     def _init_pointing_sols(self):
         """ Initialize pointing solutions provider """
@@ -1342,7 +1345,7 @@ class ClassImagerDeconv():
 
         continue_deconv = True
 
-
+        last_residual_is_saved=False
         for iMajor in range(1, NMajor+1):
             # previous minor loop indicated it has reached bottom? Break out
             if not continue_deconv:
@@ -1705,8 +1708,10 @@ class ClassImagerDeconv():
                 try:
                     print("Saving last residual image to %s"%cachepath, file=log)
                     self.DicoDirty.save(cachepath)
-                    MyPickle.DicoNPToFile(self.DicoDirty,"%s.DicoPickle"%cachepath)
+                    #MyPickle.DicoNPToFile(self.DicoDirty,"%s.DicoPickle"%cachepath)
                     self.VS.maincache.saveCache("LastResidual")
+                    last_residual_is_saved=True
+                    
                 except:
                     print(traceback.format_exc(), file=log)
                     print(ModColor.Str("WARNING: Residual image cache could not be written, see error report above. Proceeding anyway."), file=log)
@@ -1721,7 +1726,7 @@ class ClassImagerDeconv():
             
                     
         # dump dirty to cache
-        if self.GD["Cache"]["LastResidual"] and self.DicoDirty is not None:
+        if self.GD["Cache"]["LastResidual"] and self.DicoDirty is not None and not last_residual_is_saved:
             cachepath, valid = self.VS.maincache.checkCache("LastResidual",
                                                             dict(
                                                                 [("MSNames", [ms.MSName for ms in self.VS.ListMS])] +

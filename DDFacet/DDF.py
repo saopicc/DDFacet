@@ -23,7 +23,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning) 
 
@@ -67,6 +66,7 @@ from DDFacet.Array import NpParallel
 
 from DDFacet.Imager import ClassDeconvMachine
 from DDFacet.Imager.MultiFields import ClassDeconvMachineMultiField
+from DDFacet.MemMonitor import ClassRegister
 
 from DDFacet.Imager import ClassFacetMachine
 from DDFacet.Parset import ReadCFG
@@ -453,6 +453,13 @@ def driver(OP_IN=None):
 
     retcode = report_error = 0
     
+    # Resister=None
+    # DDF_USE_MONIT0R=os.environ.get("DDF_USE_MONIT0R","NO").strip()
+    # if DDF_USE_MONIT0R!="NO":
+    #     Reset=(DDF_USE_MONIT0R=="RESET")
+    #     Resister=ClassRegister(Reset=Reset)
+    #     Resister.register("[DDFacet-start] %s"%OP.DicoConfig["Output"]["Name"],"DDFacet")
+        
     try:
         main(OP, messages)
         print(ModColor.Str(
@@ -478,6 +485,10 @@ def driver(OP_IN=None):
             print(traceback.format_exc(), file=log)
         report_error = True
 
+    
+    # if Resister is not None:
+    #     Resister.register("[DDFacet-stop] %s"%OP.DicoConfig["Output"]["Name"])
+        
     CleanupAPP()
     if report_error:
         logfileName = logger.getLogFilename()

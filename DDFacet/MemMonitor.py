@@ -32,8 +32,9 @@ import os
 #pylab.ion()
 import optparse
 import pickle
-
-SaveFile="last_MakeMask.obj"
+import copy
+SaveFile="last_MemMonitor.obj"
+from collections import OrderedDict
 
 def read_options():
     desc=""" """
@@ -41,6 +42,7 @@ def read_options():
     group = optparse.OptionGroup(opt, "* General options")
     group.add_option('--Mode',type=str,help="Plot/Dump/ReadAndPlot",default="Plot")
     group.add_option('--Reset',type=int,help="Reset dump",default=0)
+    group.add_option('--SaveDir',type=str,help="Reset dump",default="")
     
 
     opt.add_option_group(group)
@@ -52,6 +54,7 @@ def read_options():
     pickle.dump(options,f)
 
 
+    
 def GivePolygon(x,y):
     if isinstance(x,deque):
         x=list(x)
@@ -65,7 +68,68 @@ def GivePolygon(x,y):
     return X,Y
 
 
+class ClassRegister():
+    def __init__(self,Reset=0):
+        self.HostName=socket.gethostname()
+        self.FileDump=os.path.expanduser("~/DDF_register.%s.csv"%self.HostName)
+        if Reset:
+            os.system("rm %s"%self.FileDump)
+        self.Steps=None
+        self.DicoRegister={}
 
+    def register(self,ss,StepType=""):
+        with open(self.FileDump, 'a') as file:
+            # s=f"{time.time()},{ss.replace(' ','_')},{StepType}"
+            s=f"{time.time()},{ss},{StepType}"
+            file.write('%s\n'%s)
+            
+    def load(self,host=""):
+        ll=glob.glob(os.path.expanduser("~/DDF_register.*.csv"))
+        for l in ll:
+            host=l.split("DDF_register.")[1].split(".csv")[0]
+            self.DicoRegister[host]=np.genfromtxt(l,dtype=[("time",np.float64),
+                                                           ("Name","|S200"),
+                                                           ("Type","|S200")],
+                                                  delimiter=",")
+
+
+        LDeleteInterval=[]
+        tt=self.DicoRegister[self.HostName]["time"]
+        Name=self.DicoRegister[self.HostName]["Name"]
+        DoneStep=set()
+
+        # print("================")
+        # DicoBlock=OrderedDict()
+        # dt=0
+        # for iStep,TimeStep,NameStep,TypeStep in zip(range(tt.size),tt,Name,self.DicoRegister[self.HostName]["Type"]):
+        #     TypeStep=TypeStep.decode("ascii")
+        #     NameStep=NameStep.decode("ascii")
+        #     NameStep=NameStep.replace("-start","").replace("-stop","").replace("-end","")
+        #     print(TimeStep,NameStep,TypeStep)
+        #     if TypeStep=="Start":
+        #         continue
+        #     elif TypeStep=="Stop":
+        #         t0t1=DicoBlock.get(NameStep,None)
+        #         if t0t1 is None:
+        #             print("Stopped but not started")
+        #             stop
+        #         elif len(t0t1)==1:
+        #             DicoBlock[NameStep].append(TimeStep)
+        #         else:
+        #             print("Stopped multiple times")
+        #             stop
+        #     else: #  TypeStep=="Imaging" or TypeStep=="Calibration"
+        #         t0t1=DicoBlock.get(NameStep,None)
+        #         if t0t1 is None:
+        #             DicoBlock[NameStep]=[TimeStep]
+        #         elif len(t0t1)==1:
+        #             tt[iStep:]=tt-tt[iStep]+t0t1[0]
+        #         else:
+        #             print("Stopped but not started")
+                    
+        # print(DicoBlock)
+        
+    
 
 class ClassMemMonitor():
     def __init__(self,options=None):
@@ -76,8 +140,17 @@ class ClassMemMonitor():
         if options.Reset:
             os.system("rm %s"%self.FileDump)
 
+        self.SavePNG=False
+        if len(options.SaveDir)>0:
+            self.SaveDir=os.path.expanduser(options.SaveDir)
+            os.system("rm %s"%self.SaveDir)
+            os.system("mkdir -p %s"%self.SaveDir)
+            self.iFig=0
+            self.SavePNG=True
+            
         self.Steps=None
         self.DicoProfile={}
+        self.DicoIOProfile={}
         
         self.dtype=[("time",np.float64),
                     ("mem",np.float32),
@@ -96,27 +169,35 @@ class ClassMemMonitor():
             self.t0=time.time()
             
     def loadDumped(self):
+        self.Register=ClassRegister()
+        self.Register.load()
+        
         ll=glob.glob(os.path.expanduser("~/DDF_monitor.*.csv"))
         t0=None
         for l in ll:
-            if "pipeline" in l:
-                self.Steps=np.genfromtxt(l,dtype=[("time",np.float64),
-                                                  ("Name","|S200"),
-                                                  ("Type","|S200")],
-                                         delimiter=",")
-
+            host=l.split("DDF_monitor.")[1].split(".csv")[0]
+            A=np.genfromtxt(l,dtype=self.dtype,
+                            delimiter=",")
+            self.DicoProfile[host]={}
+            for f in A.dtype.fields:
+                self.DicoProfile[host][f]=A[f].tolist()
+            if t0 is None:
+                t0=self.DicoProfile[host]["time"][0]
             else:
-                host=l.split("DDF_monitor.")[1].split(".csv")[0]
-                A=np.genfromtxt(l,dtype=self.dtype,
-                                delimiter=",")
-                self.DicoProfile[host]={}
-                for f in A.dtype.fields:
-                    self.DicoProfile[host][f]=A[f].tolist()
-                if t0 is None:
-                    t0=self.DicoProfile[host]["time"][0]
-                else:
-                    t0=np.min([t0,self.DicoProfile[host]["time"][0]])
+                t0=np.min([t0,self.DicoProfile[host]["time"][0]])
         self.t0=t0
+
+        ll=glob.glob(os.path.expanduser("~/DDF_io_monitor.*.csv"))
+        dtype=[("time",np.float64),
+                    ("read",np.float32),
+                    ("write",np.float32)]
+        for l in ll:
+            host=l.split("DDF_io_monitor.")[1].split(".csv")[0]
+            A=np.genfromtxt(l,dtype=dtype,
+                            delimiter=",")
+            self.DicoIOProfile[host]={}
+            for f in A.dtype.fields:
+                self.DicoIOProfile[host][f]=A[f].tolist()
 
                     
     def update(self):
@@ -152,7 +233,7 @@ class ClassMemMonitor():
                 
 
     def plotDumped(self):
-        self.fig=pylab.figure("[%s]"%self.HostName)
+        self.fig=pylab.figure("[%s]"%self.HostName,figsize=(15,8))
         ModePlotMPI=1
         if ":" in self.Mode:
             ModePlotMPI=int(self.Mode.split(":")[1])
@@ -167,6 +248,9 @@ class ClassMemMonitor():
             pylab.draw()
             pylab.show(block=False)
             pylab.pause(0.1)
+            if self.SavePNG:
+                self.fig.savefig("%s/Monitor%5.5i.png"%(self.SaveDir,self.iFig))
+                self.iFig+=1
             time.sleep(5)
 
                 
@@ -298,13 +382,18 @@ class ClassMemMonitor():
         gridsize = (3, 2)
         fig=self.fig
         fig.clf()
-        # ax1 = pylab.subplot2grid(gridsize, (0, 0), colspan=2, rowspan=2)
-        # ax2 = pylab.subplot2grid(gridsize, (2, 0))
-        ax1 = pylab.subplot(4,1,1)
-        ax1b = pylab.subplot(4,1,2,sharex=ax1)
-        ax2 = pylab.subplot(4,1,3,sharex=ax1)
-        ax2b = pylab.subplot(4,1,4,sharex=ax1)
-        fig.subplots_adjust(hspace=0)
+        # ax1 = pylab.subplot(4,1,1)
+        # ax1b = pylab.subplot(4,1,2,sharex=ax1)
+        # ax2 = pylab.subplot(4,1,3,sharex=ax1)
+        # ax2b = pylab.subplot(4,1,4,sharex=ax1)
+        nx=4
+        ax1 = pylab.subplot(nx,1,1)
+        ax1b = pylab.subplot(nx,1,2,sharex=ax1)
+        ax2 = pylab.subplot(nx,1,3,sharex=ax1)
+        ax3 = pylab.subplot(nx,1,4,sharex=ax1)
+        ax3b = ax3.twinx()
+
+        fig.subplots_adjust(hspace=0.1)
         
         N=None
         NMax=None
@@ -312,9 +401,81 @@ class ClassMemMonitor():
         if host==None:
             host=self.HostName
 
-        
+        Ngg=500
+        # ##################################
+        def giveGridded(x,y,q=0.5):
+            y=np.array(y)
+            x0=x.min()
+            x1=x.max()
+            Ng=np.min([Ngg,x.size])
+            xx=np.linspace(x0-1,x1+1,Ng)
+            Lyy=[]
+            Lyym=[]
+            Lxx=[]
+            for ii in range(xx.size-1):
+                ind=np.where((x>=xx[ii])&(x<xx[ii+1]))[0]
+                # Lyy.append(np.quantile(y[ind],[0.16,0.5,0.84]))
+                if ind.size==0: continue
+                Lyy.append(np.quantile(y[ind],[q]))
+                Lyym.append(np.max(y[ind]))
+                Lxx.append((xx[ii]+xx[ii+1])/2)
+            # return np.array(Lxx),np.array(Lyym)
+            return np.array(Lxx),np.array(Lyy)[:,0]
+        # ##################################
+        def plotRegister(host,ax,yminmax=[0,100],Mode=None):
+            if host not in self.Register.DicoRegister.keys(): return
+            Rtime=self.Register.DicoRegister[host]["time"].copy()
+            Rtime=(Rtime-self.t0)/60
+            Name=[ThisName.decode("ascii") for ThisName in self.Register.DicoRegister[host]["Name"]]
+            Type=[ThisType.decode("ascii") for ThisType in self.Register.DicoRegister[host]["Type"]]
+            LRect=[]
+            y0,y1=yminmax
+            c=None
+            x0y0=None
+            SupTitle=""
+            for itime,_t,_Name,_Type in zip(range(Rtime.size),Rtime,Name,Type):
+                # print(itime,_t,_Name,_Type)
+                EndTimeLine=(itime==(Rtime.size-1))
+                ax.plot([_t,_t],[y0,y1],color="black",lw=2  ,ls="--")
+                if Mode=="Line": continue
+                def PlotR(x0,y0,x1,y1):
+                    rect = pylab.Rectangle((x0,y0),(x1-x0),(y1-y0),color=c,alpha=0.1)
+                    ax.add_patch(rect)
+                if _Type=="Imaging":
+                    SupTitle="%s"%_Name
+                    x0y0=[_t,y0]
+                    c="red"
+                elif _Type=="Calibration":
+                    SupTitle="%s"%_Name
+                    x0y0=[_t,y0]
+                    c="blue"
+                elif _Type=="Stop":
+                    if x0y0 is None: continue
+                    x0,y0=x0y0
+                    PlotR(x0,y0,_t,y1)
+                    SupTitle=""
+                    x0y0=None
+                if EndTimeLine and x0y0 is not None:
+                    x0,y0=x0y0
+                    x1=np.array(self.DicoProfile[host]["time"]).max()
+                    PlotR(x0,y0,x1,y1)
+                    # ax.set_title(SupTitle)
+                    
+            return _Type
+        # ##################################
+                
         ImCPU=np.array(self.DicoProfile[host]["time"]).size
-        for ihost,host in enumerate(self.DicoProfile.keys()):
+        
+        NHost=len(self.DicoProfile.keys())
+        
+        LHosts=sorted(list(set(list(self.DicoProfile.keys()))))
+        LHosts1=[self.HostName]
+        for host in LHosts:
+            if host!=self.HostName: 
+                LHosts1.append(host)
+        LHosts=LHosts1
+        LHosts=LHosts[::-1]
+        for ihost,host in enumerate(LHosts):
             LMem=self.DicoProfile[host]["mem"]
             LSMem=self.DicoProfile[host]["Swap_mem"]
             LSMemAvail=self.DicoProfile[host]["Swap_memAvail"]
@@ -323,9 +484,19 @@ class ClassMemMonitor():
             LCPU=self.DicoProfile[host]["cpu"]
             LT=np.array(self.DicoProfile[host]["time"])
             
+            _,LMem=giveGridded(LT,LMem)
+            _,LSMem=giveGridded(LT,LSMem)
+            _,LSMemAvail=giveGridded(LT,LSMemAvail)
+            _,LMemAvail=giveGridded(LT,LMemAvail)
+            _,LMemTotal=giveGridded(LT,LMemTotal)
+            _,LCPU0=giveGridded(LT,LCPU,q=0.16)
+            _,LCPUm=giveGridded(LT,LCPU,q=0.5)
+            LT,LCPU1=giveGridded(LT,LCPU,q=0.84)
+            
             LT-=self.t0
             LT/=60
             LT=LT.tolist()
+
             
             TotSeen=np.array(LMemAvail)+np.array(LMem)
             Cache=TotSeen-np.array(LMemTotal)
@@ -335,7 +506,10 @@ class ClassMemMonitor():
             
             if len(LMem)<2: return
     
+            plotRegister(host,ax1,yminmax=[0,100])
             
+            plotRegister(host,ax2,yminmax=[0,1.1*np.max(LMemTotal)],Mode="Line")
+            plotRegister(host,ax1b,yminmax=[0,NHost],Mode="Line")
             # Total Available
             x,y=GivePolygon(LT,LMemTotal)
             ax2.fill(x,y,'black', alpha=0.1, edgecolor='black')
@@ -367,41 +541,103 @@ class ClassMemMonitor():
             # ax.plot(LT,np.array(LSMemAvail),lw=2,ls=":",color="red")
             #ax.set_title("[%s]"%host)
             # CPU
-            ax1.plot(LT,LCPU, color="black",ls="--")
+
+            y0,ym,y1=LCPU0,LCPUm,LCPU1
+            if host==self.HostName:
+                ls="-"
+                color="purple"
+                ax1.fill_between(LT,y0,y1, color=color,ls=ls,alpha=0.5)
+                # ax1.plot(LT,ym, color=color,ls=ls)
+            else:
+                ls=":"
+                color="blue"
+                ax1.fill_between(LT,y0,y1, color=color,ls=ls,alpha=0.25)
+                
             
-            #ax.legend(loc=0)
-            ax1.grid()
-            ax2.grid()
             
             
-            ax2.set_ylabel("Mem [GB]")
-            ax1.set_ylabel("CPU [%]")
-            ax2.set_xlabel("Time [min.]")
-            #ax2.set_ylabel(r"Temperature ($^\circ$C)")
-            #ax2.set_ylim(0, 35)
-            ax1.set_xlim(np.min(LT),np.max(LT))
-            ax2.set_ylim(0,1.1*np.max(LMemTotal))
-            ax1.set_ylim(0,110)
+            
 
             LCPU=np.array(LCPU)
-            vs=LCPU
-            normal = pylab.Normalize(0,100)
-            colors = pylab.cm.jet(normal(vs))
+            vs=y1
+            normal = pylab.Normalize(0,130)
+            # if host==self.HostName:
+            #     colors = pylab.cm.Purples(normal(vs))
+            # else:
+            #     colors = pylab.cm.Blues(normal(vs))
+                
+            # colors = pylab.cm.Purples(normal(vs))
+            colors = pylab.cm.PuRd(normal(vs))
             LT=np.array(LT)
             dt=np.median(LT[1:]-LT[:-1])
             for itime in range(LT.size-1):
                 t0,t1=LT[itime],LT[itime+1]
-                x=(t0+t1)/2
-                y=ihost
                 h=1
                 w=t1-t0
-                rect = pylab.Rectangle((x,y),w,h,color=colors[itime])
+                x=(t0+t1)/2
+                y=ihost
+                rect = pylab.Rectangle((x-w/2,y),w,h,color=colors[itime])
                 ax1b.add_patch(rect)
                 
             # import matplotlib.colorbar as cbar
             # cax, _ = cbar.make_axes(ax1b) 
-            # cb2 = cbar.ColorbarBase(cax, cmap=pylab.cm.jet,norm=normal)       
+            # cb2 = cbar.ColorbarBase(cax, cmap=pylab.cm.jet,norm=normal)
+        for ihost in range(NHost):
+            ax1b.plot([LT.min(),LT.max()],[ihost,ihost],lw=2,ls="-",color="black")
             
+        LL=copy.deepcopy(LHosts)
+        LL[-1]="%s\n%s"%(LL[-1],"[rank0]")
+        ax1b.set_yticks(np.arange(NHost)+0.5,LL)
+        ax2.set_ylabel("Mem [GB]")
+        ax1.set_ylabel("CPU [%]")
+        #ax2.set_ylabel(r"Temperature ($^\circ$C)")
+        #ax2.set_ylim(0, 35)
+        
+        t0,t1=np.min(LT),np.max(LT)
+        # DtMax=60.
+        # if t1-t0>DtMax:
+        #     t0=t1-DtMax
+        ax1.set_xlim(t0,t1)
+        
+        ax2.set_ylim(0,1.1*np.max(LMemTotal))
+        ax1.grid()
+        ax1b.grid(axis="x")
+        
+        # ax1b.set_title("")
+        # ax2.set_title("")
+        # ax1.set_xticklabels([])
+        # ax1b.set_xticklabels([])
+        # ax2.set_xticklabels([])
+        
+        ax2.grid()
+        ax1.set_ylim(0,110)
+        ax1b.set_ylim(0,NHost)
+
+        Max=0
+        for ihost,host in enumerate(LHosts):
+            Lio_write=self.DicoIOProfile[host]["write"]
+            Lio_read=self.DicoIOProfile[host]["read"]
+            Lio_T=np.array(self.DicoIOProfile[host]["time"])
+            _,Lio_write=giveGridded(Lio_T,Lio_write,q=1.)
+            Lio_T,Lio_read=giveGridded(Lio_T,Lio_read,q=1.)
+            Lio_T-=self.t0
+            Lio_T/=60
+            Lio_T=Lio_T.tolist()
+            
+            x,y=GivePolygon(Lio_T,Lio_read)
+            l0=ax3.fill(x,y,'green', alpha=0.5, edgecolor='black',label="Read")
+            x,y=GivePolygon(Lio_T,Lio_write)
+            l1=ax3b.fill(x,y,'red', alpha=0.5, edgecolor='black',label="Write")
+            
+        Max=10000
+        plotRegister(host,ax3,yminmax=[0,Max],Mode="Line")
+        ax3.set_ylabel("Read [green, MB/s]")
+        ax3b.set_ylabel("Write [red, MB/s]")
+        ax3.set_xlabel("Time [min.]")
+        ax3.set_ylim(0,Max)
+        ax3b.set_ylim(0,Max)
+        ax3.grid()
+        # ax3.legend((l0,l1))
         
     def startMonitor(self):
         self.fig=pylab.figure("[%s]"%self.HostName)
@@ -414,9 +650,7 @@ class ClassMemMonitor():
             if self.Mode=="Plot":
                 self.plot()
 
-                
-def driver():
-    read_options()
+def main():
     f = open(SaveFile,'rb')
     options = pickle.load(f)
     NMax=1000
@@ -426,6 +660,11 @@ def driver():
         MM.startMonitor()
     elif options.Mode.startswith("ReadAndPlot"):
         MM.plotDumped()
+                
+                
+def driver():
+    read_options()
+    main()
     
 if __name__=="__main__":
     # do not place any other code here --- cannot be called as a package entrypoint otherwise, see:

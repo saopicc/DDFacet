@@ -103,7 +103,6 @@ class ClassImageNoiseMachine():
             self.MinorCycleConfig = MinorCycleConfig
             from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
 
-
             self.DeconvMachine = ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.MainCache,
                                                                                      ParallelMode=self.ParallelMode,
                                                                                      CacheFileName="HMP_Masking",

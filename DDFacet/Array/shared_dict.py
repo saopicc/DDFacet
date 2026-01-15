@@ -232,7 +232,7 @@ class SharedDict (collections.OrderedDict):
         os.system("tar cf %s -C %s ." % (filename, self.path))
 
     def restore(self, filename):
-        print("restore")
+        # print("restore")
         self.delete()
         os.system("tar xf %s -C %s" % (filename, self.path))
         self.reload()
