@@ -518,8 +518,8 @@ class ClassMemMonitor():
             # return np.array(Lxx),np.array(Lyym)
             return np.array(Lxx),np.array(Lyy)[:,0]
         # ##################################
-        def PlotR(ax,x0,y0,x1,y1,c):
-            rect = pylab.Rectangle((x0,y0),(x1-x0),(y1-y0),color=c,alpha=0.1)
+        def PlotR(ax,x0,y0,x1,y1,c,alpha=0.1):
+            rect = pylab.Rectangle((x0,y0),(x1-x0),(y1-y0),color=c,alpha=alpha,zorder=1)
             ax.add_patch(rect)
 
         def plotRegister(host,ax,yminmax=[0,100],Mode=None):
@@ -534,64 +534,26 @@ class ClassMemMonitor():
                     stop
                     t0=(TRange[0]-self.t0)/3600
                     t1=(time.time()-self.t0)/3600
-                    ax.plot([t0,t0],[y0,y1],color="black",lw=2  ,ls="--")
+                    ax.plot([t0,t0],[y0,y1],color="black",lw=2  ,ls="--",zorder=3)
                 elif len(TRange)==2:
                     t0,t1=TRange
                     t0=(t0-self.t0)/3600
                     t1=(t1-self.t0)/3600
-                    ax.plot([t0,t0],[y0,y1],color="black",lw=2  ,ls="--")
+                    ax.plot([t0,t0],[y0,y1],color="black",lw=2  ,ls="--",zorder=3)
                     if Block["Status"]!="Ongoing":
-                        ax.plot([t1,t1],[y0,y1],color="black",lw=2  ,ls="--")
-                if Mode=="Line": continue
+                        ax.plot([t1,t1],[y0,y1],color="black",lw=2  ,ls="--",zorder=3)
+                if Mode!="Line":
+                    Type=Block["TypeStep"]
+                    if Type=="Imaging":
+                        SupTitle="%s"%Name
+                        c="red"
+                        alpha=0.2
+                    elif Type=="Calibration":
+                        SupTitle="%s"%Name
+                        c="blue"
+                        alpha=0.3
+                    PlotR(ax,t0,y0,t1,y1,c,alpha=alpha)
                 
-                Type=Block["TypeStep"]
-                if Type=="Imaging":
-                    SupTitle="%s"%Name
-                    c="red"
-                elif Type=="Calibration":
-                    SupTitle="%s"%Name
-                    c="blue"
-                    
-                PlotR(ax,t0,y0,t1,y1,c)
-        # def plotRegister(host,ax,yminmax=[0,100],Mode=None):
-
-        #     if host not in self.Register.DicoRegister.keys(): return
-        #     Rtime=self.Register.DicoRegister[host]["time"].copy()
-        #     Rtime=(Rtime-self.t0)/60
-        #     Name=[ThisName.decode("ascii") for ThisName in self.Register.DicoRegister[host]["Name"]]
-        #     Type=[ThisType.decode("ascii") for ThisType in self.Register.DicoRegister[host]["Type"]]
-        #     LRect=[]
-        #     y0,y1=yminmax
-        #     c=None
-        #     x0y0=None
-        #     SupTitle=""
-        #     for itime,_t,_Name,_Type in zip(range(Rtime.size),Rtime,Name,Type):
-        #         # print(itime,_t,_Name,_Type)
-        #         EndTimeLine=(itime==(Rtime.size-1))
-        #         ax.plot([_t,_t],[y0,y1],color="black",lw=2  ,ls="--")
-        #         if Mode=="Line": continue
-                
-        #         if _Type=="Imaging":
-        #             SupTitle="%s"%_Name
-        #             x0y0=[_t,y0]
-        #             c="red"
-        #         elif _Type=="Calibration":
-        #             SupTitle="%s"%_Name
-        #             x0y0=[_t,y0]
-        #             c="blue"
-        #         elif _Type=="Stop":
-        #             if x0y0 is None: continue
-        #             x0,y0=x0y0
-        #             PlotR(x0,y0,_t,y1)
-        #             SupTitle=""
-        #             x0y0=None
-        #         if EndTimeLine and x0y0 is not None:
-        #             x0,y0=x0y0
-        #             x1=np.array(self.DicoProfile[host]["time"]).max()
-        #             PlotR(x0,y0,x1,y1)
-        #             # ax.set_title(SupTitle)
-                    
-        #     return _Type
         # # ##################################
                 
         ImCPU=np.array(self.DicoProfile[host]["time"]).size
@@ -690,7 +652,16 @@ class ClassMemMonitor():
 
             LCPU=np.array(LCPU)
             vs=y1
-            normal = pylab.Normalize(0,130)
+            vs=ym
+            normal = pylab.Normalize(0,3)
+            from matplotlib import colors, cm
+
+            def fMyScale(x,RMS=1.): return np.arcsinh((x/RMS)/2)/np.log(10)
+            def inv_fMyScale(x,RMS=1.): return RMS*np.sinh(x*np.log(10))*2
+            
+            # normal = colors.SymLogNorm(linthresh=10, linscale=10,
+            #                            vmin=0, vmax=5000, base=10)
+            
             # if host==self.HostName:
             #     colors = pylab.cm.Purples(normal(vs))
             # else:
@@ -699,6 +670,12 @@ class ClassMemMonitor():
             # colors = pylab.cm.Purples(normal(vs))
             # colors = pylab.cm.PuRd(normal(vs))
             colors = pylab.cm.BuGn(normal(vs))
+            colors = pylab.cm.BuGn(normal(fMyScale(vs)))
+            colors = pylab.cm.PuBuGn(normal(fMyScale(vs)))
+            normal = pylab.Normalize(0,100)
+            colors = pylab.cm.PuBuGn(normal(vs))
+            colors = pylab.cm.binary(normal(vs))
+            colors = pylab.cm.BuPu(normal(vs))
             LT=np.array(LT)
             dt=np.median(LT[1:]-LT[:-1])
             for itime in range(LT.size-1):
