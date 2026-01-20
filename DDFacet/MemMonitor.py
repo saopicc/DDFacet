@@ -35,6 +35,7 @@ import pickle
 import copy
 SaveFile="last_MemMonitor.obj"
 from collections import OrderedDict
+import pprint
 
 def read_options():
     desc=""" """
@@ -93,44 +94,85 @@ class ClassRegister():
                                                   delimiter=",")
 
 
-        LDeleteInterval=[]
-        tt=self.DicoRegister[self.HostName]["time"]
-        Name=self.DicoRegister[self.HostName]["Name"]
-        DoneStep=set()
-
-        # print("================")
-        # DicoBlock=OrderedDict()
-        # dt=0
-        # for iStep,TimeStep,NameStep,TypeStep in zip(range(tt.size),tt,Name,self.DicoRegister[self.HostName]["Type"]):
-        #     TypeStep=TypeStep.decode("ascii")
-        #     NameStep=NameStep.decode("ascii")
-        #     NameStep=NameStep.replace("-start","").replace("-stop","").replace("-end","")
-        #     print(TimeStep,NameStep,TypeStep)
-        #     if TypeStep=="Start":
-        #         continue
-        #     elif TypeStep=="Stop":
-        #         t0t1=DicoBlock.get(NameStep,None)
-        #         if t0t1 is None:
-        #             print("Stopped but not started")
-        #             stop
-        #         elif len(t0t1)==1:
-        #             DicoBlock[NameStep].append(TimeStep)
-        #         else:
-        #             print("Stopped multiple times")
-        #             stop
-        #     else: #  TypeStep=="Imaging" or TypeStep=="Calibration"
-        #         t0t1=DicoBlock.get(NameStep,None)
-        #         if t0t1 is None:
-        #             DicoBlock[NameStep]=[TimeStep]
-        #         elif len(t0t1)==1:
-        #             tt[iStep:]=tt-tt[iStep]+t0t1[0]
-        #         else:
-        #             print("Stopped but not started")
-                    
-        # print(DicoBlock)
-        
+        self.buildDicoRegister()
     
+    def buildDicoRegister(self):
+        tt=self.DicoRegister[self.HostName]["time"].copy()
+        Name=self.DicoRegister[self.HostName]["Name"].copy()
+        DoneStep=set()
+        LDeleteInterval=[]
 
+        DicoBlock=OrderedDict()
+        dt=0
+        for iStep,TimeStep,NameStep,TypeStep in zip(range(tt.size),tt,Name,self.DicoRegister[self.HostName]["Type"]):
+            TypeStep=TypeStep.decode("ascii")
+            NameStep=NameStep.decode("ascii")
+            NameStep=NameStep.replace("-start","").replace("-stop","").replace("-end","")
+            print(TimeStep,NameStep,TypeStep)
+            if TypeStep=="Start":
+                continue
+            elif TypeStep=="Stop":
+                DicoThisBlock=DicoBlock.get(NameStep,None)
+                if DicoThisBlock is None:
+                    print("Stopped but not started")
+                    stop
+                DicoBlock[NameStep]["TRange"].append(TimeStep)
+                DicoBlock[NameStep]["Status"]="Done"
+            else: #  TypeStep=="Imaging" or TypeStep=="Calibration"
+                DicoThisBlock=DicoBlock.get(NameStep,None)
+                if DicoThisBlock is None:
+                    DicoBlock[NameStep]={}
+                else:
+                    D=copy.deepcopy(DicoThisBlock)
+                    D["TRange"].append(TimeStep)
+                    D["Status"]="ToBeRemoved"
+                    LDeleteInterval.append(D)
+                DicoBlock[NameStep]["TRange"]=[TimeStep]
+                DicoBlock[NameStep]["TypeStep"]=TypeStep
+                DicoBlock[NameStep]["Status"]="Ongoing"
+                    
+        pprint.pp(DicoBlock)
+        pprint.pp(LDeleteInterval)
+        self.DicoBlock=DicoBlock
+        self.LDeleteInterval=LDeleteInterval
+        # self.LDeleteInterval=[]
+        
+        self.DicoBlockCorr=copy.deepcopy(self.DicoBlock)
+        
+        L=[copy.deepcopy(self.DicoBlock[Name]["TRange"]) for Name in self.DicoBlock.keys()]
+        LName=[]
+        for iName,Name in enumerate(self.DicoBlock.keys()):
+            LName.append(Name)
+            t0t1=self.DicoBlock[Name]["TRange"]
+            if len(t0t1)==2:
+                t0,t1=t0t1
+                t0b,t1b=L[iName]
+                for DBlock in self.LDeleteInterval:
+                    t0d,t1d=DBlock["TRange"]
+                    dt=t1d-t0d
+                    if t0>=t1d:
+                        t0b-=dt
+                        t1b-=dt
+                        L[iName]=[t0b,t1b]
+            # elif len(t0t1)==1:
+            #     t0,=t0t1
+            #     t0b,=L[iName]
+            #     for DBlock in self.LDeleteInterval:
+            #         t0d,t1d=DBlock["TRange"]
+            #         dt=t1d-t0d
+            #         if t0>=t1d:
+            #             t0b-=dt
+            #             L[iName]=[t0]
+            #     else:
+            #         stop
+                    
+        for iName,TRange in enumerate(L):
+            Name=LName[iName]
+            self.DicoBlockCorr[Name]["TRange"]=TRange
+
+        
+
+        
 class ClassMemMonitor():
     def __init__(self,options=None):
         self.dt=0.5
@@ -178,9 +220,7 @@ class ClassMemMonitor():
             host=l.split("DDF_monitor.")[1].split(".csv")[0]
             A=np.genfromtxt(l,dtype=self.dtype,
                             delimiter=",")
-            self.DicoProfile[host]={}
-            for f in A.dtype.fields:
-                self.DicoProfile[host][f]=A[f].tolist()
+            self.DicoProfile[host]=A # {}
             if t0 is None:
                 t0=self.DicoProfile[host]["time"][0]
             else:
@@ -195,11 +235,44 @@ class ClassMemMonitor():
             host=l.split("DDF_io_monitor.")[1].split(".csv")[0]
             A=np.genfromtxt(l,dtype=dtype,
                             delimiter=",")
-            self.DicoIOProfile[host]={}
-            for f in A.dtype.fields:
-                self.DicoIOProfile[host][f]=A[f].tolist()
+            self.DicoIOProfile[host]=A # {}
 
-                    
+        def MaskDicoProfile(DicoProfile):
+            DicoProfile=copy.deepcopy(DicoProfile)
+            for host in DicoProfile.keys():
+                LTime=[]
+                tt=DicoProfile[host]["time"]
+                Sel=np.ones((tt.size,),bool)
+                ttc=tt.copy()
+                for DicoBlock in self.Register.LDeleteInterval:
+                    t0,t1=DicoBlock["TRange"]
+                    ind=np.where((tt>t0)&(tt<t1))[0]
+                    print(t0,t1,ind.size)
+                    Sel[ind]=0
+                    ttc[ind[-1]:]=ttc[ind[-1]:]-(t1-t0)
+                ind=np.where(Sel)[0]
+                
+                DicoProfile[host]=DicoProfile[host][ind]
+                DicoProfile[host]["time"]=ttc[ind]
+            return DicoProfile
+        
+        DicoProfile=MaskDicoProfile(self.DicoProfile)
+        # print(self.DicoProfile['node081']['time'].shape,DicoProfile['node081']['time'].shape)
+        DicoIOProfile=MaskDicoProfile(self.DicoIOProfile)
+        
+        def toList(D):
+            DD={}
+            for host in D.keys():
+                A=D[host]
+                DD[host]={}
+                for f in A.dtype.fields:
+                    DD[host][f]=A[f].tolist()
+            return DD
+        
+        self.DicoProfile=toList(DicoProfile)
+        self.DicoIOProfile=toList(DicoIOProfile)
+
+        
     def update(self):
         vmem=psutil.virtual_memory()
         mem=vmem.used/float(2**20)/1024
@@ -246,7 +319,8 @@ class ClassMemMonitor():
                 self.plotSeparate()
                 
             pylab.draw()
-            pylab.show(block=False)
+            pylab.show()
+            # block=False)
             pylab.pause(0.1)
             if self.SavePNG:
                 self.fig.savefig("%s/Monitor%5.5i.png"%(self.SaveDir,self.iFig))
@@ -401,7 +475,7 @@ class ClassMemMonitor():
         if host==None:
             host=self.HostName
 
-        Ngg=500
+        Ngg=2000
         # ##################################
         def giveGridded(x,y,q=0.5):
             y=np.array(y)
@@ -422,47 +496,79 @@ class ClassMemMonitor():
             # return np.array(Lxx),np.array(Lyym)
             return np.array(Lxx),np.array(Lyy)[:,0]
         # ##################################
+        def PlotR(ax,x0,y0,x1,y1,c):
+            rect = pylab.Rectangle((x0,y0),(x1-x0),(y1-y0),color=c,alpha=0.1)
+            ax.add_patch(rect)
+
         def plotRegister(host,ax,yminmax=[0,100],Mode=None):
-            if host not in self.Register.DicoRegister.keys(): return
-            Rtime=self.Register.DicoRegister[host]["time"].copy()
-            Rtime=(Rtime-self.t0)/60
-            Name=[ThisName.decode("ascii") for ThisName in self.Register.DicoRegister[host]["Name"]]
-            Type=[ThisType.decode("ascii") for ThisType in self.Register.DicoRegister[host]["Type"]]
-            LRect=[]
+            host=self.HostName
+            DicoBlock=self.Register.DicoBlockCorr
+            # [host]
             y0,y1=yminmax
-            c=None
-            x0y0=None
-            SupTitle=""
-            for itime,_t,_Name,_Type in zip(range(Rtime.size),Rtime,Name,Type):
-                # print(itime,_t,_Name,_Type)
-                EndTimeLine=(itime==(Rtime.size-1))
-                ax.plot([_t,_t],[y0,y1],color="black",lw=2  ,ls="--")
+            for Name in DicoBlock.keys():
+                Block=DicoBlock[Name]
+                TRange=Block["TRange"]
+                if len(TRange)==1:
+                    t0=(TRange[0]-self.t0)/3600
+                    ax.plot([t0,t0],[y0,y1],color="black",lw=2  ,ls="--")
+                elif len(TRange)==2:
+                    t0,t1=TRange
+                    t0=(t0-self.t0)/3600
+                    t1=(t1-self.t0)/3600
+                    ax.plot([t0,t0],[y0,y1],color="black",lw=2  ,ls="--")
+                    ax.plot([t1,t1],[y0,y1],color="black",lw=2  ,ls="--")
                 if Mode=="Line": continue
-                def PlotR(x0,y0,x1,y1):
-                    rect = pylab.Rectangle((x0,y0),(x1-x0),(y1-y0),color=c,alpha=0.1)
-                    ax.add_patch(rect)
-                if _Type=="Imaging":
-                    SupTitle="%s"%_Name
-                    x0y0=[_t,y0]
+                
+                Type=Block["TypeStep"]
+                if Type=="Imaging":
+                    SupTitle="%s"%Name
                     c="red"
-                elif _Type=="Calibration":
-                    SupTitle="%s"%_Name
-                    x0y0=[_t,y0]
+                elif Type=="Calibration":
+                    SupTitle="%s"%Name
                     c="blue"
-                elif _Type=="Stop":
-                    if x0y0 is None: continue
-                    x0,y0=x0y0
-                    PlotR(x0,y0,_t,y1)
-                    SupTitle=""
-                    x0y0=None
-                if EndTimeLine and x0y0 is not None:
-                    x0,y0=x0y0
-                    x1=np.array(self.DicoProfile[host]["time"]).max()
-                    PlotR(x0,y0,x1,y1)
-                    # ax.set_title(SupTitle)
                     
-            return _Type
-        # ##################################
+                PlotR(ax,t0,y0,t1,y1,c)
+                
+        # def plotRegister(host,ax,yminmax=[0,100],Mode=None):
+
+        #     if host not in self.Register.DicoRegister.keys(): return
+        #     Rtime=self.Register.DicoRegister[host]["time"].copy()
+        #     Rtime=(Rtime-self.t0)/60
+        #     Name=[ThisName.decode("ascii") for ThisName in self.Register.DicoRegister[host]["Name"]]
+        #     Type=[ThisType.decode("ascii") for ThisType in self.Register.DicoRegister[host]["Type"]]
+        #     LRect=[]
+        #     y0,y1=yminmax
+        #     c=None
+        #     x0y0=None
+        #     SupTitle=""
+        #     for itime,_t,_Name,_Type in zip(range(Rtime.size),Rtime,Name,Type):
+        #         # print(itime,_t,_Name,_Type)
+        #         EndTimeLine=(itime==(Rtime.size-1))
+        #         ax.plot([_t,_t],[y0,y1],color="black",lw=2  ,ls="--")
+        #         if Mode=="Line": continue
+                
+        #         if _Type=="Imaging":
+        #             SupTitle="%s"%_Name
+        #             x0y0=[_t,y0]
+        #             c="red"
+        #         elif _Type=="Calibration":
+        #             SupTitle="%s"%_Name
+        #             x0y0=[_t,y0]
+        #             c="blue"
+        #         elif _Type=="Stop":
+        #             if x0y0 is None: continue
+        #             x0,y0=x0y0
+        #             PlotR(x0,y0,_t,y1)
+        #             SupTitle=""
+        #             x0y0=None
+        #         if EndTimeLine and x0y0 is not None:
+        #             x0,y0=x0y0
+        #             x1=np.array(self.DicoProfile[host]["time"]).max()
+        #             PlotR(x0,y0,x1,y1)
+        #             # ax.set_title(SupTitle)
+                    
+        #     return _Type
+        # # ##################################
                 
         ImCPU=np.array(self.DicoProfile[host]["time"]).size
         
@@ -494,7 +600,7 @@ class ClassMemMonitor():
             LT,LCPU1=giveGridded(LT,LCPU,q=0.84)
             
             LT-=self.t0
-            LT/=60
+            LT/=3600
             LT=LT.tolist()
 
             
@@ -621,7 +727,7 @@ class ClassMemMonitor():
             _,Lio_write=giveGridded(Lio_T,Lio_write,q=1.)
             Lio_T,Lio_read=giveGridded(Lio_T,Lio_read,q=1.)
             Lio_T-=self.t0
-            Lio_T/=60
+            Lio_T/=3600
             Lio_T=Lio_T.tolist()
             
             x,y=GivePolygon(Lio_T,Lio_read)
@@ -633,7 +739,7 @@ class ClassMemMonitor():
         plotRegister(host,ax3,yminmax=[0,Max],Mode="Line")
         ax3.set_ylabel("Read [green, MB/s]")
         ax3b.set_ylabel("Write [red, MB/s]")
-        ax3.set_xlabel("Time [min.]")
+        ax3.set_xlabel("Time [hours]")
         ax3.set_ylim(0,Max)
         ax3b.set_ylim(0,Max)
         ax3.grid()
