@@ -36,6 +36,7 @@ import copy
 SaveFile="last_MemMonitor.obj"
 from collections import OrderedDict
 import pprint
+import matplotlib.gridspec as gridspec
 
 def read_options():
     desc=""" """
@@ -135,6 +136,14 @@ class ClassRegister():
         pprint.pp(LDeleteInterval)
         self.DicoBlock=DicoBlock
         self.LDeleteInterval=LDeleteInterval
+
+        for Name in DicoBlock.keys():
+            if DicoBlock[Name]["Status"]=="Ongoing":
+                t0,=DicoBlock[Name]["TRange"]
+                t1=time.time()
+                DicoBlock[Name]["TRange"]=[t0,t1]
+            
+        
         # self.LDeleteInterval=[]
         
         self.DicoBlockCorr=copy.deepcopy(self.DicoBlock)
@@ -169,7 +178,7 @@ class ClassRegister():
         for iName,TRange in enumerate(L):
             Name=LName[iName]
             self.DicoBlockCorr[Name]["TRange"]=TRange
-
+            
         
 
         
@@ -460,14 +469,27 @@ class ClassMemMonitor():
         # ax1b = pylab.subplot(4,1,2,sharex=ax1)
         # ax2 = pylab.subplot(4,1,3,sharex=ax1)
         # ax2b = pylab.subplot(4,1,4,sharex=ax1)
-        nx=4
-        ax1 = pylab.subplot(nx,1,1)
-        ax1b = pylab.subplot(nx,1,2,sharex=ax1)
-        ax2 = pylab.subplot(nx,1,3,sharex=ax1)
-        ax3 = pylab.subplot(nx,1,4,sharex=ax1)
+        
+        # nx=4
+        # ax1 = pylab.subplot(nx,1,1)
+        # ax1b = pylab.subplot(nx,1,2)
+        # ax2 = pylab.subplot(nx,1,3)
+        # ax3 = pylab.subplot(nx,1,4)
+        # ax3b = ax3.twinx()
+
+        fig=self.fig
+        gs = gridspec.GridSpec(4,4, figure=fig)
+        gs.update(wspace=0.05, hspace=0.0, left=0.15, right=0.95, bottom=0.08, top=0.8)
+        fig.clf()
+        
+        ax1 = fig.add_subplot(gs[0,:])
+        ax1b = fig.add_subplot(gs[1,:])
+        ax2 = fig.add_subplot(gs[2,:])
+        ax3 = fig.add_subplot(gs[3,:])
         ax3b = ax3.twinx()
 
-        fig.subplots_adjust(hspace=0.1)
+        
+        fig.subplots_adjust(hspace=0.03)
         
         N=None
         NMax=None
@@ -509,14 +531,17 @@ class ClassMemMonitor():
                 Block=DicoBlock[Name]
                 TRange=Block["TRange"]
                 if len(TRange)==1:
+                    stop
                     t0=(TRange[0]-self.t0)/3600
+                    t1=(time.time()-self.t0)/3600
                     ax.plot([t0,t0],[y0,y1],color="black",lw=2  ,ls="--")
                 elif len(TRange)==2:
                     t0,t1=TRange
                     t0=(t0-self.t0)/3600
                     t1=(t1-self.t0)/3600
                     ax.plot([t0,t0],[y0,y1],color="black",lw=2  ,ls="--")
-                    ax.plot([t1,t1],[y0,y1],color="black",lw=2  ,ls="--")
+                    if Block["Status"]!="Ongoing":
+                        ax.plot([t1,t1],[y0,y1],color="black",lw=2  ,ls="--")
                 if Mode=="Line": continue
                 
                 Type=Block["TypeStep"]
@@ -528,7 +553,6 @@ class ClassMemMonitor():
                     c="blue"
                     
                 PlotR(ax,t0,y0,t1,y1,c)
-                
         # def plotRegister(host,ax,yminmax=[0,100],Mode=None):
 
         #     if host not in self.Register.DicoRegister.keys(): return
@@ -673,7 +697,8 @@ class ClassMemMonitor():
             #     colors = pylab.cm.Blues(normal(vs))
                 
             # colors = pylab.cm.Purples(normal(vs))
-            colors = pylab.cm.PuRd(normal(vs))
+            # colors = pylab.cm.PuRd(normal(vs))
+            colors = pylab.cm.BuGn(normal(vs))
             LT=np.array(LT)
             dt=np.median(LT[1:]-LT[:-1])
             for itime in range(LT.size-1):
@@ -693,17 +718,19 @@ class ClassMemMonitor():
             
         LL=copy.deepcopy(LHosts)
         LL[-1]="%s\n%s"%(LL[-1],"[rank0]")
+        
         ax1b.set_yticks(np.arange(NHost)+0.5,LL)
         ax2.set_ylabel("Mem [GB]")
         ax1.set_ylabel("CPU [%]")
+
+
         #ax2.set_ylabel(r"Temperature ($^\circ$C)")
         #ax2.set_ylim(0, 35)
+
+
+
+
         
-        t0,t1=np.min(LT),np.max(LT)
-        # DtMax=60.
-        # if t1-t0>DtMax:
-        #     t0=t1-DtMax
-        ax1.set_xlim(t0,t1)
         
         ax2.set_ylim(0,1.1*np.max(LMemTotal))
         ax1.grid()
@@ -711,9 +738,9 @@ class ClassMemMonitor():
         
         # ax1b.set_title("")
         # ax2.set_title("")
-        # ax1.set_xticklabels([])
-        # ax1b.set_xticklabels([])
-        # ax2.set_xticklabels([])
+        ax1.set_xticklabels([])
+        ax1b.set_xticklabels([])
+        ax2.set_xticklabels([])
         
         ax2.grid()
         ax1.set_ylim(0,110)
@@ -743,6 +770,42 @@ class ClassMemMonitor():
         ax3.set_ylim(0,Max)
         ax3b.set_ylim(0,Max)
         ax3.grid()
+
+        Lx=[]
+        LName=[]
+        for Name in self.Register.DicoBlockCorr.keys():
+            t0t1=self.Register.DicoBlockCorr[Name]["TRange"]
+            if len(t0t1)==2:
+                t0,t1=t0t1
+            else:
+                stop
+                t0,=t0t1
+                t1=time.time()
+            t0=(t0-self.t0)/3600
+            t1=(t1-self.t0)/3600
+            
+            tc=(t0+t1)/2
+            print(Name,t0,t1,tc)
+            Lx.append(tc)
+            if "DDFacet" in Name:
+                Name=Name.replace("] ","]\n")
+            LName.append(Name)
+        ax1top = ax1.twiny()
+        ax1top.plot([])
+        #ax1top.set_xlabel('epochs')
+        ax1top.set_xticks(Lx)
+        ax1top.set_xticklabels(LName, rotation=45,
+                               rotation_mode="anchor",
+                               ha='left',weight='bold')
+        #ax1top.set_title("Step")
+
+        t0,t1=np.min(LT),np.max(LT)
+        ax1.set_xlim(t0,t1)
+        ax1b.set_xlim(t0,t1)
+        ax2.set_xlim(t0,t1)
+        ax3.set_xlim(t0,t1)
+        ax1top.set_xlim(t0,t1)
+        
         # ax3.legend((l0,l1))
         
     def startMonitor(self):
