@@ -689,7 +689,7 @@ class ClassWeightMachine():
             msweights = self._weight_dict.addSubdict(iMS)
             for ichunk in range(len(MS.getPerChunkRowCounts())):
                 msw = msweights.addSubdict(ichunk)
-                path, valid = MS.getChunkCache(ichunk).checkCache("ImagingWeights.npy", cache_keys)
+                path, valid = MS.getChunkCache(ichunk).checkCache("ImagingWeights.npy", cache_keys, reset=(self.GD["Cache"]["Weight"]=="reset"))
                 have_all_weights = have_all_weights and valid
                 msw["cachepath"] = path
                 if valid:
