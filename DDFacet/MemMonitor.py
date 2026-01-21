@@ -479,7 +479,8 @@ class ClassMemMonitor():
 
         fig=self.fig
         gs = gridspec.GridSpec(4,4, figure=fig)
-        gs.update(wspace=0.05, hspace=0.0, left=0.15, right=0.95, bottom=0.08, top=0.8)
+        gs.update(wspace=0.05, hspace=0.0, left=0.15,
+                  right=0.9, bottom=0.08, top=0.8)
         fig.clf()
         
         ax1 = fig.add_subplot(gs[0,:])
