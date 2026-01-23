@@ -146,7 +146,7 @@ class ClassImageDeconvMachine():
 
     def updateMask(self,Mask):
         nx,ny=Mask.shape
-        self._MaskArray = np.zeros((1,1,nx,ny),np.bool8)
+        self._MaskArray = np.zeros((1,1,nx,ny),np.bool_)
         self._MaskArray[0,0,:,:]=Mask[:,:]
 
     def setMaskMachine(self,MaskMachine):
@@ -402,7 +402,7 @@ class ClassImageDeconvMachine():
 
         # if DoSetMask:
         #     if self._MaskArray is None:
-        #         self._MaskArray=np.zeros(self._MeanDirty.shape,dtype=np.bool8)
+        #         self._MaskArray=np.zeros(self._MeanDirty.shape,dtype=np.bool_)
         #     else:
         #         maskshape = (1,1,NDirty,NDirty)
         #         # check for mask shape
@@ -418,7 +418,7 @@ class ClassImageDeconvMachine():
         #                     return slice(None), slice(None)
         #             sx1, sx2 = match_shapes(NDirty, nx) 
         #             sy1, sy2 = match_shapes(NDirty, ny) 
-        #             self._MaskArray = np.zeros(maskshape, dtype=np.bool8)
+        #             self._MaskArray = np.zeros(maskshape, dtype=np.bool_)
         #             self._MaskArray[0,0,sx1,sy1] = ma0[0,0,sx2,sy2]
         #             print>>log,ModColor.Str("WARNING: reshaping mask image from %dx%d to %dx%d"%(nx, ny, NDirty, NDirty))
         #             print>>log,ModColor.Str("Are you sure you supplied the correct cleaning mask?")

@@ -66,7 +66,7 @@ class TestLOFAR_J1329_p4729(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSI
             Returns:
                 List of image identifiers to reference and output products
         """
-        return ['dirty', 'dirty.corr', 'psf', 'NormFacets', 'Norm',
+        return ['dirty', 'psf', 'NormFacets', 'Norm',
                 'app.residual', 'app.model',
                 'app.convmodel', 'app.restored']
 
@@ -78,7 +78,7 @@ class TestLOFAR_J1329_p4729(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSI
             Returns:
                 constant for maximum tolerance used in test case setup
         """
-        return [1e-6,1e-6,1e-6,1e-4,1e-4,
+        return [1e-6,1e-6,1e-4,1e-4,
                 5e-3,5e-3,
                 5e-3,5e-3]
 

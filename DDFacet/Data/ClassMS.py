@@ -1732,7 +1732,7 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
     # now, at this point each entry in the list can still contain wildcards, and ":Fx:Dx" groups. Process it
     mslist = []
     for msspec in MSName:
-        regrp = "(([0-9]+)|([0-9]+)([~:])([0-9]+)|(\*))"   # regex matching N or N:M or N~M or *
+        regrp = r"(([0-9]+)|([0-9]+)([~:])([0-9]+)|(\*))"   # regex matching N or N:M or N~M or *
         # match :F and :D suffixes, if present. Don't regexes make your brain melt
         terms = msspec.split("//")
         msname = terms[0]

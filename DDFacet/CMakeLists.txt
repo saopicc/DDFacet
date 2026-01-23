@@ -1,3 +1,4 @@
+project(DDFacet)
 cmake_minimum_required(VERSION 3.5)
 
 #As per http://permalink.gmane.org/gmane.comp.programming.tools.cmake.user/15952
