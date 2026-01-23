@@ -183,7 +183,7 @@ class ClassImageDeconvMachine():
 
     def updateMask(self,Mask):
         nx,ny=Mask.shape
-        self._MaskArray = np.zeros((1,1,nx,ny),np.bool8)
+        self._MaskArray = np.zeros((1,1,nx,ny),np.bool_)
         self._MaskArray[0,0,:,:]=Mask[:,:]
 
 

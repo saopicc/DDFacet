@@ -772,7 +772,7 @@ class ClassMakeMask():
             from DDFacet.Imager import ClassCasaImage
             CleanMaskImageName=ExternalAndMask
             print("Use mask image %s"%CleanMaskImageName, file=log)
-            CleanMaskImage = np.bool8(ClassCasaImage.FileToArray(CleanMaskImageName,False))[0,0]
+            CleanMaskImage = np.bool_(ClassCasaImage.FileToArray(CleanMaskImageName,False))[0,0]
             self.ImMask=(self.ImMask & CleanMaskImage)
 
         if self.UseIslands:

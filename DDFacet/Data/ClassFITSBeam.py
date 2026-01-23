@@ -21,8 +21,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-from argparse import ArgumentError
-from lib2to3.pgen2.parse import ParseError
 
 from DDFacet.compatibility import range
 
@@ -329,7 +327,6 @@ class ClassFITSBeam (object):
         }
         self.station_dependent_beams = False
         self.__load_patterns()
-    
         self.pa_inc = opts["FITSParAngleIncDeg"]
         self.time_inc = opts["DtBeamMin"]
         self.nchan = opts["NBand"]
@@ -337,6 +334,13 @@ class ClassFITSBeam (object):
         self.applyrotation = (opts["FITSParAngleIncDeg"] or opts["DtBeamMin"]) and opts["ApplyPJones"]
         self.applyantidiagonal = opts["FlipVisibilityHands"]
         self._frame = opts["FITSFrame"]
+        self.rotationdir = opts.get("RotationDirection", "North2East")
+        if self.rotationdir == "North2East":
+            self.rotationdir = +1
+        elif self.rotationdir == "North2West":
+            self.rotationdir = -1
+        else:
+            raise ValueError("Invalid beam rotation direction. Accepted values 'North2East' and 'North2West")
 
         # make measure for zenith
         if self._frame == "altaz":
@@ -352,7 +356,20 @@ class ClassFITSBeam (object):
         # make direction measure from field centre
         ra,dec = self.ms.OriginalRadec
         self.field_centre = dm.direction('J2000',dq.quantity(ra,"rad"),dq.quantity(dec,"rad"))
-
+        self.pointing_centre = opts.get("PointingCentre", "PhaseDir")
+        if self.pointing_centre == "PhaseDir":
+            self.pointing_centre = self.field_centre
+        else:
+            _erd = self.pointing_centre
+            if not (isinstance(_erd, list) and len(_erd) == 3):
+                raise ValueError("Expect a pointing direction in the format of J2000,xxhxxmxxs,xxdxxmxxs")
+            if _erd[0] != "J2000":
+                raise ValueError("Expect a pointing direction in the format of J2000,xxhxxmxxs,xxdxxmxxs")
+            from astropy.coordinates import SkyCoord
+            _pc = SkyCoord(_erd[1]+" "+_erd[2])
+            self.pointing_centre = dm.direction('J2000',
+                                                dq.quantity(_pc.ra.to_value("rad"),"rad"),
+                                                dq.quantity(_pc.dec.to_value("rad"),"rad"))
         # get channel frequencies from MS
         self.freqs = self.ms.ChanFreq.ravel()
         if not self.nchan:
@@ -410,7 +427,7 @@ class ClassFITSBeam (object):
                 # put time into reference frame
                 dm.do_frame(dm.epoch("UTC",dq.quantity(t0,"s"))) and
                 # compute PA 
-                dm.posangle(self.field_centre,self.zenith).get_value("deg") for t0 in beam_times ]
+                dm.posangle(self.pointing_centre,self.zenith).get_value("deg") for t0 in beam_times ]
             pa0 = pas[0]
             beam_times1 = [ beam_times[0] ]
             for t, pa in zip(beam_times[1:], pas[1:]):
@@ -431,6 +448,12 @@ class ClassFITSBeam (object):
 #        import pdb; pdb.set_trace()
         return domains
 
+    def radec2lm_scalar(self,ra,dec,origin):
+        ra0, dec0 = origin
+        l = np.cos(dec) * np.sin(ra - ra0)
+        m = np.sin(dec) * np.cos(dec0) - np.cos(dec) * np.sin(dec0) * np.cos(ra - ra0)
+        return l,m
+
     def evaluateBeam (self, t0, ra, dec):
         """Evaluates beam at time t0, in directions ra, dec.
         Inputs: t0 is a single time. ra, dec are Ndir vectors of directions.
@@ -444,7 +467,7 @@ class ClassFITSBeam (object):
             # put time into reference frame
             dm.do_frame(dm.epoch("UTC",dq.quantity(t0,"s")))
             # compute PA
-            parad = dm.posangle(self.field_centre,self.zenith).get_value("rad")
+            parad = dm.posangle(self.pointing_centre,self.zenith).get_value("rad")
         else:
             parad = 0
         # print("time %f, position angle %f"%(t0, parad*180/math.pi), file=log)
@@ -457,14 +480,16 @@ class ClassFITSBeam (object):
         if self._frame == "altaz" or self._frame == "equatorial" or self._frame == "altazgeo":
             # convert each ra/dec to l/m
             for i,(r1,d1) in enumerate(zip(ra,dec)):
-                l[i], m[i] = self.ms.radec2lm_scalar(r1,d1,original=True)
+                l[i], m[i] = self.radec2lm_scalar(r1,d1,
+                                                  origin=(self.pointing_centre['m0']['value'],
+                                                          self.pointing_centre['m1']['value']))
             # for alt-az mounts, rotate by PA
             if self._frame == "altaz" or self._frame == "altazgeo":
                 # rotate each by parallactic angle
                 r = numpy.sqrt(l*l+m*m)
                 angle = numpy.arctan2(m, l)
-                l = r*numpy.cos(angle + parad + np.deg2rad(self.feedangle))
-                m = r*numpy.sin(angle + parad + np.deg2rad(self.feedangle))
+                l = r*numpy.cos(angle + self.rotationdir * parad + np.deg2rad(self.feedangle))
+                m = r*numpy.sin(angle + self.rotationdir * parad + np.deg2rad(self.feedangle))
         elif self._frame == "zenith":
             az = numpy.zeros(ndir, float)
             el = numpy.zeros(ndir, float)

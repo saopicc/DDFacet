@@ -1,52 +1,51 @@
 [build-system]
-requires = ["numpy >= 1.15.1, <= 1.22.4; python_version >= '3.10' and python_version < '3.11'",
-            "numpy >= 1.15.1, <= 1.22.4; python_version >= '3.8' and python_version < '3.10'",
+requires = ["numpy >= 1.15.1, <= 2.3.2; python_version >= '3.11' and python_version < '3.13'",
+            "numpy >= 1.15.1, <= 1.22.4; python_version >= '3.8' and python_version < '3.11'",
             'pybind11 >= 2.2.2',
-            'cython<=0.29.30',
+            'cython',
             'cmake',
             'scikit-build-core']
 build-backend = "scikit_build_core.build"
 
 [project]
 name = "DDFacet"
-version = "0.8.0.1"
+version = "0.9.0.0"
 description = "Facet-based radio astronomy continuum imager"
 license = {file = "LICENSE.md"}
 readme = "README.rst"
-requires-python = ">=3.8,<3.11"
+requires-python = ">=3.8,<3.13"
 dependencies = [
-    "Cython >= 0.25.2, <= 0.29.30; python_version >= '3.8' and python_version < '3.11'", 
-    "numpy >= 1.15.1, <= 1.22.4; python_version >= '3.10' and python_version < '3.11'",
-    "numpy >= 1.15.1, <= 1.22.4; python_version >= '3.8' and python_version < '3.10'",
-    "sharedarray >= 3.2.0, <= 3.2.4; python_version >= '3.10' and python_version < '3.11'",
-    "sharedarray >= 3.2.0, <= 3.2.1; python_version >= '3.8' and python_version < '3.10'", 
-    "Polygon3 >= 3.0.8,<=3.0.9.1; python_version >= '3.8' and python_version < '3.11'", 
-    "pyFFTW >= 0.10.4,<=0.12.0; python_version >= '3.8' and python_version < '3.11'", 
-    "astropy >= 3.0,<=5.3.4; python_version >= '3.8' and python_version < '3.11'", 
-    "deap >= 1.0.1,<=1.4.1; python_version >= '3.8' and python_version < '3.11'",
-    "ptyprocess>=0.5,<=0.7.0; python_version >= '3.8' and python_version < '3.11'", 
-    "ipdb >= 0.10.3,<=0.13.13; python_version >= '3.8' and python_version < '3.11'", 
-    "python-casacore >= 3.0.0, <=3.5.2; python_version >= '3.8' and python_version < '3.11'", 
-    "pyephem >= 3.7.6.0; python_version >= '3.8' and python_version < '3.11'",
-    "numexpr >= 2.6.2,<=2.9.0; python_version >= '3.8' and python_version < '3.11'",
-    "matplotlib >= 2.0.0,<=3.8.2; python_version >= '3.8' and python_version < '3.11'", 
-    "scipy >= 1.3.3,<=1.11.4; python_version >= '3.8' and python_version < '3.11'", 
-    "astLib >= 0.8.0,<=0.11.10; python_version >= '3.8' and python_version < '3.11'",                     
-    "psutil >= 5.2.2,<=5.9.8; python_version >= '3.8' and python_version < '3.11'", 
-    "py-cpuinfo >= 3.2.0,<=9.0.0; python_version >= '3.8' and python_version < '3.11'", 
-    "tables >= 3.6.0,<=3.9.2; python_version >= '3.8' and python_version < '3.11'", 
-    "prettytable >= 0.7.2,<=3.9.0; python_version >= '3.8' and python_version < '3.11'", 
-    "pybind11 >= 2.2.2,<=2.11.1; python_version >= '3.8' and python_version < '3.11'", 
-    "configparser >= 3.7.1,<=6.0.0; python_version >= '3.8' and python_version < '3.11'", 
-    "pandas >=0.23.3,<=2.0.3; python_version >= '3.8' and python_version < '3.11'", 
-    "ruamel.yaml >= 0.15.92,<=0.18.6; python_version >= '3.8' and python_version < '3.11'", 
-    "pylru >= 1.1.0,<=1.2.1; python_version >= '3.8' and python_version < '3.11'", 
-    "six >= 1.12.0,<=1.16.0; python_version >= '3.8' and python_version < '3.11'", 
-    "dask[array]<= 2023.5.0; python_version >= '3.8' and python_version < '3.11'", 
-    "codex-africanus[dask]<=0.3.5; python_version >= '3.8' and python_version < '3.11'", 
-    "regions<=0.5; python_version >= '3.8' and python_version < '3.11'",
-    "pywavelets<=1.4.1; python_version >= '3.8' and python_version < '3.11'",
-    "tqdm<=4.64.0; python_version >= '3.8' and python_version < '3.11'"
+    "Cython >= 0.25.2, <= 3.2.4; python_version >= '3.8' and python_version < '3.13'", 
+    "numpy >= 1.15.1, <= 2.3.2; python_version >= '3.11' and python_version < '3.13'",
+    "numpy >= 1.15.1, <= 1.26.4; python_version >= '3.8' and python_version < '3.11'",
+    "sharedarray >= 3.2.0, <= 3.2.4; python_version >= '3.8' and python_version < '3.13'",
+    "Polygon3 >= 3.0.8, <= 3.0.9.1; python_version >= '3.8' and python_version < '3.13'", 
+    "pyFFTW >= 0.10.4, <= 0.15.1; python_version >= '3.8' and python_version < '3.13'", 
+    "astropy >= 3.0, <= 7.2.0; python_version >= '3.8' and python_version < '3.13'", 
+    "deap >= 1.0.1, <= 1.4.3; python_version >= '3.8' and python_version < '3.13'",
+    "ptyprocess>=0.5, <= 0.7.0; python_version >= '3.8' and python_version < '3.13'", 
+    "ipdb >= 0.10.3, <= 0.13.13; python_version >= '3.8' and python_version < '3.13'", 
+    "python-casacore >= 3.0.0, <= 3.7.1; python_version >= '3.8' and python_version < '3.13'", 
+    "pyephem >= 3.7.6.0, <= 9.99; python_version >= '3.8' and python_version < '3.13'",
+    "numexpr >= 2.6.2, <= 2.14.1; python_version >= '3.8' and python_version < '3.13'",
+    "matplotlib >= 2.0.0, <= 3.10.8; python_version >= '3.8' and python_version < '3.13'", 
+    "scipy >= 1.3.3, <= 1.17.0; python_version >= '3.8' and python_version < '3.13'", 
+    "astLib >= 0.8.0, <= 0.13.1; python_version >= '3.8' and python_version < '3.13'",                     
+    "psutil >= 5.2.2, <= 7.2.1; python_version >= '3.8' and python_version < '3.13'", 
+    "py-cpuinfo >= 3.2.0, <= 9.0.0; python_version >= '3.8' and python_version < '3.13'", 
+    "tables >= 3.6.0, <= 3.10.2; python_version >= '3.8' and python_version < '3.13'", 
+    "prettytable >= 0.7.2, <= 3.17.0; python_version >= '3.8' and python_version < '3.13'", 
+    "pybind11 >= 2.2.2, <= 3.0.1; python_version >= '3.8' and python_version < '3.13'", 
+    "configparser >= 3.7.1, <= 7.2.0; python_version >= '3.8' and python_version < '3.13'", 
+    "pandas >=0.23.3, <= 2.3.3; python_version >= '3.8' and python_version < '3.13'", 
+    "ruamel.yaml >= 0.15.92, <= 0.19.1; python_version >= '3.8' and python_version < '3.13'", 
+    "pylru >= 1.1.0, <= 1.2.1; python_version >= '3.8' and python_version < '3.13'", 
+    "six >= 1.12.0, <= 1.17.0; python_version >= '3.8' and python_version < '3.13'", 
+    "dask[array] < v2024.11.0; python_version >= '3.8' and python_version < '3.13'", 
+    "codex-africanus[dask] <= 0.4.3; python_version >= '3.8' and python_version < '3.13'", 
+    "regions <= 0.11; python_version >= '3.8' and python_version < '3.13'",
+    "pywavelets <= 1.9.0; python_version >= '3.8' and python_version < '3.13'",
+    "tqdm<=4.64.0, ; python_version >= '3.8' and python_version < '3.13'"
 ]
 entrypoints = []
 authors = [{ name = "Cyril Tasse", email = "cyril.tasse@obspm.fr" }]
@@ -79,19 +78,17 @@ classifiers = [
 "MyCasapy2bbs.py" = "SkyModel.__main__:mycasapy2bbs_main"
 
 [project.optional-dependencies]
-dft-support = ["montblanc >= 0.6.1, <= 0.7.3.2; python_version >= '3.8' and python_version < '3.11'",
-               "tensorflow == 2.12.0; python_version >= '3.10' and python_version < '3.11'"
-              ]
-moresane-support = ["pymoresane >= 0.3.0; python_version >= '3.8' and python_version < '3.11'"]
-fits-beam-support = ["meqtrees-cattery <= 1.7.9; python_version >= '3.8' and python_version < '3.11'"]
-kms-support = ["bdsf > 1.8.15,<=1.11.1; python_version >= '3.10' and python_version < '3.11'",
+dft-support = ["montblanc >= 0.6.1,<=0.7.4; python_version >= '3.8' and python_version < '3.13'"]
+moresane-support = ["pymoresane >= 0.3.0; python_version >= '3.8' and python_version < '3.13'"]
+fits-beam-support = ["meqtrees-cattery>=1.8.0rc3; python_version >= '3.8' and python_version < '3.13'"]
+kms-support = ["bdsf > 1.8.15; python_version >= '3.10' and python_version < '3.13'",
 	           "bdsf > 1.8.15,<=1.10.1; python_version >= '3.8' and python_version < '3.10'"]
 
-alternate-data-backends = ["dask-ms[xarray]<=0.2.20; python_version >= '3.8' and python_version < '3.11'",
-                           "xarray<=2023.12.0; python_version >= '3.8' and python_version < '3.11'"]
+alternate-data-backends = ["dask-ms[xarray,katdal]; python_version >= '3.8' and python_version < '3.13'",
+                           "xarray; python_version >= '3.8' and python_version < '3.13'"]
 testing-requirements = ["nose >= 1.3.7; python_version >= '3' and python_version < '3.9'",
-                        "pynose >= 1.4.8; python_version >= '3.9' and python_version < '3.11'",
-                        "owlcat >= 1.7.5; python_version >= '3.8' and python_version < '3.11'"]
+                        "pynose >= 1.4.8; python_version >= '3.9' and python_version < '3.13'",
+                        "owlcat >= 1.8.1rc1; python_version >= '3.8' and python_version < '3.13'"]
                           
 [tool.scikit-build]
 # The versions of CMake to allow. If CMake is not present on the system or does

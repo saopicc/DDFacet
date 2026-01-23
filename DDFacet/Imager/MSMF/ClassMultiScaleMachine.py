@@ -1122,7 +1122,7 @@ class ClassMultiScaleMachine():
             xc0,yc0=np.where(np.abs(MeanOrigDirty) == np.max(np.abs(MeanOrigDirty)))
             PeakMeanOrigDirty=MeanOrigDirty[xc0[0],yc0[0]]
             dirtyVec=dirtyVec.copy()
-            Mask=np.zeros(WVecPSF.shape,np.bool8)
+            Mask=np.zeros(WVecPSF.shape,np.bool_)
 
             T=ClassTimeIt.ClassTimeIt()
             T.disable()

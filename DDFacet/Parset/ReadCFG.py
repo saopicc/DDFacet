@@ -93,7 +93,7 @@ def parse_config_string(string, name='config', extended=True, type=None):
             while True:
                 docstring = docstring.strip()
                 # find instance of #attr:value in docstring
-                match = re.match("(.*)#(\w+):([^\s]*)(.*)", docstring, re.DOTALL)
+                match = re.match(r"(.*)#(\w+):([^\s]*)(.*)", docstring, re.DOTALL)
                 if not match:
                     break
                 # extract attribute

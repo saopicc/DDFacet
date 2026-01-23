@@ -1,8 +1,4 @@
-FROM ubuntu:focal-20220105
-
-#Package dependencies
-COPY apt.sources.list /etc/apt/sources.list
-RUN sed -i 's/bionic/focal/g' /etc/apt/sources.list
+FROM kernsuite/base:8
 
 #Setup environment
 ENV DDFACET_TEST_DATA_DIR /test_data
@@ -52,13 +48,29 @@ ENV DEB_DEPENCENDIES \
     bison \
     libbison-dev \
     libqdbm-dev \
-    # Reference image generation dependencies
-    make
+    make \
+    casacore-dev \
+    casacore-tools \
+    casarest \
+    casacore-data \
+    makems \
+    python3-casacore
+
+ENV TEST_DEPENDENCIES \
+    meqtrees \
+    python3-meqtrees-cattery \
+    meqtrees-timba \
+    python3-meqtrees-timba \
+    python3-astro-kittens \
+    python3-astro-tigger-lsm \
+    python3-owlcat \
+    python3-purr \
+    python3-pyxis
 
 RUN apt-get update
 RUN apt-get install -y $DEB_SETUP_DEPENDENCIES
 RUN apt-get install -y $DEB_DEPENCENDIES
-
+RUN apt-get install -y $TEST_DEPENDENCIES
 
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-$GNUCOMPILER 100 && \
     update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-$GNUCOMPILER 100 && \
@@ -71,133 +83,10 @@ RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-$GNUCOMPILER 100
     update-alternatives --install /usr/bin/x86_64-linux-gnu-gfortran x86_64-linux-gnu-gfortran /usr/bin/gfortran-$GNUCOMPILER 100
 
 ## All python dependencies go into venv
-ENV NUMPYVER 1.22.4
 
 WORKDIR /opt
 RUN virtualenv venv -p python${PYTHONVER}
 RUN . /opt/venv/bin/activate && python -m pip install -U pip setuptools wheel
-
-########################################
-# build SOFA
-########################################
-WORKDIR /opt
-RUN wget http://www.iausofa.org/2021_0512_C/sofa_c-20210512.tar.gz && \
-    tar xvfz sofa_c-20210512.tar.gz && \
-    rm sofa_c-20210512.tar.gz && \
-    cd /opt/sofa/20210512/c/src && \
-    sed -i '52s/.*/INSTALL_DIR = \/usr/' makefile && \
-    make -j4 && \
-    make install && \
-    make test && \
-    rm -r /opt/sofa
-
-#################################################################
-## build blitz from source
-#################################################################
-WORKDIR /opt
-RUN wget https://github.com/blitzpp/blitz/archive/1.0.2.tar.gz && \
-    tar -xvf 1.0.2.tar.gz && \
-    rm 1.0.2.tar.gz && \
-    cd /opt/blitz-1.0.2 && \
-    grep -rl python . | xargs sed -i "s/python/python${PYTHONVER}/g" && \
-    ./configure --enable-shared && \
-    make -j16 && \
-    make install && \
-    ldconfig && \
-    rm -r /opt/blitz-1.0.2
-
-#####################################################################
-## Get CASACORE ephem data
-#####################################################################
-RUN mkdir -p /usr/share/casacore/data/
-WORKDIR /usr/share/casacore/data/
-RUN rsync -avz rsync://casa-rsync.nrao.edu/casa-data .
-
-RUN apt-get install -y libgsl-dev
-#####################################################################
-## BUILD CASACORE AND CASAREST FROM SOURCE
-#####################################################################
-WORKDIR /opt
-RUN wget https://github.com/casacore/casacore/archive/v3.5.0.tar.gz && \
-    tar xvf v3.5.0.tar.gz && \
-    rm v3.5.0.tar.gz && \
-    mkdir casacore-3.5.0/build && \
-    cd /opt/casacore-3.5.0/build && \
-    cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DBUILD_DEPRECATED=OFF -DBUILD_PYTHON=OFF -DBUILD_PYTHON3=ON ../ && \
-    make -j 16 && \
-    make install && \
-    rm -r /opt/casacore-3.5.0 && \
-    ldconfig
-RUN cd /opt && \
-    wget https://github.com/casacore/casarest/archive/v1.8.1.tar.gz && \
-    tar xvf v1.8.1.tar.gz && \
-    rm v1.8.1.tar.gz && \
-    cd /opt/casarest-1.8.1 && \
-    mkdir -p build && \
-    cd /opt/casarest-1.8.1/build && \
-    cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release ../ && \
-    make -j 16 && \
-    make install && \
-    rm -r /opt/casarest-1.8.1 && \
-    ldconfig
-RUN cd /opt && \
-    wget https://github.com/casacore/python-casacore/archive/v3.5.2.tar.gz && \
-    tar xvf v3.5.2.tar.gz && \
-    rm v3.5.2.tar.gz && \
-    cd /opt/python-casacore-3.5.2 && \
-    . /opt/venv/bin/activate && python -m pip install . "numpy==${NUMPYVER}" && \
-    cd / && \
-    python -c "from pyrap.tables import table as tbl"
-
-#####################################################################
-## BUILD MAKEMS FROM SOURCE AND TEST
-#####################################################################
-WORKDIR /opt
-RUN wget https://github.com/ska-sa/makems/archive/v1.5.4.tar.gz && \
-    tar xvf v1.5.4.tar.gz && \
-    rm v1.5.4.tar.gz && \
-    mkdir -p /opt/makems-1.5.4/LOFAR/build/gnu_opt && \
-    cd /opt/makems-1.5.4/LOFAR/build/gnu_opt && \
-    cmake -DCMAKE_MODULE_PATH:PATH=/opt/makems-1.5.4/LOFAR/CMake \
-          -DUSE_LOG4CPLUS=OFF -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_PREFIX=/usr ../.. && \
-    make -j 16 && \
-    make install && \
-    cd /opt/makems-1.5.4/test && \
-    makems WSRT_makems.cfg && \
-    rm -r /opt/makems-1.5.4
-
-#####################################################################
-## BUILD MEQTREES FROM SOURCE AND TEST
-#####################################################################
-WORKDIR /opt
-# Get MeqTrees universe python packages
-WORKDIR /opt
-
-RUN . /opt/venv/bin/activate && python -m pip install purr owlcat kittens meqtrees-cattery astro-tigger-lsm "numpy==${NUMPYVER}" && \
-    wget https://github.com/ska-sa/meqtrees-timba/archive/refs/tags/v1.8.3.tar.gz && \
-    tar zxvf v1.8.3.tar.gz && \
-    rm v1.8.3.tar.gz && \
-    cd meqtrees-timba-1.8.3 && \
-    mkdir build && \
-    cd build && \
-    cmake -DCMAKE_INSTALL_PREFIX=/usr \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DENABLE_PYTHON_3=ON \
-          -DPYTHON_PACKAGES_DIR=/opt/venv/lib/python${PYTHONVER}/site-packages \
-          .. && \
-    make -j4 && \
-    make install && \
-    ldconfig && \
-    rm -r /opt/meqtrees-timba-1.8.3 && \
-    cd /opt && \
-    wget https://github.com/ska-sa/pyxis/archive/v1.7.4.3.tar.gz && \
-    tar zxvf v1.7.4.3.tar.gz && \
-    rm v1.7.4.3.tar.gz && \
-    python -m pip install /opt/pyxis-1.7.4.3 nose "numpy==${NUMPYVER}" && \
-    cd /opt/pyxis-1.7.4.3/Pyxis/recipes/meqtrees-batch-test && \
-    python -m "nose" && \
-    rm -r /opt/pyxis-1.7.4.3
 
 #####################################################################
 ## BUILD LOFAR FROM SOURCE
@@ -246,7 +135,7 @@ RUN . /opt/venv/bin/activate && python -c "import bdsf"
 # Finally Make VENV globally available in this container
 ENV LD_LIBRARY_PATH /opt/venv/lib:$LD_LIBRARY_PATH
 ENV PATH /opt/venv/bin:$PATH
-ENV PYTHONPATH /opt/venv/lib/python${PYTHONVER}/site-packages
+ENV PYTHONPATH /opt/venv/lib/python${PYTHONVER}/site-packages:/usr/lib/python3/dist-packages
 
 # perform some basic tests
 RUN DDF.py --help
@@ -255,7 +144,10 @@ RUN MakeCatalog.py --help
 RUN MakeModel.py --help
 RUN MaskDicoModel.py --help
 RUN ClusterCat.py --help
-
+RUN flag-ms.py --help
+RUN meqtree-pipeliner.py --help
+RUN pyxis --help
+RUN python3 -c 'from Timba import mequtils'
 
 # set as entrypoint - user should be able to run docker run ddftag and get help printed
 ENTRYPOINT ["DDF.py"]

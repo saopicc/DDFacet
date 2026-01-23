@@ -174,10 +174,10 @@ class ClassImageDeconvMachine():
             print("Applying external mask", file=log)
             MaskArray=self.MaskMachine.ExternalMask
             nch,npol,_,_=MaskArray.shape
-            self._MaskArray=np.zeros(MaskArray.shape,np.bool8)
+            self._MaskArray=np.zeros(MaskArray.shape,np.bool_)
             for ch in range(nch):
                 for pol in range(npol):
-                    self._MaskArray[ch,pol,:,:]=np.bool8(1-MaskArray[ch,pol].copy())[:,:]
+                    self._MaskArray[ch,pol,:,:]=np.bool_(1-MaskArray[ch,pol].copy())[:,:]
             self._MaskArray = np.ascontiguousarray(self._MaskArray)
             self.MaskArray = np.ascontiguousarray(self._MaskArray[0])
 
@@ -249,7 +249,7 @@ class ClassImageDeconvMachine():
         if self.ModelImage is None:
             self._ModelImage=np.zeros_like(self._Dirty)
         if self.MaskArray is None:
-            self._MaskArray=np.zeros(self._Dirty.shape,dtype=np.bool8)
+            self._MaskArray=np.zeros(self._Dirty.shape,dtype=np.bool_)
 
 
     def SubStep(self,xc,yc,indexPol,LocalSM):
@@ -300,7 +300,7 @@ class ClassImageDeconvMachine():
         """
         exit_msg = ""
         continue_deconvolution = np.zeros((len(self.PolarizationCleanTasks), ), 
-                                          dtype=np.bool8)
+                                          dtype=np.bool_)
         update_model = False
         complex_clean = self.ComplexClean
 

@@ -27,7 +27,7 @@ from DDFacet.compatibility import range
 import pdb
 import numpy as np
 import warnings
-warnings.simplefilter('ignore', np.RankWarning)
+warnings.simplefilter('ignore', np.exceptions.RankWarning)
 from scipy.optimize import curve_fit, fmin_l_bfgs_b
 from DDFacet.Other import logger
 from DDFacet.Imager.ClassScaleMachine import Store

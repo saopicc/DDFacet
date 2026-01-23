@@ -590,9 +590,9 @@ void griddername(PyArrayObject *grid, \
       };\
       \
       if(wcoord>0){\
-      	cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lcfs, iwplane), PyArray_COMPLEX64, 0, 2);\
+      	cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lcfs, iwplane), NPY_COMPLEX64, 0, 2);\
       } else{\
-      	cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LcfsConj, iwplane), PyArray_COMPLEX64, 0, 2);\
+      	cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LcfsConj, iwplane), NPY_COMPLEX64, 0, 2);\
       }\
       int nConvX = cfs->dimensions[0];\
       int nConvY = cfs->dimensions[1];\
@@ -1365,16 +1365,16 @@ void degriddername(PyArrayObject *grid, \
     /* Get size of convolution functions. */ \
     PyArrayObject *cfs; \
     PyArrayObject *NpPolMap; \
-    NpPolMap = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lmaps, 0), PyArray_INT32, 0, 4); \
+    NpPolMap = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lmaps, 0), NPY_INT32, 0, 4); \
     int npolsMap=NpPolMap->dimensions[0]; \
     \
     int *p_ChanMapping=p_int32(np_ChanMapping); \
     \
     PyArrayObject *NpFacetInfos; \
-    NpFacetInfos = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lmaps, 1), PyArray_FLOAT64, 0, 4); \
+    NpFacetInfos = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lmaps, 1), NPY_FLOAT64, 0, 4); \
     \
     PyArrayObject *NpRows; \
-    NpRows = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lmaps, 2), PyArray_INT32, 0, 4); \
+    NpRows = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lmaps, 2), NPY_INT32, 0, 4); \
     int* ptrRows=I_ptr(NpRows); \
     int row0=ptrRows[0]; \
     int row1=ptrRows[1]; \
@@ -1576,9 +1576,9 @@ void degriddername(PyArrayObject *grid, \
       if(iwplane>NwPlanes-1){skipW=1;continue;};\
       \
       if(wcoord>0){\
-	cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lcfs, iwplane), PyArray_COMPLEX64, 0, 2);\
+	cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lcfs, iwplane), NPY_COMPLEX64, 0, 2);\
       } else{\
-	cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LcfsConj, iwplane), PyArray_COMPLEX64, 0, 2);\
+	cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LcfsConj, iwplane), NPY_COMPLEX64, 0, 2);\
       }\
       int nConvX = cfs->dimensions[0];\
       int nConvY = cfs->dimensions[1];\
@@ -1785,7 +1785,7 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
 			))  return NULL;
   int nx,ny,nz,nzz;
   
-  np_vis = (PyArrayObject *) PyArray_ContiguousFromObject(ObjVis, PyArray_COMPLEX64, 0, 3);
+  np_vis = (PyArrayObject *) PyArray_ContiguousFromObject(ObjVis, NPY_COMPLEX64, 0, 3);
 
   
   char* stokeslookup[] = {"undef","I","Q","U","V","RR","RL","LR","LL","XX","XY","YX","YY"};

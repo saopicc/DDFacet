@@ -202,7 +202,7 @@ def testWhereMax():
     A=np.zeros((nch,Npx,Npy),dtype=np.float32)
     A=np.float32(np.random.randn(*(nch,Npx,Npy)))
     
-    Mask=np.zeros((Npx,Npy),np.bool8)
+    Mask=np.zeros((Npx,Npy),np.bool_)
     #A[0,100,200]=30.
 
     T= ClassTimeIt.ClassTimeIt()
@@ -217,16 +217,16 @@ def testWhereMax():
     print(ind,A[ind])
     print("===========================")
     print(A_whereMax(A,NCPU=1,DoAbs=0,Mask=None))
-    print(A_whereMax(A,NCPU=1,DoAbs=0,Mask=np.zeros(A.shape,np.bool8)))
+    print(A_whereMax(A,NCPU=1,DoAbs=0,Mask=np.zeros(A.shape,np.bool_)))
     print("===========================")
     print(A_whereMax(A,NCPU=6,DoAbs=0,Mask=None))
-    print(A_whereMax(A,NCPU=6,DoAbs=0,Mask=np.zeros(A.shape,np.bool8)))
+    print(A_whereMax(A,NCPU=6,DoAbs=0,Mask=np.zeros(A.shape,np.bool_)))
     print("===========================")
     print(A_whereMax(A,NCPU=1,DoAbs=1,Mask=None))
-    print(A_whereMax(A,NCPU=1,DoAbs=1,Mask=np.zeros(A.shape,np.bool8)))
+    print(A_whereMax(A,NCPU=1,DoAbs=1,Mask=np.zeros(A.shape,np.bool_)))
     print("===========================")
     print(A_whereMax(A,NCPU=6,DoAbs=1,Mask=None))
-    print(A_whereMax(A,NCPU=6,DoAbs=1,Mask=np.zeros(A.shape,np.bool8)))
+    print(A_whereMax(A,NCPU=6,DoAbs=1,Mask=np.zeros(A.shape,np.bool_)))
 
 
 # testWhereMax()
