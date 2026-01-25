@@ -15,7 +15,7 @@ from DDFacet.Imager.SSD3.GA import algorithms
 import numpy as np
 import random
 import psutil
-from DDFacet.Imager.SSD2 import ClassArrayMethodSSD
+from DDFacet.Imager.SSD3 import ClassArrayMethodSSD
 #from DDFacet.Imager.SSD3 import ClassImageArrayMethodSSD
 from DDFacet.Array import shared_dict
 from DDFacet.Imager.SSD3 import ClassImageDeconvMachineSSD
@@ -41,52 +41,15 @@ SERIAL=False
 
 
 class ClassEvolveGA():
-    def __init__(self,ImageDeconvMachine):
+    def __init__(self,ImageDeconvMachine,ParallelMode="OverIslands"):
         self.__dict__ = ImageDeconvMachine.__dict__
         self.ImageDeconvMachine=ImageDeconvMachine
+        self.ParallelMode=ParallelMode
         
-        
-    # def runGA_AllIslands(self):
-    #     APP=self.APP_GA
-            
-    #     # Model from initialisation
-    #     DicoDicoInitIndiv  = shared_dict.attach("DicoDicoInitIndiv%s"%self.StrField)
-
-    #     NGen=self.GD["GAClean"]["NMaxGen"]
-        
-    #     if NGen>0:
-    #         log.print("Running GA algorithm")
-    #         T=ClassTimeIt.ClassTimeIt("runGA_AllIslands")
-    #         T.disable()
-            
-    #         for iIsland,Island in enumerate(self.ListIslands):
-    #             # IslandBestIndiv=self.ModelMachine.GiveIndividual(self.ListIslands[iIsland])
-    #             APP.runJob("runGA.%i"%(iIsland),
-    #                        self._runGA,
-    #                        args=(#self.ListIslands,
-    #                              iIsland,
-    #                              #IslandBestIndiv,
-    #                              self.DicoDirty.path,self.GridFreqs,self.DegridFreqs), serial=SERIAL)
-    #         LDicoResults=APP.awaitJobResults("runGA.*", progress="Genetic Alg.")
-    #         T.timeit("runGA")
-    #     else:
-    #         if len(DicoDicoInitIndiv.keys())>1: stop
-    #         LDicoResults=[]
-    #         allIslandModelDict  = shared_dict.attach("DeconvListIslands%s"%self.StrField)
-    #         allIslandModelDict.reload()
-    #         for iIsland,Island in enumerate(self.ListIslands):
-    #             LDicoResults.append({'Success':1,
-    #                                  'iIsland':iIsland,
-    #                                  'HasError':0})
-    #             allIslandModelDict[iIsland]['Model']=DicoDicoInitIndiv[0][iIsland].flatten()
-                 
-        
-        #APP.terminate()
-        #APP.shutdown()
-        #del(self.APP_GA)
-
     def setDicoInitModel(self,DicoInitModel):
         self.DicoInitIndiv=DicoInitModel
+
+    
         
     def _runGA(self,#ListIslands,
                iIsland,
@@ -168,37 +131,6 @@ class ClassEvolveGA():
 
         ##tr.print_diff()
 
-        # # ##############################
-        # np_island_dict={}
-        # for k in ThisIslandModelDict.keys():
-        #     np_island_dict[k]=ThisIslandModelDict[k].copy()
-        # def giveCopy(D):
-        #     d={}
-        #     import copy
-        #     for k in D.keys():
-        #         if "SharedDict" in str(type(D[k])):
-        #             for kk in D[k].keys():
-        #                 d[k]=giveCopy(D[k])
-        #         elif "array" in str(type(D[k])):
-        #             d[k]=D[k].copy()
-        #         else:
-        #             d[k]=copy.deepcopy(D[k])
-        #     return d
-        # np_FreqsInfo=giveCopy(self.FreqsInfo)
-        # np.savez("SingleIsland_input_%i.npz"%iIsland,
-        #          Dirty=self._Dirty.copy(),
-        #          PSF=PSF.copy(),
-        #          FreqsInfo=np_FreqsInfo,
-        #          ListPixParms=ListPixParms,
-        #          ListPixData=ListPixData,
-        #          iFacet=FacetID,
-        #          PixVariance=PixVariance,
-        #          IslandBestIndiv=IslandBestIndiv,
-        #          GD=self.GD,
-        #          iIsland=iIsland,
-        #          island_dict=np_island_dict,
-        #          ModelMachine=self.ModelMachine)
-        # # ##############################
 
 
         self.CEv=ClassEvolveGA_SingleIsland(self._Dirty,
@@ -211,7 +143,7 @@ class ClassEvolveGA():
                                             GD=self.GD,
                                             iIsland=iIsland,
                                             island_dict=ThisIslandModelDict,
-                                            ParallelFitness=False,
+                                            ParallelMode=self.ParallelMode,
                                             DicoInitIndiv=self.DicoInitIndiv
                                             )
         
@@ -246,10 +178,10 @@ class ClassEvolveGA():
 class ClassEvolveGA_SingleIsland():
     def __init__(self,Dirty,PSF,FreqsInfo,ListPixData=None,ListPixParms=None,IslandBestIndiv=None,GD=None,
                  WeightFreqBands=None,PixVariance=1e-2,iFacet=0,iIsland=None,island_dict=None,
-                 ParallelFitness=False,
+                 ParallelMode=None,
                  DicoInitIndiv=None):
         self.DicoInitIndiv=DicoInitIndiv
-                 
+        self.ParallelMode=ParallelMode
         if GD["Misc"]["RandomSeed"] is not None:
             random.seed(int(GD["Misc"]["RandomSeed"]))
             np.random.seed(int(GD["Misc"]["RandomSeed"]))
@@ -284,11 +216,9 @@ class ClassEvolveGA_SingleIsland():
                                                                          WeightFreqBands=WeightFreqBands,
                                                                          iIsland=iIsland,
                                                                          island_dict=island_dict,
-                                                                         ParallelFitness=ParallelFitness,
-                                                                         NCPU=NCPU,
-                                                                         )
-                                                                         #ScaleS0="linear")
-        # self.ArrayMethodsMachine.InitWorkers()
+                                                                         ParallelMode=self.ParallelMode,
+                                                                         NCPU=NCPU)
+        self.ArrayMethodsMachine.startWorkers()
 
         
 
@@ -502,7 +432,7 @@ class ClassEvolveGA_SingleIsland():
                 V = tools.selBest(pop_init, 1)[0]
 
                 
-                self.ArrayMethodsMachine.KillWorkers()
+                self.ArrayMethodsMachine.stopWorkers()
                 return V
             T.timeit("N=0")
 
@@ -650,7 +580,7 @@ class ClassEvolveGA_SingleIsland():
         #F1,_=self.ArrayMethodsMachine.GiveFitnessPop(pop_merge)
         V = tools.selBest(pop_merge, 1)[0]
         
-        self.ArrayMethodsMachine.KillWorkers()
+        self.ArrayMethodsMachine.stopWorkers()
         
 
         # #:param mu: The number of individuals to select for the next generation.

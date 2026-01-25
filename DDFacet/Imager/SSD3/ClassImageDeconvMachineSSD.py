@@ -565,16 +565,38 @@ class ClassImageDeconvMachine():
                                                            )
         self.APP_GA.registerJobHandlers(self)
         self.APP_GA.startWorkers()
-
-        # SERIAL=1
+        # ############################################
+        ParallelMode="OverIslands"
+        NDeconv=0
+        NDeconvBig=0
         for iIsland,Island in enumerate(self.ListIslands):
-            #print("SDLFSLJFJS",iIsland,len(Island))
+            if len(Island)>self.GD["SSDClean"]["ConvFFTSwitch"]:
+                NDeconvBig+=1
+                continue
+            NDeconv+=1
             self.APP_GA.runJob("initIsland.%i"%(iIsland),
                        self._initIsland,
-                       args=(#self.ListIslands,
-                             iIsland,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs,self.ThSpectralFit), serial=SERIAL)
-        LDicoResults=self.APP_GA.awaitJobResults("initIsland.*", progress="Deconv Islands")
-
+                       args=(iIsland,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs,self.ThSpectralFit,ParallelMode), serial=SERIAL)
+        if NDeconv>0:
+            print("Deconvolve small islands (<=%i pixels) (parallelised over island)"%(self.GD["SSDClean"]["ConvFFTSwitch"]), file=log)
+            LDicoResults=self.APP_GA.awaitJobResults("initIsland.*", progress="Deconv Islands")
+        else:
+            LDicoResults=[]
+        # ############################################
+        if NDeconvBig>0:
+            print("Deconvolve large islands (>%i pixels) (parallelised over sourcekin)"%(self.GD["SSDClean"]["ConvFFTSwitch"]), file=log)
+            ParallelMode="PerIsland"
+            for iIsland,Island in enumerate(self.ListIslands):
+                if len(Island)<=self.GD["SSDClean"]["ConvFFTSwitch"]: continue
+                #rep=self._initIsland(iIsland,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs,self.ThSpectralFit,ParallelMode)
+                #LDicoResults.append(rep)
+                self.APP_GA.runJob("initIsland.%i"%(iIsland),
+                                   self._initIsland,
+                                   args=(iIsland,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs,self.ThSpectralFit,ParallelMode), serial=SERIAL)
+            LDicoResults=self.APP_GA.awaitJobResults("initIsland.*", progress="Deconv Islands")
+            
+        # ############################################
+        # Collect results
         DTime={}
         LNSpectralFit=[]
         for DicoResult in LDicoResults:
@@ -647,9 +669,10 @@ class ClassImageDeconvMachine():
         log.print("  Done GA")
 
         #logger.setLoud(["AsyncProcessPool"])
-        
+        self.APP_GA.terminate()
+        self.APP_GA.shutdown()
+
         allIslandModelDict.delete()
-        # self.DicoDicoInitIndiv.delete()
         
         return "MaxIter", True, True   # stop deconvolution but do update model
 
@@ -671,8 +694,7 @@ class ClassImageDeconvMachine():
 
     
     def _initIsland(self,
-                    #ListIslands,
-                    iIsland,DicoDirty_path,GridFreqs,DegridFreqs,ThSpectralFit):
+                    iIsland,DicoDirty_path,GridFreqs,DegridFreqs,ThSpectralFit,ParallelMode):
 
         self.DicoInitIndiv={}
 
@@ -737,7 +759,7 @@ class ClassImageDeconvMachine():
         # logger.setSilent(["AsyncProcessPool"])
         
         t0=time.time()
-        GAMachine=ClassEvolveGA(self)
+        GAMachine=ClassEvolveGA(self,ParallelMode)
         GAMachine.setDicoInitModel(DicoInitModel)
         DicoResult=GAMachine._runGA(iIsland,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs)
         t1=time.time()

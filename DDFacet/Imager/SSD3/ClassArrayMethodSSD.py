@@ -27,25 +27,25 @@ log= logger.getLogger("ClassArrayMethodSSD")
 from DDFacet.Imager.SSD3.ClassParamMachine import ClassParamMachine
 from DDFacet.ToolsDir.GeneDist import ClassDistMachine
 from DDFacet.Imager.SSD3 import ClassMutate
+import DDFacet.Other.AsyncProcessPool
 
-SERIAL=True
-#SERIAL=False
+SERIAL=False
 
+        
 class ClassArrayMethodSSD():
     def __init__(self,Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,GD=None,
                  PixVariance=1.e-2,IslandBestIndiv=None,WeightFreqBands=None,iFacet=0,
                  island_dict=None,
                  iIsland=0,
-                 ParallelFitness=False,
-                 NCPU=None,
-                 ScaleS0=None):
-        self.ParallelFitness=ParallelFitness
+                 ParallelMode=None,
+                 NCPU=None):
+        self.ParallelFitness=(ParallelMode=="PerIsland")
         self.iFacet=iFacet
         self.WeightFreqBands=WeightFreqBands
         self.iIsland=iIsland
 
         self._island_dict = island_dict
-        #self._island_dict=None
+
         self.PSF = PSF
 
         self.IslandBestIndiv=IslandBestIndiv
@@ -56,10 +56,7 @@ class ClassArrayMethodSSD():
 
         self.BestChi2=1.
         self.EntropyMinMax=None
-        # IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
-        # ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=5)
-
-        #ListPixParms=ListPixData
+        
         _,_,nx,_=Dirty.shape
         
         self.ListPixParms=ListPixParms
@@ -72,8 +69,7 @@ class ClassArrayMethodSSD():
             self.ConvMode="FFT"
 
         self.ConvMachine=ClassConvMachine.ClassConvMachine(PSF,ListPixParms,ListPixData,self.ConvMode)
-        self.T=ClassTimeIt.ClassTimeIt("_SingleIslandStuff #%i"%self.iIsland)
-        self.T.disable()
+        
         
         
         self.GD=GD
@@ -85,10 +81,16 @@ class ClassArrayMethodSSD():
 
 
         #self.WeightMaxFunc["BIC"]=1.
-        self.WeightMaxFunc["MinFlux"]=100.
-        #self.WeightMaxFunc["MaxFlux"]=1.
-
+        
+        # self.WeightMaxFunc["MinFlux"]=100.
+        # print("FSDLSDFLJFSDLSDFJ")
+        # print("FSDLSDFLJFSDLSDFJ")
+        # print("FSDLSDFLJFSDLSDFJ")
+        # del(self.WeightMaxFunc["MinFlux"])
+        
+        #self.WeightMaxFunc["L1"]=1.
         #self.WeightMaxFunc["L0"]=1.
+        
         self.MaxFunc=self.WeightMaxFunc.keys()
         
         self.NFuncMin=len(self.MaxFunc)
@@ -101,8 +103,7 @@ class ClassArrayMethodSSD():
         self.NFreqBands,self.npol,self.NPixPSF_x,self.NPixPSF_y=PSF.shape
         self.PM=ClassParamMachine(ListPixParms,ListPixData,FreqsInfo,
                                   NOrderPoly=GD["SSD3"]["PolyFreqOrder"],
-                                  SolveParamType=GD["SSD3"]["SolvePars"],
-                                  ScaleS0=ScaleS0)
+                                  SolveParamType=GD["SSD3"]["SolvePars"])
         self.PM.setFreqs(FreqsInfo)
         self.ConvMachine.setParamMachine(self.PM)
         
@@ -110,19 +111,38 @@ class ClassArrayMethodSSD():
         self.DataTrue=None
         self.MutMachine=ClassMutate.ClassMutate(self.PM)
 
-
+        self.APP_Fitness=None
         self.SetDirtyArrays(Dirty)
+        
+    def startWorkers(self):
+        if not self.ParallelFitness: return
+        logger.setSilent(["AsyncProcessPool"])
+        self.APP_Fitness=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_Fitness_%i"%self.iIsland,
+                                                                ncpu=self.GD["Parallel"]["NCPU"],
+                                                                affinity="disable",
+                                                                silent_warning=True,
+                                                                )
+        self.APP_Fitness.registerJobHandlers(self)
+        self.APP_Fitness.startWorkers()
+        logger.setLoud(["AsyncProcessPool"])
 
 
-        #pylab.figure(3,figsize=(5,3))
-        #pylab.clf()
-        # pylab.figure(4,figsize=(5,3))
-        # pylab.clf()
-
+    def stopWorkers(self):
+        if self.APP_Fitness is None: return
+        logger.setSilent(["AsyncProcessPool"])
+        self.APP_Fitness.terminate()
+        self.APP_Fitness.shutdown()
+        del(self.APP_Fitness)
+        self.APP_Fitness=None
+        logger.setLoud(["AsyncProcessPool"])
+        
     def __del__(self):
+
         if "Population" in self._island_dict:
             self._island_dict.delete_item("Population")
-
+        if self.APP_Fitness is not None:
+            self.stopWorker()
+            
     def SetDirtyArrays(self,Dirty):
         print("SetConvMatrix", file=log)
         PSF=self.PSF
@@ -141,7 +161,7 @@ class ClassArrayMethodSSD():
         x0,y0=np.array(self.ListPixData).T
         for iBand in range(self.NFreqBands):
             self.DirtyArray[iBand,0,:]=Dirty[iBand,0,x0,y0]
-
+        self.ResidArray=self.DirtyArray.copy()
         ALPHA=1.
 
         import scipy.special
@@ -158,7 +178,6 @@ class ClassArrayMethodSSD():
 
         if (self.IslandBestIndiv is not None):
             S=self.PM.ArrayToSubArray(self.IslandBestIndiv,"Poly0")
-            
             if np.max(np.abs(S))>0:
                 AddArray=self.ToConvArray(self.IslandBestIndiv,OutMode="Data")
                 # if np.max(self.IslandBestIndiv)!=0:
@@ -177,11 +196,16 @@ class ClassArrayMethodSSD():
                     # print "D",D
                     ALPHA=(1.-R/D)
                     ALPHA=np.max([1.,ALPHA])
+                # ALPHA=1
                 self.ALPHA=ALPHA
-                # print "ALPHA=",self.ALPHA
+                # print("ALPHA=",self.ALPHA)
+                # print("ALPHA=",self.ALPHA)
+                # print("ALPHA=",self.ALPHA)
+                
                 
                 if self.GD["SSDClean"]["ArtifactRobust"]:
                     self.DirtyArray/=self.ALPHA
+                    
                 self.DirtyArray+=AddArray
         
         self.DirtyArrayMean=np.mean(self.DirtyArray,axis=0).reshape((1,1,self.NPixListData))
@@ -198,17 +222,13 @@ class ClassArrayMethodSSD():
         self.DirtyArrayParmsMean=np.mean(self.DirtyArrayParms,axis=0).reshape((1,1,self.NPixListParms))
         self.DicoData={"DirtyArrayParmsMean":self.DirtyArrayParmsMean}
         self.MutMachine.setData(self.DicoData)
-    
+
 
     def ToConvArray(self,V,OutMode="Data",Noise=False):
-        T=ClassTimeIt.ClassTimeIt("ToConvArray")
-        T.disable()
         A=self.PM.GiveModelArray(V)
-        T.timeit("GiveModelArray")
         if Noise is not False:
             A+=np.random.randn(*A.shape)*Noise
         A=self.ConvMachine.Convolve(A,OutMode=OutMode)
-        T.timeit("Convolve")
         return A
 
 
@@ -337,32 +357,9 @@ class ClassArrayMethodSSD():
     def setBestIndiv(self,BestIndiv):
         self.BestContinuousFitNess=BestIndiv.ContinuousFitNess
 
-    def InitWorkers(self):
-        stop
-        self.T.reinit()
-        import DDFacet.Other.AsyncProcessPool
-        self.pid=str(multiprocessing.current_process())
-        self.APPName="APP_GA_SingleIsland_%s"%self.iIsland
-        self.APP=DDFacet.Other.AsyncProcessPool.initNew(Name=self.APPName,
-                                                        ncpu=self.GD["Parallel"]["NCPU"],
-                                                        affinity="disable",#self.GD["Parallel"]["Affinity"],
-                                                        #parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
-                                                        #verbose=self.GD["Debug"]["APPVerbose"],
-                                                        #pause_on_start=self.GD["Debug"]["PauseWorkers"],
-                                                        )
-        self.T.timeit("APP")
-        self.APP.registerJobHandlers(self)
-        self.T.timeit("Register")
-        self.APP.startWorkers()
-        self.T.timeit("StartWorker")
 
-    def KillWorkers(self):
-        stop
-        self.APP.terminate()
-        self.APP.shutdown()
-        del(self.APP)
 
-    #####
+
     def giveDistanceIndiv(self,pop):
         N=len(pop)
         D=np.zeros((N,N),np.float32)
@@ -379,7 +376,6 @@ class ClassArrayMethodSSD():
     def _fill_pop_array(self, pop):
         """Creates "Population" cube inside the island dict, iof not already created, or if the wrong shape."""
         if len(pop) > 0:
-            self.T.reinit()
             pop_shape = tuple([len(pop)] + list(pop[0].shape))
             if "Population" not in self._island_dict:
                 pop_array = self._island_dict.addSharedArray("Population", pop_shape, pop[0].dtype)
@@ -390,100 +386,106 @@ class ClassArrayMethodSSD():
                     pop_array = self._island_dict.addSharedArray("Population", pop_shape, pop[0].dtype)
             for i,individual in enumerate(pop):
                 pop_array[i,...] = pop[i]
-            self.T.timeit("_fill_pop_array")
             return pop_array
 
-
-
-        
     def GiveFitnessPop(self,pop):
 
-        pop=self._fill_pop_array(pop)
+        Parallel=self.ParallelFitness
+        self._fill_pop_array(pop)
 
-
-        if SERIAL:
+        if self.ParallelFitness:
+            for iIndividual,individual in enumerate(pop):
+                DicoJob={"iIndividual":iIndividual,
+                         "BestChi2":self.BestChi2,
+                         "EntropyMinMax":self.EntropyMinMax,
+                         "OperationType":"Fitness"}
+                self.APP_Fitness.runJob("Fitness:%i:%i"%(self.iIsland,iIndividual),
+                                        self._runTask,
+                                        args=(DicoJob,),
+                                        serial=SERIAL)
+            LDicoResults=self.APP_Fitness.awaitJobResults("Fitness:%i:*"%(self.iIsland),
+                                                          #progress="Fitness",
+                                                          )
+        else:
             LDicoResults=[]
             for iIndividual,individual in enumerate(pop):
                 DicoJob={"iIndividual":iIndividual,
                          "BestChi2":self.BestChi2,
                          "EntropyMinMax":self.EntropyMinMax,
                          "OperationType":"Fitness"}
-                LDicoResults.append(self._runOperation(DicoJob))
-        else:
-            for iIndividual,individual in enumerate(pop):
-                DicoJob={"iIndividual":iIndividual,
-                         "BestChi2":self.BestChi2,
-                         "EntropyMinMax":self.EntropyMinMax,
-                         "OperationType":"Fitness"}
-                self.APP.runJob("getFitness.Isl_%i.Indiv_%i"%(self.iIsland,iIndividual),
-                                self._runOperation,
-                                args=(DicoJob,), serial=SERIAL)
-                LDicoResults=self.APP.awaitJobResults("getFitness.Isl_%i.Indiv_*"%(self.iIsland),
-                                                      progress=None,
-                                                      #progress="Fitness #%i"%self.iIsland,
-                                                      )
-        
-        fitnesses=[]
-        Chi2=[]
+                res=self._runTask(DicoJob)
+                LDicoResults.append(res)
+            
         DicoFitnesses={}
         DicoChi2={}
-        for DicoResults in LDicoResults:
-            iIndividual=DicoResults["iIndividual"]
-            DicoFitnesses[iIndividual]=DicoResults["fitness"]
-            DicoChi2[iIndividual]=DicoResults["Chi2"]
+        for DicoResult in LDicoResults:
+            if DicoResult["Success"]:
+                iIndividual=DicoResult["iIndividual"]
+                DicoFitnesses[iIndividual]=DicoResult["fitness"]
+                DicoChi2[iIndividual]=DicoResult["Chi2"]
+
+        fitnesses=[]
+        Chi2=[]
         for iIndividual in range(len(pop)):
             fitnesses.append(DicoFitnesses[iIndividual])
             Chi2.append(DicoChi2[iIndividual])
+        #print "finished"
 
-        self.BestChi2=np.min(Chi2)
-
-        iBestChi2=np.argmin(Chi2)
-        BestInidividual=pop[iBestChi2]
-        S=self.PM.ArrayToSubArray(BestInidividual,"Poly0")
-        St=np.sum(np.abs(S))[()].copy()
-        if St==0: St=1e-10
-        MaxEntropy=-St*np.log(St/self.NPixListParms)
-        MinEntropy=-St*np.log(St)
+        # self.BestChi2=np.min(Chi2)
+        # iBestChi2=np.argmin(Chi2)
+        # BestInidividual=pop[iBestChi2]
+        # S=self.PM.ArrayToSubArray(BestInidividual,"Poly0")
+        # St=np.sum(np.abs(S))[()].copy()
+        # if St==0: St=1e-10
+        # MaxEntropy=-St*np.log(St/self.NPixListParms)
+        # MinEntropy=-St*np.log(St)
+        # self.EntropyMinMax=MinEntropy,MaxEntropy
         
-        self.EntropyMinMax=MinEntropy,MaxEntropy
-
+        #print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        #print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        #print "Best chi2 %f"%self.BestChi2
+        # print "=============================="
+        # print fitnesses
+        # print Chi2
+        # print "=============================="
         return fitnesses,Chi2
 
     def mutatePop(self,pop,mutpb,MutConfig):
 
+        Parallel=self.ParallelFitness
+        DicoFitnesses={}
+        DicoChi2={}
         pop_array = self._island_dict["Population"]
-        LJob=[]
-        
-        for iIndividual,individual in enumerate(pop):
-            if random.random() < mutpb:
-                pop_array[iIndividual,...] = individual
-                DicoJob={"iIndividual":iIndividual,
-                         "mutConfig":MutConfig,
-                         "OperationType":"Mutate"}
-                LJob.append(DicoJob)
-
-        if SERIAL:
-            LDicoResults=[]
-            for DicoJob in LJob:
-                LDicoResults.append(self._runOperation(DicoJob))
+        if self.ParallelFitness:
+            for iIndividual,individual in enumerate(pop):
+                if random.random() < mutpb:
+                    pop_array[iIndividual,...] = individual
+                    DicoJob={"iIndividual":iIndividual,
+                             "mutConfig":MutConfig,
+                             "OperationType":"Mutate"}
+                    self.APP_Fitness.runJob("Mutate:%i:%i"%(self.iIsland,iIndividual),
+                                            self._runTask,
+                                            args=(DicoJob,),serial=SERIAL)
+            LDicoResults=self.APP_Fitness.awaitJobResults("Mutate:%i:*"%(self.iIsland),
+                                                          #progress="Mutate",
+                                                          )
         else:
-            for DicoJob in LJob:
-                iIndividual=DicoJob["iIndividual"]
-                self.APP.runJob("doMutate.Isl_%i.Indiv_%i"%(self.iIsland,iIndividual),
-                                self._runOperation,
-                                args=(DicoJob,), serial=SERIAL)
-                LDicoResults=self.APP.awaitJobResults("doMutate.Isl_%i.Indiv_*"%(self.iIsland),
-                                                      #progress="Mutate #%i"%self.iIsland,
-                                                      progress=None,
-                                                      )
+            LDicoResults=[]
+            for iIndividual,individual in enumerate(pop):
+                if random.random() < mutpb:
+                    pop_array[iIndividual,...] = individual
+                    DicoJob={"iIndividual":iIndividual,
+                             "mutConfig":MutConfig,
+                             "OperationType":"Mutate"}
+                    res=self._runTask(DicoJob)
+                    LDicoResults.append(res)
 
-        for DicoResults in LDicoResults:
-            if DicoResults["Success"]:
-                iIndividual=DicoResults["iIndividual"]
+
+        for DicoResult in LDicoResults:
+            if DicoResult["Success"]:
+                iIndividual=DicoResult["iIndividual"]
                 mutant = pop_array[iIndividual]
                 pop[iIndividual][:] = mutant[:]
-            else:
-                stop
 
         return pop
 
@@ -523,23 +525,6 @@ class ClassArrayMethodSSD():
         # pylab.pause(0.1)
         
 
-    def GiveCompacity(self,S):
-        DM=ClassDistMachine()
-        #S.fill(1)
-        #S[0]=100
-        DM.setRefSample(np.arange(S.size),W=np.sort(S),Ns=100,xmm=[0,S.size-1])#,W=sAround,Ns=10)
-        #DM.setRefSample(S)#,W=sAround,Ns=10)
-        xs,ys=DM.xyCumulD
-        dx=xs[1]-xs[0]
-        I=2.*(S.size-np.sum(ys)*dx)/S.size-1.
-        return I
-        # pylab.figure(4,figsize=(5,3))
-        # pylab.plot(xp,yp)
-        # pylab.title("%f"%I)
-        # pylab.draw()
-        # pylab.show(False)
-        # pylab.pause(0.1)
-        # stop
 
 
     def PlotChannel(self,pop,iGen,iChannel=0):
@@ -558,16 +543,16 @@ class ClassArrayMethodSSD():
         ConvModelArray=self.ToConvArray(V)
         IM=self.PM.ModelToSquareArray(ConvModelArray,TypeInOut=("Data","Data"))
         Dirty=self.PM.ModelToSquareArray(self.DirtyArray,TypeInOut=("Data","Data"))
+        Resid=self.PM.ModelToSquareArray(self.ResidArray,TypeInOut=("Data","Data"))
 
 
-        vmin,vmax=np.min([Dirty.min(),0]),Dirty.max()
+        vmin,vmax=np.min([Dirty[iChannel].min(),0]),Dirty[iChannel].max()
     
-        fig=pylab.figure(iChannel+1,figsize=(5,3))
-        pylab.clf()
     
         ax0=pylab.subplot(2,3,1)
-        im0=pylab.imshow(Dirty[iChannel,0],interpolation="nearest",vmin=vmin,vmax=vmax)
-        pylab.title("Data")
+        AA=Dirty[iChannel,0]
+        im0=pylab.imshow(AA,interpolation="nearest",vmin=vmin,vmax=vmax)
+        pylab.title("Data\n(mm= %f %f)"%(AA.min(),AA.max()))
         ax0.axes.get_xaxis().set_visible(False)
         ax0.axes.get_yaxis().set_visible(False)
         divider0 = make_axes_locatable(ax0)
@@ -575,8 +560,9 @@ class ClassArrayMethodSSD():
         pylab.colorbar(im0, cax=cax0)
     
         ax1=pylab.subplot(2,3,2,sharex=ax0,sharey=ax0)
-        im1=pylab.imshow(IM[iChannel,0],interpolation="nearest")#,vmin=vmin,vmax=vmax)
-        pylab.title("Convolved Model")
+        AA=IM[iChannel,0]
+        im1=pylab.imshow(AA,interpolation="nearest")#,vmin=vmin,vmax=vmax)
+        pylab.title("Convolved Model\n%f %f"%(AA.min(),AA.max()))
         ax1.axes.get_xaxis().set_visible(False)
         ax1.axes.get_yaxis().set_visible(False)
         divider1 = make_axes_locatable(ax1)
@@ -588,47 +574,63 @@ class ClassArrayMethodSSD():
         im2=pylab.imshow(R,interpolation="nearest")#,vmin=vmin,vmax=vmax)
         ax2.axes.get_xaxis().set_visible(False)
         ax2.axes.get_yaxis().set_visible(False)
-        pylab.title("Residual Data")
+        pylab.title("Residual Data\n %f %f"%(R.min(),R.max()))
         divider2 = make_axes_locatable(ax2)
         cax2 = divider2.append_axes("right", size="5%", pad=0.05)
         pylab.colorbar(im2, cax=cax2)
-    
+        
     
         #pylab.colorbar()
         if self.DataTrue is not None:
             DataTrue=self.DataTrue
             vmin,vmax=DataTrue.min(),DataTrue.max()
             ax3=pylab.subplot(2,3,4)
-            im3=pylab.imshow(DataTrue[iChannel,0],interpolation="nearest",vmin=vmin,vmax=vmax)
+            AA=DataTrue[iChannel,0]
+            im3=pylab.imshow(AA,interpolation="nearest",vmin=vmin,vmax=vmax)
             ax3.axes.get_xaxis().set_visible(False)
             ax3.axes.get_yaxis().set_visible(False)
-            pylab.title("True Sky")
+            pylab.title("True Sky %f"%AA.max())
             divider3 = make_axes_locatable(ax3)
             cax3 = divider3.append_axes("right", size="5%", pad=0.05)
             pylab.colorbar(im3, cax=cax3)
     
-    
+        ax0=pylab.subplot(2,3,4)
+        AA=Resid[iChannel,0]
+        im0=pylab.imshow(AA,interpolation="nearest",vmin=vmin,vmax=vmax)
+        pylab.title("Resid\n(mm= %f %f)"%(AA.min(),AA.max()))
+        ax0.axes.get_xaxis().set_visible(False)
+        ax0.axes.get_yaxis().set_visible(False)
+        divider0 = make_axes_locatable(ax0)
+        cax0 = divider0.append_axes("right", size="5%", pad=0.05)
+        pylab.colorbar(im0, cax=cax0)
+
+            
         ax4=pylab.subplot(2,3,5,sharex=ax0,sharey=ax0)
         ModelArray=self.PM.GiveModelArray(V)
         IM=self.PM.ModelToSquareArray(ModelArray)
 
 
         #im4=pylab.imshow(IM[iChannel,0],interpolation="nearest",vmin=vmin-0.1,vmax=vmax)
-        im4=pylab.imshow(IM[iChannel,0],interpolation="nearest")#,vmin=vmin-0.1,vmax=1.5)
+        AA=IM[iChannel,0]
+        dx=AA.shape[0]
+        im4=pylab.imshow(AA,interpolation="nearest")#,vmin=vmin-0.1,vmax=1.5)
         ax4.axes.get_xaxis().set_visible(False)
         ax4.axes.get_yaxis().set_visible(False)
-        pylab.title("Best individual")
+        pylab.title("Model \n%f %f \n %s"%(AA.min(),AA.max(),np.sum(AA)))
         divider4 = make_axes_locatable(ax4)
         cax4 = divider4.append_axes("right", size="5%", pad=0.05)
         pylab.colorbar(im4, cax=cax4)
 
         PSF=self.PSF
-        vmin,vmax=PSF.min(),PSF.max()
+        vmin,vmax=PSF[iChannel,0].min(),PSF[iChannel,0].max()
+        nx,ny=PSF.shape[-2:]
         ax5=pylab.subplot(2,3,6)
-        im5=pylab.imshow(PSF[iChannel,0],interpolation="nearest",vmin=vmin,vmax=vmax)
+        AA=PSF[iChannel,0]
+        AA=AA[nx//2-dx//2:nx//2+dx//2+1,nx//2-dx//2:nx//2+dx//2+1]
+        im5=pylab.imshow(AA,interpolation="nearest",vmin=vmin,vmax=vmax)
         ax5.axes.get_xaxis().set_visible(False)
         ax5.axes.get_yaxis().set_visible(False)
-        pylab.title("PSF")
+        pylab.title("PSF %f"%AA.max())
         divider5 = make_axes_locatable(ax5)
         cax5 = divider5.append_axes("right", size="5%", pad=0.05)
         pylab.colorbar(im5, cax=cax5)
@@ -637,95 +639,91 @@ class ClassArrayMethodSSD():
         pylab.suptitle('Population generation %i [%f]'%(iGen,best_ind.fitness.values[0]),size=16)
         #pylab.tight_layout()
         pylab.draw()
-        pylab.show(False)
+        pylab.show(block=False)
         pylab.pause(0.1)
-        fig.savefig("png/fig%2.2i_%4.4i.png"%(iChannel,iGen))
-        stop
+        # fig.savefig("png/fig%2.2i_%4.4i.png"%(iChannel,iGen))
+
+# #################################################################"    
+# #################################################################"    
+# #################################################################"    
+# #################################################################"    
+
+    def ToConvArray(self,V,OutMode="Data"):
+        self.ModelA=self.PM.GiveModelArray(V)
+        A=self.ConvMachine.Convolve(self.ModelA,OutMode=OutMode)
+        return A
 
 
-
-    # ##########################################################
-    # ###############      WORKERS        ######################
-    # ##########################################################
-    # ##########################################################
-
-
-
-    # def ToConvArray(self,V,OutMode="Data",Noise=False):
-    #     A=self.PM.GiveModelArray(V)
-    #     if Noise is not False:
-    #         A+=np.random.randn(*A.shape)*Noise
-    #     A=self.ConvMachine.Convolve(A,OutMode=OutMode)
-    #     return A
     
-    def _ToConvArray(self,V,OutMode="Data"):
-        ModelA=self.PM.GiveModelArray(V)
-        A=self.ConvMachine.Convolve(ModelA,OutMode=OutMode)
-        return ModelA,A
 
-    def _runOperation(self,DicoJob):
+    def _runTask(self,DicoJob):
         if DicoJob["OperationType"]=="Fitness":
-            #print "FitNess"
-            return self._GiveFitnessWorker(DicoJob)
-        elif DicoJob["OperationType"]=="Metropolis":
-            return self._runMetroSingleChainWorker(DicoJob)
+            return self.GiveFitnessWorker(DicoJob)
         elif DicoJob["OperationType"]=="Mutate":
-            #print "Mutate"
-            return self._runSingleMutation(DicoJob)
+            return self.runSingleMutation(DicoJob)
 
-    def _runSingleMutation(self,DicoJob):
-        self.T.reinit()
+    def runSingleMutation(self,DicoJob):
+        pid=str(multiprocessing.current_process())
         iIndividual=DicoJob["iIndividual"]
 
         self._island_dict.reload()
         individual = self._island_dict["Population"][iIndividual]
-
         Mut_pFlux, Mut_p0, Mut_pMove, Mut_pScale, Mut_pOffset=DicoJob["mutConfig"]
+        self.MutMachine.mutGaussian(individual,Mut_pFlux, Mut_p0, Mut_pMove, Mut_pScale, Mut_pOffset)
+        ## mutation above is in-place, so no need to copy
+        #individual[:]=individualOut[:]
+
+        return {"Success": True, 
+                "iIndividual": iIndividual}
 
 
-        self.MutMachine.mutGaussian(individual,
-                                    Mut_pFlux, Mut_p0, Mut_pMove, Mut_pScale, Mut_pOffset)
-
-        DicoResult={"Success": True, 
-                    "iIndividual": iIndividual}
-        self.T.timeit("SingleMutation")
-        return DicoResult
-
-
-
-
-
-
-    def _GiveFitnessWorker(self,DicoJob):
-        self.T.reinit()
+    def GiveFitnessWorker(self,DicoJob):
+        pid=str(multiprocessing.current_process())
         iIndividual=DicoJob["iIndividual"]
         self.BestChi2=DicoJob["BestChi2"]
         if "EntropyMinMax" in DicoJob.keys():
             self.EntropyMinMax=DicoJob["EntropyMinMax"]
-
-        #individual=DicoJob["individual"]
         self._island_dict.reload()
         individual = self._island_dict["Population"][iIndividual]
-
-        fitness,Chi2=self._GiveFitness(individual)
-        DicoResult={"Success": True, 
-                    "iIndividual": iIndividual,
-                    "fitness":fitness,
-                    "Chi2":Chi2}
-        self.T.timeit("done job Fitness single")
-        return DicoResult
+        fitness,Chi2=self.GiveFitness(individual)
+        return {"Success": True, 
+                "iIndividual": iIndividual,
+                "fitness":fitness,
+                "Chi2":Chi2}
 
 
+    def GiveCompacity(self,S):
+        DM=ClassDistMachine()
+        #S.fill(1)
+        #S[0]=100
+        DM.setRefSample(np.arange(S.size),W=np.sort(S),Ns=100,xmm=[0,S.size-1])#,W=sAround,Ns=10)
+        xs,ys=DM.xyCumulD
+        dx=xs[1]-xs[0]
+        #I=2.*(S.size-np.sum(ys)*dx)/S.size-1.
+        # number between 1 (compact) and homogeneous 0
+        I=1.-np.sum(ys)*dx/(S.size/2)
+        
+        # import pylab
+        # pylab.figure(4,figsize=(5,3))
+        # pylab.plot(xs,ys)
+        # pylab.title("%f"%I)
+        # pylab.draw()
+        # pylab.show(block=False)
+        # pylab.pause(0.1)
 
-    def _GiveFitness(self,individual,DoPlot=False):
-        T=ClassTimeIt.ClassTimeIt("_GiveFitness")
-        T.disable()
+        return I
+
+
+    def GiveFitness(self,individual,DoPlot=False):
+        
         A=self.ToConvArray(individual)
-        T.timeit("ToConvArray")
         fitness=0.
         Resid=self.DirtyArray-A
-        T.timeit("Resid")
         
+        # print self.MaxFunc
+        # print self.DirtyArray
+        # print np.max(A)
+        # print 
 
 
         # if True:#DoPlot:
@@ -745,17 +743,25 @@ class ClassArrayMethodSSD():
         #WeightFreqBands=self.WeightFreqBands.reshape((nFreqBands,1,1))
         #Weight=WeightFreqBands/np.sum(WeightFreqBands)
         S=self.PM.ArrayToSubArray(individual,"Poly0")
-        T.timeit("ArrayToSubArray")
         chi2=0.
         ContinuousFitNess=[]
+        PixVariance=self.PixVariance.reshape((nFreqBands,1,1))
+        Verbose=0
         for FuncType in self.MaxFunc:
             if FuncType=="Chi2":
                 # chi2=-np.sum(Weight*(Resid)**2)/(self.PixVariance*Resid.size)
-                chi2=np.sum((Resid)**2)/(self.PixVariance)
-                chi2_norm=chi2#/np.abs(self.BestChi2)
-                #print chi2_norm
+                chi2=np.sqrt(np.sum(((Resid)**2/PixVariance).reshape((nFreqBands,-1)),axis=-1))
+                if Verbose: print("chi=",np.sum(chi2),chi2.flatten())
+                chi2_norm=np.sum(chi2)
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(-chi2_norm*W)
+            if FuncType=="L1":
+                A=self.PM.GiveModelArray(individual)
+                l1=np.sum(A/np.sqrt(self.PixVariance.reshape((nFreqBands,1))),axis=1)
+                W=self.WeightMaxFunc[FuncType]
+                if Verbose: print("l1=",np.sum(l1),l1.flatten())
+                l1=np.sum(l1)
+                ContinuousFitNess.append(-l1*W)
             if FuncType=="Sum2":
                 # chi2=-np.sum(Weight*(Resid)**2)/(self.PixVariance*Resid.size)
                 chi2=np.sum((Resid)**2)
@@ -764,7 +770,7 @@ class ClassArrayMethodSSD():
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(-chi2_norm*W)
             if FuncType=="Chi2Th":
-                chi2=np.sum((Resid)**2)/(self.PixVariance)
+                chi2=np.sum((Resid)**2/PixVariance)
 
                 f=chi2/self.BestChi2
                 f=(chi2-self.BestChi2)/self.BestChi2
@@ -775,7 +781,7 @@ class ClassArrayMethodSSD():
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(-chi2Th*W)
             if FuncType=="BIC":
-                chi2=np.sum((Resid)**2)/(self.PixVariance)
+                chi2=np.sum((Resid)**2/PixVariance)
                 #chi2/=self.BestChi2
                 n=Resid.size
                 k=np.count_nonzero(S)
@@ -784,9 +790,9 @@ class ClassArrayMethodSSD():
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(-BIC*W)
             if FuncType=="MEM":
-                chi2=np.sum((Resid)**2)/(self.PixVariance)
+                chi2=np.sum((Resid)**2/PixVariance)
                 if self.EntropyMinMax is None:
-                    print("Not computing entropy")
+                    if Verbose: print("Not computing entropy")
                     ContinuousFitNess.append(-chi2)
                     continue
                 aS=np.abs(self.ModelA)
@@ -802,69 +808,58 @@ class ClassArrayMethodSSD():
                 #print chi2,chi2/self.BestChi2,self.BestChi2,E
                 ContinuousFitNess.append(E)
             if FuncType=="MaxFlux":
-                FMax=-np.max(np.abs(Resid))/(np.sqrt(self.PixVariance))
+                FMax=-np.max(np.abs(Resid)/np.sqrt(PixVariance))
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(FMax*W)
             if FuncType=="L0":
                 # ResidNonZero=S[S!=0]
                 # W=self.WeightMaxFunc[FuncType]
                 # l0=-(ResidNonZero.size)
-                l0=self.GiveCompacity(S)
+                l0=self.GiveCompacity(S)*Resid.size
+                if Verbose: print("l0=",l0)
                 ContinuousFitNess.append(l0*W)
             if FuncType=="MinFlux":
                 SNegArr=np.abs(S[S<0])[()]
-                FNeg=-np.sum(SNegArr**2)/((self.PixVariance))
+                rSNR=Resid/np.sqrt(PixVariance)
+                rSNR[rSNR>0]=0
+                nn=[np.max([1,np.count_nonzero(rSNR[ii])]) for ii in range(nFreqBands)]
+                FNeg=[np.sqrt(np.sum(rSNR[ii]**2))/nn[ii] for ii in range(nFreqBands)]
+                if Verbose: print("FNeg",np.sum(FNeg),FNeg)
+                sFNeg=np.sum(FNeg)
                 W=self.WeightMaxFunc[FuncType]
-                ContinuousFitNess.append(FNeg*W)
+                ContinuousFitNess.append(-sFNeg*W)
             if FuncType=="MinFluxNorm":
                 SNegArr=np.abs(S[S<0])[()]
-                FNeg=-np.sum(SNegArr**2)/((self.PixVariance))
+                FNeg=-np.sum(SNegArr**2/PixVariance)
                 FNeg/=np.abs(self.BestChi2)
                 if FNeg==0: continue
                 FNeg=np.sign(FNeg)*np.log10(np.abs(FNeg))
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(FNeg*W)
-        T.timeit("ContinuousFitNess")
             
 
-        return (np.sum(ContinuousFitNess),),chi2
+        fit=np.sum(ContinuousFitNess)
+        if np.isnan(fit): stop
+        return (fit,),chi2
         #return (ContinuousFitNess,),chi2
 
 
 
-    def _PlotIndiv(self,best_ind,iChannel=0,Mode="MeanIm",Title=None):
+    def PlotIndiv(self,best_ind,iChannel=0):
 
         import pylab
         from mpl_toolkits.axes_grid1 import make_axes_locatable
 
         V=best_ind
-        if len(best_ind.shape)==1:
-            ConvModelArray=self.ToConvArray(V)
-            IM=self.PM.ModelToSquareArray(ConvModelArray,TypeInOut=("Data","Data"))
-            Dirty=self.PM.ModelToSquareArray(self.DirtyArray,TypeInOut=("Data","Data"))
-        else:
-            if Mode=="MeanIm":
-                LIM,LDirty=[],[]
-                for V in best_ind:
-                    ConvModelArray=self.ToConvArray(V)
-                    IM=self.PM.ModelToSquareArray(ConvModelArray,TypeInOut=("Data","Data"))
-                    Dirty=self.PM.ModelToSquareArray(self.DirtyArray,TypeInOut=("Data","Data"))
-                    LIM.append(IM)
-                    LDirty.append(Dirty)
-                IM=np.mean(np.array(LIM),axis=0)
-                Dirty=np.mean(np.array(LDirty),axis=0)
-            elif Mode=="Rand":
-                ii=int(np.random.rand(1)[0]*best_ind.shape[0])
-                V=best_ind[ii]
-                ConvModelArray=self.ToConvArray(V)
-                IM=self.PM.ModelToSquareArray(ConvModelArray,TypeInOut=("Data","Data"))
-                Dirty=self.PM.ModelToSquareArray(self.DirtyArray,TypeInOut=("Data","Data"))
-            else:
-                stop
-            
+
+        ConvModelArray=self.ToConvArray(V)
+        IM=self.PM.ModelToSquareArray(ConvModelArray,TypeInOut=("Data","Data"))
+        Dirty=self.PM.ModelToSquareArray(self.DirtyArray,TypeInOut=("Data","Data"))
+
+
         vmin,vmax=np.min([Dirty.min(),0]),Dirty.max()
     
-        fig=pylab.figure(2,figsize=(10,6))
+        fig=pylab.figure(2,figsize=(5,3))
         pylab.clf()
     
         ax0=pylab.subplot(2,3,1)
@@ -914,9 +909,9 @@ class ClassArrayMethodSSD():
         ModelArray=self.PM.GiveModelArray(V)
         IM=self.PM.ModelToSquareArray(ModelArray)
 
-        
+
         #im4=pylab.imshow(IM[iChannel,0],interpolation="nearest",vmin=vmin-0.1,vmax=vmax)
-        im4=pylab.imshow(IM[iChannel,0],interpolation="nearest",vmin=IM.min(),vmax=IM.max())
+        im4=pylab.imshow(IM[iChannel,0],interpolation="nearest",vmin=vmin-0.1,vmax=1.5)
         ax4.axes.get_xaxis().set_visible(False)
         ax4.axes.get_yaxis().set_visible(False)
         pylab.title("Best individual")
@@ -934,12 +929,11 @@ class ClassArrayMethodSSD():
         divider5 = make_axes_locatable(ax5)
         cax5 = divider5.append_axes("right", size="5%", pad=0.05)
         pylab.colorbar(im5, cax=cax5)
-
-        if Title is not None:
-            pylab.suptitle(Title)
+    
+        #pylab.suptitle('Population generation %i [%f]'%(iGen,best_ind.fitness.values[0]),size=16)
         #pylab.tight_layout()
         pylab.draw()
-        pylab.show(block=False)
+        pylab.show(False)
         pylab.pause(0.1)
 
         #fig.savefig("png/fig%2.2i_%4.4i.png"%(iChannel,iGen))
