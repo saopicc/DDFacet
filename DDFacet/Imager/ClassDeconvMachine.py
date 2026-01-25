@@ -1998,11 +1998,11 @@ class ClassImagerDeconv():
                 # if MPIManager.rank == 0:
                 #     print("It %d , "%band_rad, beam_deg, gausspars, sidelobes)
                 if forced_beam is not None:
-                    beam = f_beam_deg
-                    gausspars = f_gau_rad
+                    beam_deg = f_beam_deg
+                    gausspars_rad = f_gau_rad
 
-                self.FWHMBeam.append(beam)
-                self.PSFGaussPars.append(gausspars)
+                self.FWHMBeam.append(beam_deg)
+                self.PSFGaussPars.append(gausspars_rad)
                 self.PSFSidelobes.append(sidelobes)
         else:
             self.FWHMBeam = [self.FWHMBeamAvg]
@@ -2414,8 +2414,8 @@ class ClassImagerDeconv():
             if self.GD["Deconv"]["Mode"].startswith("WSCMS") or self.GD["Deconv"]["Mode"] == "Hogbom":
                 if "alphastdmap" not in _images:
                     _images.addSharedArray("alphastdmap", intmodel().shape, np.float32)
-                # LB - using apprescube since intrescube can have large unpgysical values
-                _images['alphamap'], _images["alphastdmap"] = ModelMachine.GiveSpectralIndexMap(GaussPars=self.PSFGaussParsAvg[0], ResidCube=apprescube())
+                # LB - using apprescube since intrescube can have large unphysical values
+                _images['alphamap'], _images["alphastdmap"] = ModelMachine.GiveSpectralIndexMap(GaussPars=self.PSFGaussParsAvg, ResidCube=apprescube())
                 return _images['alphamap'], _images["alphastdmap"]
             else:
                 _images['alphamap'] = ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussParsAvg])

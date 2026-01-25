@@ -150,11 +150,11 @@ class ClassImageDeconvMachine():
         
     def __del__ (self):
         if shared_dict is not None and type(self.facetcache) is shared_dict.SharedDict:
-            print("FJDKJDFKJKJGSLDFKFGJFGLSDFGKJ DELETE %s"%self.facetcache.path)
-            print("FJDKJDFKJKJGSLDFKFGJFGLSDFGKJ DELETE %s"%self.facetcache.path)
-            print("FJDKJDFKJKJGSLDFKFGJFGLSDFGKJ DELETE %s"%self.facetcache.path)
-            print("FJDKJDFKJKJGSLDFKFGJFGLSDFGKJ DELETE %s"%self.facetcache.path)
-            print("FJDKJDFKJKJGSLDFKFGJFGLSDFGKJ DELETE %s"%self.facetcache.path)
+            # print("FJDKJDFKJKJGSLDFKFGJFGLSDFGKJ DELETE %s"%self.facetcache.path)
+            # print("FJDKJDFKJKJGSLDFKFGJFGLSDFGKJ DELETE %s"%self.facetcache.path)
+            # print("FJDKJDFKJKJGSLDFKFGJFGLSDFGKJ DELETE %s"%self.facetcache.path)
+            # print("FJDKJDFKJKJGSLDFKFGJFGLSDFGKJ DELETE %s"%self.facetcache.path)
+            # print("FJDKJDFKJKJGSLDFKFGJFGLSDFGKJ DELETE %s"%self.facetcache.path)
             self.facetcache.delete()
 
     def updateMask(self,Mask):
@@ -354,6 +354,7 @@ class ClassImageDeconvMachine():
                         print(ModColor.Str(
                             "WARNING: HMP cache could not be written, see error report above. Proceeding anyway."), file=log)
 
+        
     def SetDirty(self, DicoDirty):#,DoSetMask=True):
         # if len(PSF.shape)==4:
         #     self.PSF=PSF[0,0]

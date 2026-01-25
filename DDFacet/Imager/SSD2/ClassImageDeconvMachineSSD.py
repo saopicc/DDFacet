@@ -57,9 +57,11 @@ class ClassImageDeconvMachine():
                  NFreqBands=1,
                  RefFreq=None,
                  MainCache=None,
+                 APP=None,
                  **kw    # absorb any unknown keywords arguments into this
                  ):
         #self.im=CasaImage
+        self.APP=APP
         self.maincache = MainCache
         self.SearchMaxAbs=SearchMaxAbs
         self.ModelImage=None
@@ -133,7 +135,7 @@ class ClassImageDeconvMachine():
                 self.ListInitMachine.append( ClassInitSSDModelHMP.ClassInitSSDModelParallel(self.GD,
                                                                                             NFreqBands,RefFreq,
                                                                                             MainCache=self.maincache,
-                                                                                            IdSharedMem=self.IdSharedMem) )
+                                                                                            IdSharedMem=self.IdSharedMem,APP=self.APP) )
             elif InitType == "MORESANE":
                 from . import ClassInitSSDModelMoresane
                 print(ModColor.Str("Initialisation of sourcekins using MORESANE",col="blue"),file=log)
@@ -141,7 +143,7 @@ class ClassImageDeconvMachine():
                                                                                                  NFreqBands, RefFreq,
                                                                                                  NCPU=self.NCPU,
                                                                                                  MainCache=self.maincache,
-                                                                                                 IdSharedMem=self.IdSharedMem) )
+                                                                                                 IdSharedMem=self.IdSharedMem,APP=self.APP) )
             elif "MultiSlice" in InitType:
                 GD=copy.deepcopy(GD)
                 _,SubType=InitType.split(":")
@@ -153,7 +155,7 @@ class ClassImageDeconvMachine():
                                                                                   NFreqBands, RefFreq,
                                                                                   NCPU=self.NCPU,
                                                                                   MainCache=self.maincache,
-                                                                                  IdSharedMem=self.IdSharedMem)
+                                                                                  IdSharedMem=self.IdSharedMem,APP=self.APP)
 
                 self.ListInitMachine.append( InitMachine )
                 
@@ -409,7 +411,9 @@ class ClassImageDeconvMachine():
 
         print("  selected %i islands larger than %i pixels for initialisation"%(np.count_nonzero(ListDoIslandsInit),self.GD["GAClean"]["MinSizeInit"]), file=log)
 
+        # initialise the init machines in the main process (does the needed cache for the workers to load)
         self._init_InitMachine()
+        
         if self.DicoDicoInitIndiv is not None:
             self.DicoDicoInitIndiv.delete()
             

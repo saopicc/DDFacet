@@ -20,17 +20,17 @@ from DDFacet.Imager import ClassMaskMachine
 from DDFacet.Array import shared_dict
 import psutil
 from DDFacet.Other.progressbar import ProgressBar
-from DDFacet.Other.AsyncProcessPool import APP
 
 class ClassInitSSDModelParallel():
-    def __init__(self, GD, NFreqBands, RefFreq, MainCache=None, IdSharedMem=""):
+    def __init__(self, GD, NFreqBands, RefFreq, MainCache=None, IdSharedMem="",APP=None):
         self.GD=GD
-        self.InitMachine = ClassInitSSDModel(GD, NFreqBands, RefFreq, MainCache, IdSharedMem)
+        self.APP=APP
+        self.InitMachine = ClassInitSSDModel(GD, NFreqBands, RefFreq, MainCache, IdSharedMem,APP=self.APP)
         self.NCPU=(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
         from DDFacet.Imager.MultiFields.AppendSubFieldInfo import AppendSubFieldInfo
         AppendSubFieldInfo(self)
         self.Type="HMP"
-        APP.registerJobHandlers(self)
+        self.APP.registerJobHandlers(self)
 
     def Init(self, DicoVariablePSF, GridFreqs, DegridFreqs,
              facetcache=None):
@@ -108,11 +108,12 @@ class ClassInitSSDModel():
     The class is initialized once in the main process (to populate the HMP basis function cache),
     then re-initialized in the workers on a per-island basis.
     """
-    def __init__(self, GD, NFreqBands, RefFreq, MainCache=None, IdSharedMem=""):
+    def __init__(self, GD, NFreqBands, RefFreq, MainCache=None, IdSharedMem="",APP=None):
         """Constructs initializer. 
         Note that this should be called pretty much when setting up the imager,
         before APP workers are started, because the object registers APP handlers.
         """
+        self.APP=APP
         self.GD = copy.deepcopy(GD)
         self.GD["Parallel"]["NCPU"] = 1
         # self.GD["HMP"]["Alpha"]=[0,0,1]#-1.,1.,5]
@@ -159,6 +160,7 @@ class ClassInitSSDModel():
                                                                                  CacheFileName="HMP_InitSSD",
                                                                                  IdSharedMem=IdSharedMem,
                                                                                  GD=self.GD,
+                                                                                 APP=self.APP,
                                                                                  **MinorCycleConfig)
 
         self.GD["Mask"]["Auto"]=False
@@ -188,7 +190,7 @@ class ClassInitSSDModel():
                                 cache=True,
                                 facetcache=facetcache,
                                 GridFreqs=self.GridFreqs,DegridFreqs=self.DegridFreqs,DoWait=DoWait)
-
+        
 
     def Reset(self):
         self.DeconvMachine.Reset()

@@ -84,9 +84,9 @@ def unpad_to_original(square_array, blc_trc):
 
 
 class ClassImageDeconvMachine():
-    def __init__(self,GD=None,ModelMachine=None,RefFreq=None,CacheFileName=None,*args,**kw):
+    def __init__(self,GD=None,ModelMachine=None,RefFreq=None,CacheFileName=None,APP=None,*args,**kw):
         self.GD=GD
-        
+        self.APP=APP
         
         self.ModelMachine = ModelMachine
         self.RefFreq=RefFreq
@@ -98,8 +98,9 @@ class ClassImageDeconvMachine():
         self.ScaleS0="linear"
         self.MaskMachine=None
         self.CacheFileName=CacheFileName
+        self.SpectralFunctionsMachine=None
+        self.APP.registerJobHandlers(self)
         
-
     def Reset(self):
         pass
         
@@ -110,7 +111,7 @@ class ClassImageDeconvMachine():
         self.PSFServer.setRefFreq(self.ModelMachine.RefFreq)
         self.DicoVariablePSF=DicoVariablePSF
         self.setFreqs(self.PSFServer.DicoMappingDesc)
-
+        
     def setMaskMachine(self,MaskMachine):
         self.MaskMachine=MaskMachine
 
@@ -137,6 +138,8 @@ class ClassImageDeconvMachine():
         if NOrder==0:
             NOrder=self.GD["Freq"]["NBand"]
         
+        T=ClassTimeIt.ClassTimeIt("cache_FreqBandToTaylor")
+        T.disable()
         NModel=1
         Lx0x1=[]
         for iOrder in range(0,NOrder):
@@ -196,7 +199,7 @@ class ClassImageDeconvMachine():
             #     NModel*=ThisParm.size
         ParmGrid=np.meshgrid(*Lx0x1)
         NComb=ParmGrid[0].size
-
+        T.timeit("setGrid")
         #ParmVec=np.array(ParmGrid).reshape((NComb,NOrder))
         NBand=self.GD["Freq"]["NBand"]
         
@@ -210,24 +213,21 @@ class ClassImageDeconvMachine():
 
         NFacets=self.PSFServer.NFacets
         FluxVec=np.zeros((NFacets,NComb,NBand),np.float32)
-        
-        for iFacet in range(NFacets):
-            #print(iFacet,NFacets)
-            for iBand in range(NBand):
-                for iComb in range(NComb):
-                    X=ParmVec[iComb]
-                    F=self.SpectralFunctionsMachine.IntExpFuncPoly(X.reshape((1,NOrder)),
-                                                                   iChannel=iBand,
-                                                                   iFacet=iFacet,
-                                                                   FluxScale=self.FitFluxScale,
-                                                                   OutMode="app")
-                    FluxVec[iFacet,iComb,iBand]=F[0]
-            
-        #MeanFluxVec=np.median(FluxVec,axis=-1).reshape((NFacets,NComb,1))
-        #FluxVec/=MeanFluxVec
         self.DicoFreqBandToTaylor["FreqBandToTaylor_FluxVec"]=FluxVec
         self.DicoFreqBandToTaylor["FreqBandToTaylor_ParmVec"]=ParmVec
-
+        
+        for iComb in range(NComb):
+            X=ParmVec[iComb]
+            # self._computeFluxInBand(X,iBand,iFacet,iComb,NOrder)
+            self.APP.runJob("InitTaylorMultiSlice.%i"%(iComb),
+                            self._computeFluxInBand,
+                            args=(X,iComb,NOrder,self.DicoVariablePSF.readonly()))#,serial=True)
+                    
+        self.APP.awaitJobResults("InitTaylorMultiSlice.*", progress="Init Taylor")
+        T.timeit("Compute")
+        #MeanFluxVec=np.median(FluxVec,axis=-1).reshape((NFacets,NComb,1))
+        #FluxVec/=MeanFluxVec
+        T.timeit("Done")
         # AA=np.zeros()
         # def GiveResid(X,F,iFacet):
         #     R=np.zeros_like(F)
@@ -237,6 +237,23 @@ class ClassImageDeconvMachine():
         #                                                                 iChannel=iBand,
         #                                                                 iFacet=iFacet,
         #                                                                 FluxScale=self.FitFluxScale)
+
+    def _computeFluxInBand(self,X,iComb,NOrder,DicoVariablePSF):
+        if self.SpectralFunctionsMachine is None:
+            self.SetPSF(DicoVariablePSF)
+            
+        DicoFreqBandToTaylor=shared_dict.attach("DicoFreqBandToTaylor")
+        NFacets=self.PSFServer.NFacets
+        NBand=self.GD["Freq"]["NBand"]
+        for iFacet in range(NFacets):
+            for iBand in range(NBand):
+                F=self.SpectralFunctionsMachine.IntExpFuncPoly(X.reshape((1,NOrder)),
+                                                               iChannel=iBand,
+                                                               iFacet=iFacet,
+                                                               FluxScale=self.FitFluxScale,
+                                                               OutMode="app")
+                
+        DicoFreqBandToTaylor["FreqBandToTaylor_FluxVec"][iFacet,iComb,iBand]=F[0]
         
         
     def GiveModelImage(self,*args): return self.ModelMachine.GiveModelImage(*args)

@@ -44,7 +44,8 @@ from DDFacet.Imager.SSD3 import ClassIslandDistanceMachine
 from DDFacet.Array import shared_dict
 import psutil
 import copy
-from DDFacet.Other.AsyncProcessPool import APP
+import DDFacet.Other.AsyncProcessPool
+
 #from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 from DDFacet.Imager.SSD3 import ClassModelMachineSSD
 
@@ -64,9 +65,11 @@ class ClassImageDeconvMachine():
                  NFreqBands=1,
                  RefFreq=None,
                  MainCache=None,
+                 APP=None,
                  **kw    # absorb any unknown keywords arguments into this
                  ):
         #self.im=CasaImage
+        self.APP=APP
         self.maincache = MainCache
         self.SearchMaxAbs=SearchMaxAbs
         self.ModelImage=None
@@ -142,7 +145,8 @@ class ClassImageDeconvMachine():
                 self.ListInitMachine.append( ClassInitSSDModelHMP.ClassInitSSDModelParallel(self.GD,
                                                                                             NFreqBands,RefFreq,
                                                                                             MainCache=self.maincache,
-                                                                                            IdSharedMem=self.IdSharedMem) )
+                                                                                            IdSharedMem=self.IdSharedMem,
+                                                                                            APP=self.APP) )
             elif InitType == "MORESANE":
                 from . import ClassInitSSDModelMoresane
                 print(ModColor.Str("Initialisation of sourcekins using MORESANE",col="blue"),file=log)
@@ -150,7 +154,8 @@ class ClassImageDeconvMachine():
                                                                                                  NFreqBands, RefFreq,
                                                                                                  NCPU=self.NCPU,
                                                                                                  MainCache=self.maincache,
-                                                                                                 IdSharedMem=self.IdSharedMem) )
+                                                                                                 IdSharedMem=self.IdSharedMem,
+                                                                                                 APP=self.APP) )
             elif "MultiSlice" in InitType:
                 GD=copy.deepcopy(GD)
                 _,SubType=InitType.split(":")
@@ -161,15 +166,20 @@ class ClassImageDeconvMachine():
                                                                                   NFreqBands, RefFreq,
                                                                                   NCPU=self.NCPU,
                                                                                   MainCache=self.maincache,
-                                                                                  IdSharedMem=self.IdSharedMem) 
+                                                                                  IdSharedMem=self.IdSharedMem,
+                                                                                  APP=self.APP)
+                
                 self.ListInitMachine.append( ThisMachine)
             else:
                 raise ValueError("InitType should be HMP or MultiSlice or MORESANE")
-
-        if len(self.ListInitMachine)>1 and GD["GAClean"]["NMaxGen"]==0:
-            stop
-
-        self.APP=APP
+            
+        # if len(self.ListInitMachine)>1 and GD["GAClean"]["NMaxGen"]==0:
+        #     stop
+            
+        # for ThisMachine in self.ListInitMachine:
+        #     print("ID",ThisMachine.Type,id(ThisMachine),id(ThisMachine.InitMachine),id(ThisMachine.InitMachine.DeconvMachine))
+            
+        self.APP.registerJobHandlers(self)
         self._init_machine_initialized = False
 
     def setMaxMajorIter(self,MaxMajorIter):
@@ -215,6 +225,7 @@ class ClassImageDeconvMachine():
                     facetcache=shared_dict.attach("HMP_InitSSD")
                     # print("SDKSFKNSDFKS",facetcache.keys())
                     kwargs={"facetcache":facetcache}
+                # print("_init_InitMachine ID",InitMachine.Type,id(InitMachine.InitMachine.DeconvMachine))
                 InitMachine.Init(self.DicoVariablePSF, self.GridFreqs, self.DegridFreqs,**kwargs)
 
                 if InitMachine.Type.startswith("MultiSlice"):
@@ -394,6 +405,10 @@ class ClassImageDeconvMachine():
         return ((self.CycleFactor-1.)/4.*(1.-self.SideLobeLevel)+self.SideLobeLevel)*Max if self.CycleFactor else 0
 
     def Deconvolve(self,ch=0):
+        # for ThisMachine in self.ListInitMachine:
+        #     print("ID",ThisMachine.Type,id(ThisMachine),id(ThisMachine.InitMachine),id(ThisMachine.InitMachine.DeconvMachine))
+
+            
         if self._niter >= self.MaxMinorIter:
             return "MaxIter", False, False
 
@@ -424,7 +439,6 @@ class ClassImageDeconvMachine():
             ThisRMS=np.std(np.real(self.DicoDirty["ImageCube"][ich].flat[RandomInd]))
             LRMS.append(ThisRMS)
         self.DicoDirty["LRMS"]=LRMS
-        
         #self.GainMachine.SetRMS(RMS)
         
         Fluxlimit_RMS = self.RMSFactor*RMS
@@ -500,21 +514,20 @@ class ClassImageDeconvMachine():
         # self.DicoModelImage  = shared_dict.create("DicoModelImage%s"%self.StrField)
         # self.DicoModelImage["ModelImage"]=ModelImage
         
-        
-        if self.DicoDicoInitIndiv is not None:
-            self.DicoDicoInitIndiv.delete()
+        # if self.DicoDicoInitIndiv is not None:
+        #     self.DicoDicoInitIndiv.delete()
             
         allIslandModelDict  = shared_dict.create("DeconvListIslands%s"%self.StrField)
-        for iIsland,Island in enumerate(self.ListIslands):
-            Island=np.array(Island)
+        for iIsland,IslandXY in enumerate(self.ListIslands):
+            IslandXY=np.array(IslandXY)
             allIslandModelDict.addSubdict(iIsland)
-            allIslandModelDict[iIsland].addSharedArray("Island", Island.shape, np.int32)
-            allIslandModelDict[iIsland]["Island"][:]=Island[:]
+            allIslandModelDict[iIsland].addSharedArray("IslandXY", IslandXY.shape, np.int32)
+            allIslandModelDict[iIsland]["IslandXY"][:]=IslandXY[:]
         
         
-        self.DicoDicoInitIndiv  = shared_dict.create("DicoDicoInitIndiv%s"%self.StrField)
-        for iMachine,InitMachine in enumerate(self.ListInitMachine):
-            self.DicoDicoInitIndiv.addSubdict(iMachine)
+        # self.DicoDicoInitIndiv  = shared_dict.create("DicoDicoInitIndiv%s"%self.StrField)
+        # for iMachine,InitMachine in enumerate(self.ListInitMachine):
+        #     self.DicoDicoInitIndiv.addSubdict(iMachine)
             
         #DicoInitIndivHMP = shared_dict.create("DicoInitIslandHMP%s"%self.StrField) # DicoInitIndiv
         ParmDict = shared_dict.create("ParmDict%s"%self.StrField) # ParmDict
@@ -546,36 +559,60 @@ class ClassImageDeconvMachine():
 
         #print("  selected %i islands larger than %i pixels for initialisation"%(np.count_nonzero(ListDoIslandsInit),self.GD["GAClean"]["MinSizeInit"]), file=log)
 
+        self.APP_GA=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_GA",
+                                                           ncpu=self.GD["Parallel"]["NCPU"],
+                                                           affinity="disable",
+                                                           )
+        self.APP_GA.registerJobHandlers(self)
+        self.APP_GA.startWorkers()
+
+        # SERIAL=1
         for iIsland,Island in enumerate(self.ListIslands):
             #print("SDLFSLJFJS",iIsland,len(Island))
-            APP.runJob("initIsland.%i"%(iIsland),
+            self.APP_GA.runJob("initIsland.%i"%(iIsland),
                        self._initIsland,
                        args=(#self.ListIslands,
                              iIsland,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs,self.ThSpectralFit), serial=SERIAL)
-        LDicoResults=APP.awaitJobResults("initIsland.*", progress="Init Islands")
+        LDicoResults=self.APP_GA.awaitJobResults("initIsland.*", progress="Deconv Islands")
 
         DTime={}
         LNSpectralFit=[]
         for DicoResult in LDicoResults:
             if DicoResult is None: continue
-            for InitType in DicoResult.keys():
+            DInfo=DicoResult.get("DInfo",None)
+            if DInfo is None: continue
+            
+            for InitType in DInfo.keys():
                 L=DTime.get(InitType,[])
-                L.append(DicoResult[InitType]["Time"])
+                L.append(DInfo[InitType]["Time"])
                 DTime[InitType]=L
-
-                NSpectralFit=DicoResult[InitType].get("NSpectralFit",None)
+                NSpectralFit=DInfo[InitType].get("NSpectralFit",None)
                 if NSpectralFit is not None:
                     LNSpectralFit.append(NSpectralFit)
 
         Lkey=list(DTime.keys())
+        # #######################
+        # Total times
         Ttot=[np.sum(DTime[InitType]) for InitType in Lkey]
         TtotTot=np.sum(Ttot)
         TFrac=[100*np.sum(DTime[InitType])/TtotTot for InitType in Lkey]
         Lss=[]
         for iInitType,InitType in enumerate(Lkey):
             Lss.append("[%s] %.1f min. (%.1f%%)"%(InitType,Ttot[iInitType]/60,TFrac[iInitType]))
-        ss="Initialisation times: %s"%(", ".join(Lss))
+        ss="Initialisation times [total]: %s"%(", ".join(Lss))
         log.print(ss)
+        # #######################
+        # Max times
+        Ttot=[np.max(DTime[InitType]) for InitType in Lkey]
+        TtotTot=np.sum(Ttot)
+        TFrac=[100*np.max(DTime[InitType])/TtotTot for InitType in Lkey]
+        Lss=[]
+        for iInitType,InitType in enumerate(Lkey):
+            Lss.append("[%s] %.1f min. (%.1f%%)"%(InitType,Ttot[iInitType]/60,TFrac[iInitType]))
+        ss="                       [max]: %s"%(", ".join(Lss))
+        log.print(ss)
+        # #######################
+
         
         NSpectralFit=np.array(LNSpectralFit)
         if NSpectralFit.size>0:
@@ -585,27 +622,34 @@ class ClassImageDeconvMachine():
         if self.GD["Misc"]["ConserveMemory"]:
             self._reset_InitMachine()
         self.Reset()#_reset_InitMachine()
-        
 
         
-        #logger.setSilent(["AsyncProcessPool"])
-        self.GAMachine=ClassEvolveGA(self)
-        self.GAMachine.runGA_AllIslands()
-        del(self.GAMachine)
-
-        if  self.GD["SSD3"]["Posterior"] and self._CurrentMajorIter==self.MaxMajorIter:
-            log.print("Doing Stein VGD to estimate the posterior.")
-            self.SteinModelMachine = ClassModelMachineSSD.ClassModelMachine(self.GD)
-            self.SteinModelMachine.setRefFreq(self.ModelMachine.RefFreq)
-            self.SteinModelMachine.setModelShape(self.ModelMachine.ModelShape)
-            self.SteinMachine=ClassEvolveStein(self)
-            self.SteinMachine.runStein_AllIslands()
-            del(self.SteinMachine)
+        # GA final estimate    
+        allIslandModelDict  = shared_dict.attach("DeconvListIslands%s"%self.StrField)
+        allIslandModelDict.reload()
         
+        log.print("  Reinit islands in ModelMachine...")
+        self.ModelMachine.reinitIslands(self.ListIslands)
+        
+        log.print("  Update islands...")
+        for iRes,DicoResult in enumerate(LDicoResults):
+            if not DicoResult["Success"]:
+                continue
+            iIsland=DicoResult["iIsland"]
+            ThisIslandModelDict = allIslandModelDict[iIsland]
+            ThisIslandModelDict.reload()
+            self.ModelMachine.AppendIsland(self.ListIslands[iIsland], ThisIslandModelDict["Model"].copy(),W=self.ListSpacialWeight[iIsland])
+            # self.ModelMachine.setFromFromOtherModelInit()
+            if DicoResult["HasError"]:
+                self.ErrorModelMachine.AppendIsland(ListIslands[iIsland], ThisIslandModelDict["sModel"].copy())
+        log.print("  Renormalise...")
+        self.ModelMachine.RenormaliseMultiEstimatesPerPixel()
+        log.print("  Done GA")
+
         #logger.setLoud(["AsyncProcessPool"])
         
         allIslandModelDict.delete()
-        self.DicoDicoInitIndiv.delete()
+        # self.DicoDicoInitIndiv.delete()
         
         return "MaxIter", True, True   # stop deconvolution but do update model
 
@@ -632,34 +676,31 @@ class ClassImageDeconvMachine():
 
         self.DicoInitIndiv={}
 
-        if self.GD["GAClean"]["MinSizeInit"]==-1: return
 
         self.ThSpectralFit=ThSpectralFit
-
         
         LSilent=["ClassInitSSDModelHMP", "ClassMultiScaleMachine", "ClassInitSSDModelMultiSlice", "ClassImageDeconvMachineMSMF"]
         logger.setSilent(LSilent)
         
         self.ListSizeIslands=[]
         #ThisPixList=ListIslands[iIsland]
+        
         allIslandModelDict  = shared_dict.attach("DeconvListIslands%s"%self.StrField)
-        ThisPixList=allIslandModelDict[iIsland]["Island"]
+        ThisPixList=allIslandModelDict[iIsland]["IslandXY"]
         
         x,y=np.array(ThisPixList,dtype=np.float32).T
         dx,dy=x.max()-x.min(),y.max()-y.min()
         dd=np.max([dx,dy])+1
         DoIslandsInit = (dd>=self.GD["GAClean"]["MinSizeInit"])
-        if not DoIslandsInit or not DO_INIT: return
         
         self._updateWorkerInternals(DicoDirty_path,GridFreqs,DegridFreqs)
         
         self._init_InitMachine(useCachedHMP=True)
         
         # print(self.GridFreqs,self.DegridFreqs)
-        
-        
-        DicoInitModel  = shared_dict.attach("DicoDicoInitIndiv%s"%self.StrField)
 
+        # Initialise the model using various deconv machines
+        DicoInitModel  = {} # shared_dict.attach("DicoDicoInitIndiv%s"%self.StrField)
         t0=time.time()
         DInfo={}
         for iMachine,InitMachine in enumerate(self.ListInitMachine):
@@ -667,6 +708,11 @@ class ClassImageDeconvMachine():
             if InitMachine.Type=="MultiSlice":
                 kwargs["ThSpectralFit"]=self.ThSpectralFit
                 
+            if self.GD["GAClean"]["MinSizeInit"]==-1:
+                continue
+            if not DoIslandsInit or not DO_INIT:
+                continue
+        
             rep = InitMachine.giveDicoInitIndiv(Island=ThisPixList,
                                                 #ListIslands=ListIslands,
                                                 iIsland=iIsland,
@@ -684,11 +730,34 @@ class ClassImageDeconvMachine():
                 DInfo[InitMachine.Type]["NSpectralFit"]=NSpectralFit
                 
             t0=t1
-            DicoInitModel[iMachine][iIsland] = rep
+            DicoInitModel[iMachine] = rep
 
         logger.setLoud(LSilent)
 
-        return DInfo
+        # logger.setSilent(["AsyncProcessPool"])
+        
+        t0=time.time()
+        GAMachine=ClassEvolveGA(self)
+        GAMachine.setDicoInitModel(DicoInitModel)
+        DicoResult=GAMachine._runGA(iIsland,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs)
+        t1=time.time()
+        DInfo["GA"]={}
+        DInfo["GA"]["Time"]=t1-t0
+        DicoResult["DInfo"]=DInfo
+        del(GAMachine)
+
+        if  self.GD["SSD3"]["Posterior"] and self._CurrentMajorIter==self.MaxMajorIter:
+            log.print("Doing Stein VGD to estimate the posterior.")
+            self.SteinModelMachine = ClassModelMachineSSD.ClassModelMachine(self.GD)
+            self.SteinModelMachine.setRefFreq(self.ModelMachine.RefFreq)
+            self.SteinModelMachine.setModelShape(self.ModelMachine.ModelShape)
+            self.SteinMachine=ClassEvolveStein(self)
+            self.SteinMachine.runStein_AllIslands()
+            del(self.SteinMachine)
+
+        
+        
+        return DicoResult
 
 
 

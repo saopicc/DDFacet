@@ -37,11 +37,11 @@ SilentModules=["ClassPSFServer",
                "ClassModelMachineSSD"]
 
 class ClassInitSSDModelParallel():
-    def __init__(self, GD, NFreqBands, RefFreq, NCPU, MainCache=None,IdSharedMem=""):
+    def __init__(self, GD, NFreqBands, RefFreq, NCPU, MainCache=None,IdSharedMem="",APP=None):
         self.T=ClassTimeIt.ClassTimeIt("ClassInitSSDModelParallel")
         self.T.disable()
         self.GD = copy.deepcopy(GD)
-        
+        self.APP=APP
         from DDFacet.Imager.MultiFields.AppendSubFieldInfo import AppendSubFieldInfo
         AppendSubFieldInfo(self)
         
@@ -53,7 +53,7 @@ class ClassInitSSDModelParallel():
         self.NFreqBands=NFreqBands
         self.Type="MultiSlice"
         self.T.timeit("Init0")
-        self.InitMachine = ClassInitSSDModel(self.GD, NFreqBands, RefFreq, MainCache, IdSharedMem)
+        self.InitMachine = ClassInitSSDModel(self.GD, NFreqBands, RefFreq, MainCache, IdSharedMem,APP=self.APP)
         self.NCPU=(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
         self.T.timeit("Init1")
         #APP.registerJobHandlers(self)
@@ -66,8 +66,10 @@ class ClassInitSSDModelParallel():
         self.DicoVariablePSF=DicoVariablePSF
         self.GridFreqs=GridFreqs
         self.DegridFreqs=DegridFreqs
-        print("Initialise MultiSlice machine", file=log)
-        self.InitMachine=ClassInitSSDModel(self.GD, self.NFreqBands, self.RefFreq, MainCache=self.MainCache, IdSharedMem=self.IdSharedMem)
+        #print("Initialise MultiSlice machine", file=log)
+        self.InitMachine.DeconvMachine.SetPSF(self.DicoVariablePSF)
+        # self.InitMachine=ClassInitSSDModel(self.GD, self.NFreqBands, self.RefFreq, MainCache=self.MainCache, IdSharedMem=self.IdSharedMem,
+        #                                    APP=self.APP)
         self.T.timeit("Init_Init")
 
     def Reset(self):
@@ -143,8 +145,9 @@ class ClassInitSSDModelParallel():
 ######################################################################################################
 
 class ClassInitSSDModel():
-    def __init__(self, GD, NFreqBands, RefFreq, MainCache=None, IdSharedMem=""):
+    def __init__(self, GD, NFreqBands, RefFreq, MainCache=None, IdSharedMem="",APP=None):
         GD=copy.deepcopy(GD)
+        self.APP=APP
         self.T=ClassTimeIt.ClassTimeIt("ClassInitSSDModel_Single")
         self.T.disable()
         self.RefFreq=RefFreq
@@ -183,6 +186,7 @@ class ClassInitSSDModel():
                                                                                      CacheFileName="MultiSlice_Init",
                                                                                      IdSharedMem=IdSharedMem,
                                                                                      GD=self.GD,
+                                                                                     APP=self.APP,
                                                                                      **self.MinorCycleConfig)
         self.GD["Mask"]["Auto"]=False
         self.GD["Mask"]["External"]=None
@@ -202,11 +206,13 @@ class ClassInitSSDModel():
 
 
         #self.Margin=20
-
+        
+        #print("self.DeconvMachine",id(self.DeconvMachine))
+        
         self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["PSFSideLobes"],
                                 GridFreqs=self.GridFreqs,DegridFreqs=self.DegridFreqs,DoWait=DoWait)
         self.T.timeit("_Init")
-
+        
 
     def setDirty(self, DicoDirty):
         self.T.reinit()

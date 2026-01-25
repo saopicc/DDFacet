@@ -79,7 +79,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.RefFreq=None
         self.DicoSMStacked={}
         self.DicoSMStacked["Type"]="SSD3"
-        self.NDeque=4
+        self.NDeque=self.GD["SSD3"]["NLookBackModels"]
         self.PastModels=deque([],self.NDeque)
         self.PastModels_Resid=deque([],self.NDeque)
         #self.PastModels_STD=deque([],self.NDeque)
@@ -306,6 +306,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             DicoComp[key]["Weights"].append(W)
             
     def updateAlpha(self,MeanDirty):
+        if self.GD["SSD3"]["NLookBackModels"]==0: return
         nch,_,nx,ny=MeanDirty.shape
         if nch!=1: stop
         if self.xrRand is None:
@@ -366,7 +367,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         
         #if len(self.PastModels)>=self.GD["Deconv"]["MaxMajorIter"]//2:
-        if len(self.PastModels)>=2:
+        if self.GD["SSD3"]["NLookBackModels"]!=0 and len(self.PastModels)>=2:
             log.print("Use %i past models to update..."%len(self.PastModels))
             # sgn0=np.sign(self.PastModels[1][0]-self.PastModels[0][0])
             # sgn1=np.sign(ThisModel_mean-self.PastModels[1][0])
@@ -459,7 +460,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             #DicoComp["Vals"][:] = self.PastModels[-1][:] + self.Alpha * dThisModel
             #log.print("  Have rescaled model using Alpha = %.2f"%(self.Alpha))
 
-        self.PastModels.append(DicoComp["Vals"].copy())
+        if self.GD["SSD3"]["NLookBackModels"]!=0:
+            self.PastModels.append(DicoComp["Vals"].copy())
         
         if self.GD["SSD3"]["ForcePositiveModel"]:
             x,y=np.where(DicoComp["Vals"][0]<0)

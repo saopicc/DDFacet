@@ -70,11 +70,10 @@ class ClassEvolveGA():
                                                                          island_dict=island_dict,
                                                                          ParallelFitness=ParallelFitness,
                                                                          NCPU=NCPU)
-        self.InitEvolutionAlgo()
         # self.ArrayMethodsMachine.testMovePix()
         # stop
 
-    def InitEvolutionAlgo(self):
+    def setDEAP(self):
         if "FitnessMax" not in dir(creator):
             creator.create("FitnessMax", base.Fitness, weights=self.ArrayMethodsMachine.WeightsEA)
         if "Individual" not in dir(creator):
@@ -117,6 +116,7 @@ class ClassEvolveGA():
     def main(self,NGen=1000,NIndiv=100,DoPlot=True):
         T=ClassTimeIt.ClassTimeIt("   GA: Main")
         T.disable()
+        self.setDEAP()
         #os.system("rm png/*.png")
         #random.seed(64)
         #np.random.seed(64)
@@ -281,10 +281,9 @@ class ClassEvolveGA():
                 #self.ArrayMethodsMachine.PM.ReinitPop(self.pop,pop,PutNoise=PutNoise)
 
                 pop_init=GiveInitPop()
-                print("DSFLKFSLK")
-                print([ind.fitness.values for ind in pop_init])
-                print([ind.fitness.values for ind in pop_init])
-                print([ind.fitness.values for ind in pop_init])
+                # print([ind.fitness.values for ind in pop_init])
+                # print([ind.fitness.values for ind in pop_init])
+                # print([ind.fitness.values for ind in pop_init])
                 V = tools.selBest(pop_init, 1)[0]
 
                 

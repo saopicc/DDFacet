@@ -25,7 +25,6 @@ from .ClassConvMachine import ClassConvMachineImages
 from DDFacet.Array import shared_dict
 import psutil
 from DDFacet.Other.progressbar import ProgressBar
-from DDFacet.Other.AsyncProcessPool import APP
 
 SilentModules=["ClassPSFServer",
                "ClassImageDeconvMachine",
@@ -39,9 +38,9 @@ SERIAL=True
 SERIAL=False
 
 class ClassInitSSDModelParallel():
-    def __init__(self, GD, NFreqBands, RefFreq, NCPU, MainCache=None,IdSharedMem=""):
+    def __init__(self, GD, NFreqBands, RefFreq, NCPU, MainCache=None,IdSharedMem="",APP=None):
         self.GD = copy.deepcopy(GD)
-        
+        self.APP=APP
         from DDFacet.Imager.MultiFields.AppendSubFieldInfo import AppendSubFieldInfo
         AppendSubFieldInfo(self)
         
@@ -53,9 +52,10 @@ class ClassInitSSDModelParallel():
         self.NFreqBands=NFreqBands
         self.Type="MultiSlice"
         
-        self.InitMachine = ClassInitSSDModel(self.GD, NFreqBands, RefFreq, MainCache, IdSharedMem)
+        print("Initialise MultiSlice machine", file=log)
+        self.InitMachine = ClassInitSSDModel(self.GD, NFreqBands, RefFreq, MainCache, IdSharedMem,APP=self.APP)
         self.NCPU=(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
-        APP.registerJobHandlers(self)
+        self.APP.registerJobHandlers(self)
 
         
 
@@ -63,8 +63,10 @@ class ClassInitSSDModelParallel():
         self.DicoVariablePSF=DicoVariablePSF
         self.GridFreqs=GridFreqs
         self.DegridFreqs=DegridFreqs
-        print("Initialise MultiSlice machine", file=log)
-        self.InitMachine=ClassInitSSDModel(self.GD, self.NFreqBands, self.RefFreq, MainCache=self.MainCache, IdSharedMem=self.IdSharedMem)
+        
+        self.InitMachine.DeconvMachine.SetPSF(self.DicoVariablePSF)
+
+        # self.InitMachine=ClassInitSSDModel(self.GD, self.NFreqBands, self.RefFreq, MainCache=self.MainCache, IdSharedMem=self.IdSharedMem,APP=self.APP)
 
     def Reset(self):
         self.DicoVariablePSF = None
@@ -117,7 +119,7 @@ class ClassInitSSDModelParallel():
             for iIsland,Island in enumerate(ListIslands):
                 if not ListDoIsland or ListDoIsland[iIsland]:
                     subdict = DicoInitIndiv.addSubdict(iIsland)
-                    APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
+                    self.APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
                                args=(subdict.writeonly(), 
                                      iIsland, 
                                      Island,
@@ -125,7 +127,7 @@ class ClassInitSSDModelParallel():
                                      DicoDirty.readonly(),
                                      ParmDict.readonly(), 
                                      1),serial=SERIAL)
-            APP.awaitJobResults("InitIsland:*", progress="Init islands MultiSlice")
+            self.APP.awaitJobResults("InitIsland:*", progress="Init islands MultiSlice")
         else:
             for iIsland,Island in enumerate(ListIslands):
                 if not ListDoIsland or ListDoIsland[iIsland]:
@@ -235,8 +237,9 @@ class ClassInitSSDModelParallel():
 ######################################################################################################
 
 class ClassInitSSDModel():
-    def __init__(self, GD, NFreqBands, RefFreq, MainCache=None, IdSharedMem=""):
+    def __init__(self, GD, NFreqBands, RefFreq, MainCache=None, IdSharedMem="",APP=None):
         GD=copy.deepcopy(GD)
+        self.APP=APP
         self.RefFreq=RefFreq
         self.GD=GD
         self.GD["Parallel"]["NCPU"]=1
@@ -272,6 +275,7 @@ class ClassInitSSDModel():
                                                                                      CacheFileName="MultiSlice_Init",
                                                                                      IdSharedMem=IdSharedMem,
                                                                                      GD=self.GD,
+                                                                                     APP=self.APP,
                                                                                      **self.MinorCycleConfig)
         self.GD["Mask"]["Auto"]=False
         self.GD["Mask"]["External"]=None
