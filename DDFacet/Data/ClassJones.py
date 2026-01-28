@@ -39,6 +39,7 @@ from DDFacet.Data import ClassGMRTBeam
 from DDFacet.Data import ClassATCABeam as ClassATCABeam
 from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 from DDFacet.Other import ModColor
+import DDFacet.Other.AsyncProcessPool
 
 # import ClassSmoothJones is not used anywhere, should be able to remove it
 from DDFacet.Other import ClassGiveSolsFile
@@ -1165,17 +1166,33 @@ class ClassJones():
         if not progressBar: pBAR.disable()
         # pBAR.disable()
         pBAR.render(0, Tm.size)
+
+        # self.ParallelBeam=True
+        # if self.ParallelBeam:
+        #     #logger.setSilent(["AsyncProcessPool"])
+        #     APP=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_Beam",
+        #                                                ncpu=self.GD["Parallel"]["NCPU"],
+        #                                                affinity="disable",
+        #                                                silent_warning=True,
+        #                                                )
+        #     APP.registerJobHandlers(self)
+        #     APP.startWorkers()
+        #     APP.awaitWorkerStart()
+        #     #logger.setLoud(["AsyncProcessPool"])
+            
+        
         for itime in range(Tm.size):
             DicoBeam["t0"][itime]=T0s[itime]
             DicoBeam["t1"][itime]=T1s[itime]
             DicoBeam["tm"][itime]=Tm[itime]
             ThisTime=Tm[itime]
+
+            
             Beam=self.GiveInstrumentBeam(ThisTime,RA,DEC)#
             # for iDir in range(RA.size):
             #     Srac,Sdecx=(rad2hmsdms(RA[iDir],Type="ra").replace(" ",":"),rad2hmsdms(DEC[iDir],Type="dec").replace(" ","."))
             #     print("Src : ",Srac,Sdecx)
 
-            #
             if self.GD["Beam"]["CenterNorm"]==1:
                 Beam0=self.GiveInstrumentBeam(ThisTime,np.array([rac]),np.array([decc]))
                 Srac,Sdecx=(rad2hmsdms(rac,Type="ra").replace(" ",":"),rad2hmsdms(decc,Type="dec").replace(" ","."))
