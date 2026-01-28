@@ -1705,7 +1705,7 @@ class ClassMS():
         row0, row1 = self._chunk_r0r1[ichunk]
         nrows = row1 - row0
         if not nrows:
-            return None, None, None, None
+            return None, None, None, None, None
         tab = self.GiveMainTable()
         uvw = tab.getcol("UVW", row0, nrows) 
         #flags = tab.getcol("FLAG", row0, nrows)
@@ -1733,10 +1733,10 @@ class ClassMS():
         rowflags = flags.min(axis=1)
         # if everything is flagged, skip this entry
         if rowflags.all():
-            return None, None, None, None
+            return None, None, None, None, None
         # if only UVWs needed, return now
         if uvw_only:
-            return uvw, None, None, None
+            return uvw, flags, rowflags, None, None
         
         # now read the weights
         weights = None

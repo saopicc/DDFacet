@@ -382,6 +382,12 @@ class ClassInitSSDModel():
         # SubModelImage is apparant
         iFacet=self.DeconvMachine.PSFServer.iFacet
         PSF=self.DeconvMachine.PSFServer.DicoVariablePSF["PeakNormed_CubeVariablePSF"][iFacet]
+
+        if self.GD["MultiSliceDeconv"]["Type"]=="Orieux":
+            # Orieux uses a PSF of the same size as the Dirty, so need to pre-convolve with that one other bias appears 
+            _,_,nx,ny=SubModelImage.shape
+            s_psf=ClassImageDeconvMachineMultiSlice.giveSliceCut(PSF,nx)
+            PSF=PSF[:,:,s_psf,s_psf]
         ConvModel=ClassConvMachineImages(PSF).giveConvModel(SubModelImage)
 
         # ConvModel=np.zeros_like(SubModelImage)

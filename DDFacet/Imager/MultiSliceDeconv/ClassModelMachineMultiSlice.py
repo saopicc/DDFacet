@@ -53,7 +53,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.RefFreq=None
         self.DicoModel={}
         self.DicoModel["Type"]="MultiSlice"
-
+        self.DicoSMStacked=self.DicoModel
+        
     def setRefFreq(self,RefFreq,Force=False):#,AllFreqs):
         if self.RefFreq is not None and not Force:
             print(ModColor.Str("Reference frequency already set to %f MHz"%(self.RefFreq/1e6)), file=log)
@@ -86,6 +87,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def FromFile(self,FileName):
         print("Reading dico model from file %s"%FileName, file=log)
         self.DicoModel=MyPickle.Load(FileName)
+        self.DicoSMStacked=self.DicoModel
         self.FromDico(self.DicoModel)
 
 
@@ -93,6 +95,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         print("Reading dico model from dico with %i components"%len(DicoModel["Comp"]), file=log)
         #self.PM=self.DicoModel["PM"]
         self.DicoModel=DicoModel
+        self.DicoSMStacked=self.DicoModel
         self.RefFreq=self.DicoModel["RefFreq"]
         self.ModelShape=self.DicoModel["ModelShape"]
             

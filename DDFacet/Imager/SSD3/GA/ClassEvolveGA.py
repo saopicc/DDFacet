@@ -73,6 +73,9 @@ class ClassEvolveGA():
         #if NIslands==0: return
         T=ClassTimeIt.ClassTimeIt("  ----  _runGA #%i"%iIsland)
         T.disable()
+        T.timeit("start")
+        T.timeit("start")
+        T.timeit("start")
         self.ImageDeconvMachine._updateWorkerInternals(DicoDirty_path,GridFreqs,DegridFreqs)
         T.timeit("updateWorkerInternals")
         ##tr.print_diff()
@@ -124,6 +127,7 @@ class ClassEvolveGA():
             IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland(self.MaskMachine.CurrentNegMask)
             ListPixData,_=IncreaseIslandMachine.IncreaseIsland(ListPixData,AllowMasked=True,dx=dx)
 
+        T.timeit("Increase")
         
         ParmDict = shared_dict.attach("ParmDict%s"%self.StrField) # ParmDict
         #PixVariance=ParmDict["RMS"]**2
@@ -146,18 +150,24 @@ class ClassEvolveGA():
                                             ParallelMode=self.ParallelMode,
                                             DicoInitIndiv=self.DicoInitIndiv
                                             )
+        T.timeit("Declare class")
         
         Model=self.CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
+        T.timeit("HasRun")
         
         #return {"Success":False,"iIsland":iIsland,"HasError":False}
         
         #tr.print_diff()
-        #from sys import getsizeof
-        #print("DLKSDLSDFLSDF",np.array(Model).shape,getsizeof(np.array(Model)))
         if "Model" not in  list(ThisIslandModelDict.keys()):
             ThisIslandModelDict.addSharedArray("Model", Model.shape, np.float32)
         ThisIslandModelDict["Model"][:] = np.array(Model)[:]
-
+        
+        # from sys import getsizeof
+        # print("DLKSDLSDFLSDF [%i]"%iIsland,np.array(Model).shape,getsizeof(np.array(Model)),Model.max())
+        # print("DLKSDLSDFLSDF [%i]"%iIsland,np.array(Model).shape,getsizeof(np.array(Model)),Model.max())
+        # print("DLKSDLSDFLSDF [%i]"%iIsland,np.array(Model).shape,getsizeof(np.array(Model)),Model.max())
+        # print("DLKSDLSDFLSDF [%i]"%iIsland,np.array(Model).shape,getsizeof(np.array(Model)),Model.max())
+        
         
         # del(self.CEv)
         # import gc
@@ -206,7 +216,7 @@ class ClassEvolveGA_SingleIsland():
         if NCPU==0:
             NCPU=int(GD["Parallel"]["NCPU"] or psutil.cpu_count())
 
-
+        self.GD=GD
             
         self.ArrayMethodsMachine=ClassArrayMethodSSD.ClassArrayMethodSSD(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,
                                                                          PixVariance=PixVariance,
@@ -266,6 +276,7 @@ class ClassEvolveGA_SingleIsland():
         T=ClassTimeIt.ClassTimeIt("   GA: Main")
         T.disable()
         self.setDEAP()
+        T.timeit("self.setDEAP")
         #os.system("rm png/*.png")
         #random.seed(64)
         #np.random.seed(64)
@@ -358,8 +369,8 @@ class ClassEvolveGA_SingleIsland():
             else:
                 for iTypeInit in range(NTypeInit):
                     L.append(GivePolyArrayMP(iTypeInit=iTypeInit))
-                    
-            if np.max(np.abs(self.IslandBestIndiv))!=0.:
+
+            if np.max(np.abs(self.IslandBestIndiv))!=0. and self.GD["GAClean"]["NSourceKin"]>0:
                 L.append(self.IslandBestIndiv_PolyModelArray)
                 
             pop = toolbox.population(n=len(L))

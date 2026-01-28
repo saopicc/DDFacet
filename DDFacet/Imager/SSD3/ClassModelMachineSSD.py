@@ -79,6 +79,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.RefFreq=None
         self.DicoSMStacked={}
         self.DicoSMStacked["Type"]="SSD3"
+        self.DicoSMStacked["Comp"]={}
         self.NDeque=self.GD["SSD3"]["NLookBackModels"]
         self.PastModels=deque([],self.NDeque)
         self.PastModels_Resid=deque([],self.NDeque)
@@ -261,7 +262,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def giveMask_nonZeroModel(self):
         Mask=np.zeros(self.ModelShape,np.bool_)
-        if "Comp" in self.DicoSMStacked.keys():
+        if "Comp" in self.DicoSMStacked.keys() and len(self.DicoSMStacked["Comp"])>0:
+            
             ImTaylor0=self.DicoSMStacked["Comp"]["Vals"][0]
             Mask[0,0].flat[:]=(ImTaylor0!=0).flat[:]
         return Mask
@@ -497,6 +499,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             ModelImage = np.zeros((nchan,npol,nx,ny),dtype=np.float32)
 
         if "Comp" not in  self.DicoSMStacked.keys():
+            return ModelImage
+        if  len(self.DicoSMStacked["Comp"])==0: 
             return ModelImage
         
         if InModelParms is None:

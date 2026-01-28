@@ -373,7 +373,7 @@ class ClassImagerDeconv():
                 from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
                 self.DeconvMachine=ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(**MinorCycleConfig)
                 print("Using Hogbom algorithm", file=log)
-            elif self.GD["Deconv"]["Mode"]=="MultiSlice":
+            elif self.GD["Deconv"]["Mode"].startswith("MultiSlice"):
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                     raise NotImplementedError("Multi-polarization is not supported in MultiSlice")
                 from DDFacet.Imager.MultiSliceDeconv import ClassImageDeconvMachineMultiSlice
@@ -412,14 +412,17 @@ class ClassImagerDeconv():
         
         CheckFM(self,"before startWorkers")
         self.APP.startWorkers()
+
+        # tell VisServer to not load weights
+        if self.do_predict_only and self.GD["CF"]["wmax"]!=0: # if wmax==0 the wmax of the data is not computed, and the CFs are not properly set
+            self.VS.WM.IgnoreWeights()
+
+        
         CheckFM(self,"after startWorkers")
         self.VS.CalcWeightsBackground()
         CheckFM(self,"after startWorkers2")
         self.InitCF()
             
-        # tell VisServer to not load weights
-        if self.do_predict_only and self.GD["CF"]["wmax"]!=0: # if wmax==0 the wmax of the data is not computed, and the CFs are not properly set
-            self.VS.WM.IgnoreWeights()
 
     def InitCF(self):
         # all internal state initialized -- start the worker threads

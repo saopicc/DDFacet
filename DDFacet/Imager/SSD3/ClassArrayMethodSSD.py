@@ -39,7 +39,8 @@ class ClassArrayMethodSSD():
                  iIsland=0,
                  ParallelMode=None,
                  NCPU=None):
-        self.ParallelFitness=(ParallelMode=="PerIsland")
+        self.GD=GD
+        self.ParallelFitness= ( (ParallelMode=="PerIsland") and (self.GD["GAClean"]["NMaxGen"]>0) )
         self.iFacet=iFacet
         self.WeightFreqBands=WeightFreqBands
         self.iIsland=iIsland
@@ -124,6 +125,7 @@ class ClassArrayMethodSSD():
                                                                 )
         self.APP_Fitness.registerJobHandlers(self)
         self.APP_Fitness.startWorkers()
+        self.APP_Fitness.awaitWorkerStart()
         logger.setLoud(["AsyncProcessPool"])
 
 
@@ -393,6 +395,7 @@ class ClassArrayMethodSSD():
         Parallel=self.ParallelFitness
         self._fill_pop_array(pop)
 
+        #print("LSFDSDLFK self.ParallelFitness",self.ParallelFitness)
         if self.ParallelFitness:
             for iIndividual,individual in enumerate(pop):
                 DicoJob={"iIndividual":iIndividual,

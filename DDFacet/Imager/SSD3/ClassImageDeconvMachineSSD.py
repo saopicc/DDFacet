@@ -468,7 +468,8 @@ class ClassImageDeconvMachine():
         if self.GD["SSD3"]["NLastCyclesDeconvAll"]==-1 or (self._CurrentMajorIter > (self.MaxMajorIter-NLastCyclesDeconvAll)) :
             print(ModColor.Str("    ... overwriting these values with zero",col="green"), file=log)
             StopFlux=0.
-            #self.ThSpectralFit=3.
+            
+        self.ThSpectralFit=3
         print("    Stopping flux              = %10.6f Jy [%.3f of peak ]"%(StopFlux,StopFlux/MaxDirty), file=log)
 
         self.ModelMachine.updateAlpha(self._MeanDirty)
@@ -523,7 +524,7 @@ class ClassImageDeconvMachine():
             allIslandModelDict.addSubdict(iIsland)
             allIslandModelDict[iIsland].addSharedArray("IslandXY", IslandXY.shape, np.int32)
             allIslandModelDict[iIsland]["IslandXY"][:]=IslandXY[:]
-        
+
         
         # self.DicoDicoInitIndiv  = shared_dict.create("DicoDicoInitIndiv%s"%self.StrField)
         # for iMachine,InitMachine in enumerate(self.ListInitMachine):
@@ -571,30 +572,15 @@ class ClassImageDeconvMachine():
         NDeconvBig=0
         for iIsland,Island in enumerate(self.ListIslands):
             if len(Island)>self.GD["SSDClean"]["ConvFFTSwitch"]:
-                NDeconvBig+=1
-                continue
-            NDeconv+=1
+                ParallelMode="PerIsland"
+            else:
+                ParallelMode="OverIslands"
+                
             self.APP_GA.runJob("initIsland.%i"%(iIsland),
-                       self._initIsland,
-                       args=(iIsland,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs,self.ThSpectralFit,ParallelMode), serial=SERIAL)
-        if NDeconv>0:
-            print("Deconvolve small islands (<=%i pixels) (parallelised over island)"%(self.GD["SSDClean"]["ConvFFTSwitch"]), file=log)
-            LDicoResults=self.APP_GA.awaitJobResults("initIsland.*", progress="Deconv Islands")
-        else:
-            LDicoResults=[]
-        # ############################################
-        if NDeconvBig>0:
-            print("Deconvolve large islands (>%i pixels) (parallelised over sourcekin)"%(self.GD["SSDClean"]["ConvFFTSwitch"]), file=log)
-            ParallelMode="PerIsland"
-            for iIsland,Island in enumerate(self.ListIslands):
-                if len(Island)<=self.GD["SSDClean"]["ConvFFTSwitch"]: continue
-                #rep=self._initIsland(iIsland,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs,self.ThSpectralFit,ParallelMode)
-                #LDicoResults.append(rep)
-                self.APP_GA.runJob("initIsland.%i"%(iIsland),
-                                   self._initIsland,
-                                   args=(iIsland,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs,self.ThSpectralFit,ParallelMode), serial=SERIAL)
-            LDicoResults=self.APP_GA.awaitJobResults("initIsland.*", progress="Deconv Islands")
-            
+                               self._initIsland,
+                               args=(iIsland,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs,self.ThSpectralFit,ParallelMode), serial=SERIAL) 
+               
+        LDicoResults=self.APP_GA.awaitJobResults("initIsland.*", progress="Deconv Islands")
         # ############################################
         # Collect results
         DTime={}
@@ -609,9 +595,9 @@ class ClassImageDeconvMachine():
                 L.append(DInfo[InitType]["Time"])
                 DTime[InitType]=L
                 NSpectralFit=DInfo[InitType].get("NSpectralFit",None)
+                # print("[%s] %s"%(InitType,str(NSpectralFit)))
                 if NSpectralFit is not None:
                     LNSpectralFit.append(NSpectralFit)
-
         Lkey=list(DTime.keys())
         # #######################
         # Total times
@@ -637,13 +623,20 @@ class ClassImageDeconvMachine():
 
         
         NSpectralFit=np.array(LNSpectralFit)
+        #print("DLFKFDLKDF NSpectralFit",NSpectralFit)
         if NSpectralFit.size>0:
             nPixFit,nPixTot=np.sum(NSpectralFit,axis=0)
-            if nPixTot>0: log.print("MultiScale initialisation: spectral fit for %.2f%% of the pixels"%(100*nPixFit/nPixTot))
-            
-        if self.GD["Misc"]["ConserveMemory"]:
-            self._reset_InitMachine()
-        self.Reset()#_reset_InitMachine()
+            #print("DLFKFDLKDF nPixFit,nPixTot",nPixFit,nPixTot)
+            if nPixTot>0:
+                fracFit=100*nPixFit/nPixTot
+                sss="[%i/%i, Th=%.1f]"%(nPixFit,nPixTot,self.ThSpectralFit)
+                log.print("[MultiSlice] precise spectral fit done for %.2f%% of the pixels %s"%(fracFit,sss))
+            else:
+                fracFit=0.
+                sss=""
+                log.print("[MultiSlice] precise spectral fit likely skipped for all pixels [Th=%.1f]"%self.ThSpectralFit)
+                
+
 
         
         # GA final estimate    
@@ -660,6 +653,7 @@ class ClassImageDeconvMachine():
             iIsland=DicoResult["iIsland"]
             ThisIslandModelDict = allIslandModelDict[iIsland]
             ThisIslandModelDict.reload()
+            # print("SDFLKDFLK ",iIsland,ThisIslandModelDict["Model"].max())
             self.ModelMachine.AppendIsland(self.ListIslands[iIsland], ThisIslandModelDict["Model"].copy(),W=self.ListSpacialWeight[iIsland])
             # self.ModelMachine.setFromFromOtherModelInit()
             if DicoResult["HasError"]:
@@ -672,6 +666,10 @@ class ClassImageDeconvMachine():
         self.APP_GA.terminate()
         self.APP_GA.shutdown()
 
+        if self.GD["Misc"]["ConserveMemory"]:
+            self._reset_InitMachine()
+        self.Reset()#_reset_InitMachine()
+        
         allIslandModelDict.delete()
         
         return "MaxIter", True, True   # stop deconvolution but do update model
@@ -745,6 +743,7 @@ class ClassImageDeconvMachine():
             #print("SDKSDFKJSFKLJSF",rep,type(rep))
             #self.DicoDicoInitIndiv[iMachine].addSubdict(iIsland)
             t1=time.time()
+            
             DInfo[InitMachine.Type]={}
             DInfo[InitMachine.Type]["Time"]=t1-t0
             if InitMachine.Type=="MultiSlice":
@@ -753,6 +752,7 @@ class ClassImageDeconvMachine():
                 
             t0=t1
             DicoInitModel[iMachine] = rep
+            #print("FLSKSFDLDKLSDK Init Type,Max",InitMachine.Type,rep.max())
 
         logger.setLoud(LSilent)
 

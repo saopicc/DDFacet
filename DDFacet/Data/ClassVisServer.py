@@ -608,10 +608,11 @@ class ClassVisServer():
         DATA["ROW1"] = ms.ROW1
 
         # get weights
+        
         weights,sgnweights = self.WM.GetVisWeights(iMS, iChunk)
         DATA["Weights"] = weights
 
-        if -1 in sgnweights:
+        if sgnweights is not None and -1 in sgnweights:
             if not np.allclose(self.VisCorrelationLayout,np.array([ 9, 10, 11, 12], dtype=np.int32)): stop
             sort_index=DATA["sort_index"]
             nrow,nch,npol= DATA["data"].shape

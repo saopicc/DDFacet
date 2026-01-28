@@ -213,7 +213,9 @@ class ClassEvolveGA():
             else:
                 for iTypeInit in range(NTypeInit):
                     L.append(GivePolyArrayMP(iTypeInit=iTypeInit))
-                    
+
+            # print("DSFDLSJSLKJFS")
+            # print("DSFDLSJSLKJFS")
             if np.max(np.abs(self.IslandBestIndiv))!=0.:
                 L.append(self.IslandBestIndiv_PolyModelArray)
                 
