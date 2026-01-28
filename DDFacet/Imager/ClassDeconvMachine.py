@@ -320,9 +320,9 @@ class ClassImagerDeconv():
                                                                              GridFreqs=self.VS.FreqBandCenters,
                                                                              MainCache=self.VS.maincache,
                                                                              APP=self.APP)
-        if MPIManager.rank == 0:
-            self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
-            self.MaskMachine.setImageNoiseMachine(self.ImageNoiseMachine)
+        # if MPIManager.rank == 0:
+        self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
+        self.MaskMachine.setImageNoiseMachine(self.ImageNoiseMachine)
 
         MinorCycleConfig["RefFreq"] = self.RefFreq
         MinorCycleConfig["ModelMachine"] = ModelMachine
