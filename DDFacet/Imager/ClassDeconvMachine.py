@@ -1409,9 +1409,14 @@ class ClassImagerDeconv():
 
             CheckFM(self,"deconv")
             repMinor, continue_deconv, update_model = None, None, None
-            if MPIManager.rank == 0:
-                self.DeconvMachine.Update(self.DicoDirty)
 
+            if self.GD["Deconv"]["Mode"]=="SSD3":
+                DoMinorCycle=True
+            else:
+                DoMinorCycle=(MPIManager.rank==0)
+                
+            if DoMinorCycle:
+                self.DeconvMachine.Update(self.DicoDirty)
 
                 repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
                 
@@ -1420,9 +1425,15 @@ class ClassImagerDeconv():
                     NParms,nx,ny=DicoComp["Vals"].shape
                     for iCoef in range(NParms):
                         ThisCoefImage=DicoComp["Vals"][iCoef,:,:].reshape((1,1,nx,ny))
-                        self.FacetMachine.ToCasaImage(ThisCoefImage,ImageName="%s.Taylor%i.%2.2i"%(self.BaseName,iCoef,iMajor),Stokes=self.VS.StokesConverter.RequiredStokesProducts(),Fits=True)
+                        self.FacetMachine.ToCasaImage(ThisCoefImage,
+                                                      ImageName="%s.Taylor%i.%2.2i"%(self.BaseName,iCoef,iMajor),
+                                                      Stokes=self.VS.StokesConverter.RequiredStokesProducts(),
+                                                      Fits=True)
                     ThisCoefImage=DicoComp["Weights"].reshape((1,1,nx,ny))
-                    self.FacetMachine.ToCasaImage(ThisCoefImage,ImageName="%s.TaylorW.%2.2i"%(self.BaseName,iMajor),Stokes=self.VS.StokesConverter.RequiredStokesProducts(),Fits=True)
+                    self.FacetMachine.ToCasaImage(ThisCoefImage,
+                                                  ImageName="%s.TaylorW.%2.2i"%(self.BaseName,iMajor),
+                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts(),
+                                                  Fits=True)
 
                 
             # Broadcast metadata regarding the state of Deconvolution form the master MPI process
@@ -1696,28 +1707,27 @@ class ClassImagerDeconv():
 
 
             self.HasDeconvolved=True
-            # dump dirty to cache
-            if self.GD["Cache"]["LastResidual"] and self.DicoDirty is not None:
-                cachepath, valid = self.VS.maincache.checkCache("LastResidual",
-                                                                dict(
-                                                                    [("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
-                                                                    [(section, self.GD[section]) for section in
-                                                                     ["Data", "Beam", "Selection",
-                                                                      "Freq", "Image", "Comp",
-                                                                      "RIME","Weight","Facets",
-                                                                      "DDESolutions"]]
-                                                                ),
-                                                                reset=False)
-                try:
-                    print("Saving last residual image to %s"%cachepath, file=log)
-                    self.DicoDirty.save(cachepath)
-                    #MyPickle.DicoNPToFile(self.DicoDirty,"%s.DicoPickle"%cachepath)
-                    self.VS.maincache.saveCache("LastResidual")
-                    last_residual_is_saved=True
-                    
-                except:
-                    print(traceback.format_exc(), file=log)
-                    print(ModColor.Str("WARNING: Residual image cache could not be written, see error report above. Proceeding anyway."), file=log)
+            # # dump dirty to cache
+            # if self.GD["Cache"]["LastResidual"] and self.DicoDirty is not None:
+            #     cachepath, valid = self.VS.maincache.checkCache("LastResidual",
+            #                                                     dict(
+            #                                                         [("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
+            #                                                         [(section, self.GD[section]) for section in
+            #                                                          ["Data", "Beam", "Selection",
+            #                                                           "Freq", "Image", "Comp",
+            #                                                           "RIME","Weight","Facets",
+            #                                                           "DDESolutions"]]
+            #                                                     ),
+            #                                                     reset=False)
+            #     try:
+            #         print("Saving last residual image to %s"%cachepath, file=log)
+            #         self.DicoDirty.save(cachepath)
+            #         #MyPickle.DicoNPToFile(self.DicoDirty,"%s.DicoPickle"%cachepath)
+            #         self.VS.maincache.saveCache("LastResidual")
+            #         last_residual_is_saved=True
+            #     except:
+            #         print(traceback.format_exc(), file=log)
+            #         print(ModColor.Str("WARNING: Residual image cache could not be written, see error report above. Proceeding anyway."), file=log)
 
         self.FacetMachine.finaliseSmoothBeam()
 

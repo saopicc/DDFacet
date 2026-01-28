@@ -45,6 +45,7 @@ from DDFacet.Array import shared_dict
 import psutil
 import copy
 import DDFacet.Other.AsyncProcessPool
+from DDFacet.Other import MPIManager
 
 #from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 from DDFacet.Imager.SSD3 import ClassModelMachineSSD
@@ -503,20 +504,38 @@ class ClassImageDeconvMachine():
         
         
         ###########################
-        rep=self.SearchIslands(StopFlux)
-        if rep=="NoIslands":
-            return "FluxThreshold", False, False
+        if MPIManager.rank==0:
+            rep=self.SearchIslands(StopFlux)
+            if rep=="NoIslands":
+                return "FluxThreshold", False, False
+            self.ListAllIslands=self.ListIslands
+            self.ListAllSpacialWeight=self.ListSpacialWeight
         ###########################
+
+        if MPIManager.useMPI:
+            if MPIManager.rank==0:
+                DicoJobMPI={}
+                irank=0
+                nrank=MPIManager.size
+                for iIsland in len(self.ListIslands):
+                    L=DicoJobMPI.get(irank,[])
+                    L.append(iIsland)
+                    irank+=1
+                    if irank==nrank: irank=0
+                
+            DicoJobMPI=MPIManager.COMM_WORLD.bcast(DicoJobMPI, root=0)
+            self.ListAllIslands=MPIManager.COMM_WORLD.bcast(self.ListAllIslands, root=0)
+            self.ListAllSpacialWeight=MPIManager.COMM_WORLD.bcast(self.ListAllSpacialWeight, root=0)
+            
+            self.ListIslands=[self.ListAllIslands[iIsland] for iIsland in DicoJobMPI.get(MPIManager.rank,[])]
+            self.ListSpacialWeight=[self.ListAllSpacialWeight[iIsland] for iIsland in DicoJobMPI.get(MPIManager.rank,[])]
+            self.NIslands=len(self.ListIslands)
+            
+            
+
         
+
         
-        
-        
-        
-        # self.DicoModelImage  = shared_dict.create("DicoModelImage%s"%self.StrField)
-        # self.DicoModelImage["ModelImage"]=ModelImage
-        
-        # if self.DicoDicoInitIndiv is not None:
-        #     self.DicoDicoInitIndiv.delete()
             
         allIslandModelDict  = shared_dict.create("DeconvListIslands%s"%self.StrField)
         for iIsland,IslandXY in enumerate(self.ListIslands):
@@ -526,11 +545,6 @@ class ClassImageDeconvMachine():
             allIslandModelDict[iIsland]["IslandXY"][:]=IslandXY[:]
 
         
-        # self.DicoDicoInitIndiv  = shared_dict.create("DicoDicoInitIndiv%s"%self.StrField)
-        # for iMachine,InitMachine in enumerate(self.ListInitMachine):
-        #     self.DicoDicoInitIndiv.addSubdict(iMachine)
-            
-        #DicoInitIndivHMP = shared_dict.create("DicoInitIslandHMP%s"%self.StrField) # DicoInitIndiv
         ParmDict = shared_dict.create("ParmDict%s"%self.StrField) # ParmDict
         ParmDict["ModelImageInt"] = ModelImage
         ParmDict["ModelImageApp"] = ModelImageApp
@@ -539,26 +553,11 @@ class ClassImageDeconvMachine():
         ParmDict["RMS"] = RMS
         ParmDict["iMajor"] = self._CurrentMajorIter
         
-        #DicoInitIndivMultiSlice = shared_dict.create("DicoInitIslandMultiSlice%s"%self.StrField)
-        #ParmDictMultiSlice = shared_dict.create("InitSSDModelMultiSlice%s"%self.StrField) # ParmDict
-        #ParmDictMultiSlice["ModelImage"] = ModelImage
-        #ParmDictMultiSlice["GridFreqs"] = self.GridFreqs
-        #ParmDictMultiSlice["DegridFreqs"] = self.DegridFreqs
-
-
-
-        
         self._init_InitMachine()
         
         log.print("Deconvolving %i islands"%(len(self.ListIslands)))
         
         DoAbs=int(self.GD["Deconv"]["AllowNegative"])
-        # print("  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter,self.MaxMinorIter,DoAbs), file=log)
-        
-        
-        
-
-        #print("  selected %i islands larger than %i pixels for initialisation"%(np.count_nonzero(ListDoIslandsInit),self.GD["GAClean"]["MinSizeInit"]), file=log)
 
         self.APP_GA=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_GA",
                                                            ncpu=self.GD["Parallel"]["NCPU"],
@@ -566,6 +565,7 @@ class ClassImageDeconvMachine():
                                                            )
         self.APP_GA.registerJobHandlers(self)
         self.APP_GA.startWorkers()
+        
         # ############################################
         ParallelMode="OverIslands"
         NDeconv=0
@@ -637,34 +637,50 @@ class ClassImageDeconvMachine():
                 log.print("[MultiSlice] precise spectral fit likely skipped for all pixels [Th=%.1f]"%self.ThSpectralFit)
                 
 
+        
+        self.APP_GA.terminate()
+        self.APP_GA.shutdown()
 
         
         # GA final estimate    
         allIslandModelDict  = shared_dict.attach("DeconvListIslands%s"%self.StrField)
         allIslandModelDict.reload()
         
-        log.print("  Reinit islands in ModelMachine...")
-        self.ModelMachine.reinitIslands(self.ListIslands)
-        
-        log.print("  Update islands...")
+        DicoIslandsOut={}
         for iRes,DicoResult in enumerate(LDicoResults):
             if not DicoResult["Success"]:
                 continue
             iIsland=DicoResult["iIsland"]
             ThisIslandModelDict = allIslandModelDict[iIsland]
             ThisIslandModelDict.reload()
-            # print("SDFLKDFLK ",iIsland,ThisIslandModelDict["Model"].max())
-            self.ModelMachine.AppendIsland(self.ListIslands[iIsland], ThisIslandModelDict["Model"].copy(),W=self.ListSpacialWeight[iIsland])
-            # self.ModelMachine.setFromFromOtherModelInit()
-            if DicoResult["HasError"]:
-                self.ErrorModelMachine.AppendIsland(ListIslands[iIsland], ThisIslandModelDict["sModel"].copy())
-        log.print("  Renormalise...")
-        self.ModelMachine.RenormaliseMultiEstimatesPerPixel()
-        log.print("  Done GA")
+            DicoIslandsOut[iIsland]=ThisIslandModelDict["Model"]
 
-        #logger.setLoud(["AsyncProcessPool"])
-        self.APP_GA.terminate()
-        self.APP_GA.shutdown()
+        if MPIManager.useMPI and MPIManager.rank==0:
+            log.print("  Gather islands from ranks...")
+            DicoIslandsOut1={}
+            LDicoIslandsOut = MPIManager.COMM_WORLD.gather(DicoIslandsOut,root=0)
+            for D in LDicoIslandsOut:
+                for iIsland in D.keys():
+                    DicoIslandsOut1[iIsland]=D[iIsland]
+            DicoIslandsOut=DicoIslandsOut1
+
+        if MPIManager.rank==0:
+            log.print("  Reinit islands in ModelMachine...")
+            self.ModelMachine.reinitIslands(self.ListAllIslands)
+            
+            log.print("  Update islands...")
+            for iIsland in DicoIslandsOut.keys():
+                Model=DicoIslandsOut[iIsland]
+                self.ModelMachine.AppendIsland(self.ListAllIslands[iIsland],
+                                               Model,
+                                               W=self.ListAllSpacialWeight[iIsland])
+        
+        
+        
+            log.print("  Renormalise...")
+            self.ModelMachine.RenormaliseMultiEstimatesPerPixel()
+            log.print("  Done SSD3...")
+
 
         if self.GD["Misc"]["ConserveMemory"]:
             self._reset_InitMachine()
