@@ -397,8 +397,8 @@ class ClassImagerDeconv():
                 print("Using WSCMS2 algorithm", file=log)
             else:
                 raise NotImplementedError("Unknown --Deconvolution-Mode setting '%s'" % self.GD["Deconv"]["Mode"])
-            if MPIManager.rank == 0:
-                self.DeconvMachine.setMaskMachine(self.MaskMachine)
+            self.DeconvMachine.setMaskMachine(self.MaskMachine)
+            
         self.CreateFacetMachines()
         self.VS.setFacetMachine(self.FacetMachine or self.FacetMachinePSF)
         
@@ -1420,7 +1420,7 @@ class ClassImagerDeconv():
 
                 repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
                 
-                if self.GD["Deconv"]["Mode"]=="SSD3":
+                if self.GD["Deconv"]["Mode"]=="SSD3" and MPIManager.rank==0:
                     DicoComp=self.ModelMachine.DicoSMStacked["Comp"]
                     NParms,nx,ny=DicoComp["Vals"].shape
                     for iCoef in range(NParms):
@@ -1453,19 +1453,22 @@ class ClassImagerDeconv():
             
             
             if MPIManager.useMPI:
-                DicoSMStacked                   = MPIManager.COMM_WORLD.bcast(self.ModelMachine.DicoSMStacked, root=0)
-                self.ModelMachine.FromDico(DicoSMStacked)
-                
+                DicoSMStacked                   = MPIManager.bcast_chunk_dict(self.ModelMachine.DicoSMStacked, root=0)
+                if MPIManager.rank != 0:
+                    self.ModelMachine.FromDico(DicoSMStacked)
+                    
             # ###
             model_freqs = np.array([self.RefFreq],np.float64)
             model_image = None
-            if MPIManager.rank == 0:
-                model_image = self.DeconvMachine.GiveModelImage(model_freqs)
-                if MPIManager.useMPI:
-                    model_image                   = MPIManager.COMM_WORLD.bcast(model_image, root=0)
-            else:
-                if MPIManager.useMPI:
-                    model_image                   = MPIManager.COMM_WORLD.bcast(None, root=0)
+            model_image = self.DeconvMachine.GiveModelImage(model_freqs)
+            
+            # if MPIManager.rank == 0:
+            #     model_image = self.DeconvMachine.GiveModelImage(model_freqs)
+            #     if MPIManager.useMPI:
+            #         model_image                   = MPIManager.COMM_WORLD.bcast(model_image, root=0)
+            # else:
+            #     if MPIManager.useMPI:
+            #         model_image                   = MPIManager.COMM_WORLD.bcast(None, root=0)
 
             ModelImage = self.FacetMachine.setModelImage(model_image)
 
@@ -1494,12 +1497,12 @@ class ClassImagerDeconv():
             if MPIManager.rank == 0:
                 print("model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max()), file=log)
                 if "o" in self._saveims:
-                    self.FacetMachine.ToCasaImage(ModelImage, ImageName="%s.model%2.2i" % (self.BaseName, iMajor),
+                    self.FacetMachine.ToCasaImage(ModelImage, ImageName="%s.model%2.2i.rank%i" % (self.BaseName, iMajor,MPIManager.rank),
                                               Fits=True, Freqs=current_model_freqs,
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
                 _,_,nx,ny=ModelImage.shape
                 MeanModelImage=np.mean(ModelImage,axis=0).reshape((1,1,nx,ny))
-                self.FacetMachine.ToCasaImage(MeanModelImage, ImageName="%s.mean_model%2.2i" % (self.BaseName, iMajor),
+                self.FacetMachine.ToCasaImage(MeanModelImage, ImageName="%s.mean_model%2.2i.rank%i" % (self.BaseName, iMajor,MPIManager.rank),
                                               Fits=True, Freqs=np.array([np.mean(current_model_freqs)]),
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             # stop

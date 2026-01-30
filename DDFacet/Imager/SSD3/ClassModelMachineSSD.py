@@ -252,7 +252,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         NPixListParms=len(ListPixParms)
 
         DicoComp=self.DicoSMStacked["Comp"]
-        ListPixParms
+        
         x,y=np.array(ListPix).T
         for iParam in range(self.NParam):
             #Vr[iParam].fill(1)

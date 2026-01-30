@@ -377,22 +377,21 @@ class ClassImageDeconvMachine():
         
         self.LabelIslandsImage=None#IslandDistanceMachine.CalcLabelImage(ListIslands)
 
-        self.ListIslands=ListIslands
-        
-        self.NIslands=len(self.ListIslands)
+        self.ListAllIslands=ListIslands
+        self.NIslands=len(self.ListAllIslands)
 
         print("Sorting islands by size", file=log)
-        Sz=np.array([len(self.ListIslands[iIsland]) for iIsland in range(self.NIslands)])
+        Sz=np.array([len(self.ListAllIslands[iIsland]) for iIsland in range(self.NIslands)])
         #print ":::::::::::::::::"
         ind=np.argsort(Sz)[::-1]
 
         # sorted_indices = sorted(range(len(data)), key=lambda i: (data[i][1], data[i][0]))
         # stop
         
-        ListIslandsOut=[self.ListIslands[i] for i in ind]
-        self.ListIslands=ListIslandsOut#[100::10][0:1]
-        self.ListSpacialWeight=[ListSpacialWeight[i] for i in ind]
-        self.NIslands=len(self.ListIslands)
+        ListIslandsOut=[self.ListAllIslands[i] for i in ind]
+        self.ListAllIslands=ListIslandsOut#[100::10][0:1]
+        self.ListAllSpacialWeight=[ListSpacialWeight[i] for i in ind]
+        self.NIslands=len(self.ListAllIslands)
         
 
 
@@ -504,41 +503,48 @@ class ClassImageDeconvMachine():
         
         
         ###########################
+        self.ListAllIslands=[]
+        self.ListAllSpacialWeight=[]
         if MPIManager.rank==0:
             rep=self.SearchIslands(StopFlux)
             if rep=="NoIslands":
                 return "FluxThreshold", False, False
-            self.ListAllIslands=self.ListIslands
-            self.ListAllSpacialWeight=self.ListSpacialWeight
         ###########################
 
-        if MPIManager.useMPI:
-            if MPIManager.rank==0:
-                DicoJobMPI={}
-                irank=0
-                nrank=MPIManager.size
-                for iIsland in len(self.ListIslands):
-                    L=DicoJobMPI.get(irank,[])
-                    L.append(iIsland)
-                    irank+=1
-                    if irank==nrank: irank=0
-                
-            DicoJobMPI=MPIManager.COMM_WORLD.bcast(DicoJobMPI, root=0)
-            self.ListAllIslands=MPIManager.COMM_WORLD.bcast(self.ListAllIslands, root=0)
-            self.ListAllSpacialWeight=MPIManager.COMM_WORLD.bcast(self.ListAllSpacialWeight, root=0)
-            
-            self.ListIslands=[self.ListAllIslands[iIsland] for iIsland in DicoJobMPI.get(MPIManager.rank,[])]
-            self.ListSpacialWeight=[self.ListAllSpacialWeight[iIsland] for iIsland in DicoJobMPI.get(MPIManager.rank,[])]
-            self.NIslands=len(self.ListIslands)
-            
             
 
+        if not MPIManager.useMPI:
+            DicoJobIslands={0:np.arange(len(self.ListAllIslands)).tolist()}
+        else:
+            DicoJobIslands={}
+            if MPIManager.rank==0:
+                irank=0
+                nrank=MPIManager.size
+                for iIsland in range(len(self.ListAllIslands)):
+                    L=DicoJobIslands.get(irank,[])
+                    L.append(iIsland)
+                    DicoJobIslands[irank]=L
+                    irank+=1
+                    if irank==nrank: irank=0
+
+            DicoJobIslands=MPIManager.COMM_WORLD.bcast(DicoJobIslands, root=0)
+            log.print("Broadcast islands")
+            self.ListAllIslands=MPIManager.COMM_WORLD.bcast(self.ListAllIslands, root=0)
+            self.ListAllSpacialWeight=MPIManager.COMM_WORLD.bcast(self.ListAllSpacialWeight, root=0)
+            # self.ListIslands=[self.ListAllIslands[iIsland] for iIsland in DicoJobIslands.get(MPIManager.rank,[])]
+            # self.ListSpacialWeight=[self.ListAllSpacialWeight[iIsland] for iIsland in DicoJobIslands.get(MPIManager.rank,[])]
+
+        self.ListJobIslands=DicoJobIslands[MPIManager.rank]
+        self.NIslands=len(self.ListJobIslands)
+        log.print("Number of islands to deconvolve: %i [/%i Total]"%(len(self.ListJobIslands),len(self.ListAllIslands)))
+        
         
 
         
             
         allIslandModelDict  = shared_dict.create("DeconvListIslands%s"%self.StrField)
-        for iIsland,IslandXY in enumerate(self.ListIslands):
+        for iIsland in self.ListJobIslands:
+            IslandXY=self.ListAllIslands[iIsland]
             IslandXY=np.array(IslandXY)
             allIslandModelDict.addSubdict(iIsland)
             allIslandModelDict[iIsland].addSharedArray("IslandXY", IslandXY.shape, np.int32)
@@ -555,32 +561,37 @@ class ClassImageDeconvMachine():
         
         self._init_InitMachine()
         
-        log.print("Deconvolving %i islands"%(len(self.ListIslands)))
+        log.print("Deconvolving %i islands"%(self.NIslands))
         
         DoAbs=int(self.GD["Deconv"]["AllowNegative"])
 
+        logger.setSilent(["AsyncProcessPool"])
         self.APP_GA=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_GA",
                                                            ncpu=self.GD["Parallel"]["NCPU"],
                                                            affinity="disable",
                                                            )
         self.APP_GA.registerJobHandlers(self)
         self.APP_GA.startWorkers()
+        self.APP_GA.awaitWorkerStart()
+        logger.setLoud(["AsyncProcessPool"])
         
         # ############################################
         ParallelMode="OverIslands"
         NDeconv=0
         NDeconvBig=0
-        for iIsland,Island in enumerate(self.ListIslands):
+        for iIsland in self.ListJobIslands:
+            Island=self.ListAllIslands[iIsland]
             if len(Island)>self.GD["SSDClean"]["ConvFFTSwitch"]:
                 ParallelMode="PerIsland"
             else:
                 ParallelMode="OverIslands"
-                
+
             self.APP_GA.runJob("initIsland.%i"%(iIsland),
                                self._initIsland,
                                args=(iIsland,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs,self.ThSpectralFit,ParallelMode), serial=SERIAL) 
                
         LDicoResults=self.APP_GA.awaitJobResults("initIsland.*", progress="Deconv Islands")
+        if MPIManager.useMPI: MPIManager.COMM_WORLD.Barrier()
         # ############################################
         # Collect results
         DTime={}
@@ -654,29 +665,41 @@ class ClassImageDeconvMachine():
             ThisIslandModelDict = allIslandModelDict[iIsland]
             ThisIslandModelDict.reload()
             DicoIslandsOut[iIsland]=ThisIslandModelDict["Model"]
-
-        if MPIManager.useMPI and MPIManager.rank==0:
+        LDicoIslandsOut=[DicoIslandsOut]
+        
+        if MPIManager.useMPI: MPIManager.COMM_WORLD.Barrier()
+        
+        log.print("Have fitted %i islands"%len(DicoIslandsOut))
+        
+        if MPIManager.useMPI:
             log.print("  Gather islands from ranks...")
-            DicoIslandsOut1={}
             LDicoIslandsOut = MPIManager.COMM_WORLD.gather(DicoIslandsOut,root=0)
+            log.print("      got them...")
+            
+        if MPIManager.rank==0:
+            DicoIslandsOut1={}
             for D in LDicoIslandsOut:
                 for iIsland in D.keys():
                     DicoIslandsOut1[iIsland]=D[iIsland]
             DicoIslandsOut=DicoIslandsOut1
 
+        if MPIManager.useMPI: MPIManager.COMM_WORLD.Barrier()
+        
         if MPIManager.rank==0:
             log.print("  Reinit islands in ModelMachine...")
             self.ModelMachine.reinitIslands(self.ListAllIslands)
             
             log.print("  Update islands...")
-            for iIsland in DicoIslandsOut.keys():
+            for iIsland in sorted(list(DicoIslandsOut.keys())):
                 Model=DicoIslandsOut[iIsland]
                 self.ModelMachine.AppendIsland(self.ListAllIslands[iIsland],
-                                               Model,
-                                               W=self.ListAllSpacialWeight[iIsland])
-        
-        
-        
+                                            Model,
+                                            W=self.ListAllSpacialWeight[iIsland])
+                
+
+
+
+
             log.print("  Renormalise...")
             self.ModelMachine.RenormaliseMultiEstimatesPerPixel()
             log.print("  Done SSD3...")
@@ -722,6 +745,7 @@ class ClassImageDeconvMachine():
         #ThisPixList=ListIslands[iIsland]
         
         allIslandModelDict  = shared_dict.attach("DeconvListIslands%s"%self.StrField)
+        
         ThisPixList=allIslandModelDict[iIsland]["IslandXY"]
         
         x,y=np.array(ThisPixList,dtype=np.float32).T
