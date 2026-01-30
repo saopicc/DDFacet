@@ -168,6 +168,9 @@ class SharedDict (collections.OrderedDict):
  #       os.close(self._path_fd)
         if self._delete_items:
             print("__DEL__")
+            print("__DEL__")
+            print("__DEL__")
+            print("__DEL__")
             self.delete()
 
     def is_writeable(self):
@@ -299,9 +302,12 @@ class SharedDict (collections.OrderedDict):
     def __delitem__(self, item):
         if not self._readwrite:
             raise RuntimeError("SharedDict %s attached as read-only" % self.path)
+        print("del %s"%str(item))
         if self._delete_items:
+            print("del_delete_items %s"%str(item))
             return self.delete_item(item)
         else:
+            print("del_collections.OrderedDict %s"%str(item))
             return collections.OrderedDict.__delitem__(self, item)
 
     def delete_item (self, item):

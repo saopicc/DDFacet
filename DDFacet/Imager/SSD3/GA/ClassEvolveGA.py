@@ -37,7 +37,7 @@ def FilterIslandsPix(ListIn,Npix_x,Npix_y):
     return ListOut
 
 SERIAL=True
-SERIAL=False
+#SERIAL=False
 
 
 class ClassEvolveGA():
@@ -54,7 +54,7 @@ class ClassEvolveGA():
     def _runGA(self,#ListIslands,
                iIsland,
                #IslandBestIndiv,
-               DicoDirty_path,GridFreqs,DegridFreqs):
+               DicoDirty_path,DicoPSF_path,GridFreqs,DegridFreqs):
 
 
         #from pympler import tracker
@@ -76,7 +76,7 @@ class ClassEvolveGA():
         T.timeit("start")
         T.timeit("start")
         T.timeit("start")
-        self.ImageDeconvMachine._updateWorkerInternals(DicoDirty_path,GridFreqs,DegridFreqs)
+        self.ImageDeconvMachine._updateWorkerInternals(DicoDirty_path,DicoPSF_path,GridFreqs,DegridFreqs)
         T.timeit("updateWorkerInternals")
         ##tr.print_diff()
         
@@ -126,7 +126,7 @@ class ClassEvolveGA():
         if dx>0:
             IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland(self.MaskMachine.CurrentNegMask)
             ListPixData,_=IncreaseIslandMachine.IncreaseIsland(ListPixData,AllowMasked=True,dx=dx)
-            stop
+
             
         T.timeit("Increase")
         

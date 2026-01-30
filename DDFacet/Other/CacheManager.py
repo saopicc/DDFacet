@@ -32,8 +32,44 @@ else:
     import cPickle
 import collections
 
+import getpass
 from DDFacet.Other import logger, ModColor
 log = logger.getLogger("CacheManager")
+from DDFacet.Array import shared_dict
+
+class RemnantManager():
+    def __init__(self,GD):
+        self.GD=GD
+        if self.GD["Cache"]["Remnant"]:
+            uname=getpass.getuser()
+            self.RemnantPrefix="/dev/shm/Remnant_%s"%uname
+            log.print("Using remnant mode, structures will be saved in %s"%self.RemnantPrefix)
+            os.system("mkdir -p %s"%self.RemnantPrefix)
+            self.Enabled=True
+        else:
+            self.RemnantPrefix=""
+            self.Enabled=False
+
+    def giveNameRemnant(self,DicoName="AllImages_FMPSF"):
+        if self.Enabled:
+            FName="%s/%s"%(self.RemnantPrefix,DicoName)
+        else:
+            FName=None
+        return FName
+            
+    def mountRemnant(self,DicoName="AllImages_FMPSF"):
+        DicoImagesPSF=None
+        if self.Enabled:
+            FName=self.giveNameRemnant(DicoName)
+            if os.path.isdir(FName):
+                DicoImagesPSF = shared_dict.attach(FName)
+                log.print(ModColor.Str("Remnant dict was loaded from: %s"%FName,col="green"))
+            else:
+                log.print(ModColor.Str("Could not load %s"%FName))
+                #log.print("Exception was:\n%s"%str(e))
+                DicoImagesPSF=None
+        return DicoImagesPSF
+
 
 
 class CacheManager (object):
@@ -170,7 +206,7 @@ class CacheManager (object):
         """
         return "file://" + self.getElementPath(name, **kw)
 
-    def checkCache(self, name, hashkeys, directory=False, reset=False, ignore_key=False):
+    def checkCache(self, name, hashkeys, directory=False, reset=False, ignore_key=False,CachePathSHM=None):
         """
         Checks if cached element named "name" is valid.
 
@@ -189,6 +225,7 @@ class CacheManager (object):
             and valid is True if a valid cache exists
         """
         cachepath = self.getElementPath(name)
+            
         hashpath = cachepath + ".hash"
         # convert hash keys into a single list
         hash = hashkeys
@@ -197,7 +234,9 @@ class CacheManager (object):
         if reset:
             print("cache element %s will be explicitly reset" % cachepath, file=log)
         else:
-            if not os.path.exists(cachepath):
+            checkCachePath=CachePathSHM
+            if checkCachePath is None: checkCachePath=cachepath
+            if not os.path.exists(checkCachePath):
                 print("cache element %s does not exist, will re-make" % cachepath, file=log)
                 if directory:
                     os.mkdir(cachepath)

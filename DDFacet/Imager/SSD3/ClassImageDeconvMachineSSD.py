@@ -588,7 +588,7 @@ class ClassImageDeconvMachine():
 
             self.APP_GA.runJob("initIsland.%i"%(iIsland),
                                self._initIsland,
-                               args=(iIsland,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs,self.ThSpectralFit,ParallelMode), serial=SERIAL) 
+                               args=(iIsland,self.DicoDirty.path,self.DicoVariablePSF.path,self.GridFreqs,self.DegridFreqs,self.ThSpectralFit,ParallelMode), serial=SERIAL) 
                
         LDicoResults=self.APP_GA.awaitJobResults("initIsland.*", progress="Deconv Islands")
         if MPIManager.useMPI: MPIManager.COMM_WORLD.Barrier()
@@ -713,7 +713,7 @@ class ClassImageDeconvMachine():
         
         return "MaxIter", True, True   # stop deconvolution but do update model
 
-    def _updateWorkerInternals(self,DicoDirty_path,GridFreqs,DegridFreqs):
+    def _updateWorkerInternals(self,DicoDirty_path,DicoPSF_path,GridFreqs,DegridFreqs):
         
         DicoDirty  = shared_dict.attach(DicoDirty_path)
         if self.iMajorCycle == DicoDirty["iMajorCycle"]: return 
@@ -722,7 +722,8 @@ class ClassImageDeconvMachine():
         
         self.ModelImageApp = shared_dict.attach("ParmDict%s"%self.StrField)["ModelImageApp"]
         self.ModelImageInt = shared_dict.attach("ParmDict%s"%self.StrField)["ModelImageInt"]
-        self.DicoVariablePSF = shared_dict.attach("AllImages_FMPSF")
+        
+        self.DicoVariablePSF = shared_dict.attach(DicoPSF_path)
         self.SetPSF(self.DicoVariablePSF)
 
         self.SetDirty(self.DicoDirty)
@@ -731,7 +732,7 @@ class ClassImageDeconvMachine():
 
     
     def _initIsland(self,
-                    iIsland,DicoDirty_path,GridFreqs,DegridFreqs,ThSpectralFit,ParallelMode):
+                    iIsland,DicoDirty_path,DicoPSF_path,GridFreqs,DegridFreqs,ThSpectralFit,ParallelMode):
 
         self.DicoInitIndiv={}
 
@@ -753,7 +754,7 @@ class ClassImageDeconvMachine():
         dd=np.max([dx,dy])+1
         DoIslandsInit = (dd>=self.GD["GAClean"]["MinSizeInit"])
         
-        self._updateWorkerInternals(DicoDirty_path,GridFreqs,DegridFreqs)
+        self._updateWorkerInternals(DicoDirty_path,DicoPSF_path,GridFreqs,DegridFreqs)
         
         self._init_InitMachine(useCachedHMP=True)
         
@@ -801,7 +802,7 @@ class ClassImageDeconvMachine():
         t0=time.time()
         GAMachine=ClassEvolveGA(self,ParallelMode)
         GAMachine.setDicoInitModel(DicoInitModel)
-        DicoResult=GAMachine._runGA(iIsland,self.DicoDirty.path,self.GridFreqs,self.DegridFreqs)
+        DicoResult=GAMachine._runGA(iIsland,self.DicoDirty.path,self.DicoVariablePSF.path,self.GridFreqs,self.DegridFreqs)
         t1=time.time()
         DInfo["GA"]={}
         DInfo["GA"]["Time"]=t1-t0
