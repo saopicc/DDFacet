@@ -55,7 +55,7 @@ logger.setSilent("ClassIsland")
 
 DO_INIT=True
 SERIAL=True
-SERIAL=False
+# SERIAL=False
 
 class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
