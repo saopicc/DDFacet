@@ -46,6 +46,7 @@ import psutil
 import copy
 import DDFacet.Other.AsyncProcessPool
 from DDFacet.Other import MPIManager
+from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 
 #from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 from DDFacet.Imager.SSD3 import ClassModelMachineSSD
@@ -55,7 +56,10 @@ logger.setSilent("ClassIsland")
 
 DO_INIT=True
 SERIAL=True
-# SERIAL=False
+SERIAL=False
+
+DO_MPI=False
+DO_MPI=True
 
 class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
@@ -422,7 +426,8 @@ class ClassImageDeconvMachine():
         m0,m1=self.Dirty[0].min(),self.Dirty[0].max()
         
         DoAbs=int(self.GD["Deconv"]["AllowNegative"])
-        print("  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter,self.MaxMinorIter,DoAbs), file=log)
+        if MPIManager.rank==0:
+            print("  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter,self.MaxMinorIter,DoAbs), file=log)
 
         NPixStats=1000
         #RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
@@ -457,16 +462,19 @@ class ClassImageDeconvMachine():
 
         self._CurrentMajorIter+=1
         NLastCyclesDeconvAll=self.GD["SSD3"]["NLastCyclesDeconvAll"]
-        print("SSD3 Cycle %i/%i, NLastCyclesDeconvAll=%i)"%(self._CurrentMajorIter,self.MaxMajorIter,NLastCyclesDeconvAll), file=log)
-        print("    Dirty image peak flux      = %10.6f Jy [(min, max) = (%.3g, %.3g) Jy]"%(MaxDirty,mm0,mm1), file=log)
-        print("      RMS-based threshold      = %10.6f Jy [rms = %.3g Jy; RMS factor %.1f]"%(Fluxlimit_RMS, RMS, self.RMSFactor), file=log)
-        print("      Sidelobe-based threshold = %10.6f Jy [sidelobe  = %.3f of peak; cycle factor %.1f]"%(Fluxlimit_Sidelobe,self.SideLobeLevel,self.CycleFactor), file=log)
-        print("      Peak-based threshold     = %10.6f Jy [%.3f of peak]"%(Fluxlimit_Peak,self.PeakFactor), file=log)
-        print("      Absolute threshold       = %10.6f Jy"%(self.FluxThreshold), file=log)
+        
+        if MPIManager.rank==0:
+            print("SSD3 Cycle %i/%i, NLastCyclesDeconvAll=%i)"%(self._CurrentMajorIter,self.MaxMajorIter,NLastCyclesDeconvAll), file=log)
+            print("    Dirty image peak flux      = %10.6f Jy [(min, max) = (%.3g, %.3g) Jy]"%(MaxDirty,mm0,mm1), file=log)
+            print("      RMS-based threshold      = %10.6f Jy [rms = %.3g Jy; RMS factor %.1f]"%(Fluxlimit_RMS, RMS, self.RMSFactor), file=log)
+            print("      Sidelobe-based threshold = %10.6f Jy [sidelobe  = %.3f of peak; cycle factor %.1f]"%(Fluxlimit_Sidelobe,self.SideLobeLevel,self.CycleFactor), file=log)
+            print("      Peak-based threshold     = %10.6f Jy [%.3f of peak]"%(Fluxlimit_Peak,self.PeakFactor), file=log)
+            print("      Absolute threshold       = %10.6f Jy"%(self.FluxThreshold), file=log)
         self.ThSpectralFit=None
         #self.ThSpectralFit=1.
         if self.GD["SSD3"]["NLastCyclesDeconvAll"]==-1 or (self._CurrentMajorIter > (self.MaxMajorIter-NLastCyclesDeconvAll)) :
-            print(ModColor.Str("    ... overwriting these values with zero",col="green"), file=log)
+            if MPIManager.rank==0:
+                print(ModColor.Str("    ... overwriting these values with zero",col="green"), file=log)
             StopFlux=0.
             
         self.ThSpectralFit=3
@@ -487,7 +495,8 @@ class ClassImageDeconvMachine():
         x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskMachine.CurrentNegMask)
 
         if ThisFlux < StopFlux:
-            print(ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done here" % (ThisFlux),col="green" ), file=log)
+            if MPIManager.rank==0:
+                print(ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done here" % (ThisFlux),col="green" ), file=log)
             return "FluxThreshold", False, False
         
         FreqsModel=np.array([np.mean(self.DicoVariablePSF["freqs"][iBand]) for iBand in range(len(self.DicoVariablePSF["freqs"]))])
@@ -513,7 +522,7 @@ class ClassImageDeconvMachine():
 
             
 
-        if not MPIManager.useMPI:
+        if not MPIManager.useMPI or not DO_MPI:
             DicoJobIslands={0:np.arange(len(self.ListAllIslands)).tolist()}
         else:
             DicoJobIslands={}
@@ -534,7 +543,7 @@ class ClassImageDeconvMachine():
             # self.ListIslands=[self.ListAllIslands[iIsland] for iIsland in DicoJobIslands.get(MPIManager.rank,[])]
             # self.ListSpacialWeight=[self.ListAllSpacialWeight[iIsland] for iIsland in DicoJobIslands.get(MPIManager.rank,[])]
 
-        self.ListJobIslands=DicoJobIslands[MPIManager.rank]
+        self.ListJobIslands=DicoJobIslands.get(MPIManager.rank,[])
         self.NIslands=len(self.ListJobIslands)
         log.print("Number of islands to deconvolve: %i [/%i Total]"%(len(self.ListJobIslands),len(self.ListAllIslands)))
         
@@ -671,7 +680,7 @@ class ClassImageDeconvMachine():
         
         log.print("Have fitted %i islands"%len(DicoIslandsOut))
         
-        if MPIManager.useMPI:
+        if MPIManager.useMPI :
             log.print("  Gather islands from ranks...")
             LDicoIslandsOut = MPIManager.COMM_WORLD.gather(DicoIslandsOut,root=0)
             log.print("      got them...")
@@ -692,10 +701,35 @@ class ClassImageDeconvMachine():
             log.print("  Update islands...")
             for iIsland in sorted(list(DicoIslandsOut.keys())):
                 Model=DicoIslandsOut[iIsland]
-                self.ModelMachine.AppendIsland(self.ListAllIslands[iIsland],
-                                            Model,
-                                            W=self.ListAllSpacialWeight[iIsland])
+                r=self.ModelMachine.AppendIsland(self.ListAllIslands[iIsland],Model,W=self.ListAllSpacialWeight[iIsland])
                 
+                # if r:
+                #     MM=Model.reshape((self.ModelMachine.NParam,-1))[1]
+                #     # if np.abs(MM).max()>100:
+                #     xy=np.array(self.ListAllIslands[iIsland]).tolist()
+                #     x,y=np.array(self.ListAllIslands[iIsland]).T
+                #     print("PROBLEM with island %i (%fJy)"%(iIsland,np.abs(MM).max()))
+                #     CellSizeRad_x,CellSizeRad_y=self.DicoVariablePSF["CellSizeRad"]
+                #     _,_,nx,ny=self.DicoVariablePSF["OutImShape"]
+                #     xp=np.median(x)
+                #     yp=np.median(y)
+                #     l=CellSizeRad_x*(xp-nx//2)
+                #     m=CellSizeRad_y*(yp-ny//2)
+                #     ra,dec=self.PSFServer.CoordMachine.lm2radec(np.array([l],np.float32),np.array([m],np.float32))
+                #     rarad,decrad=ra[0],dec[0]
+                #     sra  = rad2hmsdms(rarad,Type="ra").replace(" ",":")
+                #     sdec = rad2hmsdms(decrad,Type="dec").replace(" ",".")
+                #     np.savez("Island%i.Major%i.npz"%(iIsland,self.DicoDirty["iMajorCycle"]),
+                #              iIsland=iIsland,
+                #              Model=Model,
+                #              W=self.ListAllSpacialWeight[iIsland],
+                #              xy=np.array(self.ListAllIslands[iIsland]).T,
+                #              ra=ra,
+                #              dec=dec,
+                #              sra=sra,
+                #              sdec=sdec)
+                #     if self.DicoDirty["iMajorCycle"]==2:
+                #         stop
 
 
 

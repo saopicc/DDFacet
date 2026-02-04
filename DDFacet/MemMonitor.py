@@ -157,7 +157,8 @@ class ClassRegister():
                 t0,t1=t0t1
                 t0b,t1b=L[iName]
                 for DBlock in self.LDeleteInterval:
-                    t0d,t1d=DBlock["TRange"]
+                    t0d=DBlock["TRange"][0]
+                    t1d=DBlock["TRange"][-1]
                     dt=t1d-t0d
                     if t0>=t1d:
                         t0b-=dt
@@ -254,7 +255,9 @@ class ClassMemMonitor():
                 Sel=np.ones((tt.size,),bool)
                 ttc=tt.copy()
                 for DicoBlock in self.Register.LDeleteInterval:
-                    t0,t1=DicoBlock["TRange"]
+                    t0=DicoBlock["TRange"][0]
+                    t1=DicoBlock["TRange"][1]
+                    
                     ind=np.where((tt>t0)&(tt<t1))[0]
                     print(t0,t1,ind.size)
                     Sel[ind]=0

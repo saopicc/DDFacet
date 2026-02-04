@@ -348,7 +348,7 @@ class ClassImageDeconvMachine():
 
     def AdaptArrayShape(self,A,Nout):
         nch,npol,nx,ny=A.shape
-        if nx!=ny: stop
+        # if nx!=ny: stop
         if nx==Nout: 
             return A
         elif nx>Nout:
@@ -366,10 +366,19 @@ class ClassImageDeconvMachine():
 
             return B
         elif nx<Nout:
-            dx=nx//2
             B=np.zeros((nch,npol,Nout,Nout),A.dtype)
+            N0x,N0y=A.shape[-2:]
+            xc0=N0x//2
+            yc0=N0y//2
+            N1x,N1y=Nout,Nout
+            xc1=N1x//2
+            yc1=N1y//2
+            Aedge,Bedge=GiveEdgesDissymetric(xc0,yc0,N0x,N0y,xc1,yc1,N1x,N1y)
+            x0d,x1d,y0d,y1d=Aedge
+            x0p,x1p,y0p,y1p=Bedge
+            
             xc,yc=Nout//2,Nout//2
-            B[...,xc-dx:xc+dx+1,yc-dx:yc+dx+1]=A[:]
+            B[...,x0p:x1p,y0p:y1p]=A[...,x0d:x1d,y0d:y1d]
             return B
     
 

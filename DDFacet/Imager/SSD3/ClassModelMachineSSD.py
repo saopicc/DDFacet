@@ -257,8 +257,17 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         for iParam in range(self.NParam):
             #Vr[iParam].fill(1)
             DicoComp["Vals"][iParam][x,y]+=W[:]*Vr[iParam]
+        DicoComp["IsUnnormalized"][x,y]=1
         DicoComp["Weights"][x,y]+=W[:]
-
+        
+        # r=False
+        # ind=np.where((x==4826)&(y==12915))[0]
+        # if ind.size>0:
+        #     r=True
+        # elif DicoComp["Vals"][0][4826,12915]!=0:
+        #     print("DFLDFSLFJLSLFDJFSD")
+        #     r=False
+        # return r
 
     def giveMask_nonZeroModel(self):
         Mask=np.zeros(self.ModelShape,np.bool_)
@@ -274,18 +283,20 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             
         DicoComp=self.DicoSMStacked["Comp"]
 
+        _,_,nx,ny=self.ModelShape
         if DicoComp.get("Vals",None) is None:
-            _,_,nx,ny=self.ModelShape
             DicoComp["Vals"]=np.zeros((self.NParam,nx,ny),np.float32)
+        if DicoComp.get("Weights",None) is None:
             DicoComp["Weights"]=np.zeros((nx,ny),np.float32)
-            
-        
+        if DicoComp.get("IsUnnormalized",None) is None:
+            DicoComp["IsUnnormalized"]=np.zeros((nx,ny),bool)
             
         for Island in ListIslands:
             x,y=np.array(Island).T
             for iParam in range(self.NParam):
                 DicoComp["Vals"][iParam][x,y]=0
-                DicoComp["Weights"][x,y]=0
+            DicoComp["Weights"][x,y]=0
+            DicoComp["IsUnnormalized"][x,y]=0
                 
             # for key in Island:
             #     key=tuple(key)
@@ -338,10 +349,12 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         DicoComp=self.DicoSMStacked["Comp"]
 
                 
-        x,y=np.where(DicoComp["Vals"][0]!=0)
+        # x,y=np.where(DicoComp["Vals"][0]!=0)
+        x,y=np.where(DicoComp["IsUnnormalized"]==1)
 
         for iParam in range(self.NParam):
             DicoComp["Vals"][iParam][x,y]/=DicoComp["Weights"][x,y]
+        DicoComp["IsUnnormalized"][x,y]=0
         # DicoComp["Weights"][x,y]=1
 
         # ThisModel=DicoComp["Vals"][0]

@@ -862,8 +862,9 @@ class ClassFacetMachine():
                 return
             else:
                 CFName=self.RemnantManager.giveNameRemnant(CFName)
-                
-        self._CF = shared_dict.create(CFName)
+                self._CF = shared_dict.create(CFName)
+        else:
+            self._CF = shared_dict.create(CFName)
         
             
         # up to workers to load/save cache
@@ -1238,8 +1239,14 @@ class ClassFacetMachine():
             self.collectFourierTransformResults()
             self.HasFourierTransformed = True
         _, npol, Npix_x, Npix_y = self.OutImShape
-        DicoName=self.RemnantManager.giveNameRemnant("AllImages_%s"%self._app_id)
-        DicoImages = shared_dict.create(DicoName)
+        DicoName="AllImages_%s"%self._app_id
+        DicoNameSHM=self.RemnantManager.giveNameRemnant(DicoName)
+        if DicoNameSHM is not None:
+            DicoImages = shared_dict.create(DicoNameSHM)
+        else:
+            DicoImages = shared_dict.create(DicoName)
+            
+            
         #print("AAAAAA","AllImages_%s"%self._app_id)
         DicoImages["freqs"] = {}
         DicoImages.addSubdict("freqs")
