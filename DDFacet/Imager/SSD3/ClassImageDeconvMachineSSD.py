@@ -56,7 +56,7 @@ logger.setSilent("ClassIsland")
 
 DO_INIT=True
 SERIAL=True
-SERIAL=False
+# SERIAL=False
 
 DO_MPI=False
 DO_MPI=True

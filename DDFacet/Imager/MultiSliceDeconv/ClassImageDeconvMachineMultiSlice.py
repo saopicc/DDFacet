@@ -346,40 +346,25 @@ class ClassImageDeconvMachine():
         self.DirtyExtent=(off_x,off_x+NDirty_x,off_y,off_y+NDirty_y)
         self.ModelMachine.setModelShape(self._Dirty.shape)
 
-    def AdaptArrayShape(self,A,Nout):
+    def AdaptArrayShape(self,A,Nout_x,Nout_y):
         nch,npol,nx,ny=A.shape
         # if nx!=ny: stop
-        if nx==Nout: 
+        if nx==Nout_x and nx==Nout_y: 
             return A
-        elif nx>Nout:
-            N0x,N0y=A.shape[-2:]
-            xc0=N0x//2
-            yc0=N0y//2
-            N1x,N1y=Nout,Nout
-            xc1=N1x//2
-            yc1=N1y//2
+        
+        B=np.zeros((nch,npol,Nout_x,Nout_y),A.dtype)
+        N0x,N0y=A.shape[-2:]
+        xc0=N0x//2
+        yc0=N0y//2
+        N1x,N1y=Nout_x,Nout_y
+        xc1=N1x//2
+        yc1=N1y//2
+        Aedge,Bedge=GiveEdgesDissymetric(xc0,yc0,N0x,N0y,xc1,yc1,N1x,N1y)
+        x0d,x1d,y0d,y1d=Aedge
+        x0p,x1p,y0p,y1p=Bedge
             
-            Aedge,Bedge=GiveEdgesDissymetric(xc0,yc0,N0x,N0y,xc1,yc1,N1x,N1y)
-            x0d,x1d,y0d,y1d=Aedge
-            x0p,x1p,y0p,y1p=Bedge
-            B=A[...,x0d:x1d,y0d:y1d]
-
-            return B
-        elif nx<Nout:
-            B=np.zeros((nch,npol,Nout,Nout),A.dtype)
-            N0x,N0y=A.shape[-2:]
-            xc0=N0x//2
-            yc0=N0y//2
-            N1x,N1y=Nout,Nout
-            xc1=N1x//2
-            yc1=N1y//2
-            Aedge,Bedge=GiveEdgesDissymetric(xc0,yc0,N0x,N0y,xc1,yc1,N1x,N1y)
-            x0d,x1d,y0d,y1d=Aedge
-            x0p,x1p,y0p,y1p=Bedge
-            
-            xc,yc=Nout//2,Nout//2
-            B[...,x0p:x1p,y0p:y1p]=A[...,x0d:x1d,y0d:y1d]
-            return B
+        B[...,x0p:x1p,y0p:y1p]=A[...,x0d:x1d,y0d:y1d]
+        return B
     
 
 
@@ -460,10 +445,10 @@ class ClassImageDeconvMachine():
         psf_int=self.PSFServer.DicoVariablePSF["PeakNormed_CubeVariablePSF"][self.iFacet]
         _,_,nxpsf,nypsf=psf_app.shape
         if nx!=ny:stop
-        if nx>nxpsf:
-            log.print("Padding PSF of iFacet=%i to shape (%i,%i)"%(self.iFacet,nx,ny))
-            psf_app=self.AdaptArrayShape(psf_app,nx)
-            psf_int=self.AdaptArrayShape(psf_int,nx)
+        
+        log.print("Padding PSF of iFacet=%i to shape (%i,%i)"%(self.iFacet,nx,ny))
+        psf_app=self.AdaptArrayShape(psf_app,nx,ny)
+        psf_int=self.AdaptArrayShape(psf_int,nx,ny)
 
         
         def giveJones(iChannel):
