@@ -510,9 +510,11 @@ class ClassImageDeconvMachine():
                 return "FluxThreshold", False, False
             self.ListAllIslands=self.ListIslands
             self.ListAllSpacialWeight=self.ListSpacialWeight
+            
         ###########################
 
         if MPIManager.useMPI:
+            
             if MPIManager.rank==0:
                 DicoJobMPI={}
                 irank=0
