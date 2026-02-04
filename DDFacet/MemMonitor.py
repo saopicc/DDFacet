@@ -328,9 +328,8 @@ class ClassMemMonitor():
                 self.plotSeparate()
                 
             pylab.draw()
-            pylab.show()
-            # block=False)
-            pylab.pause(0.1)
+            pylab.show(block=False)
+            pylab.pause(5)
             if self.SavePNG:
                 self.fig.savefig("%s/Monitor%5.5i.png"%(self.SaveDir,self.iFig))
                 self.iFig+=1

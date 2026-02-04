@@ -258,7 +258,7 @@ class ClassImageDeconvMachine():
                             self._computeFluxInBand,
                             args=(X,iComb,NOrder,self.DicoVariablePSF.readonly()))#,serial=True)
                     
-        self.APP.awaitJobResults("InitTaylorMultiSlice.*", progress="Init Taylor")
+        self.APP.awaitJobResults("InitTaylorMultiSlice.*")#, progress="Init Taylor")
         T.timeit("Compute")
         #MeanFluxVec=np.median(FluxVec,axis=-1).reshape((NFacets,NComb,1))
         #FluxVec/=MeanFluxVec

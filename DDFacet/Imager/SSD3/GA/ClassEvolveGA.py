@@ -63,7 +63,7 @@ class ClassEvolveGA():
         # if iIsland<2700:
         #     return {"Success":False,"iIsland":iIsland,"HasError":False}
         
-        IslandBestIndiv=self.ModelMachine.GiveIndividual(self.ListIslands[iIsland])
+        IslandBestIndiv=self.ModelMachine.GiveIndividual(self.ListAllIslands[iIsland])
         #print("FLFJDLFJ",iIsland,np.array(IslandBestIndiv).size)
         #del(self.ModelMachine)
         
@@ -126,7 +126,8 @@ class ClassEvolveGA():
         if dx>0:
             IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland(self.MaskMachine.CurrentNegMask)
             ListPixData,_=IncreaseIslandMachine.IncreaseIsland(ListPixData,AllowMasked=True,dx=dx)
-
+            stop
+            
         T.timeit("Increase")
         
         ParmDict = shared_dict.attach("ParmDict%s"%self.StrField) # ParmDict
