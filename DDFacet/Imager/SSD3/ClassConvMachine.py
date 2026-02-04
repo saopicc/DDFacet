@@ -13,6 +13,7 @@ from DDFacet.Array import ModLinAlg
 from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
+DISABLE_TIMEIT=True
 
 def test():
     import DDFacet.ToolsDir.Gaussian
@@ -266,15 +267,21 @@ class ClassConvMachine():
             ConvMode=self.ConvMode
 
         if ConvMode=="Matrix":
-            return self.ConvolveMatrix(A,InMode=InMode,OutMode=OutMode)
+            T=ClassTimeIt.ClassTimeIt("ConvMatrix")
+            if DISABLE_TIMEIT: T.disable()        
+            C=self.ConvolveMatrix(A,InMode=InMode,OutMode=OutMode)
+            T.timeit()
+            return C
         elif ConvMode=="Vector":
             T=ClassTimeIt.ClassTimeIt("ConvVec")
-            T.disable()
+            if DISABLE_TIMEIT: T.disable()        
+            #T.disable()
             C=self.ConvolveVector(A,InMode=InMode,OutMode=OutMode)
             T.timeit()
         elif ConvMode=="FFT":
             T=ClassTimeIt.ClassTimeIt("ConvFFT")
-            T.disable()
+            if DISABLE_TIMEIT: T.disable()        
+            #T.disable()
             C=self.ConvolveFFT(A,InMode=InMode,OutMode=OutMode)
             T.timeit()
             return C

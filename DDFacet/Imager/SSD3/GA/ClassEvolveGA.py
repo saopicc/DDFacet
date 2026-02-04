@@ -26,6 +26,7 @@ from DDFacet.Other import ModColor
 log=logger.getLogger("ClassEvolveGA")
 
 DOPLOT=0
+DISABLE_TIMEIT=True
 
 def FilterIslandsPix(ListIn,Npix_x,Npix_y):
     ListOut=[]
@@ -71,8 +72,9 @@ class ClassEvolveGA():
         
         #NIslands=len(ListIslands)
         #if NIslands==0: return
-        T=ClassTimeIt.ClassTimeIt("  ----  _runGA #%i"%iIsland)
-        T.disable()
+        T=ClassTimeIt.ClassTimeIt("[%i]  _runGA"%iIsland)
+        if DISABLE_TIMEIT: T.disable()        
+        #T.disable()
         T.timeit("start")
         T.timeit("start")
         T.timeit("start")
@@ -274,8 +276,10 @@ class ClassEvolveGA_SingleIsland():
 
 
     def main(self,NGen=1000,NIndiv=100,DoPlot=True):
-        T=ClassTimeIt.ClassTimeIt("   GA: Main")
-        T.disable()
+        T=ClassTimeIt.ClassTimeIt("   GA: Main [%i]"%self.iIsland)
+        if DISABLE_TIMEIT: T.disable()        
+        #T.disable()
+        self.SModelArrayMP_CLEAN=None
         self.setDEAP()
         T.timeit("self.setDEAP")
         #os.system("rm png/*.png")
@@ -308,8 +312,9 @@ class ClassEvolveGA_SingleIsland():
             return [GivePolyArrayMP(iTypeInit=iTypeInit) for iIndiv in range(N)]
                 
         def GivePolyArrayMP(iTypeInit=None):
-            T=CTI("GivePolyArrayMP")
-            T.disable()
+            T=CTI("[%i] GivePolyArrayMP"%self.iIsland)
+            if DISABLE_TIMEIT: T.disable()        
+            #T.disable()
             NTypeInit=len(self.DicoInitIndiv.keys())
             
             if iTypeInit is None:
@@ -321,10 +326,10 @@ class ClassEvolveGA_SingleIsland():
                 PolyModelArrayMP=DicoModelMP
                 T.timeit("get")
             else:
-                SModelArrayMP,_=self.ArrayMethodsMachine.DeconvCLEAN()
-                AModelArrayMP=np.zeros_like(SModelArrayMP)
+                if self.SModelArrayMP_CLEAN is None:
+                    self.SModelArrayMP_CLEAN,_=self.ArrayMethodsMachine.DeconvCLEAN()
                 PolyModelArrayMP=np.zeros((self.ArrayMethodsMachine.PM.NOrderPoly,self.ArrayMethodsMachine.PM.NPixListParms),np.float32)
-                PolyModelArrayMP[0,:]=SModelArrayMP
+                PolyModelArrayMP[0,:]=self.SModelArrayMP_CLEAN
                 T.timeit("CLEAN")
             return PolyModelArrayMP
 
@@ -401,8 +406,9 @@ class ClassEvolveGA_SingleIsland():
         
         def GivePolyArrayMP_LinComb():
 
-            T=CTI("GivePolyArrayMP_LinComb")
-            T.disable()
+            T=CTI("[%i] GivePolyArrayMP_LinComb"%self.iIsland)
+            if DISABLE_TIMEIT: T.disable()        
+            #T.disable()
             NTypeInit=len(self.DicoInitIndiv.keys())
             LInit=[]
             Nrand=np.max([1,NTypeInit])
@@ -643,229 +649,3 @@ class ClassEvolveGA_SingleIsland():
         return V
 
 
-    # ########################################################
-    # Original SSD3
-    # ########################################################
-
-    # def setDEAP(self):
-    #     T=ClassTimeIt.ClassTimeIt("   SET DEAP")
-    #     T.disable()
-    #     if "FitnessMax" not in dir(creator):
-    #         creator.create("FitnessMax", base.Fitness, weights=self.ArrayMethodsMachine.WeightsEA)
-    #     if "Individual" not in dir(creator):
-    #         creator.create("Individual", numpy.ndarray, fitness=creator.FitnessMax)
-    #     toolbox = base.Toolbox()
-    #     Obj=self.ArrayMethodsMachine.PM.GiveInitList(toolbox)
-    #     toolbox.register("individual",
-    #                      tools.initCycle,
-    #                      creator.Individual,
-    #                      Obj, n=1)
-    #     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-    #     toolbox.register("mate", tools.cxUniform, indpb=0.5)
-    #     self.MutConfig=pFlux,p0,pMove,pScale,pOffset=0.5,0.5,0.5,0.5,0.5
-    #     toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.2, p0=0.5, pMove=0.2, pScale=0.2, pOffset=0.2)
-    #     toolbox.register("select", tools.selTournament, tournsize=3)
-    #     self.toolbox=toolbox
-    #     T.timeit("set DEAP")
-
-    # def main(self,NGen=1000,NIndiv=100,DoPlot=True):
-    #     T=ClassTimeIt.ClassTimeIt("   GA: Main")
-    #     T.disable()
-    #     self.setDEAP()
-
-    #     toolbox=self.toolbox
-    #     self.pop = toolbox.population(n=NIndiv)
-    #     self.hof = tools.HallOfFame(1, similar=numpy.array_equal)
-    #     for indiv in self.pop:
-    #         indiv.fill(0)
-    #     T.timeit("Init")
-    #     # #########################################################
-    #     self.DicoDicoInitIndiv  = shared_dict.attach("DicoDicoInitIndiv")
-    #     self.DicoDicoInitIndiv.reload()
-    #     NTypeInitAllIslands=len(self.DicoDicoInitIndiv.keys())
-    #     LModel=[]
-    #     NTypeInit=0
-    #     for iTypeInit in range(NTypeInitAllIslands):
-    #         DModels=self.DicoDicoInitIndiv.get(iTypeInit)
-    #         Model=DModels.get(self.iIsland,None)
-    #         #print(Model)
-    #         if Model is not None: NTypeInit+=1
-    #     # eirther has no model init (islands too small) or has all of them (no crash)
-    #     if NTypeInit!=0 and NTypeInit!=NTypeInitAllIslands: stop
-
-        
-    #     def GiveListPolyArrayMP(N,iTypeInit=None):
-    #         return [GivePolyArrayMP(iTypeInit=iTypeInit) for iIndiv in range(N)]
-                
-    #     def GivePolyArrayMP(iTypeInit=None):
-    #         T=CTI("GivePolyArrayMP")
-    #         T.disable()
-
-            
-            
-    #         if iTypeInit is None:
-    #             iTypeInit=int(np.random.rand(1)[0]*NTypeInit)
-                
-    #         DicoModelMP=None
-    #         DicoInitIndiv=self.DicoDicoInitIndiv.get(iTypeInit,None)
-    #         if DicoInitIndiv is not None:
-    #             DicoModelMP=DicoInitIndiv.get(self.iIsland,None)
-    #         T.timeit("Init")
-
-    #         if DicoModelMP is not None:
-    #             PolyModelArrayMP=DicoModelMP
-    #             T.timeit("get")
-    #         else:
-    #             SModelArrayMP,_=self.ArrayMethodsMachine.DeconvCLEAN()
-    #             AModelArrayMP=np.zeros_like(SModelArrayMP)
-    #             PolyModelArrayMP=np.zeros((self.ArrayMethodsMachine.PM.NOrderPoly,self.ArrayMethodsMachine.PM.NPixListParms),np.float32)
-    #             PolyModelArrayMP[0,:]=SModelArrayMP
-    #             T.timeit("CLEAN")
-    #         return PolyModelArrayMP
-
-    #     def GiveListPolyArrayMP_LinComb(N):
-    #         T.reinit()
-    #         L=[GivePolyArrayMP_LinComb() for iIndiv in range(N)]
-    #         T.timeit("GiveListPolyArrayMP_LinComb: L")
-    #         for iTypeInit in range(NTypeInit):
-    #             L[iTypeInit]=GivePolyArrayMP(iTypeInit=iTypeInit)
-    #         T.timeit("GiveListPolyArrayMP_LinComb: for")
-    #         return L
-        
-    #     def GivePolyArrayMP_LinComb():
-    #         T=CTI("GivePolyArrayMP_LinComb")
-    #         T.disable()
-    #         LInit=[]
-    #         Nrand=np.max([1,NTypeInit])
-    #         w=np.random.rand(Nrand)
-    #         w/=np.sum(w)
-    #         T.timeit("Init")
-    #         #print(w)
-    #         PolyModelArrayMP=w[0]*GivePolyArrayMP(iTypeInit=0)
-    #         T.timeit("Init1")
-    #         # print("Nrand=",Nrand)
-    #         for iTypeInit in range(1,Nrand):
-    #             PolyModelArrayMP+=w[iTypeInit]*GivePolyArrayMP(iTypeInit=iTypeInit)
-    #         T.timeit("Init2")
-    #         # stop
-    #         return PolyModelArrayMP
-    #     # #########################################################
-
-            
-        
-    #     if self.IslandBestIndiv is not None:
-    #         if NGen==0:
-    #             self.ArrayMethodsMachine.PM.ReinitPop(self.pop,GiveListPolyArrayMP_LinComb(len(self.pop)),PutNoise=False)
-    #             #self.ArrayMethodsMachine.KillWorkers()
-    #             return self.pop[0]
-    #         T.timeit("N=0")
-
-
-    #         PutNoise=True#False
-    #         if np.max(np.abs(self.IslandBestIndiv))==0:
-    #             #print("NEW")
-    #             ListPolyModelArrayMP=GiveListPolyArrayMP_LinComb(len(self.pop))
-    #             T.timeit("New0")
-    #             self.ArrayMethodsMachine.PM.ReinitPop(self.pop,ListPolyModelArrayMP,PutNoise=PutNoise)
-    #             T.timeit("New")
-    #         else:
-    #             #print("MIX")
-    #             # pop0=self.pop[0:NIndiv]
-    #             # pop1=self.pop[NIndiv::]
-
-    #             # pop1=self.pop
-    #             # pop0=[]
-
-    #             # pop1=self.pop[0:1]
-    #             # pop0=self.pop[1::]
-                
-                
-    #             BestIndiv=self.IslandBestIndiv.copy()
-    #             T.timeit("Mix: split")
-                
-    #             # self.ArrayMethodsMachine.PM.ReinitPop(pop0,SModelArray)
-
-    #             # print("Best!!!",BestIndiv)
-    #             # print("Best!!!",BestIndiv)
-    #             # print("Best!!!",BestIndiv)
-    #             # print("Best!!!",BestIndiv)
-    #             # print("Best!!!",BestIndiv)
-    #             # print("Best!!!",BestIndiv)
-    #             # print("Best!!!",BestIndiv)
-
-
-    #             ##################"
-    #             # BEST
-    #             # half with the best indiv
-    #             PolyModelArray=None
-    #             if True:#"Poly1" in self.ArrayMethodsMachine.PM.SolveParam:
-    #                 PolyModelArray=np.zeros((self.ArrayMethodsMachine.PM.NOrderPoly,self.ArrayMethodsMachine.PM.NPixListParms),np.float32)
-    #                 for iOrder in range(self.ArrayMethodsMachine.PM.NOrderPoly):
-    #                     PolyModelArray[iOrder]=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"Poly%i"%iOrder)
-    #                 T.timeit("Mix: build PolyModelArray")
-
-                        
-    #             GSigModel=None
-    #             if "GSig" in self.ArrayMethodsMachine.PM.SolveParam:
-    #                 GSigModel=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"GSig")
-    #                 T.timeit("Mix: GSigModel")
-
-    #             NoiseType="Mutate"
-    #             if NoiseType=="Normal":
-    #                 NIndiv=len(self.pop)//10
-    #                 pop1=self.pop[0:NIndiv//2]
-    #                 pop0=self.pop[NIndiv//2::]
-    #                 # #########################
-    #                 # # just noise
-    #                 self.ArrayMethodsMachine.PM.ReinitPop(pop1,[PolyModelArray]*len(pop1),GSigModel=GSigModel,PutNoise=PutNoise)
-    #                 T.timeit("Mix: ReinitPop pop1")
-    #                 pop1[0].flat[:]=BestIndiv.flat[:]
-    #                 # From Minor Cycle estimate
-    #                 # half of the pop with the MP model
-    #                 self.ArrayMethodsMachine.PM.ReinitPop(pop0,GiveListPolyArrayMP_LinComb( len(pop0) ),PutNoise=PutNoise)
-    #                 T.timeit("Mix: ReinitPop pop0")
-    #             elif NoiseType=="Mutate":
-    #                 NIndiv=len(self.pop)//2
-    #                 pop0=self.pop[0:NIndiv//2]
-    #                 pop1=self.pop[NIndiv//2::]
-    #                 self.ArrayMethodsMachine._fill_pop_array(self.pop)
-    #                 # #########################
-    #                 # Mutation
-    #                 self.ArrayMethodsMachine.PM.ReinitPop(pop0,[PolyModelArray]*len(pop0),GSigModel=GSigModel,PutNoise=False)
-    #                 self.ArrayMethodsMachine.mutatePop(pop0,1.,self.MutConfig)
-    #                 pop0[0].flat[:]=BestIndiv.flat[:]
-    #                 # #########################
-    #                 self.ArrayMethodsMachine.PM.ReinitPop(pop1,GiveListPolyArrayMP_LinComb( len(pop1) ),PutNoise=False)
-    #                 T.timeit("Mix: ReinitPop pop1")
-    #                 self.ArrayMethodsMachine.mutatePop(pop1,1.,self.MutConfig)
-    #                 pop1[0].flat[:]=BestIndiv.flat[:]
-                
-                    
-
-
-    #             self.pop=pop1+pop0
-
-    #     T.timeit("Init pop")
-    
-    #     _=self.ArrayMethodsMachine.GiveFitnessPop(self.pop)
-    #     T.timeit("Init Givefitness")
-
-    #     #print("LKLFJDFKJG [%i]"%self.iIsland,np.array(self.pop).size)
-    #     #print("SDFLJSDFLJ",np.array(self.pop).shape)
-    #     self.pop, log= algorithms.eaSimple(self.pop, toolbox, cxpb=0.3, mutpb=0.5, ngen=NGen, 
-    #                                        halloffame=self.hof, 
-    #                                        #stats=stats,
-    #                                        verbose=False, 
-    #                                        ArrayMethodsMachine=self.ArrayMethodsMachine,
-    #                                        DoPlot=DoPlot,
-    #                                        MutConfig=self.MutConfig)
-    #     T.timeit("eaSimple")
-    #     #print(self.pop[0])
-    #     #stop
-    #     #self.ArrayMethodsMachine.KillWorkers()
-
-    #     V = tools.selBest(self.pop, 1)[0]
-
-        
-
-    #     return V

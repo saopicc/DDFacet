@@ -32,6 +32,7 @@ from DDFacet.Other import ClassTimeIt
 from itertools import repeat
 from DDFacet.ToolsDir import ClassSpectralFunctions
 
+DISABLE_TIMEIT=True
 
 class ClassParamMachine():
     def __init__(self,ListPixParms,ListPixData,FreqsInfo,iFacet=0,
@@ -134,7 +135,7 @@ class ClassParamMachine():
     #    def ReinitPop(self,pop,SModelArray,AlphaModel=None,GSigModel=None,PutNoise=True):
     def ReinitPop(self,pop,ListPolyModelArray,GSigModel=None,PutNoise=None):
         T=ClassTimeIt.ClassTimeIt("ReinitPop")
-        T.disable()
+        if DISABLE_TIMEIT: T.disable()
 
         if isinstance(PutNoise,bool):
             PutNoise=PutNoise*np.ones((len(pop),),bool)
@@ -359,19 +360,22 @@ class ClassParamMachine():
 
 
     def GiveModelArray(self,A):
-        
+        T=ClassTimeIt.ClassTimeIt("GiveModelArray")
+        if DISABLE_TIMEIT: T.disable()        
         MA=np.zeros((self.NFreqBands,self.NPixListParms),np.float32)
-
         # S=self.ArrayToSubArray(A,"Poly0")
         # Alpha=self.ArrayToSubArray(A,"Poly1")
         # A.reshape((self.NParam,self.NPixListParms))
         
         PolyArray=np.zeros((self.NPixListParms,self.PolyOrder),np.float32)
+        T.timeit("np.zeros")
         for iOrder in range(self.PolyOrder):
             PolyArray[:,iOrder]=self.ArrayToSubArray(A,"Poly%i"%iOrder)
+        T.timeit("ArrayToSubArray")
             
         for iBand in range(self.NFreqBands):
             MA[iBand]=self.SpectralFunctionsMachine.IntExpFuncPoly(PolyArray,iChannel=iBand,iFacet=self.iFacet)
+        T.timeit("self.SpectralFunctionsMachine")
 
 
 

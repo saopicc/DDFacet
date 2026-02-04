@@ -518,10 +518,8 @@ class ClassImageDeconvMachine():
             rep=self.SearchIslands(StopFlux)
             if rep=="NoIslands":
                 return "FluxThreshold", False, False
-        ###########################
-
             
-
+        ###########################
         if not MPIManager.useMPI or not DO_MPI:
             DicoJobIslands={0:np.arange(len(self.ListAllIslands)).tolist()}
         else:
@@ -535,13 +533,11 @@ class ClassImageDeconvMachine():
                     DicoJobIslands[irank]=L
                     irank+=1
                     if irank==nrank: irank=0
-
             DicoJobIslands=MPIManager.COMM_WORLD.bcast(DicoJobIslands, root=0)
             log.print("Broadcast islands")
             self.ListAllIslands=MPIManager.COMM_WORLD.bcast(self.ListAllIslands, root=0)
             self.ListAllSpacialWeight=MPIManager.COMM_WORLD.bcast(self.ListAllSpacialWeight, root=0)
-            # self.ListIslands=[self.ListAllIslands[iIsland] for iIsland in DicoJobIslands.get(MPIManager.rank,[])]
-            # self.ListSpacialWeight=[self.ListAllSpacialWeight[iIsland] for iIsland in DicoJobIslands.get(MPIManager.rank,[])]
+        ###########################
 
         self.ListJobIslands=DicoJobIslands.get(MPIManager.rank,[])
         self.NIslands=len(self.ListJobIslands)

@@ -31,6 +31,7 @@ import DDFacet.Other.AsyncProcessPool
 
 SERIAL=False
 
+DISABLE_TIMEIT=True
         
 class ClassArrayMethodSSD():
     def __init__(self,Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,GD=None,
@@ -44,6 +45,8 @@ class ClassArrayMethodSSD():
         self.iFacet=iFacet
         self.WeightFreqBands=WeightFreqBands
         self.iIsland=iIsland
+        self.T=ClassTimeIt.ClassTimeIt("[%i] ClassArrayMethodSSD"%self.iIsland)
+        if DISABLE_TIMEIT: self.T.disable()        
 
         self._island_dict = island_dict
 
@@ -69,8 +72,9 @@ class ClassArrayMethodSSD():
         if self.NPixListData>self.GD["SSDClean"]["ConvFFTSwitch"]:
             self.ConvMode="FFT"
 
+        self.T.timeit("before self.ConvMachine")
         self.ConvMachine=ClassConvMachine.ClassConvMachine(PSF,ListPixParms,ListPixData,self.ConvMode)
-        
+        self.T.timeit("self.ConvMachine")
         
         
         self.GD=GD
@@ -114,6 +118,7 @@ class ClassArrayMethodSSD():
 
         self.APP_Fitness=None
         self.SetDirtyArrays(Dirty)
+        self.T.timeit("rest init")
         
     def startWorkers(self):
         if not self.ParallelFitness: return
@@ -227,16 +232,22 @@ class ClassArrayMethodSSD():
 
 
     def ToConvArray(self,V,OutMode="Data",Noise=False):
+        stop
+        T=ClassTimeIt.ClassTimeIt("[%i] ToConvArray"%self.iIsland)
         A=self.PM.GiveModelArray(V)
+        T.timeit("self.PM.GiveModelArray")
         if Noise is not False:
             A+=np.random.randn(*A.shape)*Noise
+        T.timeit("Noise")
         A=self.ConvMachine.Convolve(A,OutMode=OutMode)
+        T.timeit("self.ConvMachine.Convolve")
         return A
 
 
 
 
     def DeconvCLEAN(self,gain=0.1,StopThFrac=0.01,NMaxIter=20000):
+        self.T.reinit()
 
         PSF=self.PSF#/np.max(self.PSF)
 
@@ -348,6 +359,7 @@ class ClassArrayMethodSSD():
             SModelArray=self.PM.SquareArrayToModel(SModelArraySq,TypeInOut=("Parms","Parms")).reshape((self.NFreqBands,self.npol,self.NPixListParms))
             SModelArray=SModelArray[0,0]
 
+        self.T.timeit("init clean")
 
         return SModelArray,Alpha
 
@@ -392,8 +404,10 @@ class ClassArrayMethodSSD():
 
     def GiveFitnessPop(self,pop):
 
+        self.T.reinit()
         Parallel=self.ParallelFitness
         self._fill_pop_array(pop)
+        self.T.timeit("_fill_pop_array")
 
         #print("LSFDSDLFK self.ParallelFitness",self.ParallelFitness)
         if self.ParallelFitness:
@@ -407,7 +421,7 @@ class ClassArrayMethodSSD():
                                         args=(DicoJob,),
                                         serial=SERIAL)
             LDicoResults=self.APP_Fitness.awaitJobResults("Fitness:%i:*"%(self.iIsland),
-                                                          #progress="Fitness",
+                                                          #progress="[%i] Fitness"%self.iIsland,
                                                           )
         else:
             LDicoResults=[]
@@ -451,9 +465,11 @@ class ClassArrayMethodSSD():
         # print fitnesses
         # print Chi2
         # print "=============================="
+        self.T.timeit("fitnesses")
         return fitnesses,Chi2
 
     def mutatePop(self,pop,mutpb,MutConfig):
+        self.T.reinit()
 
         Parallel=self.ParallelFitness
         DicoFitnesses={}
@@ -490,6 +506,7 @@ class ClassArrayMethodSSD():
                 mutant = pop_array[iIndividual]
                 pop[iIndividual][:] = mutant[:]
 
+        self.T.timeit("mutate")
         return pop
 
 
@@ -500,6 +517,7 @@ class ClassArrayMethodSSD():
     
     def Plot(self,pop,iGen):
 
+        self.T.reinit()
         V = tools.selBest(pop, 1)[0]
 
         S=self.PM.ArrayToSubArray(V,"Poly0")
@@ -519,6 +537,7 @@ class ClassArrayMethodSSD():
         # S=self.PM.ArrayToSubArray(V,"S")
         # Al=self.PM.ArrayToSubArray(V,"Alpha")
 
+        self.T.timeit("plot")
         # pylab.subplot(1,2,1)
         # pylab.plot(S)
         # pylab.subplot(1,2,2)
@@ -532,6 +551,7 @@ class ClassArrayMethodSSD():
 
     def PlotChannel(self,pop,iGen,iChannel=0):
 
+        self.T.reinit()
         import pylab
         from mpl_toolkits.axes_grid1 import make_axes_locatable
 
@@ -646,14 +666,19 @@ class ClassArrayMethodSSD():
         pylab.pause(0.1)
         # fig.savefig("png/fig%2.2i_%4.4i.png"%(iChannel,iGen))
 
+        self.T.timeit("plot ch")
 # #################################################################"    
 # #################################################################"    
 # #################################################################"    
 # #################################################################"    
 
     def ToConvArray(self,V,OutMode="Data"):
+        T=ClassTimeIt.ClassTimeIt("[%i] ToConvArray2"%self.iIsland)
+        if DISABLE_TIMEIT: T.disable()        
         self.ModelA=self.PM.GiveModelArray(V)
+        T.timeit("self.PM.GiveModelArray")
         A=self.ConvMachine.Convolve(self.ModelA,OutMode=OutMode)
+        T.timeit("self.ConvMachine.Convolve")
         return A
 
 
@@ -718,8 +743,10 @@ class ClassArrayMethodSSD():
 
 
     def GiveFitness(self,individual,DoPlot=False):
-        
+        T=ClassTimeIt.ClassTimeIt("[%i] GiveFitness"%self.iIsland)
+        if DISABLE_TIMEIT: T.disable()        
         A=self.ToConvArray(individual)
+        T.timeit("self.ToConvArray")
         fitness=0.
         Resid=self.DirtyArray-A
         
@@ -750,6 +777,7 @@ class ClassArrayMethodSSD():
         ContinuousFitNess=[]
         PixVariance=self.PixVariance.reshape((nFreqBands,1,1))
         Verbose=0
+        T.timeit("before for self.MaxFunc")
         for FuncType in self.MaxFunc:
             if FuncType=="Chi2":
                 # chi2=-np.sum(Weight*(Resid)**2)/(self.PixVariance*Resid.size)
@@ -843,13 +871,14 @@ class ClassArrayMethodSSD():
 
         fit=np.sum(ContinuousFitNess)
         if np.isnan(fit): stop
+        T.timeit("done")
         return (fit,),chi2
         #return (ContinuousFitNess,),chi2
 
 
 
     def PlotIndiv(self,best_ind,iChannel=0):
-
+        stop
         import pylab
         from mpl_toolkits.axes_grid1 import make_axes_locatable
 
