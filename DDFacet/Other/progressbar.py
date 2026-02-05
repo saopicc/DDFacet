@@ -74,7 +74,7 @@ class ProgressBar(object):
         self.lines = 0
 
         if MPIManager.useMPI:
-            Title="[Rank %i] %s"%(MPIManager.rank,Title)
+            Title=" [#%i]%s"%(MPIManager.rank,Title)
         self.Title=Title
         
         self.HasRendered=False

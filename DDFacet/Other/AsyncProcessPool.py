@@ -633,7 +633,7 @@ class AsyncProcessPool (object):
         if progress:
             current = counter.getValue()
             total = total or current or 1
-            pBAR = ProgressBar(Title="  "+progress)
+            pBAR = ProgressBar(Title=progress)
             #pBAR.disable()
             pBAR.render(total-current,total)
             while current:

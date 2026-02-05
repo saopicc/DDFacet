@@ -586,6 +586,8 @@ class ClassImagerDeconv():
         return cachepath, valid, writecache
 
     def _loadCachedPSF (self, cachepath):
+
+        
         self.DicoImagesPSF=self.RemnantManager.mountRemnant("AllImages_FMPSF")
         if self.DicoImagesPSF is None:
             self.DicoImagesPSF = shared_dict.create("AllImages_FMPSF")
@@ -655,7 +657,7 @@ class ClassImagerDeconv():
                     self.DicoImagesPSF.save(cachepath)
                 else:
                     log.print("Skipped saving DicoImagesPSF, because Remnant mode enabled")
-                    print(self.DicoImagesPSF.keys())
+
                 #MyPickle.DicoNPToFile(self.DicoImagesPSF,"%s.DicoPickle"%cachepath)
                 #print("%s.DicoPickle"%cachepath)
                 self.VS.maincache.saveCache("PSF")
@@ -710,6 +712,11 @@ class ClassImagerDeconv():
 
         cachepath, valid, writecache = self._checkForCachedPSF(sparsify)
 
+        if not valid and self.RemnantManager.Enabled:
+                DicoPSFPath=self.RemnantManager.giveNameRemnant(DicoName="AllImages_FMPSF")
+                if os.path.exists(DicoPSFPath):
+                    log.print(ModColor.Str("Remnant PSF shm path %s is invalid but exists, removing..."%DicoPSFPath))
+                    os.system("rm -rf %s"%DicoPSFPath)
 
         if valid:
             print(ModColor.Str("============================ Loading cached PSF =========================="), file=log)
@@ -775,6 +782,13 @@ class ClassImagerDeconv():
         current_model_freqs = np.array([])
         ModelImage = None
         # load from cache
+
+        if not dirty_valid and self.RemnantManager.Enabled:
+                DicoDirtyPath=self.RemnantManager.giveNameRemnant(DicoName="AllImages_FM")
+                if os.path.exists(DicoDirtyPath):
+                    log.print("Remnant dirty shm path %s is invalid but exists, removing..."%DicoDirtyPath)
+                    os.system("rm -rf %s"%DicoDirtyPath)
+                
         if dirty_valid:
             if self.GD["Cache"]["Dirty"] == "forceresidual":
                 print(ModColor.Str("============================ Loading last residual image ========================"), file=log)
@@ -812,6 +826,13 @@ class ClassImagerDeconv():
             if MPIManager.rank == 0 and self.DicoDirty.get("LastMask") is not None and self.GD["Mask"]["Auto"]:
                 self.MaskMachine.joinExternalMask(self.DicoDirty["LastMask"])
 
+
+        if not psf_valid and self.RemnantManager.Enabled:
+            DicoPSFPath=self.RemnantManager.giveNameRemnant(DicoName="AllImages_FMPSF")
+            if os.path.exists(DicoPSFPath):
+                log.print(ModColor.Str("Remnant PSF shm path %s is invalid but exists, removing..."%DicoPSFPath))
+                os.system("rm -rf %s"%DicoPSFPath)
+                
         if psf_valid:
             print(ModColor.Str("============================ Loading cached PSF ================================="), file=log)
             print("found valid cached PSF in %s" % psf_cachepath, file=log)
@@ -1770,9 +1791,14 @@ class ClassImagerDeconv():
             self.FacetMachine.ToCasaImage(mod_image,ImageName="%s.model.mean_posterior.int"%self.BaseName,Fits=True)
             mod_image = self.DeconvMachine.ModelMachine.GiveModelImage()
             self.FacetMachine.ToCasaImage(mod_image,ImageName="%s.model.best_individual.int"%self.BaseName,Fits=True)
+
             
-                    
-        # dump dirty to cache
+        # the Dirty cache mapping to the stored remnant shm is not valid anymore
+        if self.HasDeconvolved and self.RemnantManager.Enabled:
+            log.print("Delete the stored cache for Dirty, since we are in Remnant mode and we have deconvolved...")
+            self.VS.maincache.deleteCache("Dirty")
+            
+        # dump dirty to LastResidual
         if self.GD["Cache"]["LastResidual"] and self.DicoDirty is not None and not last_residual_is_saved:
             cachepath, valid = self.VS.maincache.checkCache("LastResidual",
                                                             dict(

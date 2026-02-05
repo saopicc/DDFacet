@@ -70,6 +70,7 @@ from astropy.coordinates import SkyCoord
 import astropy.units as u
 from DDFacet.Imager import ClassMaskMachine
 from DDFacet.Other.Verbose import VERBOSE_SHARED_DICT
+import os
 
 from DDFacet.Other import MPIManager
 
@@ -858,11 +859,17 @@ class ClassFacetMachine():
         if self.RemnantManager.Enabled:
             if cachevalid:
                 self._CF=self.RemnantManager.mountRemnant(CFName)
-                self.IsDDEGridMachineInit=True
-                return
+                if self._CF is not None:
+                    self.IsDDEGridMachineInit=True
+                    return
+                else:
+                    self._CF = shared_dict.create(CFName)
             else:
-                CFName=self.RemnantManager.giveNameRemnant(CFName)
-                self._CF = shared_dict.create(CFName)
+                CFPath=self.RemnantManager.giveNameRemnant(CFName)
+                if os.path.exists(CFPath):
+                    log.print(ModColor.Str("Remnant CF shm path %s is invalid but exists, removing..."%CFPath))
+                    os.system("rm -rf %s"%CFPath)
+                self._CF = shared_dict.create(CFPath)
         else:
             self._CF = shared_dict.create(CFName)
         
