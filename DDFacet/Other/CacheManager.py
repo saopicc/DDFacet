@@ -308,6 +308,17 @@ class CacheManager (object):
         self.hashes[name] = hashpath, hash, reset
         return cachepath, not reset
 
+    def deleteCache(self,name):
+        cachepath = self.getElementPath(name)
+        hashpath = cachepath + ".hash"
+        if os.path.exists(hashpath):
+            os.remove(hashpath)
+        if os.path.exists(cachepath):
+            if os.path.isdir(cachepath):
+                os.rmdir(cachepath)
+            else:
+                os.remove(cachepath)
+
     def saveCache(self, name=None):
         """
         Saves cache hash to disk. Meant to be called after a cache object has been successfully written to.
