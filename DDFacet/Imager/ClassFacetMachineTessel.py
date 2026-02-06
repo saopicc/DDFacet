@@ -973,7 +973,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         labels = [
             (self.DicoImager[i]["lmShift"][0],
              self.DicoImager[i]["lmShift"][1],
-             "[F%i_S%i]" % (i, self.DicoImager[i]["iDirJones"]))
+             "[F%i_S%i]" % (i, self.DicoImager[i]["iDirJones"][0]))
             for i in range(len(LPolygonNew))]
         
         VM.PolygonToReg(regFile,

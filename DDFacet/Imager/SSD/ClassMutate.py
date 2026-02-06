@@ -237,7 +237,7 @@ class ClassMutate():
             # #     if random.random() < indpb/100.:
             # #         individual[i] += random.gauss(m, s)
     
-        T.timeit("for Type=%i"%Type)
+        #T.timeit("for Type="+str(Type))
     
         # if Type==2:
         #     A1=IndToArray(individual).copy()

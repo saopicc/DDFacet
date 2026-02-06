@@ -1285,8 +1285,7 @@ class ClassImageDeconvMachine():
                                                                         iChannel=iBand,
                                                                         iFacet=iFacet,
                                                                         FluxScale=self.FitFluxScale,
-                                                                        OutMode="app")
-
+                                                                        OutMode="app")[0]
             
             #Fit[Fit<0]*=100.
 
@@ -1349,12 +1348,12 @@ class ClassImageDeconvMachine():
                                                                         iChannel=iBand,
                                                                         iFacet=iFacet,
                                                                         FluxScale=self.FitFluxScale,
-                                                                        OutMode="app")
+                                                                        OutMode="app")[0]
                 F0[iBand]=self.SpectralFunctionsMachine.IntExpFuncPoly(x0.reshape((1,NOrder)),
                                                                         iChannel=iBand,
                                                                         iFacet=iFacet,
                                                                         FluxScale=self.FitFluxScale,
-                                                                        OutMode="app")
+                                                                        OutMode="app")[0]
             # print("==================")
             # print("x0=",x0,X0Model[:,0,iPix,jPix])
             # print("F0=",F0)
