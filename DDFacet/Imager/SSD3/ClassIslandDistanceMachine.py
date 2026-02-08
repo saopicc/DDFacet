@@ -210,12 +210,14 @@ class ClassIslandDistanceMachine():
         return Labels.reshape((1,1,nx,ny))
 
     def BreakLargeIslands(self,ListIslands):
-        
+        log.print("    Break large islands...")
         CBI=ClassBreakIslands.ClassBreakIslands(self.GD,self._MaskArray,self.PSFServer,self.DicoDirty)
         
         #return CBI.BreakLargeIslands(ListIslands)
         #return CBI.BreakLargeIslandsFacets(ListIslands)
-        return CBI.BreakLargeIslandsFacetsPolygon(ListIslands)
+        r=CBI.BreakLargeIslandsFacetsPolygon(ListIslands)
+        log.print("    Break large islands: done")
+        return r
     
         
 
@@ -511,6 +513,7 @@ class ClassIslandDistanceMachine():
             xx,yy=np.array(Island).T
             self._MaskArray[0,0,xx,yy]=0
         # np.save("Mask1.npy",self._MaskArray)
+        log.print("    update internal Mask: done")
         
                 
         # if PolygonFile is not None:

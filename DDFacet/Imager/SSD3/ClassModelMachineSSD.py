@@ -89,6 +89,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.xrRand=None
         self.LSTD=[]
         self.LResid1D=[]
+        self.GridFreqs=None
         
     def setParams(self):
         NOrderPoly=self.GD["SSD3"]["PolyFreqOrder"]
@@ -133,6 +134,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         D["SolveParam"]=self.SolveParam
         D["PastModels"]=self.PastModels
         D["PastModels_Resid"]=self.PastModels_Resid
+        D["GridFreqs"]=self.GridFreqs
 
         MyPickle.Save(D,FileName)
 
@@ -182,6 +184,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.SolveParam=self.DicoSMStacked["SolveParam"]
         self.PastModels=self.DicoSMStacked["PastModels"]
         self.PastModels_Resid=self.DicoSMStacked["PastModels_Resid"]
+        self.GridFreqs=self.DicoSMStacked["GridFreqs"]
             
         self.NParam=len(self.SolveParam)
 
@@ -318,17 +321,25 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         else:
             DicoComp[key]["Weights"].append(W)
             
-    def updateAlpha(self,MeanDirty):
+    def updateLookBack(self,CubeDirty,GridFreqs):
         if self.GD["SSD3"]["NLookBackModels"]==0: return
-        nch,_,nx,ny=MeanDirty.shape
-        if nch!=1: stop
+        
+        Vals=self.DicoSMStacked["Comp"].get("Vals",None)
+        _,_,nx,ny=self.ModelShape
+        if Vals is None:
+            Vals=np.zeros((self.NParam,nx,ny),np.float32)
+        else:
+            Vals=Vals.copy()
+            
+        self.PastModels.append(Vals)
+        self.GridFreqs=GridFreqs
         if self.xrRand is None:
             Nr=10000
             xr=np.int64(np.random.rand(Nr)*nx)
-            yr=np.int64(np.random.rand(Nr)*nx)
+            yr=np.int64(np.random.rand(Nr)*ny)
             self.xryr=(xr,yr)
         
-        self.PastModels_Resid.append(MeanDirty.copy())
+        self.PastModels_Resid.append(CubeDirty.copy())
         
         # xr,yr = self.xryr
         # Resid1D=MeanDirty.flat[xr*ny+yr]
@@ -384,6 +395,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         #if len(self.PastModels)>=self.GD["Deconv"]["MaxMajorIter"]//2:
         if self.GD["SSD3"]["NLookBackModels"]!=0 and len(self.PastModels)>=2:
             log.print("Use %i past models to update..."%len(self.PastModels))
+            
             # sgn0=np.sign(self.PastModels[1][0]-self.PastModels[0][0])
             # sgn1=np.sign(ThisModel_mean-self.PastModels[1][0])
             # C0=True#(self.PastModels[0][0]!=0)
@@ -398,67 +410,68 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             
             # self.PastModels_Resid: NDeque,1,1,nx,ny
             # self.PastModels: NDeque,nParm,nx,ny
-            PastModels_Resid=np.array(self.PastModels_Resid).copy()
-            PastModels=np.array(self.PastModels)
-            NDeque,nParm,nx,ny=PastModels.shape
-            
-            
-            PastModels_Resid=PastModels_Resid[-NDeque:].reshape((NDeque,1,nx,ny))
-            PastModels=PastModels.reshape((NDeque,self.NParam,nx,ny))
-            #STD=np.array(self.PastModels_STD[-NDeque:]).reshape((NDeque,1,1,1))
 
-            LSTD=[]
-            xr,yr = self.xryr
-            for ThisResid in PastModels_Resid:
-                Resid1D=ThisResid.flat[xr*ny+yr]
-                LSTD.append(scipy.stats.median_abs_deviation(Resid1D,axis=None,scale="normal"))
-            STD=np.array(LSTD)
-            
-            aPastModels_Resid=np.abs(PastModels_Resid)
+            # # ###########################################
+            # PastModels_Resid=np.array(self.PastModels_Resid).copy()
+            # PastModels=np.array(self.PastModels)
+            # NDeque,nParm,nx,ny=PastModels.shape
             
             
-            Th=0.1*STD
-            for iModel in range(NDeque):
-                M=(aPastModels_Resid[iModel,0]<Th[iModel])
-                indx,indy=np.where(M)
-                aPastModels_Resid[iModel,0,indx,indy]=Th[iModel]
-            W=1./aPastModels_Resid**2#**2
-            
-            S0=PastModels[:,0:1]
-            W[S0==0]=0
-            
-            Ws=np.sum(W,axis=0)
-            Ws[Ws==0]=1.
-            MeanModelPast0=np.sum(W*PastModels,axis=0)/Ws
+            # PastModels_Resid=PastModels_Resid[-NDeque:].reshape((NDeque,1,nx,ny))
+            # PastModels=PastModels.reshape((NDeque,self.NParam,nx,ny))
+            # #STD=np.array(self.PastModels_STD[-NDeque:]).reshape((NDeque,1,1,1))
 
-            # weight parameters others than the flux by the flux
-            MeanModelPast=np.zeros((PastModels[0].shape),PastModels.dtype)
-            for iTerm in range(self.NParam):
-                wt=W
-                if iTerm!=0:
-                    wt=W*np.abs(S0)
-                Sm=np.sum(wt*PastModels[:,iTerm:iTerm+1],axis=0)
-                Sw=np.sum(wt,axis=0)
-                Sw[Sw==0]=1
-                Sm=Sm/Sw
-                MeanModelPast[iTerm]=Sm[0]
+            # LSTD=[]
+            # xr,yr = self.xryr
+            # for ThisResid in PastModels_Resid:
+            #     Resid1D=ThisResid.flat[xr*ny+yr]
+            #     LSTD.append(scipy.stats.median_abs_deviation(Resid1D,axis=None,scale="normal"))
+            # STD=np.array(LSTD)
+            
+            # aPastModels_Resid=np.abs(PastModels_Resid)
+            
+            
+            # Th=0.1*STD
+            # for iModel in range(NDeque):
+            #     M=(aPastModels_Resid[iModel,0]<Th[iModel])
+            #     indx,indy=np.where(M)
+            #     aPastModels_Resid[iModel,0,indx,indy]=Th[iModel]
+            # W=1./aPastModels_Resid**2#**2
+            
+            # S0=PastModels[:,0:1]
+            # W[S0==0]=0
+            
+            # Ws=np.sum(W,axis=0)
+            # Ws[Ws==0]=1.
+            # MeanModelPast0=np.sum(W*PastModels,axis=0)/Ws
 
-            # Wa=np.ones((1,nx,ny),np.float32)
-            # Wa[MeanModelPast[0:1]==0]=0
-            # Wb=np.ones((1,nx,ny),np.float32)
-            # #DicoComp["Vals"][:] = MeanModelPast[:]
-            # DicoComp["Vals"][:] = (Wa*MeanModelPast + Wb*DicoComp["Vals"][:])/(Wa+Wb)
+            # # weight parameters others than the flux by the flux
+            # MeanModelPast=np.zeros((PastModels[0].shape),PastModels.dtype)
+            # for iTerm in range(self.NParam):
+            #     wt=W
+            #     if iTerm!=0:
+            #         wt=W*np.abs(S0)
+            #     Sm=np.sum(wt*PastModels[:,iTerm:iTerm+1],axis=0)
+            #     Sw=np.sum(wt,axis=0)
+            #     Sw[Sw==0]=1
+            #     Sm=Sm/Sw
+            #     MeanModelPast[iTerm]=Sm[0]
 
-            Wa=np.ones((self.NParam,nx,ny),np.float32)
-            Wb=np.ones((self.NParam,nx,ny),np.float32)
-            for iTerm in range(1,self.NParam):
-                Wa[iTerm]*=np.abs(MeanModelPast[0])
-                Wb[iTerm]*=np.abs(DicoComp["Vals"][0])
+            # # Wa=np.ones((1,nx,ny),np.float32)
+            # # Wa[MeanModelPast[0:1]==0]=0
+            # # Wb=np.ones((1,nx,ny),np.float32)
+            # # #DicoComp["Vals"][:] = MeanModelPast[:]
+            # # DicoComp["Vals"][:] = (Wa*MeanModelPast + Wb*DicoComp["Vals"][:])/(Wa+Wb)
+
+            # Wa=np.ones((self.NParam,nx,ny),np.float32)
+            # Wb=np.ones((self.NParam,nx,ny),np.float32)
+            # for iTerm in range(1,self.NParam):
+            #     Wa[iTerm]*=np.abs(MeanModelPast[0])
+            #     Wb[iTerm]*=np.abs(DicoComp["Vals"][0])
 
 
 
             # ####################
-            # self.CurrentModel = DicoComp["Vals"][:]
             # CFPM=ClassFitPreviousModels.ClassFitPreviousModels(self)
             # MeanModelPast=CFPM.avgWeighted()
             
@@ -475,8 +488,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             #DicoComp["Vals"][:] = self.PastModels[-1][:] + self.Alpha * dThisModel
             #log.print("  Have rescaled model using Alpha = %.2f"%(self.Alpha))
 
-        if self.GD["SSD3"]["NLookBackModels"]!=0:
-            self.PastModels.append(DicoComp["Vals"].copy())
         
         if self.GD["SSD3"]["ForcePositiveModel"]:
             x,y=np.where(DicoComp["Vals"][0]<0)

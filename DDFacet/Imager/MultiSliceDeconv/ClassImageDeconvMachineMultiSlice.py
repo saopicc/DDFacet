@@ -555,9 +555,6 @@ class ClassImageDeconvMachine():
                 CO=ClassOrieux.ClassOrieux(A,B)
                 #CO=ClassOrieux.ClassOrieux(dirty[ch,0,:,:], psf[ch,0,:,:])
                 ThisRMS=ARMS[ch]
-
-                
-
                 
                 ThisSNR=A.max()/ThisRMS
                 SNR0=5

@@ -352,18 +352,24 @@ def CleanupAPP():
         del(Imager.APP)
     except:
         pass
+
+    try:
+        Imager.FacetMachine._delete_cf_in_destructor=True
+    except:
+        pass
     
     try:
         del(Imager)
     except:
         pass
     Imager=None
+    import gc
+    gc.collect()
     
     try:
         Multiprocessing.cleanupShm()
     except:
         pass
-    import gc
     gc.collect()
     
 def driver(OP_IN=None):

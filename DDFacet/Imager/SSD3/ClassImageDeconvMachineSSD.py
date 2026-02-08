@@ -278,7 +278,7 @@ class ClassImageDeconvMachine():
     def SetDirty(self,DicoDirty):
         self.DicoDirty=DicoDirty
         
-        self._Dirty=self.DicoDirty["ImageCube"]
+        self._CubeDirty=self._Dirty=self.DicoDirty["ImageCube"]
         self._MeanDirty=self.DicoDirty["MeanImage"]
 
         NPSF_x,NPSF_y=self.PSFServer.NPSF
@@ -480,7 +480,7 @@ class ClassImageDeconvMachine():
         self.ThSpectralFit=3
         print("    Stopping flux              = %10.6f Jy [%.3f of peak ]"%(StopFlux,StopFlux/MaxDirty), file=log)
 
-        self.ModelMachine.updateAlpha(self._MeanDirty)
+        self.ModelMachine.updateLookBack(self._CubeDirty,self.GridFreqs)
         
         # MaxModelInit=np.max(np.abs(self.ModelImage))
         # Fact=4

@@ -42,6 +42,7 @@ class ClassBreakIslands():
         self.DicoAPP={}
 
     def startWorkers(self,Name=""):
+        logger.setSilent(["AsyncProcessPool"])
         APP_Islands=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_Islands%s"%Name,
                                                                 ncpu=self.GD["Parallel"]["NCPU"],
                                                                 affinity="disable",#self.GD["Parallel"]["Affinity"],
@@ -51,26 +52,51 @@ class ClassBreakIslands():
                                                                 )
         APP_Islands.registerJobHandlers(self)
         APP_Islands.startWorkers()
+        APP_Islands.awaitWorkerStart()
+        #logger.setLoud(["AsyncProcessPool"])
 
         self.DicoAPP[Name]=APP_Islands
         
         
     def killWorkers(self,Name=""):
+        #logger.setSilent(["AsyncProcessPool"])
         APP=self.DicoAPP[Name]
         APP.terminate()
         APP.shutdown()
         del(self.DicoAPP[Name])
+        logger.setLoud(["AsyncProcessPool"])
 
     def BreakLargeIslandsFacetsPolygon(self,ListIslands):
         if not self.GD["SSDClean"]["MaxIslandSize"]: return ListIslands
         
-        LOut=[]
         
         self.DicoVariablePSF=self.PSFServer.DicoVariablePSF
+        self.ListIslands=ListIslands
+        NameAPP="BreakLargeIslandsFacetsPolygon"
+        self.startWorkers(NameAPP)
+        APP=self.DicoAPP[NameAPP]
+        SERIAL=False
+        for iIsland,ThisIsland in enumerate(ListIslands):
+            APP.runJob("BreakLargeIslandsFacetsPolygon.%i"%(iIsland),
+                       self._BreakLargeIslandsFacetsPolygon_ThisIsland,
+                       args=(iIsland,),serial=SERIAL)
+            
+        ThisIslandLOut=APP.awaitJobResults("BreakLargeIslandsFacetsPolygon.*", progress="Split island")
+        LOut=[]
+        for ThisList in ThisIslandLOut:
+            if ThisList is None: continue
+            LOut+=ThisList
+        self.killWorkers(NameAPP)
+
+        return LOut
+
+    def _BreakLargeIslandsFacetsPolygon_ThisIsland(self,iIsland):
+        ThisIsland=self.ListIslands[iIsland]
+        
+        DicoImager=self.DicoVariablePSF["DicoImager"]
         CellSizeRad_x,CellSizeRad_y=self.DicoVariablePSF["CellSizeRad"]
         _,_,nx,ny=self.DicoVariablePSF["OutImShape"]
         
-        DicoImager=self.DicoVariablePSF["DicoImager"]
         def inPoly(Polygon,X,Y):
             XY=np.array([X,Y]).T
             XY_flat = XY.reshape((-1, 2))
@@ -83,46 +109,44 @@ class ClassBreakIslands():
             return mask
         dlmax=CellSizeRad_x*self.GD["SSDClean"]["MaxIslandSize"]
         dmmax=CellSizeRad_y*self.GD["SSDClean"]["MaxIslandSize"]
-        for iIsland,ThisIsland in enumerate(ListIslands):
-            x,y=np.array(ThisIsland).T
-            l=CellSizeRad_x*(x-nx//2)
-            m=CellSizeRad_y*(y-ny//2)
-            IslandID=np.zeros((x.size,),int)
-            for iFacet in sorted(DicoImager.keys()):
-                #print(iFacet,len(DicoImager.keys()))
-                lp,mp=DicoImager[iFacet]["Polygon"].T
-                lp0,lp1=lp.min(),lp.max()
-                mp0,mp1=mp.min(),mp.max()
-                dl=lp1-lp0
-                dm=mp1-mp0
-                nl=int(dl//dlmax+1)
-                nm=int(dm//dmmax+1)
-                lg,mg=np.mgrid[lp0:lp1:(nl+1)*1j,mp0:mp1:(nm+1)*1j]
 
-                M=inPoly(DicoImager[iFacet]["Polygon"],l,m)
-                ind=np.where(M)[0]
-                xs,ys=x[ind],y[ind]
-                ls,ms=l[ind],m[ind]
-                for ii in range(nl):
-                    for jj in range(nm):
-                        #print(ii,jj)
-                        l0,m0=lg[ii,jj],mg[ii,jj]
-                        l1,m1=lg[ii+1,jj],mg[ii+1,jj]
-                        l2,m2=lg[ii+1,jj+1],mg[ii+1,jj+1]
-                        l3,m3=lg[ii,jj+1],mg[ii,jj+1]
-                        Poly=np.array([[l0,m0],
-                                       [l1,m1],
-                                       [l2,m2],
-                                       [l3,m3],
-                                       ])
-                        M=inPoly(Poly,ls,ms)
-                        ind=np.where(M)[0]
-                        if ind.size==0: continue
-                        LOut.append(np.array([xs[ind],ys[ind]]).T)
-                        
+        LOut=[]
+        x,y=np.array(ThisIsland).T
+        l=CellSizeRad_x*(x-nx//2)
+        m=CellSizeRad_y*(y-ny//2)
+        IslandID=np.zeros((x.size,),int)
+        for iFacet in sorted(DicoImager.keys()):
+            #print(iFacet,len(DicoImager.keys()))
+            lp,mp=DicoImager[iFacet]["Polygon"].T
+            lp0,lp1=lp.min(),lp.max()
+            mp0,mp1=mp.min(),mp.max()
+            dl=lp1-lp0
+            dm=mp1-mp0
+            nl=int(dl//dlmax+1)
+            nm=int(dm//dmmax+1)
+            lg,mg=np.mgrid[lp0:lp1:(nl+1)*1j,mp0:mp1:(nm+1)*1j]
+
+            M=inPoly(DicoImager[iFacet]["Polygon"],l,m)
+            ind=np.where(M)[0]
+            xs,ys=x[ind],y[ind]
+            ls,ms=l[ind],m[ind]
+            for ii in range(nl):
+                for jj in range(nm):
+                    #print(ii,jj)
+                    l0,m0=lg[ii,jj],mg[ii,jj]
+                    l1,m1=lg[ii+1,jj],mg[ii+1,jj]
+                    l2,m2=lg[ii+1,jj+1],mg[ii+1,jj+1]
+                    l3,m3=lg[ii,jj+1],mg[ii,jj+1]
+                    Poly=np.array([[l0,m0],
+                                   [l1,m1],
+                                   [l2,m2],
+                                   [l3,m3],
+                                   ])
+                    M=inPoly(Poly,ls,ms)
+                    ind=np.where(M)[0]
+                    if ind.size==0: continue
+                    LOut.append(np.array([xs[ind],ys[ind]]).T)
         return LOut
-
-
 
     
     def BreakLargeIslandsFacets(self,ListIslands):
