@@ -52,7 +52,7 @@ def Show(R0,Lxy=[]):
 
 
 def testFit():
-    DicoName="SSD3.0Gen_Orieux.03.DicoModel"
+    DicoName="TestSSD3.fit.02.DicoModel"
     D=MyPickle.Load(DicoName)
     MM=DDFacet.Imager.SSD3.ClassModelMachineSSD.ClassModelMachine(D["GD"])
     MM.FromFile(DicoName)
@@ -76,7 +76,7 @@ def testFit():
     return FPM.avgWeighted(Lxy=Lxy)
 
 SERIAL=False
-SERIAL=True
+#SERIAL=True
 
 class ClassFitPreviousModels():
 
@@ -167,6 +167,11 @@ class ClassFitPreviousModels():
         
         V2 = np.vander(np.log10(Lfreqs2/MM.RefFreq), N=NTerms, increasing=True)  # Vandermonde matrix
         self.V2=V2
+
+        self.x=np.array([np.log10(freqs/MM.RefFreq) for iPastModels in range(self.NPastModels)]).ravel()
+        self.Vx = np.vander(self.x, N=NTerms, increasing=True)  # Vandermonde matrix
+            
+
         
         # M1=np.zeros((NTerms,nx,ny),np.float32)
 
@@ -176,7 +181,7 @@ class ClassFitPreviousModels():
 
         self.startWorker()
         APP=self.APP
-        self._runFit(indx,indy)
+        #self._runFit(indx[0],indy[0])
         
         for ii in range(nx): #[indx]:
             APP.runJob("Fit.%i"%(ii),
@@ -198,53 +203,53 @@ class ClassFitPreviousModels():
         M1[0,:,:]=inv_fMyScale(M1[0,:,:],RMS=RMS0*factRMS)
         M1[1:,:,:]*=SGN
 
-        ###########################
-        # print(M[:,indx[0],indy[0]])
-        # print(M1[:,indx[0],indy[0]])
-        # return
+        # ###########################
+        # # print(M[:,indx[0],indy[0]])
+        # # print(M1[:,indx[0],indy[0]])
+        # # return
 
-        ii,jj=indx,indy
-        V=self.V
-        # y=LModel.reshape((Lfreqs.size,nx,ny))[:,ii,jj]#.reshape((-1,1))
-        # #VTV = V.T @ (W @ V)
-        # #VTy = V.T @ (W @ y)
-        # VTV = V.T @ ( V)
-        # VTy = V.T @ ( y)
-        # yyp = np.linalg.solve(VTV, VTy)  # Closed-form solution
+        # ii,jj=indx,indy
+        # V=self.V
+        # # y=LModel.reshape((Lfreqs.size,nx,ny))[:,ii,jj]#.reshape((-1,1))
+        # # #VTV = V.T @ (W @ V)
+        # # #VTy = V.T @ (W @ y)
+        # # VTV = V.T @ ( V)
+        # # VTy = V.T @ ( y)
+        # # yyp = np.linalg.solve(VTV, VTy)  # Closed-form solution
 
 
         
-        Model1=MM.GiveModelImage(FreqIn=freqs,InModelParms=M1)
-        Model1=fMyScale(Model1,RMS=RMS0*factRMS)
-        yy1=Model1[:,0,indx,indy]
+        # Model1=MM.GiveModelImage(FreqIn=freqs,InModelParms=M1)
+        # Model1=fMyScale(Model1,RMS=RMS0*factRMS)
+        # yy1=Model1[:,0,indx,indy]
         
-        print(Lyy)
-        print(yy1)
-        import pylab
-        pylab.clf()
+        # print(Lyy)
+        # print(yy1)
+        # import pylab
+        # pylab.clf()
 
-        rr=LResid[:,:,0,indx,indy]
-        rr0=np.abs(rr).min()
+        # rr=LResid[:,:,0,indx,indy]
+        # rr0=np.abs(rr).min()
         
-        for iModel in range(NPastModels):
-            yy=LModel[iModel,:,indx,indy].ravel()
-            rr=np.abs(LResid[iModel,:,0,indx,indy]).ravel()/rr0
+        # for iModel in range(NPastModels):
+        #     yy=LModel[iModel,:,indx,indy].ravel()
+        #     rr=np.abs(LResid[iModel,:,0,indx,indy]).ravel()/rr0
             
-            #yy=fMyScale(yy,RMS=RMS0*factRMS)
-            pylab.scatter(np.log10(xx),yy,marker="+",label="previous",s=rr*40)
-        pylab.scatter(np.log10(xx),yy1,color="red", facecolors='none', edgecolors='r',s=80,label="fit")
+        #     #yy=fMyScale(yy,RMS=RMS0*factRMS)
+        #     pylab.scatter(np.log10(xx),yy,marker="+",label="previous",s=rr*40)
+        # pylab.scatter(np.log10(xx),yy1,color="red", facecolors='none', edgecolors='r',s=80,label="fit")
 
-        yy1=M1s[:,ii,jj]
-        yy1m=V @ ( yy1)
-        # yy1m=fMyScale(yy1m,RMS=RMS0*factRMS)
-        xxa=np.array(self.Lfreqs)
-        pylab.scatter(np.log10(xxa).ravel(),yy1m,marker="x")
+        # yy1=M1s[:,ii,jj]
+        # yy1m=V @ ( yy1)
+        # # yy1m=fMyScale(yy1m,RMS=RMS0*factRMS)
+        # xxa=np.array(self.Lfreqs)
+        # pylab.scatter(np.log10(xxa).ravel(),yy1m,marker="x")
         
-        pylab.draw()
-        pylab.show(block=False)
-        pylab.pause(0.1)
-        stop
-        ##################
+        # pylab.draw()
+        # pylab.show(block=False)
+        # pylab.pause(0.1)
+        # stop
+        # ##################
         
         return M1
 
@@ -259,14 +264,11 @@ class ClassFitPreviousModels():
         V2=self.V2
 
 
-        def weighted_polyfit(x, y, w, degree):
-            x = np.asarray(x).flatten()
-            y = np.asarray(y).flatten()
-            W = np.asarray(w).flatten()
-            V = np.vander(x, degree)
+        def weighted_polyfit(x, y, W, degree):
+            V = self.Vx
             WW = np.diag(W)
             coeffs = np.linalg.lstsq(WW @ V, WW @ y, rcond=None)[0]
-            return coeffs
+            return coeffs#[::-1]
         
         M1  = shared_dict.attach(self.ShmName)["M1"]
         nx,ny=M1.shape[-2:]
@@ -277,11 +279,18 @@ class ClassFitPreviousModels():
             Lny=[jj]
         for jj in Lny:
             
-            x=[self.freqs for iPastModels in range(self.NPastModels)]
+            #x=[self.freqs for iPastModels in range(self.NPastModels)]
+            x=self.x
             y=[LModel[iPastModels,:,ii,jj] for iPastModels in range(self.NPastModels)]
             w=[WAll[iPastModels,:,ii,jj] for iPastModels in range(self.NPastModels)]
+            y = np.asarray(y).flatten()
+            w = np.asarray(w).flatten()
             c=weighted_polyfit(x, y, w, self.NTerms)
-            stop
+
+            # import pylab
+            # pylab.scatter(x,y)
+            # pylab.
+            
             M1[:,ii,jj] = c[:]
             
             # ##########################
