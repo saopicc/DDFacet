@@ -66,6 +66,7 @@ classifiers = [
 [project.scripts]
 "DDF.py" = "DDFacet.__main__:ddf_main"
 "CleanSHM.py" = "DDFacet.__main__:cleanshm_main"
+"IOMonitor.py" = "DDFacet.__main__:iomonitor_main"
 "MemMonitor.py" = "DDFacet.__main__:memmonitor_main"
 "Restore.py" = "DDFacet.__main__:restore_main"
 "ClusterCat.py" = "SkyModel.__main__:clustercat_main"
