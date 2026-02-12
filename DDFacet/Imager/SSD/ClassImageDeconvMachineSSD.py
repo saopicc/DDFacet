@@ -68,7 +68,7 @@ class ClassImageDeconvMachine():
         self.MaxMinorIter=MaxMinorIter
         self.NCPU=NCPU
         if NCPU==0:
-            self.NCPU=int(GD["Parallel"]["NCPU"] or psutil.cpu_count())
+            self.NCPU=int(GD["Parallel"]["NCPU"] or len(psutil.Process().cpu_affinity()))
         self.Chi2Thr=10000
         self.GD=GD
         if IdSharedMem is None:

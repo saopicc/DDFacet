@@ -53,7 +53,7 @@ class ClassEvolveGA():
         
         NCPU=(GD["GAClean"]["NCPU"] or None)
         if NCPU==0:
-            NCPU=int(GD["Parallel"]["NCPU"] or psutil.cpu_count())
+            NCPU=int(GD["Parallel"]["NCPU"] or len(psutil.Process().cpu_affinity()))
         
         self.ArrayMethodsMachine=ClassArrayMethodSSD.ClassArrayMethodSSD(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,
                                                                          PixVariance=PixVariance,

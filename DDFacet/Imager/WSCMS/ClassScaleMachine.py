@@ -74,8 +74,8 @@ class ClassScaleMachine(object):
         self.PeakFactor = self.GD["WSCMS"]["SubMinorPeakFact"]
         self.NSubMinorIter = self.GD["WSCMS"]["NSubMinorIter"]
         if NCPU == 0:
-            import multiprocessing
-            NCPU = multiprocessing.cpu_count()
+            import utils
+            NCPU = len(psutil.Process().cpu_affinity())
         self.NCPU = NCPU
         self.DoAbs = self.GD["Deconv"]["AllowNegative"]
 

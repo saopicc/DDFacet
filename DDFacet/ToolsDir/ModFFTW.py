@@ -48,7 +48,7 @@ log=logger.getLogger("ModFFTW")
 Fs=scipy.fftpack.fftshift
 iFs=scipy.fftpack.ifftshift
 
-NCPU_global = 0#psutil.cpu_count()
+NCPU_global = 0#len(psutil.Process().cpu_affinity())
 
 #def test():
 #    size=20

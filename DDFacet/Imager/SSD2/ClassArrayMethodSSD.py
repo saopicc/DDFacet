@@ -49,7 +49,7 @@ class ClassArrayMethodSSD():
         self.GD=GD
         self.NCPU=NCPU
         if NCPU==None:
-            self.NCPU=int(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
+            self.NCPU=int(self.GD["Parallel"]["NCPU"] or len(psutil.Process().cpu_affinity())
 
         self.BestChi2=1.
         self.EntropyMinMax=None
