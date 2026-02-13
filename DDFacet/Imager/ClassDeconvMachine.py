@@ -1528,13 +1528,12 @@ class ClassImagerDeconv():
             if user_stopped:
                 print(ModColor.Str("user stop signal (SIGUSR1) received. This will be the last major cycle"))
                 continue_deconv = False
+                
             try:
-                self.FacetMachine.ToCasaImage(self.DeconvMachine.LabelIslandsImage,
-                                              ImageName="%s.labelIslands%2.2i"%(self.BaseName,iMajor),Fits=True,
-                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-                # ModelImage = self.DeconvMachine.GiveModelImage(np.array([100e6]))
-                # self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model%2.2i"%(self.BaseName,iMajor),
-                #                               Fits=True)#,Freqs=current_model_freqs,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                if MPIManager.rank == 0:
+                    self.FacetMachine.ToCasaImage(self.DeconvMachine.LabelIslandsImage,
+                                                  ImageName="%s.labelIslands%2.2i"%(self.BaseName,iMajor),Fits=True,
+                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             except:
                 pass
 

@@ -215,6 +215,7 @@ class ClassIslands():
         import scipy.ndimage
 
         print("  Labeling islands", file=log)
+        if self.MaskImage is None: stop
         self.ImIsland,NIslands=scipy.ndimage.label(self.MaskImage)
         ImIsland=self.ImIsland
         #NIslands+=1

@@ -97,6 +97,7 @@ class ClassIncreaseIsland():
         # pylab.imshow(A)
         # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
         # pylab.imshow(Ac)
+        # pylab.colorbar()
         # pylab.draw()
         # pylab.show()
 

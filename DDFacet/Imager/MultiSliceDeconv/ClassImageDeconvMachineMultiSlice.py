@@ -592,6 +592,18 @@ class ClassImageDeconvMachine():
                 #                     )
                 # #model_rms/=(fracZero)
                 
+                # #################
+                Resid=A-fftconvolve(model,B, mode='same')
+                mResid=np.median(Resid)
+                if mResid<0:
+                    A1=model.copy()
+                    M=(A1!=0)
+                    A1[M]=1
+                    Mc=fftconvolve(A1,B, mode='same')
+                    Bias2=mResid/np.median(Mc[M])
+                    model[M]+=Bias2
+                # #################
+                    
                 model_rms=model.copy()
                 
                 if CurrentNegMask is not None:
@@ -638,37 +650,17 @@ class ClassImageDeconvMachine():
                     pylab.draw()
                     pylab.show()
                 
-                Bias=np.median(model_rms[model_rms!=0])
-                Bias=np.max([0,Bias])
-                
-                # model = restoration.richardson_lucy(dirty[ch,0,s_dirty_cut,s_dirty_cut], psf[ch,0,s_psf_cut,s_psf_cut], iterations=30)
-
-                # def give_shift_slice(s):
-                #     new_slice = slice(
-                #         (s.start - 1) if s.start is not None else None,
-                #         (s.stop - 1) if s.stop is not None else None,
-                #         (s.step - 1) if s.step is not None else None
-                #     )
-                #     return new_slice
-                # def give_shift_slice(s, offset=-1):
-                #     start = 0 if s.start is None else s.start + offset
-                #     stop = None if s.stop is None else s.stop + offset
-                #     return slice(start, stop, s.step)
-
-                # model.fill(0)
-                # nxm,nym=model.shape
-                # model[nxm//2,nym//2]=1
-
-                # print("SDFLSDFLSFDLJSGDJ model.shape",model.shape)
-                #model=np.roll(model[:,:],(20,-20)).copy()
-
+                    
                 # #################
                 # There is a bug, the Model needs to be rolled internally, but not externally, I did not find it
                 # this is probably due to the need of Orieux deconv to have even sizes
                 model=np.roll(model,(-1,-1),axis=(0,1))
-                model-=Bias
                 HasRolledModel=True
                 # #################
+                Bias=np.median(model_rms[model_rms!=0])
+                Bias=np.max([0,Bias])
+                model-=Bias 
+                
                 
                 
                 #LResid.append(Resid)
@@ -860,9 +852,9 @@ class ClassImageDeconvMachine():
         
         RsizeBytes=NComb*nx*ny*nch*4
         RsizeMBytes=RsizeBytes/1e6
-        ChunkMaxMBytes=30.
+        ChunkMaxMBytes=10.
 
-        NChunk=int(RsizeMBytes//ChunkMaxMBytes)+1
+        NChunk=np.min([int(RsizeMBytes//ChunkMaxMBytes)+1,NComb])
         rows=np.uint32(np.linspace(0,NComb,NChunk+1))
         AChi2Min=np.zeros((nx,ny),np.float32)
         AindComb=np.zeros((nx,ny),np.uint32)

@@ -368,6 +368,9 @@ class ClassImageDeconvMachine():
         ListIslands=ListIslandsFiltered
         # #############################
         
+        self.LabelIslandsImage=IslandDistanceMachine.CalcLabelImage(ListIslands)
+
+        self.ListIslandsNotIncreased=ListIslands
         ListIslands,ListSpacialWeight=IslandDistanceMachine.IncreaseIslands(ListIslands)
 
         #ListSpacialWeight_App=[]
@@ -379,23 +382,18 @@ class ClassImageDeconvMachine():
             # W[:]*=self.MeanJonesNorm[0,xc,yc]
             
         
-        self.LabelIslandsImage=None#IslandDistanceMachine.CalcLabelImage(ListIslands)
 
         self.ListAllIslands=ListIslands
         self.NIslands=len(self.ListAllIslands)
 
         print("Sorting islands by size", file=log)
         Sz=np.array([len(self.ListAllIslands[iIsland]) for iIsland in range(self.NIslands)])
-        #print ":::::::::::::::::"
         ind=np.argsort(Sz)[::-1]
-
-        # sorted_indices = sorted(range(len(data)), key=lambda i: (data[i][1], data[i][0]))
-        # stop
-        
         ListIslandsOut=[self.ListAllIslands[i] for i in ind]
         self.ListAllIslands=ListIslandsOut#[100::10][0:1]
         self.ListAllSpacialWeight=[ListSpacialWeight[i] for i in ind]
         self.NIslands=len(self.ListAllIslands)
+        
         
 
 
@@ -566,7 +564,7 @@ class ClassImageDeconvMachine():
         
         self._init_InitMachine()
         
-        log.print("Deconvolving %i islands"%(self.NIslands))
+        log.print("Deconvolving %i islands (%i gen. of %i sourcekin)"%(self.NIslands,self.GD["GAClean"]["NMaxGen"],self.GD["GAClean"]["NSourceKin"]))
         
         DoAbs=int(self.GD["Deconv"]["AllowNegative"])
 
@@ -591,8 +589,13 @@ class ClassImageDeconvMachine():
             else:
                 ParallelMode="OverIslands"
 
+            fRun=self._initIslandExceptionFree
+            if SERIAL:
+                fRun=self._initIsland
+                
             self.APP_GA.runJob("initIsland.%i"%(iIsland),
-                               self._initIsland,
+                               fRun,
+                               #self._initIsland,
                                args=(iIsland,self.DicoDirty.path,self.DicoVariablePSF.path,self.GridFreqs,self.DegridFreqs,self.ThSpectralFit,ParallelMode), serial=SERIAL) 
                
         LDicoResults=self.APP_GA.awaitJobResults("initIsland.*", progress="Deconv Islands")
@@ -665,11 +668,19 @@ class ClassImageDeconvMachine():
         DicoIslandsOut={}
         for iRes,DicoResult in enumerate(LDicoResults):
             if not DicoResult["Success"]:
+                Message=DicoResult["Message"]
+                iIsland=DicoResult["iIsland"]
+                print(ModColor.Str("Something went wrong on Island#%i: \n   %s"%(iIsland,Message)))
+                Lxy=self.ListAllIslands[iIsland]
+                FName="errIsland.SSD3.MajorCycle_%i.Isl_%i.npz"%(self.DicoDirty["iMajorCycle"],iIsland)
+                print(ModColor.Str("  saving bad island to: %s"%(FName)))
+                np.savez(FName,Lxy=Lxy,iIsland=iIsland,iMajorCycle=self.DicoDirty["iMajorCycle"])
                 continue
             iIsland=DicoResult["iIsland"]
             ThisIslandModelDict = allIslandModelDict[iIsland]
             ThisIslandModelDict.reload()
-            DicoIslandsOut[iIsland]=ThisIslandModelDict["Model"]
+            DicoIslandsOut[iIsland]={"Model":ThisIslandModelDict["Model"],
+                                     "Resid":ThisIslandModelDict["Resid"]}
         LDicoIslandsOut=[DicoIslandsOut]
         
         if MPIManager.useMPI: MPIManager.COMM_WORLD.Barrier()
@@ -692,12 +703,15 @@ class ClassImageDeconvMachine():
         
         if MPIManager.rank==0:
             log.print("  Reinit islands in ModelMachine...")
-            self.ModelMachine.reinitIslands(self.ListAllIslands)
+            self.ModelMachine.reinitIslands(self.ListIslandsNotIncreased)
             
             log.print("  Update islands...")
             for iIsland in sorted(list(DicoIslandsOut.keys())):
-                Model=DicoIslandsOut[iIsland]
-                r=self.ModelMachine.AppendIsland(self.ListAllIslands[iIsland],Model,W=self.ListAllSpacialWeight[iIsland])
+                Model=DicoIslandsOut[iIsland]["Model"]
+                Resid=DicoIslandsOut[iIsland]["Resid"]
+                r=self.ModelMachine.AppendIsland(self.ListAllIslands[iIsland],Model,
+                                                 W=self.ListAllSpacialWeight[iIsland],
+                                                 Resid=Resid)
                 
                 # if r:
                 #     MM=Model.reshape((self.ModelMachine.NParam,-1))[1]
@@ -732,7 +746,9 @@ class ClassImageDeconvMachine():
 
             log.print("  Renormalise...")
             self.ModelMachine.RenormaliseMultiEstimatesPerPixel()
-            log.print("  Done SSD3...")
+            self.ModelMachine.ToFile("Major%i.DicoModel"%self.DicoDirty["iMajorCycle"])
+            self.ModelMachine.FitLookBackModels()
+            log.print("  Done updating SSD3 ModelMachine...")
 
 
         if self.GD["Misc"]["ConserveMemory"]:
@@ -760,7 +776,14 @@ class ClassImageDeconvMachine():
         self.GridFreqs = GridFreqs
         self.DegridFreqs = DegridFreqs
 
-    
+
+    def _initIslandExceptionFree(self,iIsland,*args,**kwargs):
+        try:
+            return self._initIsland(iIsland,*args,**kwargs)
+        except Exception as e:
+            return {"Success":False,"iIsland":iIsland,"HasError":False,"Message":str(e)}
+            
+            
     def _initIsland(self,
                     iIsland,DicoDirty_path,DicoPSF_path,GridFreqs,DegridFreqs,ThSpectralFit,ParallelMode):
 
@@ -833,6 +856,7 @@ class ClassImageDeconvMachine():
         GAMachine=ClassEvolveGA(self,ParallelMode)
         GAMachine.setDicoInitModel(DicoInitModel)
         DicoResult=GAMachine._runGA(iIsland,self.DicoDirty.path,self.DicoVariablePSF.path,self.GridFreqs,self.DegridFreqs)
+        
         t1=time.time()
         DInfo["GA"]={}
         DInfo["GA"]["Time"]=t1-t0

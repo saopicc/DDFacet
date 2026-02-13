@@ -31,6 +31,8 @@ from collections import deque
 import scipy.stats
 from DDFacet.Array import shared_dict
 import pylab
+import numpy as np
+from scipy.optimize import minimize
 
 def fMyScale(x,RMS=1.): return np.arcsinh((x/RMS)/2)/np.log(10)
 def inv_fMyScale(x,RMS=1.): return RMS*np.sinh(x*np.log(10))*2
@@ -52,7 +54,7 @@ def Show(R0,Lxy=[]):
 
 
 def testFit():
-    DicoName="TestSSD3.fit.02.DicoModel"
+    DicoName="Major2.DicoModel"
     D=MyPickle.Load(DicoName)
     MM=DDFacet.Imager.SSD3.ClassModelMachineSSD.ClassModelMachine(D["GD"])
     MM.FromFile(DicoName)
@@ -63,20 +65,73 @@ def testFit():
 
     import pyregion
     L=pyregion.open("ds9_fit.reg") # saved in ds9 "Image" coordimate system format
+    L=pyregion.open("ds9_fitNeg.reg") # saved in ds9 "Image" coordimate system format
+    L=pyregion.open("ds9_fitRem.reg") # saved in ds9 "Image" coordimate system format
+    L=pyregion.open("ds9_fitMeanNeg.reg") # saved in ds9 "Image" coordimate system format
+    
     _,_,nx,ny=R.shape
     Lxy=[(int(nx-r0.coord_list[0]),int(r0.coord_list[1])) for r0 in L]
-    
+    #Lxy=Lxy[0:1]
     #R0=R[0,0]
     #Show(R0,Lxy)
     #pylab.show()
     
-    
     FPM=ClassFitPreviousModels(MM)
-    
-    return FPM.avgWeighted(Lxy=Lxy)
+    FPM.avgWeighted(Lxy=Lxy)
+    FPM.PlotRegions()
+
+
+# ###########################################
 
 SERIAL=False
 #SERIAL=True
+
+
+
+
+def nnls_fit(x,y,weights,nterms,x0,LymMin,LymMax,beta0=None):
+    
+    # inputs
+    x = np.asarray(x)
+    y = np.asarray(y)
+    w = np.asarray(weights).copy()
+    nterms = nterms  # number of polynomial terms (increasing powers)
+    # xc = np.asarray(xc)  # constraint x_i
+    # yc = np.asarray(yc)  # constraint y_i
+    
+    # design matrices
+    A = np.vander(x, nterms, increasing=True)
+    Ac = np.vander(x0, nterms, increasing=True)
+
+
+
+    
+    # weighted least squares objective
+    def obj(beta):
+        ym=A @ beta
+        r = ym - y
+        chi2=np.sum(w * r * r)
+        
+        ym0=Ac @ beta
+        if np.count_nonzero(ym0>LymMax):
+            chi2*=10
+        if np.count_nonzero(ym0<LymMin):
+            chi2*=10
+        return chi2
+
+    # constraints: Ac @ beta <= yc
+    # cons = [{'type': 'ineq',
+    #          'fun': lambda b, Ac=Ac[i], yc=yc[i]: yc - Ac @ b}
+    #         for i in range(len(yc))]
+
+    # solve
+    if beta0 is None: beta0 = np.zeros(nterms)
+    res = minimize(obj, beta0)#, constraints=cons)
+    beta = res.x
+    
+    return beta
+
+
 
 class ClassFitPreviousModels():
 
@@ -85,6 +140,8 @@ class ClassFitPreviousModels():
         self.GD=MM.GD
 
     def startWorker(self):
+        logger.setSilent(["AsyncProcessPool"])
+        
         self.APP=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_FitModel",
                                                            ncpu=self.GD["Parallel"]["NCPU"],
                                                            affinity="disable",#self.GD["Parallel"]["Affinity"],
@@ -94,7 +151,15 @@ class ClassFitPreviousModels():
                                                            )
         self.APP.registerJobHandlers(self)
         self.APP.startWorkers()
+        self.APP.awaitWorkerStart()
+        logger.setLoud(["AsyncProcessPool"])
 
+    def stopWorker(self):
+        logger.setSilent(["AsyncProcessPool"])
+        self.APP.terminate()
+        self.APP.shutdown()
+        del(self.APP)
+        logger.setLoud(["AsyncProcessPool"])
         
     def avgWeighted(self,Lxy=None):
         MM=self.MM
@@ -104,42 +169,66 @@ class ClassFitPreviousModels():
         freqs=np.linspace(0.5*MM.RefFreq,2.*MM.RefFreq,NTerms+1)
         freqs=self.MM.GridFreqs
         self.freqs=freqs
-        M=np.array(MM.PastModels)
-        NPastModels,NTerms,nx,ny=M.shape
-        self.NPastModels=NPastModels
+        nch=self.freqs.shape
+        CurrentModel=self.MM.DicoSMStacked["Comp"]["Vals"]
+        _,nx,ny=CurrentModel.shape
+        CurrentModel=CurrentModel.reshape((1,self.MM.NParam,nx,ny))
+        M=np.concatenate([np.array(MM.PastModels),CurrentModel],axis=0)
+        
+        NModels,NTerms,nx,ny=M.shape
+        self.NModels=NModels
         self.NTerms=NTerms
 
+        self.Lxy=Lxy
         if Lxy is not None:
             indx,indy=np.array(Lxy).T
-            self.indxy=(indx[0],indy[0])
+            #self.indxy=(indx[0],indy[0])
 
         
-        NPastModels,NTerms,nx,ny=M.shape
         NFreqs=freqs.size
-        LModel=np.zeros((NPastModels,NFreqs,nx,ny),M.dtype)
-        Lfreqs=[]
-        for iModel in range(NPastModels):
+        LModel=np.zeros((NModels,NFreqs,nx,ny),M.dtype)
+        for iModel in range(NModels):
             LModel[iModel]=MM.GiveModelImage(FreqIn=freqs,InModelParms=M[iModel])[:,0]
-            Lfreqs.append(freqs.copy())
-        Lfreqs=np.array(Lfreqs).flatten()
-        
-        Lfreqs2=np.array([freqs.copy(),freqs.copy()]).flatten()
 
+
+            
+        nch,_,nx,ny=self.MM.CurrentResid.shape
+        CurrentResid=self.MM.CurrentResid.reshape((1,nch,1,nx,ny))
         
-        LResid=np.array(MM.PastModels_Resid)[-NPastModels:]
+        #Lfreqs=[freqs.copy() for iModel in range(NPastModels)]
+        #Lfreqs2=np.array([freqs.copy(),freqs.copy()]).flatten()
+
+        NPastModels=len(MM.PastModels)
+        LResid=np.concatenate([np.array(MM.PastModels_Resid)[-NPastModels:],CurrentResid])
         RMS0=scipy.stats.median_abs_deviation(LResid,axis=None,scale="normal")
         
         NBands=LResid.shape[1]
         _,NBands,_,nx,ny=LResid.shape
         
-        W=np.zeros((NPastModels,NBands,nx,ny),np.float32)
-        for iResid in range(NPastModels):
+        W=np.zeros((NModels,NBands,nx,ny),np.float32)
+        #W=np.abs(np.random.randn(NModels,NBands,nx,ny))
+        for iResid in range(NModels):
             for iBand in range(NBands):
                 RMS=scipy.stats.median_abs_deviation(LResid[iResid,iBand],axis=None,scale="normal")
                 aW=np.abs(LResid[iResid,iBand,0])
-                aW[aW<RMS]=RMS
-                W[iResid,iBand,:,:]=1./aW
+                f=.1
+                aW[aW<f*RMS]=f*RMS
+                W[iResid,iBand,:,:]=(1./aW)
+        Wmin=np.min(np.min(W,axis=0),axis=0).reshape((1,1,nx,ny))
+        W=W/Wmin
+        
+        #     Wmin=np.min(W[iResid],axis=0).reshape((1,nx,ny))
+        #     W[iResid]=W[iResid]/Wmin
+        # # Wmin=np.min(np.min(W,axis=0),axis=0).reshape((1,1,nx,ny))
+        # # W=W/Wmin
+        # for iBand in range(NBands):
+        #     Wmin=np.min(W[:,iBand],axis=0).reshape((1,1,nx,ny))
+        #     W[:,iBand]=W[:,iBand]/Wmin
+        
         self.W=W
+        
+        
+        
         
         #s=1.*(freqs/MM.RefFreq)**(-1)
         #Model[:,0,indx[0],indy[0]]=s[:]
@@ -148,27 +237,25 @@ class ClassFitPreviousModels():
         LModel=fMyScale(LModel,RMS=RMS0*factRMS)
 
         
-        CurrentModelParms = self.MM.DicoSMStacked["Comp"]["Vals"][:]
-        
-        self.CurrentModel=fMyScale(MM.GiveModelImage(FreqIn=freqs,InModelParms=CurrentModelParms)[:,0])
 
         self.LModel=LModel
             
         # Model from initialisation
         
-        Lyy=LModel[:,:,indx,indy]
-        xx=freqs
-        self.xx=xx
-        self.Lfreqs=Lfreqs
-        self.Lfreqs2=Lfreqs2
+        # xx=freqs
+        # self.xx=xx
+        #self.Lfreqs=Lfreqs
+        #self.Lfreqs2=Lfreqs2
     
-        V = np.vander(np.log10(Lfreqs/MM.RefFreq), N=NTerms, increasing=True)  # Vandermonde matrix
-        self.V=V
+        # V = np.vander(np.log10(Lfreqs/MM.RefFreq), N=NTerms, increasing=True)  # Vandermonde matrix
+        # self.V=V
         
-        V2 = np.vander(np.log10(Lfreqs2/MM.RefFreq), N=NTerms, increasing=True)  # Vandermonde matrix
-        self.V2=V2
+        # V2 = np.vander(np.log10(Lfreqs2/MM.RefFreq), N=NTerms, increasing=True)  # Vandermonde matrix
+        # self.V2=V2
 
-        self.x=np.array([np.log10(freqs/MM.RefFreq) for iPastModels in range(self.NPastModels)]).ravel()
+        self.x0=np.log10(freqs/MM.RefFreq)
+        self.x=np.array([np.log10(freqs/MM.RefFreq) for iModels in range(self.NModels)]).ravel()
+        self.V0 = np.vander(self.x0, N=NTerms, increasing=True)  # Vandermonde matrix
         self.Vx = np.vander(self.x, N=NTerms, increasing=True)  # Vandermonde matrix
             
 
@@ -179,91 +266,143 @@ class ClassFitPreviousModels():
         DicoFitModel  = shared_dict.attach(self.ShmName)
         DicoFitModel.addSharedArray("M1", (NTerms,nx,ny), np.float32)
 
-        self.startWorker()
-        APP=self.APP
         #self._runFit(indx[0],indy[0])
         
+        self.startWorker()
+        APP=self.APP
+        runFit=self._runFit_ExceptionFree
+        if SERIAL: runFit=self._runFit
+        #runFit=self._runFit
         for ii in range(nx): #[indx]:
             APP.runJob("Fit.%i"%(ii),
-                       self._runFit,
+                       runFit,
                        args=(ii,), serial=SERIAL)
         APP.awaitJobResults("Fit.*", progress="Fit past models")
-        
-        APP.terminate()
-        APP.shutdown()
-        del(APP,self.APP)
+        self.stopWorker()
         
         DicoFitModel.reload()
         M1=DicoFitModel["M1"].copy()
         DicoFitModel.delete()
 
         
-        M1s=M1.copy()
+        self.M1s=M1.copy()
         SGN=np.sign(M1[0])
         M1[0,:,:]=inv_fMyScale(M1[0,:,:],RMS=RMS0*factRMS)
         M1[1:,:,:]*=SGN
 
-        # ###########################
-        # # print(M[:,indx[0],indy[0]])
-        # # print(M1[:,indx[0],indy[0]])
-        # # return
-
-        # ii,jj=indx,indy
-        # V=self.V
-        # # y=LModel.reshape((Lfreqs.size,nx,ny))[:,ii,jj]#.reshape((-1,1))
-        # # #VTV = V.T @ (W @ V)
-        # # #VTy = V.T @ (W @ y)
-        # # VTV = V.T @ ( V)
-        # # VTy = V.T @ ( y)
-        # # yyp = np.linalg.solve(VTV, VTy)  # Closed-form solution
+        self.M1=M1
+        self.RMS0=RMS0
+        self.factRMS=factRMS
+        self.LModel=LModel
+        self.LResid=LResid
+        self.W=W
+        return M1
+    
+        ###########################
 
 
-        
-        # Model1=MM.GiveModelImage(FreqIn=freqs,InModelParms=M1)
-        # Model1=fMyScale(Model1,RMS=RMS0*factRMS)
-        # yy1=Model1[:,0,indx,indy]
-        
-        # print(Lyy)
-        # print(yy1)
-        # import pylab
-        # pylab.clf()
-
-        # rr=LResid[:,:,0,indx,indy]
-        # rr0=np.abs(rr).min()
-        
-        # for iModel in range(NPastModels):
-        #     yy=LModel[iModel,:,indx,indy].ravel()
-        #     rr=np.abs(LResid[iModel,:,0,indx,indy]).ravel()/rr0
+    def PlotRegions(self):
+        for ii,jj in self.Lxy:
+            self.PlotSingleRegions(ii,jj)
             
-        #     #yy=fMyScale(yy,RMS=RMS0*factRMS)
-        #     pylab.scatter(np.log10(xx),yy,marker="+",label="previous",s=rr*40)
-        # pylab.scatter(np.log10(xx),yy1,color="red", facecolors='none', edgecolors='r',s=80,label="fit")
-
-        # yy1=M1s[:,ii,jj]
-        # yy1m=V @ ( yy1)
-        # # yy1m=fMyScale(yy1m,RMS=RMS0*factRMS)
-        # xxa=np.array(self.Lfreqs)
-        # pylab.scatter(np.log10(xxa).ravel(),yy1m,marker="x")
+    def PlotSingleRegions(self,ii,jj):
+        MM=self.MM
+        freqs=self.freqs
+        M1=self.M1
+        M1s=self.M1s
+        RMS0=self.RMS0
+        factRMS=self.factRMS
+        LModel=self.LModel
+        LResid=self.LResid
+        W=self.W
+        Model1=MM.GiveModelImage(FreqIn=freqs,InModelParms=M1)
+        Model1=fMyScale(Model1,RMS=RMS0*factRMS)
+        yy1=Model1[:,0,ii,jj]
         
-        # pylab.draw()
-        # pylab.show(block=False)
-        # pylab.pause(0.1)
-        # stop
-        # ##################
+        Lyy=LModel[:,:,ii,jj]
+        import pylab
+        pylab.figure("images")
+        pylab.clf()
+        
+        NFreqs=freqs.size
+        NModels=LModel.shape[0]
+        
+        xc,yc=ii,jj
+        iPlot=1
+        dx=30
+        DRMS={}
+        for iFreq in range(NFreqs):
+            DRMS[iFreq]=np.std(LResid[0,iFreq])
+
+
+            
+        for iModel in range(NModels):
+            for iFreq in range(NFreqs):
+                pylab.subplot(NModels,NFreqs,iPlot); iPlot+=1
+                rms=DRMS[iFreq]
+                v0,v1=-5*rms,30*rms
+                IM=LResid[iModel,iFreq,0,xc-dx:xc+dx+1,yc-dx:yc+dx+1]
+                pylab.imshow(IM,interpolation="nearest",vmin=v0,vmax=v1)
+                pylab.title("(cycle, freq)\n= (%i, %i)"%(iModel,iFreq))
+        pylab.draw()
+        
+        pylab.figure("Fits")
+        pylab.clf()
+        x0=self.x0
+        rr=LResid[:,:,0,ii,jj]
+        rr0=np.abs(rr).min()
+
+        for iModel in range(NModels):
+            yy=LModel[iModel,:,ii,jj].ravel()
+            rr=np.abs(LResid[iModel,:,0,ii,jj]).ravel()/rr0
+            rr=W[iModel,:,ii,jj]
+            print("Weights",iModel,W[iModel,:,ii,jj])
+            # yy=fMyScale(yy,RMS=RMS0*factRMS)
+            pylab.scatter(x0,yy,marker="+",s=rr*40,label="ModelIn#%i"%iModel)
+        pylab.scatter(x0,yy1,color="red", facecolors='none', edgecolors='r',s=80,label="ModelOut")
+
+        yy1=M1s[:,ii,jj]
+        yy1m=self.V0 @ ( yy1)
+        # yy1m=fMyScale(yy1m,RMS=RMS0*factRMS)
+        
+        x=self.x
+        Y=LModel[:,:,ii,jj].ravel()
+        LymMax=LModel[:,:,ii,jj].max(axis=0).ravel()
+        LymMin=LModel[:,:,ii,jj].min(axis=0).ravel()
+        x0=self.x0
+        weights=W[:,:,ii,jj].ravel()
+        yy1_Constr=nnls_fit(x,Y,weights,self.NTerms,self.x0,LymMin,LymMax)
+        yy1m_Constr=self.V0 @ yy1_Constr
+
+        
+        pylab.scatter(x0,yy1m,marker="x",label="PolyModel",color="red")
+        pylab.scatter(x0,yy1m_Constr,marker="+",label="PolyModel Constr",color="red")
+        pylab.legend()
+        pylab.draw()
+        pylab.show()
+        pylab.pause(0.1)
+        pylab.close("all")
+        ##################
         
         return M1
 
+    def _runFit_ExceptionFree(self,*args,**kwargs):
+        try:
+            return self._runFit(*args,**kwargs)
+        except Exception as e:
+            print("Failed to fit %s: %s"%(str(args[0]),str(e)))
+            
+
+            
     def _runFit(self,ii,jj=None):
         WAll=self.W
         freqs=self.freqs
-        Lfreqs=self.Lfreqs
-        Lfreqs2=self.Lfreqs2
+        # Lfreqs=self.Lfreqs
+        # Lfreqs2=self.Lfreqs2
         LModel=self.LModel
-        CurrentModel=self.CurrentModel
-        V=self.V
-        V2=self.V2
-
-
+        #V=self.V
+        #V2=self.V2
+        #indx,indy=self.indxy
         def weighted_polyfit(x, y, W, degree):
             V = self.Vx
             WW = np.diag(W)
@@ -272,152 +411,71 @@ class ClassFitPreviousModels():
         
         M1  = shared_dict.attach(self.ShmName)["M1"]
         nx,ny=M1.shape[-2:]
-        # LModel=np.zeros((NPastModels,NFreqs,nx,ny),M.dtype)
+        _,NFreqs,nx,ny=LModel.shape
         if jj is None:
             Lny=range(ny)
         else:
             Lny=[jj]
         for jj in Lny:
-            
             #x=[self.freqs for iPastModels in range(self.NPastModels)]
             x=self.x
-            y=[LModel[iPastModels,:,ii,jj] for iPastModels in range(self.NPastModels)]
-            w=[WAll[iPastModels,:,ii,jj] for iPastModels in range(self.NPastModels)]
-            y = np.asarray(y).flatten()
-            w = np.asarray(w).flatten()
+            y=LModel[:,:,ii,jj].flatten()#[LModel[iModels,:,ii,jj] for iModels in range(self.NModels)]
+            w=WAll[:,:,ii,jj].copy()#[WAll[iModels,:,ii,jj] for iModels in range(self.NModels)]
+            y=np.array([LModel[iModels,:,ii,jj] for iModels in range(self.NModels)])
+            w=np.array([WAll[iModels,:,ii,jj] for iModels in range(self.NModels)])
+            
+            mask=(np.array(y).reshape((self.NModels,NFreqs))==0).all(axis=1)
+            mask=mask.reshape((self.NModels,1))
+            Nmask=np.count_nonzero(mask==1)
+            NNonMasked=np.count_nonzero(mask==0)
+            
+            if NNonMasked==0: continue
+
+            
+            
+            if Nmask>1:
+                mask.flat[0]=0 # keep one zero model
+            maskf=mask*np.ones((1,NFreqs),bool)
+            
+            y.reshape((self.NModels,NFreqs))
+            
+            y=np.array(y).ravel()
+
+            w=np.array(w)
+            w[maskf]=0
+            
+            y=y.ravel()
+            w=w.ravel()
             c=weighted_polyfit(x, y, w, self.NTerms)
 
-            # import pylab
-            # pylab.scatter(x,y)
-            # pylab.
+            M1[:,ii,jj] = c[:]
+
+            ym=self.V0 @ c
+            LymMax=LModel[:,:,ii,jj].max(axis=0).ravel()
+            LymMin=LModel[:,:,ii,jj].min(axis=0).ravel()
+            CondExcess=((np.count_nonzero(ym > LymMax) or np.count_nonzero(ym < LymMin)))
+            
+            #print("\n\n FDSLOJSDFSDFLJ CondExcess c1a:",CondExcess,c.ravel(),mask.ravel())
+            # test is all the non-zero models are the same
+            # otherwise make nnls_fitto return 0
+            if NNonMasked>1 and not CondExcess:
+                indNonZeroModel=np.where(mask.ravel()==0)[0]
+                ysel=y.reshape((self.NModels,NFreqs))[indNonZeroModel,:]
+                yres=np.abs(ysel-ysel[0:1,:])
+                if yres.max()==0: continue
+                            
+            #print("\n\n FDSLOJSDFSDFLJ c1b:",c)
+            if CondExcess:
+                #weights=self.W[:,:,ii,jj].ravel()
+                w1=w.copy()
+                w1.fill(1)
+                weights=w
+                beta0=weighted_polyfit(x, y, w1, self.NTerms)
+                c=nnls_fit(self.x,y,weights,self.NTerms,self.x0,LymMin,LymMax,beta0=beta0)
+            #print("\n\n FDSLOJSDFSDFLJ c2:",c)
+
+
+                
             
             M1[:,ii,jj] = c[:]
             
-            # ##########################
-
-            # W=WAll[...,ii,jj].ravel()
-            # #W=np.diag((ww.reshape((-1,1))*np.ones((1,freqs.size))).flatten())
-
-            # y=LModel.reshape((Lfreqs.size,nx,ny))[:,ii,jj]#.reshape((-1,1))
-            # VTV = V.T @ (W @ V)
-            # VTy = V.T @ (W @ y)
-            # #VTV = V.T @ ( V)
-            # #VTy = V.T @ ( y)
-
-            
-            # M1[:,ii,jj] = np.linalg.solve(VTV, VTy)  # Closed-form solution
-            # yy1_0=M1[:,ii,jj].copy()
-            
-            
-            # # Average of previous past solutions and new one
-            # yy1=M1[:,ii,jj]
-            # yy1m=V2 @ ( yy1)
-            
-            # #yy2=CurrentModel[:,ii,jj]
-            # #yy2m=V2 @ ( yy2)
-            # yy2m = CurrentModel[:,ii,jj]
-            
-            # #yym  = np.concatenate([yy1m,yy2m])
-            # yy1m[freqs.size:]=yy2m[:]
-            
-            # VTV2 = V2.T @ ( V2)
-            # VTy2 = V2.T @ ( yy1m)
-            
-            # M1[:,ii,jj] = np.linalg.solve(VTV2, VTy2)  # Closed-form solution 
-            # yy1_1=M1[:,ii,jj].copy()
-           
-
-            
-            
-            # ii0,jj0=self.indxy
-            # yy1=M1[:,ii,jj]
-            
-            # if ii==ii0 and jj==jj0:
-            #     if np.random.rand(1)[0]>0.01: continue
-            #     print("Coefs",ii,jj,yy1)
-            #     import pylab
-            #     pylab.clf()
-            #     yy1m_0=V @ ( yy1_0)
-            #     yy1m_1=V @ ( yy1_0)
-            #     #yy=LModel[iModel,:,indx,indy]
-            #     xx=np.array(self.Lfreqs)
-            #     pylab.scatter(np.log10(xx).ravel(),y,marker="+")
-            #     pylab.scatter(np.log10(xx).ravel(),yy1m_0,marker="x")
-            #     pylab.scatter(np.log10(xx).ravel(),yy1m_1,marker="o")
-            #     pylab.draw()
-            #     pylab.show(block=False)
-            #     pylab.pause(0.1)
-            #     #stop
-                
-            
-            
-    # def avgSimple(self):
-    #     MM=self.MM
-        
-    #     NTerms=MM.NParam
-
-    #     freqs=np.linspace(0.5*MM.RefFreq,2.*MM.RefFreq,NTerms)
-    #     M=np.array(MM.PastModels)
-    #     NPastModels,NTerms,nx,ny=M.shape
-    
-    #     _,indx,indy=np.where(M[:,0]==M[:,0].max())
-        
-    #     #M[:,indx[0],indy[0]]=np.array([1.,-1.])
-    
-        
-    #     NPastModels,NTerms,nx,ny=M.shape
-    #     NFreqs=freqs.size
-    #     LModel=np.zeros((NPastModels,NFreqs,nx,ny),M.dtype)
-    #     Lfreqs=[]
-    #     for iModel in range(NPastModels):
-    #         LModel[iModel]=MM.GiveModelImage(FreqIn=freqs,InModelParms=M[iModel])[:,0]
-    #         Lfreqs.append(freqs.copy())
-            
-    #     Lfreqs=np.array(Lfreqs).flatten()
-        
-    #     Resid=MM.PastModels_Resid[-1]
-    #     RMS=scipy.stats.median_abs_deviation(Resid,axis=None,scale="normal")
-    
-    #     #s=1.*(freqs/MM.RefFreq)**(-1)
-    #     #Model[:,0,indx[0],indy[0]]=s[:]
-        
-    #     LModel=fMyScale(LModel,RMS=RMS)
-        
-        
-        
-        
-    #     Lyy=LModel[:,:,indx,indy]
-    #     xx=freqs
-    
-        
-    #     V = np.vander(np.log10(Lfreqs/MM.RefFreq), N=NTerms, increasing=True)  # Vandermonde matrix
-    
-    #     VTV = V.T @ V
-    #     y=LModel.reshape((Lfreqs.size,nx*ny))
-    #     VTy = V.T @ y
-    #     coeffs = np.linalg.solve(VTV, VTy)  # Closed-form solution
-    #     M1=coeffs.reshape((NTerms,nx,ny))
-    #     M1[0,:,:]=inv_fMyScale(M1[0,:,:],RMS)
-    
-    
-        
-    #     # print(M[:,indx[0],indy[0]])
-    #     # print(M1[:,indx[0],indy[0]])
-    #     # return
-        
-    #     # Model1=MM.GiveModelImage(FreqIn=freqs,InModelParms=M1)
-    #     # Model1=fMyScale(Model1,RMS=RMS)
-    #     # yy1=Model1[:,0,indx,indy]
-    #     # print(Lyy)
-    #     # print(yy1)
-    #     # import pylab
-    #     # pylab.clf()
-    #     # for iModel in range(NPastModels):
-    #     #     yy=LModel[iModel,:,indx,indy]
-    #     #     pylab.scatter(np.log10(xx),yy,marker="+")
-    #     # pylab.scatter(np.log10(xx),yy1)
-    #     # pylab.draw()
-    #     # pylab.show(block=False)
-    
-    #     return M1
-    

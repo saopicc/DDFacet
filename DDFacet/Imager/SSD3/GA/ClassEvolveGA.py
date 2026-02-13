@@ -157,6 +157,7 @@ class ClassEvolveGA():
         
         Model=self.CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
         T.timeit("HasRun")
+
         
         #return {"Success":False,"iIsland":iIsland,"HasError":False}
         
@@ -164,6 +165,16 @@ class ClassEvolveGA():
         if "Model" not in  list(ThisIslandModelDict.keys()):
             ThisIslandModelDict.addSharedArray("Model", Model.shape, np.float32)
         ThisIslandModelDict["Model"][:] = np.array(Model)[:]
+        
+        V=Model.ravel()
+        ConvModelArray=self.CEv.ArrayMethodsMachine.ToConvArray(V)
+        #IM=self.CEv.ArrayMethodsMachine.PM.ModelToSquareArray(ConvModelArray,TypeInOut=("Data","Data"))
+        #Dirty=self.PM.ModelToSquareArray(self.CEv.ArrayMethodsMachine.DirtyArray,TypeInOut=("Data","Data"))
+        #Resid=Dirty-IM
+        Resid1D=self.CEv.ArrayMethodsMachine.DirtyArray-ConvModelArray
+        ThisIslandModelDict.addSharedArray("Resid", Resid1D.shape, Resid1D.dtype)
+        ThisIslandModelDict["Resid"] = np.array(Resid1D)[:]
+
         
         # from sys import getsizeof
         # print("DLKSDLSDFLSDF [%i]"%iIsland,np.array(Model).shape,getsizeof(np.array(Model)),Model.max())
@@ -184,6 +195,10 @@ class ClassEvolveGA():
         #     summary.print_(sum_obj[:10])  # Top 10 object types
         # print_object_summary()
         # print("==================================")
+
+
+
+
         
         return {"Success":True,"iIsland":iIsland,"HasError":False}
     
