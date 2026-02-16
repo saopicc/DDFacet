@@ -152,7 +152,6 @@ class ClassVisServer():
         # max chunk shape accumulated here
         self._chunk_shape = [0, 0, 0]
         CMS = ClassDaskMS.ClassDaskMS if self.GD["Data"]["Dask"] else ClassMS.ClassMS 
-
         for msspec in self.MSList:
             if not isinstance(msspec,str):
                 msname, ddid, field, column = msspec

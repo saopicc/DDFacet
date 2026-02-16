@@ -30,7 +30,8 @@ import os
 import dask
 BACKEND_AVAIL=True
 try:
-    from daskms import xds_from_storage_ms, xds_from_storage_table, xds_to_storage_table 
+    from daskms import xds_from_storage_ms, xds_from_storage_table, xds_to_storage_table
+    from daskms.dask_ms import is_katdal_url
     from daskms.utils import assert_liveness
 except ImportError:
     print('Dask-MS alternative backend not available. Install with alternative backends optional dependency', file=log)
@@ -66,6 +67,7 @@ class ClassDaskMS(ClassMS):
                  ResetCache=False,
                  first_ms=None,
                  get_obs_detail=False):
+        
         if not BACKEND_AVAIL:
             raise RuntimeError("Dask-MS backend not available. Reinstall with "
                                "pip install DDFacet[alternate-data-backends]")
@@ -74,6 +76,16 @@ class ClassDaskMS(ClassMS):
         self._chunking = None
         self._num_dataset = None
         self._dask_store_type = None
+        if is_katdal_url(MSname):
+            self._dask_store_type = "katdal"
+            self.daskms_kwargs = {
+                "applycal": GD.get('katdal', {'ApplyCal': 'default'})["ApplyCal"]
+            }
+        else:
+            # alternative backends don't accept kwargs
+            self.daskms_kwargs = {}
+            self._dask_store_type = None # will be defined later
+
         ClassMS.__init__(self, MSname,
                  Col,
                  SubCol,
@@ -86,14 +98,20 @@ class ClassDaskMS(ClassMS):
                  first_ms,
                  get_obs_detail)
 
-
     @property
     def datasets(self):
         """Opens dataset if not already open"""
         if self._chunking:
-            return xds_from_storage_ms(self.MSName, index_cols=("TIME",), chunks=self._chunking)
+            return xds_from_storage_ms(self.MSName,
+                                       index_cols=("TIME",),
+                                       group_cols=(['FIELD_ID', 'DATA_DESC_ID', "SCAN_NUMBER"]),
+                                       chunks=self._chunking,
+                                       **self.daskms_kwargs)
         else:
-            return xds_from_storage_ms(self.MSName, index_cols=("TIME",))
+            return xds_from_storage_ms(self.MSName,
+                                       index_cols=("TIME",),
+                                       group_cols=(['FIELD_ID', 'DATA_DESC_ID', "SCAN_NUMBER"]),
+                                       **self.daskms_kwargs)
 
     @property
     def dataset(self):
@@ -106,14 +124,13 @@ class ClassDaskMS(ClassMS):
 
         results = {}
         object = ""
-
         try:
-            to = xds_from_storage_table(f'{self.MSName}::OBSERVATION')[0].compute() 
+            to = xds_from_storage_table(f'{self.MSName}::OBSERVATION', **self.daskms_kwargs)[0].compute() 
             # to = table(self.MSName + '/OBSERVATION', readonly=True, ack=False)
         except RuntimeError:
             to = None
         try:
-            tf = xds_from_storage_table(f'{self.MSName}::FIELD')[0].compute()
+            tf = xds_from_storage_table(f'{self.MSName}::FIELD', **self.daskms_kwargs)[0].compute()
         except RuntimeError:
             tf = None
         if tf is not None and to is not None:
@@ -171,7 +188,7 @@ class ClassDaskMS(ClassMS):
 
     def LoadLOFAR_ANTENNA_FIELD(self):
         # needs dask-ms implementation
-        t = xds_from_storage_table(f"{self.MSName}::LOFAR_ANTENNA_FIELD")[0].compute()
+        t = xds_from_storage_table(f"{self.MSName}::LOFAR_ANTENNA_FIELD", **self.daskms_kwargs)[0].compute()
         #print>>log, ModColor.Str(" ... Loading LOFAR_ANTENNA_FIELD table...")
         na,NTiles,_ = t.ELEMENT_OFFSET.shape
 
@@ -233,6 +250,7 @@ class ClassDaskMS(ClassMS):
         Returns:
             DATA dictionary containing all read elements
         """
+        ds = self.dataset
         row0, row1 = self._chunk_r0r1[ichunk]
         self.ROW0 = row0
         self.ROW1 = row1
@@ -263,7 +281,8 @@ class ClassDaskMS(ClassMS):
             # cache_key = dict(data=self.GD["Data"])
             cache_key = dict(data=self.GD["Data"],
                              selection=self.GD["Selection"],
-                             Comp=self.GD["Comp"])
+                             Comp=self.GD["Comp"],
+                             katdal=self.GD["katdal"])
             metadata_path, metadata_valid = self.cache.checkCache("A0A1UVWT.npz", cache_key, ignore_key=(use_cache=="force"))
         else:
             metadata_valid = False
@@ -277,7 +296,6 @@ class ClassDaskMS(ClassMS):
             if not dot_uvw.size:
                 dot_uvw = None
         else:
-            ds = self.dataset
             A0, A1, time_all, uvw = \
                 dask.compute(ds.ANTENNA1.data.blocks[ichunk], ds.ANTENNA2.data.blocks[ichunk],
                                  ds.TIME.data.blocks[ichunk], ds.UVW.data.blocks[ichunk], scheduler="sync")
@@ -319,7 +337,7 @@ class ClassDaskMS(ClassMS):
                 #self.RotateType=["uvw"]
             else:
                 print("reading MS visibilities from column %s" % self.ColName, file=log)
-          
+                ds = self.dataset
                 visdata1 = getattr(ds, self.ColName).data.blocks[ichunk]
                 # subtract columns, if specfied
                 if self.SubColName is not None:
@@ -501,15 +519,18 @@ class ClassDaskMS(ClassMS):
         T.enableIncr()
         T.disable()
 
-        from daskms.fsspec_store import DaskMSStore
-
-        datastore = DaskMSStore(self.MSName)
-        self._dask_store_type = datastore.type()
-
-        datasets = xds_from_storage_ms(datastore, index_cols=("TIME",))
-
+        if self._dask_store_type == "katdal":
+            datasets = xds_from_storage_ms(self.MSName, 
+                                           index_cols=("TIME",), 
+                                           group_by=("FIELD_ID", "DATA_DESC_ID", "SCAN_NUMBER"),
+                                           **self.daskms_kwargs)
+        else:
+            from daskms.fsspec_store import DaskMSStore
+            datastore = DaskMSStore(self.MSName)
+            self._dask_store_type = datastore.type()
+            datasets = xds_from_storage_ms(datastore, index_cols=("TIME",), group_cols=("FIELD_ID", "DATA_DESC_ID", "SCAN_NUMBER"))
         # map of DDIDs and FIELDs present in this MS
-        ddid_fields = {(ds.DATA_DESC_ID, ds.FIELD_ID): nds for nds, ds in enumerate(datasets)}
+        ddid_fields = {(ds.attrs['DATA_DESC_ID'], ds.attrs['FIELD_ID']): nds for nds, ds in enumerate(datasets)}
         self._num_dataset = ddid_fields.get((self.DDID,self.Field))
         self.empty = self._num_dataset is None
         if self.empty:
@@ -528,7 +549,7 @@ class ClassDaskMS(ClassMS):
 #            raise RuntimeError,"no rows in MS %s, check your Field/DDID/TaQL settings"%(self.MSName)
 
         #print MSname+'/ANTENNA'
-        ta = xds_from_storage_table(f'{self.MSName}::ANTENNA')[0].compute()
+        ta = xds_from_storage_table(f'{self.MSName}::ANTENNA', **self.daskms_kwargs)[0].compute()
         StationNames = ta.NAME.values
 
         self.StationPos = ta.POSITION.values
@@ -537,14 +558,14 @@ class ClassDaskMS(ClassMS):
         del ta # close
 
         # get spectral window and polarization id
-        ta_ddid = xds_from_storage_table(f'{self.MSName}::DATA_DESCRIPTION')[0].compute()
+        ta_ddid = xds_from_storage_table(f'{self.MSName}::DATA_DESCRIPTION', **self.daskms_kwargs)[0].compute()
         self._spwid = ta_ddid.SPECTRAL_WINDOW_ID.values[self.DDID]
         self._polid = ta_ddid.POLARIZATION_ID.values[self.DDID]
 
         del ta_ddid # close
 
         # get polarizations
-        tp = xds_from_storage_table(f'{self.MSName}::POLARIZATION')[0]
+        tp = xds_from_storage_table(f'{self.MSName}::POLARIZATION', **self.daskms_kwargs)[0].compute()
         # get list of corrype enums for first row of polarization table, and convert to strings via MS_STOKES_ENUMS. 
         # self.CorrelationNames will be a list of strings
         self.CorrelationIds = tp.CORR_TYPE.values[self._polid]
@@ -563,8 +584,8 @@ class ClassDaskMS(ClassMS):
             # self.dataset and self.datasets will get chunking directly from the dataset
             self._chunking = None
         else:
-            if self._dask_store_type == "zarr":
-                raise RuntimeError("Zarr storage backend does not support rechunking. Please set --Data-ChunkRows -1 to enable auto chunking.")
+            if self._dask_store_type == "zarr" or self._dask_store_type == "katdal":
+                raise RuntimeError(f"{self._dask_store_type} storage backend does not support rechunking. Please set --Data-ChunkRows -1 to enable auto chunking.")
             # chunk by given row counts
             if self.GD["Data"]["ChunkRows"]:    
                 row_chunking = min(self.GD["Data"]["ChunkRows"], self.F_nrows)
@@ -576,6 +597,7 @@ class ClassDaskMS(ClassMS):
             # else single big chunk
             else:
                 row_chunking = self.F_nrows
+            
             self._chunking = dict(row=row_chunking)
             # reopen dataset with this chunking
             dataset = self.dataset
@@ -605,7 +627,9 @@ class ClassDaskMS(ClassMS):
 
         dt = float(dataset.INTERVAL[0])
 
-        ta_spectral = xds_from_storage_table(f'{self.MSName}::SPECTRAL_WINDOW', group_cols="__row__")[self._spwid].compute()
+        ta_spectral = xds_from_storage_table(f'{self.MSName}::SPECTRAL_WINDOW',
+                                             group_cols="__row__",
+                                             **self.daskms_kwargs)[self._spwid].compute()
         NSPW = ta_spectral.dims['row']
         reffreq = ta_spectral.REF_FREQUENCY.values
         orig_freq = ta_spectral.CHAN_FREQ.values.squeeze() 
@@ -627,7 +651,7 @@ class ClassDaskMS(ClassMS):
 
         self.Nchan = Nchan = len(wavelength_chan)
 
-        tf = xds_from_storage_table(f'{self.MSName}::FIELD')[0].compute()
+        tf = xds_from_storage_table(f'{self.MSName}::FIELD', **self.daskms_kwargs)[0].compute()
         rarad, decrad = tf.PHASE_DIR.values[self.Field][0]
         if np.abs(decrad)>=np.pi/2:
             log.print(ModColor.Str("BE CAREFUL SOME SOFTWARE HAVE BEEN SHOWN TO NOT PROPERLY MANAGE DEC=90 DEGREES"))

@@ -1,6 +1,7 @@
 [build-system]
 requires = ["numpy >= 1.15.1, <= 2.3.2; python_version >= '3.11' and python_version < '3.13'",
-            "numpy >= 1.15.1, <= 1.22.4; python_version >= '3.8' and python_version < '3.11'",
+            "setuptools < 82.0.0; python_version >= '3.8' and python_version < '3.11'",
+            "setuptools >= 82.0.0; python_version >= '3.11' and python_version < '3.13'",
             'pybind11 >= 2.2.2',
             'cython',
             'cmake',
@@ -13,39 +14,38 @@ version = "0.9.0.0"
 description = "Facet-based radio astronomy continuum imager"
 license = {file = "LICENSE.md"}
 readme = "README.rst"
-requires-python = ">=3.8,<3.13"
+requires-python = ">=3.11,<3.13"
 dependencies = [
-    "Cython >= 0.25.2, <= 3.2.4; python_version >= '3.8' and python_version < '3.13'", 
+    "Cython >= 0.25.2, <= 3.2.4; python_version >= '3.11' and python_version < '3.13'", 
     "numpy >= 1.15.1, <= 2.3.2; python_version >= '3.11' and python_version < '3.13'",
-    "numpy >= 1.15.1, <= 1.26.4; python_version >= '3.8' and python_version < '3.11'",
-    "sharedarray >= 3.2.0, <= 3.2.4; python_version >= '3.8' and python_version < '3.13'",
-    "Polygon3 >= 3.0.8, <= 3.0.9.1; python_version >= '3.8' and python_version < '3.13'", 
-    "pyFFTW >= 0.10.4, <= 0.15.1; python_version >= '3.8' and python_version < '3.13'", 
-    "astropy >= 3.0, <= 7.2.0; python_version >= '3.8' and python_version < '3.13'", 
-    "deap >= 1.0.1, <= 1.4.3; python_version >= '3.8' and python_version < '3.13'",
-    "ptyprocess>=0.5, <= 0.7.0; python_version >= '3.8' and python_version < '3.13'", 
-    "ipdb >= 0.10.3, <= 0.13.13; python_version >= '3.8' and python_version < '3.13'", 
-    "python-casacore >= 3.0.0, <= 3.7.1; python_version >= '3.8' and python_version < '3.13'", 
-    "pyephem >= 3.7.6.0, <= 9.99; python_version >= '3.8' and python_version < '3.13'",
-    "numexpr >= 2.6.2, <= 2.14.1; python_version >= '3.8' and python_version < '3.13'",
-    "matplotlib >= 2.0.0, <= 3.10.8; python_version >= '3.8' and python_version < '3.13'", 
-    "scipy >= 1.3.3, <= 1.17.0; python_version >= '3.8' and python_version < '3.13'", 
-    "astLib >= 0.8.0, <= 0.13.1; python_version >= '3.8' and python_version < '3.13'",                     
-    "psutil >= 5.2.2, <= 7.2.1; python_version >= '3.8' and python_version < '3.13'", 
-    "py-cpuinfo >= 3.2.0, <= 9.0.0; python_version >= '3.8' and python_version < '3.13'", 
-    "tables >= 3.6.0, <= 3.10.2; python_version >= '3.8' and python_version < '3.13'", 
-    "prettytable >= 0.7.2, <= 3.17.0; python_version >= '3.8' and python_version < '3.13'", 
-    "pybind11 >= 2.2.2, <= 3.0.1; python_version >= '3.8' and python_version < '3.13'", 
-    "configparser >= 3.7.1, <= 7.2.0; python_version >= '3.8' and python_version < '3.13'", 
-    "pandas >=0.23.3, <= 2.3.3; python_version >= '3.8' and python_version < '3.13'", 
-    "ruamel.yaml >= 0.15.92, <= 0.19.1; python_version >= '3.8' and python_version < '3.13'", 
-    "pylru >= 1.1.0, <= 1.2.1; python_version >= '3.8' and python_version < '3.13'", 
-    "six >= 1.12.0, <= 1.17.0; python_version >= '3.8' and python_version < '3.13'", 
-    "dask[array] < v2024.11.0; python_version >= '3.8' and python_version < '3.13'", 
-    "codex-africanus[dask] <= 0.4.3; python_version >= '3.8' and python_version < '3.13'", 
-    "regions <= 0.11; python_version >= '3.8' and python_version < '3.13'",
-    "pywavelets <= 1.9.0; python_version >= '3.8' and python_version < '3.13'",
-    "tqdm<=4.64.0, ; python_version >= '3.8' and python_version < '3.13'"
+    "sharedarray >= 3.2.0, <= 3.2.4; python_version >= '3.11' and python_version < '3.13'",
+    "Polygon3 >= 3.0.8, <= 3.0.9.1; python_version >= '3.11' and python_version < '3.13'", 
+    "pyFFTW >= 0.10.4, <= 0.15.1; python_version >= '3.11' and python_version < '3.13'", 
+    "astropy >= 3.0, <= 7.2.0; python_version >= '3.11' and python_version < '3.13'", 
+    "deap >= 1.0.1, <= 1.4.3; python_version >= '3.11' and python_version < '3.13'",
+    "ptyprocess>=0.5, <= 0.7.0; python_version >= '3.11' and python_version < '3.13'", 
+    "ipdb >= 0.10.3, <= 0.13.13; python_version >= '3.11' and python_version < '3.13'", 
+    "python-casacore >= 3.0.0, <= 3.7.1; python_version >= '3.11' and python_version < '3.13'", 
+    "pyephem >= 3.7.6.0, <= 9.99; python_version >= '3.11' and python_version < '3.13'",
+    "numexpr >= 2.6.2, <= 2.14.1; python_version >= '3.11' and python_version < '3.13'",
+    "matplotlib >= 2.0.0, <= 3.10.8; python_version >= '3.11' and python_version < '3.13'", 
+    "scipy >= 1.15.0, <= 1.17.0; python_version >= '3.11' and python_version < '3.13'", 
+    "astLib >= 0.13.2; python_version >= '3.11' and python_version < '3.13'",         
+    "psutil >= 5.2.2, <= 7.2.1; python_version >= '3.11' and python_version < '3.13'", 
+    "py-cpuinfo >= 3.2.0, <= 9.0.0; python_version >= '3.11' and python_version < '3.13'", 
+    "tables >= 3.10.0, <= 3.10.2; python_version >= '3.11' and python_version < '3.13'", 
+    "prettytable >= 0.7.2, <= 3.17.0; python_version >= '3.11' and python_version < '3.13'", 
+    "pybind11 >= 2.2.2, <= 3.0.1; python_version >= '3.11' and python_version < '3.13'", 
+    "configparser >= 3.7.1, <= 7.2.0; python_version >= '3.11' and python_version < '3.13'", 
+    "pandas >=0.23.3, <= 2.3.3; python_version >= '3.11' and python_version < '3.13'", 
+    "ruamel.yaml >= 0.15.92, <= 0.19.1; python_version >= '3.11' and python_version < '3.13'", 
+    "pylru >= 1.1.0, <= 1.2.1; python_version >= '3.11' and python_version < '3.13'", 
+    "six >= 1.12.0, <= 1.17.0; python_version >= '3.11' and python_version < '3.13'", 
+    "dask[array] < v2024.11.0; python_version >= '3.11' and python_version < '3.13'", 
+    "codex-africanus[dask] <= 0.4.3; python_version >= '3.11' and python_version < '3.13'", 
+    "regions <= 0.11; python_version >= '3.11' and python_version < '3.13'",
+    "pywavelets <= 1.9.0; python_version >= '3.11' and python_version < '3.13'",
+    "tqdm<=4.64.0, ; python_version >= '3.11' and python_version < '3.13'"
 ]
 entrypoints = []
 authors = [{ name = "Cyril Tasse", email = "cyril.tasse@obspm.fr" }]
@@ -84,7 +84,10 @@ fits-beam-support = ["meqtrees-cattery>=1.8.0rc3; python_version >= '3.8' and py
 kms-support = ["bdsf > 1.8.15; python_version >= '3.10' and python_version < '3.13'",
 	           "bdsf > 1.8.15,<=1.10.1; python_version >= '3.8' and python_version < '3.10'"]
 
-alternate-data-backends = ["dask-ms[xarray,katdal]; python_version >= '3.8' and python_version < '3.13'",
+
+alternate-data-backends = ["dask-ms[xarray,katdal] <= 0.2.28; python_version >= '3.8' and python_version < '3.13'",
+                           "requests; python_version >= '3.8' and python_version < '3.13'",
+                           "aiohttp; python_version >= '3.8' and python_version < '3.13'",
                            "xarray; python_version >= '3.8' and python_version < '3.13'"]
 testing-requirements = ["nose >= 1.3.7; python_version >= '3' and python_version < '3.9'",
                         "pynose >= 1.4.8; python_version >= '3.9' and python_version < '3.13'",

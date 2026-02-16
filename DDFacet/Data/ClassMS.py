@@ -51,6 +51,7 @@ import DDFacet.ToolsDir.ModRotate
 import time
 from astropy.time import Time
 from DDFacet.Other.progressbar import ProgressBar
+from urllib.parse import urlsplit, urlunsplit
 
 #
 # try:
@@ -103,7 +104,10 @@ class ClassMS():
             self.ToRADEC = None
 
         self.AverageSteps=AverageTimeFreq
-        self.MSName = MSName = reformat.reformat(os.path.abspath(MSname), LastSlash=False)
+        if MSname.startswith("http://") or MSname.startswith("https://"):
+            self.MSName = MSName = MSname
+        else:
+            self.MSName = MSName = reformat.reformat(os.path.abspath(MSname), LastSlash=False)
         
         self.ColName=Col
         self.SubColName=SubCol
@@ -129,7 +133,12 @@ class ClassMS():
         # once.
         self._reset_cache = ResetCache
         self._chunk_caches = {}
-        self.maincache = CacheManager(MSName+".F%d.D%d.ddfcache"%(self.Field, self.DDID), reset=ResetCache, cachedir=self.GD["Cache"]["Dir"], nfswarn=True)
+        if MSName.startswith("http://") or MSName.startswith("https://"):
+            from urllib.parse import urlsplit
+            cachename = urlsplit(MSName)._replace(query="", fragment="").geturl().replace(":","_").replace("/","_")
+        else:
+            cachename = MSName
+        self.maincache = CacheManager(cachename+".F%d.D%d.ddfcache"%(self.Field, self.DDID), reset=ResetCache, cachedir=self.GD["Cache"]["Dir"], nfswarn=True)
 
         self.ReadMSInfo(first_ms=first_ms,DoPrint=DoPrint)
         self.LFlaggedStations=[]
@@ -1732,9 +1741,16 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
     # now, at this point each entry in the list can still contain wildcards, and ":Fx:Dx" groups. Process it
     mslist = []
     for msspec in MSName:
+        if msspec.startswith("http://"):
+            archive_obs = 'unsecure'
+        elif msspec.startswith("https://"):
+            archive_obs = 'secure'
+        else:
+            archive_obs = False
+
         regrp = r"(([0-9]+)|([0-9]+)([~:])([0-9]+)|(\*))"   # regex matching N or N:M or N~M or *
         # match :F and :D suffixes, if present. Don't regexes make your brain melt
-        terms = msspec.split("//")
+        terms = msspec.replace("https://", "").replace("http://", "").split("//")
         msname = terms[0]
         ddid_match = [ re.match("D("+regrp+")$", x) for x in terms[1:] ]
         field_match = [ re.match("F("+regrp+")$", x) for x in terms[1:] ]
@@ -1744,7 +1760,6 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
         col_match = [ x for x in col_match if x is not None ]
         dgroup = ddid_match[-1].group(1) if ddid_match else None
         fgroup = field_match[-1].group(1) if field_match else None
-#        import pdb; pdb.set_trace();
         col = col_match[-1].group(1) if col_match else defaultColumn
         # now convert dgroup and fgroup into slice objects
         def groupToSlice (group):
@@ -1765,7 +1780,12 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
         fg = groupToSlice(fgroup) if fgroup else defaultField
         dg = groupToSlice(dgroup) if dgroup else defaultDDID
         # now, go over MSs specified by the name
-        paths = sorted(glob.glob(msname))
+        if not archive_obs:
+            paths = sorted(glob.glob(msname))
+        elif archive_obs == "unsecure":
+            paths = ["http://" + msname]
+        else: # tls / ssl
+            paths = ["https://" + msname]
         print("found %d MSs matching %s" % (len(paths), msname), file=log)
         for mspath in paths:
             # if F/D was specified as a slice or wildcard, look into MS to determine numbers

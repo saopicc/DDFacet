@@ -194,7 +194,7 @@ class ClassImagerDeconv():
                               parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
                               verbose=self.GD["Debug"]["APPVerbose"],
                               pause_on_start=self.GD["Debug"]["PauseWorkers"])
-
+        
         if self.GD["Output"]["Mode"]=="CleanMinor":
             print>>log,"Initialising from DeconvMachine from cache..."
             class VisServer(object): pass

@@ -20,8 +20,6 @@ echo "----------------------------------------------"
 cd $PROJECTS_DIR/DDFacet
 IMAGENAME="ddf"
 #test on 22.04
-docker build -t "$IMAGENAME.2004:$BUILD_NUMBER" --no-cache=true -f docker.2004 .
-docker build -t "$IMAGENAME.2204:$BUILD_NUMBER" --no-cache=true -f docker.2204 .
 docker build -t "$IMAGENAME.2404:$BUILD_NUMBER" --no-cache=true -f docker.2404 .
 docker run -m 100g --cap-add sys_ptrace \
 		   --memory-swap=-1 \
