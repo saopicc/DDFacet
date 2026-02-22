@@ -154,6 +154,7 @@ class ClassEvolveGA():
                                             DicoInitIndiv=self.DicoInitIndiv
                                             )
         T.timeit("Declare class")
+
         
         Model=self.CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
         T.timeit("HasRun")

@@ -867,13 +867,7 @@ class ClassImageDeconvMachine():
 
         # logger.setSilent(["AsyncProcessPool"])
         
-        self.PSFServer.setLocation(xp,yp)
-        FacetID=self.PSFServer.giveFacetID2(xm,ym)
-        PSF=self.DicoVariablePSF["CubeVariablePSF"][FacetID]
-        AModel=np.array([DicoInitModel[iMachine] for iMachine in DicoInitModel.keys()])
-        NModel=AModel.shape[0]
         
-        stop
         
         
         t0=time.time()
