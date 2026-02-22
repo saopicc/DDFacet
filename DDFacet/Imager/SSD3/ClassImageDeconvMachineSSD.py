@@ -57,7 +57,7 @@ logger.setSilent("ClassIsland")
 
 DO_INIT=True
 SERIAL=True
-#SERIAL=False
+SERIAL=False
 
 DO_MPI=False
 DO_MPI=True
@@ -559,11 +559,13 @@ class ClassImageDeconvMachine():
             
         allIslandModelDict  = shared_dict.create("DeconvListIslands%s"%self.StrField)
         for iIsland in self.ListJobIslands:
-            IslandXY=self.ListAllIslands[iIsland]
-            IslandXY=np.array(IslandXY)
+            IslandXY=np.array(self.ListAllIslands[iIsland])
+            SpacialWeight=np.array(self.ListAllSpacialWeight[iIsland])
             allIslandModelDict.addSubdict(iIsland)
             allIslandModelDict[iIsland].addSharedArray("IslandXY", IslandXY.shape, np.int32)
+            allIslandModelDict[iIsland].addSharedArray("SpacialWeight", SpacialWeight.shape, np.int32)
             allIslandModelDict[iIsland]["IslandXY"][:]=IslandXY[:]
+            allIslandModelDict[iIsland]["SpacialWeight"][:]=SpacialWeight[:]
 
         
         ParmDict = shared_dict.create("ParmDict%s"%self.StrField) # ParmDict
@@ -818,6 +820,7 @@ class ClassImageDeconvMachine():
         ThisPixList=allIslandModelDict[iIsland]["IslandXY"]
         
         x,y=np.array(ThisPixList,dtype=np.float32).T
+        xp,yp=np.mean(x),np.mean(y)
         dx,dy=x.max()-x.min(),y.max()-y.min()
         dd=np.max([dx,dy])+1
         DoIslandsInit = (dd>=self.GD["GAClean"]["MinSizeInit"])
@@ -867,13 +870,6 @@ class ClassImageDeconvMachine():
 
         # logger.setSilent(["AsyncProcessPool"])
         
-        self.PSFServer.setLocation(xp,yp)
-        FacetID=self.PSFServer.giveFacetID2(xm,ym)
-        PSF=self.DicoVariablePSF["CubeVariablePSF"][FacetID]
-        AModel=np.array([DicoInitModel[iMachine] for iMachine in DicoInitModel.keys()])
-        NModel=AModel.shape[0]
-        
-        stop
         
         
         t0=time.time()
