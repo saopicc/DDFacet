@@ -86,14 +86,15 @@ class ClassInitSSDModelParallel():
         self.InitMachine.setDirty(DicoDirty)
         self.T.timeit("_initIsland_worker:setDirty")
         # self.InitMachine.DeconvMachine.setNCPU(NCPU)
-        self.InitMachine.setSSDModelImage(DicoParm["ModelImageInt"])
+        #self.InitMachine.setSSDModelImage(DicoParm["ModelImageInt"])
+        self.InitMachine.setSSDModelImage(DicoParm["ModelImageApp"])
         self.T.timeit("_initIsland_worker:setSSD")
 
 
         #print ":::::::::::::::::::::::",iIsland
 
         
-        ModelImageIsland,NSpectralFit = self.InitMachine.giveModel(Island,ThSpectralFit=ThSpectralFit)
+        ModelImageIsland,NSpectralFit = self.InitMachine.giveModel(Island,ThSpectralFit=ThSpectralFit,iIsland=iIsland)
         # print("OKKKKK")
         # ######################
         # try:
@@ -307,12 +308,11 @@ class ClassInitSSDModel():
         PSF=self.DeconvMachine.PSFServer.DicoVariablePSF["PeakNormed_CubeVariablePSF"][iFacet]
         T.timeit("GivePSF")
         
-        if self.GD["MultiSliceDeconv"]["Type"]=="Orieux":
-            # Orieux uses a PSF of the same size as the Dirty, so need to pre-convolve with that one other bias appears 
-            _,_,nx,ny=SubModelImage.shape
-            s_psf=ClassImageDeconvMachineMultiSlice.giveSliceCut(PSF,nx)
-            
-            PSF=PSF[:,:,s_psf,s_psf]
+        # if self.GD["MultiSliceDeconv"]["Type"]=="Orieux":
+        #     # Orieux uses a PSF of the same size as the Dirty, so need to pre-convolve with that one other bias appears 
+        #     _,_,nx,ny=SubModelImage.shape
+        #     s_psf=ClassImageDeconvMachineMultiSlice.giveSliceCut(PSF,nx)
+        #     PSF=PSF[:,:,s_psf,s_psf]
             
         ConvModel=ClassConvMachineImages(PSF).giveConvModel(SubModelImage)
         T.timeit("ConvModel")
@@ -382,7 +382,7 @@ class ClassInitSSDModel():
         # pylab.pause(0.1)
 
             
-    def giveModel(self,ListPixParms,ThSpectralFit=True):
+    def giveModel(self,ListPixParms,ThSpectralFit=True,iIsland=None):
         T=ClassTimeIt.ClassTimeIt("giveModel")
         T.disable()
         self.setSubDirty(ListPixParms)
@@ -401,7 +401,7 @@ class ClassInitSSDModel():
         #self.ModelMachine.setListComponants(self.DeconvMachine.ModelMachine.ListScales)
         T.timeit("setlistcomp")
         
-        self.DeconvMachine.Update(self.DicoSubDirty,DoSetMask=False)
+        self.DeconvMachine.Update(self.DicoSubDirty,DoSetMask=False,iIsland=iIsland)
         self.DeconvMachine.updateMask(np.logical_not(self.SubMask))
         self.DeconvMachine.updateModelMachine(self.ModelMachine)
         #self.DeconvMachine.resetCounter()

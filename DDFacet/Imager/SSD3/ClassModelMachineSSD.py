@@ -50,6 +50,8 @@ from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 from collections import deque
 import scipy.stats
 from . import ClassFitPreviousModels
+import DDFacet.Other.AsyncProcessPool
+
 def fMyScale(x,RMS=1.): return np.arcsinh((x/RMS)/2)/np.log(10)
 def inv_fMyScale(x,RMS=1.): return RMS*np.sinh(x*np.log(10))*2
 
@@ -250,13 +252,12 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         return OutArr.flatten()
 
 
-    def AppendIsland(self,ListPixParms,V,W=None,Resid=None,JonesNorm=None):
+    def AppendIsland(self,ListPixParms,V,W=None,Resid=None):
         ListPix=ListPixParms
         Vr=V.reshape((self.NParam,V.size//self.NParam))
         NPixListParms=len(ListPixParms)
 
         DicoComp=self.DicoSMStacked["Comp"]
-        
         x,y=np.array(ListPix).T
         for iParam in range(self.NParam):
             #Vr[iParam].fill(1)
@@ -265,22 +266,20 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         DicoComp["IsUnnormalized"][x,y]=1
         DicoComp["Weights"][x,y]+=W[:]
 
-        if Resid is not None and self.GD["SSD3"]["NLookBackModels"]>0:
-            nch=DicoComp["CurrentResid"].shape[0]
+        if Resid is not None:# and self.GD["SSD3"]["NLookBackModels"]>0:
+            nch=self.GridFreqs.size # DicoComp["CurrentResid"].shape[0]
             Resid=Resid.reshape((nch,x.size))
             for ich in range(nch):
                 DicoComp["CurrentResid"][ich,0][x,y]+=W[:]*Resid[ich]
-
+                
+        # ListIslands=DicoComp.get("ListIslands",[])
+        # ListIslands.append((ListPixParms,V,W,Resid))
+        # DicoXY={}
+        # for ixy,xy in enumerate(ListPixParms):
+        #     x,y=xy
+        #     DicoXY[xy]=DicoXY.get(xy,[]).append([W[ixy],Vr[:,ixy],Resid[:,ixy]])
+        # self.Dico_xy2LParm=DicoXY
         
-        # r=False
-        # ind=np.where((x==4826)&(y==12915))[0]
-        # if ind.size>0:
-        #     r=True
-        # elif DicoComp["Vals"][0][4826,12915]!=0:
-        #     print("DFLDFSLFJLSLFDJFSD")
-        #     r=False
-        # return r
-
     def giveMask_nonZeroModel(self):
         Mask=np.zeros(self.ModelShape,np.bool_)
         if "Comp" in self.DicoSMStacked.keys() and len(self.DicoSMStacked["Comp"])>0:
@@ -311,7 +310,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             DicoComp["IsUnnormalized"][x,y]=0
 
         # Will update the current resid estimation
-        if self.GD["SSD3"]["NLookBackModels"]>0: 
+        if len(self.PastModels_Resid)>0:#self.GD["SSD3"]["NLookBackModels"]>0: 
             DicoComp["CurrentResid"]=self.PastModels_Resid[-1].copy()
             self.CurrentResid=DicoComp["CurrentResid"]
             nch=DicoComp["CurrentResid"].shape[0]
@@ -319,8 +318,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 x,y=np.array(Island).T
                 for ich in range(nch):
                     DicoComp["CurrentResid"][ich,0][x,y]=0
+        else:
+            DicoComp["CurrentResid"]=np.zeros((self.GridFreqs.size,1,nx,ny),np.float32)
             
     def updateLookBack(self,CubeDirty,GridFreqs):
+        self.GridFreqs=GridFreqs
         if self.GD["SSD3"]["NLookBackModels"]==0: return
         
         Vals=self.DicoSMStacked["Comp"].get("Vals",None)
@@ -330,12 +332,12 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         else:
             Vals=Vals.copy()
         self.PastModels.append(Vals)
-        self.GridFreqs=GridFreqs
         self.PastModels_Resid.append(CubeDirty.copy())
             
     def RenormaliseMultiEstimatesPerPixel(self):
         DicoComp=self.DicoSMStacked["Comp"]
-        x,y=np.where(DicoComp["IsUnnormalized"]==1)
+        x,y=np.where((DicoComp["IsUnnormalized"]==1) & (DicoComp["Weights"]>1e-3))
+
 
         for iParam in range(self.NParam):
             DicoComp["Vals"][iParam][x,y]/=DicoComp["Weights"][x,y]
@@ -364,7 +366,57 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         
         
+    def GiveModelImageBands(self,PSFServer):
+        _,npol,nx,ny=self.ModelShape
+        nch=PSFServer.SpectralFunctionsMachine.NFreqBand
+        ModelImage=np.zeros((nch,npol,nx,ny),np.float32)
         
+        # DicoModelImageBands=shared_dict.attach("DicoModelImageBands")#["CubeVariablePSF"]
+        # DicoModelImageBands["Model"]=ModelImage
+        
+        # self.DicoSMStacked["Comp"]["Vals"]=np.zeros((self.NParam,nx,ny),np.float32)
+        # self.DicoSMStacked["Comp"]["Vals"][:,0,0]=np.array([1,1],np.float32)[:]
+        if self.DicoSMStacked["Comp"].get("Vals",None) is None: return ModelImage
+        self.PSFServer=PSFServer
+        
+        APP=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_MM",
+                                                   ncpu=self.GD["Parallel"]["NCPU"],
+                                                   affinity="disable",
+                                                   )
+        APP.registerJobHandlers(self)
+        APP.startWorkers()
+        APP.awaitWorkerStart()
+        SERIAL=False
+        for ich in range(nch):
+            for ii in range(nx):
+                APP.runJob("GiveModelImageBandsLine.%i.%i"%(ich,ii),
+                           self._GiveModelImageBandsLine,
+                           args=(ich,ii), serial=SERIAL) 
+        LDicoResults=APP.awaitJobResults("GiveModelImageBandsLine.*", progress="Est. Inbd. Model")
+        for D in LDicoResults:
+            ich=D["ich"]
+            ii=D["ii"]
+            ModelImage[ich,0,ii,:]=D["ModelImageLine"]
+        APP.terminate()
+        APP.shutdown()
+        return ModelImage
+
+    def _GiveModelImageBandsLine(self,ich,ii):
+        _,npol,nx,ny=self.ModelShape
+        PSFServer=self.PSFServer
+        ModelImageLine=np.zeros((ny,),np.float32)
+        for jj in range(ny):
+            if self.DicoSMStacked["Comp"]["Vals"][:,ii,jj][0]==0: continue
+            x=self.DicoSMStacked["Comp"]["Vals"][:,ii,jj] # shape=(NParam,nx,ny)
+            iFacet=PSFServer.giveFacetID2(ii,jj)
+            ModelImageLine[jj]=PSFServer.SpectralFunctionsMachine.IntExpFuncPoly(x.reshape((1,-1)),
+                                                                                 iChannel=ich,
+                                                                                 iFacet=iFacet,
+                                                                                 FluxScale="Exp",
+                                                                                 OutMode="int")
+        D={"ich":ich,"ii":ii,"ModelImageLine":ModelImageLine}
+        return D
+    
         
     def GiveModelImage(self,FreqIn=None,out=None,InModelParms=None):
         

@@ -40,6 +40,7 @@ import pylab
 from DDFacet.ToolsDir import GeneDist
 import scipy.stats
 from DDFacet.Array import shared_dict
+from scipy.signal import fftconvolve
 
 def OR(a,b):
     if a is None and b is None:
@@ -114,6 +115,10 @@ class ClassFilterMachine():
             ThIm=np.interp(dds.ravel(), drange, Th, left=None, right=None).reshape((nxx,nyy))
             Mask_ch=(s_fAss.reshape((nxx,nyy))>ThIm)
 
+            nConv=5
+            ConvMask=np.ones((nConv,nConv),np.float32)
+            Mask_ch=(fftconvolve(np.float32(Mask_ch),ConvMask,mode="same")>1e-3)
+            
             nn=np.count_nonzero(Mask_ch)
             log2.print("  [ch #%i] found %i masked pixels (~%.2f%%)"%(ich,nn,100*(nn/Mask_ch.size)))
 

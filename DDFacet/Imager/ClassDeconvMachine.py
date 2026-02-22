@@ -1486,6 +1486,12 @@ class ClassImagerDeconv():
                                                   ImageName="%s.TaylorW.%2.2i"%(self.BaseName,iMajor),
                                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts(),
                                                   Fits=True)
+                    ThisResidImage=DicoComp.get("CurrentResid",None)
+                    if ThisResidImage is not None:
+                        self.FacetMachine.ToCasaImage(ThisResidImage,
+                                                      ImageName="%s.estimated_residual%2.2i"%(self.BaseName,iMajor),
+                                                      Stokes=self.VS.StokesConverter.RequiredStokesProducts(),
+                                                      Fits=True)
 
                 
             # Broadcast metadata regarding the state of Deconvolution form the master MPI process

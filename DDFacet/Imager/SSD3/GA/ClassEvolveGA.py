@@ -167,14 +167,11 @@ class ClassEvolveGA():
         ThisIslandModelDict["Model"][:] = np.array(Model)[:]
         
         V=Model.ravel()
-        ConvModelArray=self.CEv.ArrayMethodsMachine.ToConvArray(V)
-        #IM=self.CEv.ArrayMethodsMachine.PM.ModelToSquareArray(ConvModelArray,TypeInOut=("Data","Data"))
-        #Dirty=self.PM.ModelToSquareArray(self.CEv.ArrayMethodsMachine.DirtyArray,TypeInOut=("Data","Data"))
-        #Resid=Dirty-IM
-        Resid1D=self.CEv.ArrayMethodsMachine.DirtyArray-ConvModelArray
+        ConvModelArray=self.CEv.ArrayMethodsMachine.ToConvArray(V,OutMode="Parms")
+        Resid1D=self.CEv.ArrayMethodsMachine.DirtyArrayParms-ConvModelArray
         ThisIslandModelDict.addSharedArray("Resid", Resid1D.shape, Resid1D.dtype)
         ThisIslandModelDict["Resid"] = np.array(Resid1D)[:]
-
+        
         
         # from sys import getsizeof
         # print("DLKSDLSDFLSDF [%i]"%iIsland,np.array(Model).shape,getsizeof(np.array(Model)),Model.max())

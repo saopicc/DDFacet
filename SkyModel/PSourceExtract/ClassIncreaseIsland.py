@@ -27,10 +27,20 @@ class ClassIncreaseIsland():
         return self.IncreaseIslandFFT(*args,**kwargs)
 
     def IncreaseIslandFFT(self,ListPix,dx=2,AllowMasked=True):
-        
+        x,y=np.array(ListPix).T
+        x0=x.min()
+        y0=y.min()
+        x1=x.max()
+        y1=y.max()
+        nx=x1-x0+1
+        ny=y1-y0+1
+        if dx=="auto":
+            dx=0.2*np.max([nx,ny])
+            dx=int(np.max([2,dx]))
+            
         sx,sy=dx,dx
         GaussPar=(sx,sy,0)
-        dxy=6.
+        dxy=5.
         Nsx,Nsy=dxy*sx,dxy*sy
         xin,yin=np.mgrid[-Nsx:Nsx:(2*Nsx+1)*1j,-Nsy:Nsy:(2*Nsy+1)*1j]
         G=Gaussian2D(xin,yin,GaussPar=GaussPar)
@@ -44,14 +54,7 @@ class ClassIncreaseIsland():
         G=np.float32(np.sqrt(xin**2+yin**2)<dx)
         G/=np.sum(G)
         
-        x,y=np.array(ListPix).T
 
-        x0=x.min()
-        y0=y.min()
-        x1=x.max()
-        y1=y.max()
-        nx=x1-x0+1
-        ny=y1-y0+1
 
         nxG,nyG=G.shape
         dx0=nxG#//2
@@ -68,6 +71,10 @@ class ClassIncreaseIsland():
         Ac=scipy.signal.fftconvolve(A,G, mode='same')
 
         indx,indy=np.where(Ac>(1e-3*Ac.max()))
+        # indx,indy=np.mgrid[0:Ac.shape[0],0:Ac.shape[1]]
+        # indx=indx.ravel()
+        # indy=indy.ravel()
+        
         W=Ac[indx,indy]
         xx=indx+x0-dx0
         yy=indy+y0-dy0

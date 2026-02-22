@@ -47,6 +47,7 @@ import copy
 import DDFacet.Other.AsyncProcessPool
 from DDFacet.Other import MPIManager
 from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
+from scipy.signal import fftconvolve
 
 #from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 from DDFacet.Imager.SSD3 import ClassModelMachineSSD
@@ -56,7 +57,7 @@ logger.setSilent("ClassIsland")
 
 DO_INIT=True
 SERIAL=True
-SERIAL=False
+#SERIAL=False
 
 DO_MPI=False
 DO_MPI=True
@@ -392,9 +393,17 @@ class ClassImageDeconvMachine():
         ListIslandsOut=[self.ListAllIslands[i] for i in ind]
         self.ListAllIslands=ListIslandsOut#[100::10][0:1]
         self.ListAllSpacialWeight=[ListSpacialWeight[i] for i in ind]
+
+        # self.ListAllIslands=self.ListAllIslands[0:1]
+        # self.ListAllSpacialWeight=self.ListAllSpacialWeight[0:1]
+        # self.ListIslandsNotIncreased=self.ListIslandsNotIncreased[0:1]
+        
         self.NIslands=len(self.ListAllIslands)
         
-        
+        # np.savez("IslandsMajor%i.npz"%self.DicoDirty["iMajorCycle"],
+        #          ListAllIslands=self.ListAllIslands,
+        #          ListAllSpacialWeight=self.ListAllSpacialWeight,
+        #          ListIslandsNotIncreased=self.ListIslandsNotIncreased)
 
 
 
@@ -499,6 +508,9 @@ class ClassImageDeconvMachine():
         
         FreqsModel=np.array([np.mean(self.DicoVariablePSF["freqs"][iBand]) for iBand in range(len(self.DicoVariablePSF["freqs"]))])
         ModelImage=self.ModelMachine.GiveModelImage(FreqsModel)
+        #ModelImage=self.ModelMachine.GiveModelImageBands(self.PSFServer)
+
+        
         if "SmoothJonesNorm" in self.DicoDirty.keys():
             MeanJonesNorm=np.mean(self.DicoDirty["SmoothJonesNorm"],axis=0)
             ModelImageApp=ModelImage*np.sqrt(self.DicoDirty["SmoothJonesNorm"])
@@ -670,10 +682,10 @@ class ClassImageDeconvMachine():
             if not DicoResult["Success"]:
                 Message=DicoResult["Message"]
                 iIsland=DicoResult["iIsland"]
-                print(ModColor.Str("Something went wrong on Island#%i: \n   %s"%(iIsland,Message)))
+                log.print(ModColor.Str("Something went wrong on Island#%i: \n   %s"%(iIsland,Message)))
                 Lxy=self.ListAllIslands[iIsland]
                 FName="errIsland.SSD3.MajorCycle_%i.Isl_%i.npz"%(self.DicoDirty["iMajorCycle"],iIsland)
-                print(ModColor.Str("  saving bad island to: %s"%(FName)))
+                log.print(ModColor.Str("  saving bad island to: %s"%(FName)))
                 np.savez(FName,Lxy=Lxy,iIsland=iIsland,iMajorCycle=self.DicoDirty["iMajorCycle"])
                 continue
             iIsland=DicoResult["iIsland"]
@@ -703,7 +715,10 @@ class ClassImageDeconvMachine():
         
         if MPIManager.rank==0:
             log.print("  Reinit islands in ModelMachine...")
+
+            #print("FDLSJKFDJKSDFJJ")
             self.ModelMachine.reinitIslands(self.ListIslandsNotIncreased)
+            #self.ModelMachine.reinitIslands(self.ListAllIslands)
             
             log.print("  Update islands...")
             for iIsland in sorted(list(DicoIslandsOut.keys())):
@@ -852,11 +867,19 @@ class ClassImageDeconvMachine():
 
         # logger.setSilent(["AsyncProcessPool"])
         
+        self.PSFServer.setLocation(xp,yp)
+        FacetID=self.PSFServer.giveFacetID2(xm,ym)
+        PSF=self.DicoVariablePSF["CubeVariablePSF"][FacetID]
+        AModel=np.array([DicoInitModel[iMachine] for iMachine in DicoInitModel.keys()])
+        NModel=AModel.shape[0]
+        
+        stop
+        
+        
         t0=time.time()
         GAMachine=ClassEvolveGA(self,ParallelMode)
         GAMachine.setDicoInitModel(DicoInitModel)
         DicoResult=GAMachine._runGA(iIsland,self.DicoDirty.path,self.DicoVariablePSF.path,self.GridFreqs,self.DegridFreqs)
-        
         t1=time.time()
         DInfo["GA"]={}
         DInfo["GA"]["Time"]=t1-t0
