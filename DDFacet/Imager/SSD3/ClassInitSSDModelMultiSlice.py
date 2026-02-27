@@ -364,6 +364,23 @@ class ClassInitSSDModel():
         ConvModel=self.giveConvModel(self.SubSSDModelImage)
         _,_,N0x,N0y=ConvModel.shape
         MeanConvModel=np.mean(ConvModel,axis=0).reshape((1,1,N0x,N0y))
+
+        # ##########################
+        ind=np.where(AddArray==np.max(np.abs(AddArray)))
+        if ind[0].size==0:
+            ALPHA=1.
+        else:
+            R=self.DirtyArray[ind].flat[0]
+            D=AddArray[ind].flat[0]
+            ALPHA=(1.-R/D)
+            ALPHA=np.max([1.,ALPHA])
+        self.ALPHA=ALPHA
+        if self.GD["SSDClean"]["ArtifactRobust"]:
+            self.DirtyArray/=self.ALPHA
+        # ##########################
+
+
+        
         self.DicoSubDirty["ImageCube"]+=ConvModel
         self.DicoSubDirty['MeanImage']+=MeanConvModel
         #print "MAX=",np.max(self.DicoSubDirty['MeanImage'])

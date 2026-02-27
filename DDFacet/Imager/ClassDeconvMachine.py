@@ -1551,17 +1551,17 @@ class ClassImagerDeconv():
 
             # write out model image, if asked to
             current_model_freqs = model_freqs
-            if MPIManager.rank == 0:
-                print("model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max()), file=log)
-                if "o" in self._saveims:
-                    self.FacetMachine.ToCasaImage(ModelImage, ImageName="%s.model%2.2i.rank%i" % (self.BaseName, iMajor,MPIManager.rank),
-                                              Fits=True, Freqs=current_model_freqs,
-                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-                _,_,nx,ny=ModelImage.shape
-                MeanModelImage=np.mean(ModelImage,axis=0).reshape((1,1,nx,ny))
-                self.FacetMachine.ToCasaImage(MeanModelImage, ImageName="%s.mean_model%2.2i.rank%i" % (self.BaseName, iMajor,MPIManager.rank),
-                                              Fits=True, Freqs=np.array([np.mean(current_model_freqs)]),
-                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            # if MPIManager.rank == 0:
+            #     print("model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max()), file=log)
+            #     if "o" in self._saveims:
+            #         self.FacetMachine.ToCasaImage(ModelImage, ImageName="%s.model%2.2i" % (self.BaseName, iMajor,MPIManager.rank),
+            #                                   Fits=True, Freqs=current_model_freqs,
+            #                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            #     _,_,nx,ny=ModelImage.shape
+            #     MeanModelImage=np.mean(ModelImage,axis=0).reshape((1,1,nx,ny))
+            #     self.FacetMachine.ToCasaImage(MeanModelImage, ImageName="%s.mean_model%2.2i" % (self.BaseName, iMajor,MPIManager.rank),
+            #                                   Fits=True, Freqs=np.array([np.mean(current_model_freqs)]),
+            #                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             # stop
             # ###
 

@@ -310,8 +310,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             DicoComp["IsUnnormalized"][x,y]=0
 
         # Will update the current resid estimation
-        if len(self.PastModels_Resid)>0:#self.GD["SSD3"]["NLookBackModels"]>0: 
+        if len(self.PastModels_Resid)>0:#self.GD["SSD3"]["NLookBackModels"]>0:
             DicoComp["CurrentResid"]=self.PastModels_Resid[-1].copy()
+            DicoComp["CurrentResid"].fill(0)
             self.CurrentResid=DicoComp["CurrentResid"]
             nch=DicoComp["CurrentResid"].shape[0]
             for Island in ListIslands:

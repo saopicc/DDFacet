@@ -48,6 +48,9 @@ import DDFacet.Other.AsyncProcessPool
 from DDFacet.Other import MPIManager
 from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 from scipy.signal import fftconvolve
+import traceback
+import SkyModel.Sky.ModPolyRegFile
+from DDFacet.Other import Verbose
 
 #from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 from DDFacet.Imager.SSD3 import ClassModelMachineSSD
@@ -57,7 +60,13 @@ logger.setSilent("ClassIsland")
 
 DO_INIT=True
 SERIAL=True
-#SERIAL=False
+SERIAL=False
+
+ISLAND_DEBUG=None
+#ISLAND_DEBUG=10
+if ISLAND_DEBUG is not None:
+    SERIAL=True
+    
 
 DO_MPI=False
 DO_MPI=True
@@ -388,11 +397,23 @@ class ClassImageDeconvMachine():
         self.NIslands=len(self.ListAllIslands)
 
         print("Sorting islands by size", file=log)
-        Sz=np.array([len(self.ListAllIslands[iIsland]) for iIsland in range(self.NIslands)])
-        ind=np.argsort(Sz)[::-1]
+        #Sz=np.array([len(self.ListAllIslands[iIsland]) for iIsland in range(self.NIslands)])
+        #ind=np.argsort(Sz)[::-1]
+        def f(Isl): return len(Isl)
+        def g(Isl):
+            x,y=np.array(Isl).T
+            return np.mean(x)
+        def h(Isl):
+            x,y=np.array(Isl).T
+            return np.mean(y)
+        lst=self.ListAllIslands
+        ind = sorted(range(len(lst)), key=lambda i: (f(lst[i]), g(lst[i]), h(lst[i])))
+        ind=ind[::-1]
         ListIslandsOut=[self.ListAllIslands[i] for i in ind]
+        
         self.ListAllIslands=ListIslandsOut#[100::10][0:1]
         self.ListAllSpacialWeight=[ListSpacialWeight[i] for i in ind]
+        self.ListIslandsNotIncreased=[self.ListIslandsNotIncreased[i] for i in ind]
 
         # self.ListAllIslands=self.ListAllIslands[0:1]
         # self.ListAllSpacialWeight=self.ListAllSpacialWeight[0:1]
@@ -400,11 +421,16 @@ class ClassImageDeconvMachine():
         
         self.NIslands=len(self.ListAllIslands)
         
+        _,_,nx,ny=self._Dirty.shape
+        filename="%s.IslandsSSD.%2.2i.reg"%(self.GD["Output"]["Name"],self.DicoDirty["iMajorCycle"])
+        log.print("Saving selected islands reg file: %s"%filename)
+        polygons = SkyModel.Sky.ModPolyRegFile.island_to_polygons(filename,self.ListIslandsNotIncreased, nxny=(nx,ny))
+        
         # np.savez("IslandsMajor%i.npz"%self.DicoDirty["iMajorCycle"],
         #          ListAllIslands=self.ListAllIslands,
         #          ListAllSpacialWeight=self.ListAllSpacialWeight,
-        #          ListIslandsNotIncreased=self.ListIslandsNotIncreased)
-
+        #          ListIslandsNotIncreased=self.ListIslandsNotIncreased,
+        #          nxny=(nx,ny))
 
 
 
@@ -506,9 +532,9 @@ class ClassImageDeconvMachine():
                 print(ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done here" % (ThisFlux),col="green" ), file=log)
             return "FluxThreshold", False, False
         
-        FreqsModel=np.array([np.mean(self.DicoVariablePSF["freqs"][iBand]) for iBand in range(len(self.DicoVariablePSF["freqs"]))])
-        ModelImage=self.ModelMachine.GiveModelImage(FreqsModel)
-        #ModelImage=self.ModelMachine.GiveModelImageBands(self.PSFServer)
+        #FreqsModel=np.array([np.mean(self.DicoVariablePSF["freqs"][iBand]) for iBand in range(len(self.DicoVariablePSF["freqs"]))])
+        #ModelImage=self.ModelMachine.GiveModelImage(FreqsModel)
+        ModelImage=self.ModelMachine.GiveModelImageBands(self.PSFServer)
 
         
         if "SmoothJonesNorm" in self.DicoDirty.keys():
@@ -559,11 +585,13 @@ class ClassImageDeconvMachine():
             
         allIslandModelDict  = shared_dict.create("DeconvListIslands%s"%self.StrField)
         for iIsland in self.ListJobIslands:
-            IslandXY=self.ListAllIslands[iIsland]
-            IslandXY=np.array(IslandXY)
+            IslandXY=np.array(self.ListAllIslands[iIsland])
+            SpacialWeight=np.array(self.ListAllSpacialWeight[iIsland])
             allIslandModelDict.addSubdict(iIsland)
             allIslandModelDict[iIsland].addSharedArray("IslandXY", IslandXY.shape, np.int32)
+            allIslandModelDict[iIsland].addSharedArray("SpacialWeight", SpacialWeight.shape, np.int32)
             allIslandModelDict[iIsland]["IslandXY"][:]=IslandXY[:]
+            allIslandModelDict[iIsland]["SpacialWeight"][:]=SpacialWeight[:]
 
         
         ParmDict = shared_dict.create("ParmDict%s"%self.StrField) # ParmDict
@@ -595,20 +623,22 @@ class ClassImageDeconvMachine():
         NDeconv=0
         NDeconvBig=0
         for iIsland in self.ListJobIslands:
+            if ISLAND_DEBUG is not None:
+                if iIsland!=ISLAND_DEBUG: continue
+            
             Island=self.ListAllIslands[iIsland]
             if len(Island)>self.GD["SSDClean"]["ConvFFTSwitch"]:
                 ParallelMode="PerIsland"
             else:
                 ParallelMode="OverIslands"
-
             fRun=self._initIslandExceptionFree
             if SERIAL:
                 fRun=self._initIsland
-                
             self.APP_GA.runJob("initIsland.%i"%(iIsland),
                                fRun,
                                #self._initIsland,
-                               args=(iIsland,self.DicoDirty.path,self.DicoVariablePSF.path,self.GridFreqs,self.DegridFreqs,self.ThSpectralFit,ParallelMode), serial=SERIAL) 
+                               args=(iIsland,self.DicoDirty.path,self.DicoVariablePSF.path,self.GridFreqs,
+                                     self.DegridFreqs,self.ThSpectralFit,ParallelMode), serial=SERIAL) 
                
         LDicoResults=self.APP_GA.awaitJobResults("initIsland.*", progress="Deconv Islands")
         if MPIManager.useMPI: MPIManager.COMM_WORLD.Barrier()
@@ -761,7 +791,7 @@ class ClassImageDeconvMachine():
 
             log.print("  Renormalise...")
             self.ModelMachine.RenormaliseMultiEstimatesPerPixel()
-            self.ModelMachine.ToFile("Major%i.DicoModel"%self.DicoDirty["iMajorCycle"])
+            self.ModelMachine.ToFile("%s.Major%i.DicoModel"%(self.GD["Output"]["Name"],self.DicoDirty["iMajorCycle"]))
             self.ModelMachine.FitLookBackModels()
             log.print("  Done updating SSD3 ModelMachine...")
 
@@ -796,7 +826,9 @@ class ClassImageDeconvMachine():
         try:
             return self._initIsland(iIsland,*args,**kwargs)
         except Exception as e:
-            return {"Success":False,"iIsland":iIsland,"HasError":False,"Message":str(e)}
+            ss=traceback.format_exc()
+            Message="%s \n %s"%(ss,str(e))
+            return {"Success":False,"iIsland":iIsland,"HasError":False,"Message":Message}
             
             
     def _initIsland(self,
@@ -818,6 +850,7 @@ class ClassImageDeconvMachine():
         ThisPixList=allIslandModelDict[iIsland]["IslandXY"]
         
         x,y=np.array(ThisPixList,dtype=np.float32).T
+        xp,yp=np.mean(x),np.mean(y)
         dx,dy=x.max()-x.min(),y.max()-y.min()
         dd=np.max([dx,dy])+1
         DoIslandsInit = (dd>=self.GD["GAClean"]["MinSizeInit"])
@@ -866,8 +899,6 @@ class ClassImageDeconvMachine():
         logger.setLoud(LSilent)
 
         # logger.setSilent(["AsyncProcessPool"])
-        
-        
         
         
         t0=time.time()
