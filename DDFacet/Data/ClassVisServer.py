@@ -238,8 +238,6 @@ class ClassVisServer():
         # if this is 0, then looks at NFreqBands parameter
         grid_bw = self.GD["Freq"]["BandMHz"]*1e+6
         
-        if self.GD["Freq"].get("FMinMHz",None): min_freq_Cube=self.GD["Freq"]["FMinMHz"]*1e6
-        if self.GD["Freq"].get("FMaxMHz",None): max_freq_Cube=self.GD["Freq"]["FMaxMHz"]*1e6
         bandwidth_Cube =  max_freq_Cube - min_freq_Cube
         
         if grid_bw:
@@ -592,7 +590,8 @@ class ClassVisServer():
             print(ModColor.Str("This chunk is all flagged or has zero weight."), file=log)
             return
         
-        if DATA["sort_index"] is not None: # and DATA["Weights"] is not 1: # OMS 2023/12 they're not "1" ever and this seems a bug
+        if DATA["sort_index"] is not None:# and isinstance(DATA["Weights"],np.ndarray):
+            # a value of '1' is used as a flag by GetVisWeights, but we can't compare with 1 because the weights could be and generally will be an array...
             DATA["Weights"] = DATA["Weights"][DATA["sort_index"]]
 
         self.computeBDAInBackground(dictname, ms, DATA,
@@ -947,6 +946,8 @@ class ClassVisServer():
             msfreqs = ms.ChanFreq
             # max of |u|, |v| in wavelengths
             uv = uvw[:, :2]
+            if rowflags is None:
+                rowflags = np.zeros(uv.shape[0], np.bool_)
             uvmax_wavelengths = abs(uv[~rowflags,:]).max() * msfreqs.max() / _cc
             # adjust max uv (in wavelengths) and max w
             msw["wmax"] = abs(uvw[~rowflags,2]).max()

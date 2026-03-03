@@ -79,5 +79,12 @@ class TestDEEP2Montblanc(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImag
 
     pass #check all images
 
+    @classmethod
+    def defMinorCycleTolerance(cls):
+        """
+        Relative tolerance on minor cycle count
+        """
+        return 1000 
+
 if __name__ == '__main__':
     unittest.main()

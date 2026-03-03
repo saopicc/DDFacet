@@ -1,6 +1,5 @@
 [build-system]
 requires = ["numpy >= 1.15.1, <= 2.3.2; python_version >= '3.11' and python_version < '3.13'",
-            "setuptools < 82.0.0; python_version >= '3.8' and python_version < '3.11'",
             "setuptools >= 82.0.0; python_version >= '3.11' and python_version < '3.13'",
             'pybind11 >= 2.2.2',
             'cython',
@@ -78,20 +77,17 @@ classifiers = [
 "MyCasapy2bbs.py" = "SkyModel.__main__:mycasapy2bbs_main"
 
 [project.optional-dependencies]
-dft-support = ["montblanc >= 0.6.1,<=0.7.4; python_version >= '3.8' and python_version < '3.13'"]
-moresane-support = ["pymoresane >= 0.3.0; python_version >= '3.8' and python_version < '3.13'"]
-fits-beam-support = ["meqtrees-cattery>=1.8.0rc3; python_version >= '3.8' and python_version < '3.13'"]
-kms-support = ["bdsf > 1.8.15; python_version >= '3.10' and python_version < '3.13'",
-	           "bdsf > 1.8.15,<=1.10.1; python_version >= '3.8' and python_version < '3.10'"]
-
-
-alternate-data-backends = ["dask-ms[xarray,katdal] <= 0.2.28; python_version >= '3.8' and python_version < '3.13'",
-                           "requests; python_version >= '3.8' and python_version < '3.13'",
-                           "aiohttp; python_version >= '3.8' and python_version < '3.13'",
-                           "xarray; python_version >= '3.8' and python_version < '3.13'"]
-testing-requirements = ["nose >= 1.3.7; python_version >= '3' and python_version < '3.9'",
-                        "pynose >= 1.4.8; python_version >= '3.9' and python_version < '3.13'",
-                        "owlcat >= 1.8.1rc1; python_version >= '3.8' and python_version < '3.13'"]
+dft-support = ["montblanc >= 0.6.1,<=0.7.4; python_version >= '3.11' and python_version < '3.13'"]
+moresane-support = ["pymoresane >= 0.3.0; python_version >= '3.11' and python_version < '3.13'"]
+fits-beam-support = ["meqtrees-cattery>=1.8.0rc3; python_version >= '3.11' and python_version < '3.13'"]
+kms-support = ["bdsf > 1.8.15; python_version >= '3.11' and python_version < '3.13'"]
+alternate-data-backends = ["dask-ms[xarray,katdal] <= 0.2.28; python_version >= '3.11' and python_version < '3.13'",
+                           "requests; python_version >= '3.11' and python_version < '3.13'",
+                           "aiohttp; python_version >= '3.11' and python_version < '3.13'",
+                           "xarray; python_version >= '3.11' and python_version < '3.13'"]
+testing-requirements = ["nose >= 1.3.7; python_version >= '3.11' and python_version < '3.9'",
+                        "pynose >= 1.4.8; python_version >= '3.11' and python_version < '3.13'",
+                        "owlcat >= 1.8.1rc1; python_version >= '3.11' and python_version < '3.13'"]
                           
 [tool.scikit-build]
 # The versions of CMake to allow. If CMake is not present on the system or does

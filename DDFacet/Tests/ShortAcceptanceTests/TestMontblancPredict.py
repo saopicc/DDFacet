@@ -66,6 +66,7 @@ class TestMontblancPredict(unittest.TestCase):
         pc.set("Data", "MS", os.path.join(self._input_dir,
             "basicSSMFClean.MS_p0"))
         pc.set("Predict", "ColName", "MONTBLANC_DATA")
+        pc.set("Parallel", "MainProcessAffinity", "disable")
 
         # Write the parset config to the output file name
         with open(self._output_parset_filename, 'w') as op:
