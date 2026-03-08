@@ -951,18 +951,19 @@ class ClassImageDeconvMachine():
 
         # logger.setSilent(["AsyncProcessPool"])
 
+
         
-        NSourceKin=None
+        NGen=None
         if self.GD["SSD3"]["GAIslSize"] is not None:
             Min,Max=self.GD["SSD3"]["GAIslSize"].split("-")
             Min,Max=int(Min),int(Max)
             if SizeIsland<Min or SizeIsland>Max:
-                NSourceKin=0
-        
+                NGen=0
+
         t0=time.time()
         GAMachine=ClassEvolveGA(self,ParallelMode)
         GAMachine.setDicoInitModel(DicoInitModel)
-        DicoResult=GAMachine._runGA(iIsland,self.DicoDirty.path,self.DicoVariablePSF.path,self.GridFreqs,self.DegridFreqs,NSourceKin)
+        DicoResult=GAMachine._runGA(iIsland,self.DicoDirty.path,self.DicoVariablePSF.path,self.GridFreqs,self.DegridFreqs,NGen)
         t1=time.time()
         DInfo["GA"]={}
         DInfo["GA"]["Time"]=t1-t0

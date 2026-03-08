@@ -57,7 +57,7 @@ class ClassEvolveGA():
     def _runGA(self,#ListIslands,
                iIsland,
                #IslandBestIndiv,
-               DicoDirty_path,DicoPSF_path,GridFreqs,DegridFreqs,NSourceKin):
+               DicoDirty_path,DicoPSF_path,GridFreqs,DegridFreqs,NGen):
 
 
         #from pympler import tracker
@@ -121,10 +121,9 @@ class ClassEvolveGA():
         IslandBestIndiv = ThisIslandModelDict["BestIndiv"]
 
         PSF=self.CubeVariablePSF[FacetID]
-        NGen=self.GD["GAClean"]["NMaxGen"]
-        NIndiv=NSourceKin or self.GD["GAClean"]["NSourceKin"]
-        self.NIndiv=NIndiv
-        
+        if NGen is None:
+            NGen=self.GD["GAClean"]["NMaxGen"]
+        NIndiv=self.GD["GAClean"]["NSourceKin"]
         
         ListPixParms=ThisPixList
         ListPixData=ThisPixList
@@ -392,15 +391,17 @@ class ClassEvolveGA_SingleIsland():
             NTypeInit=len(LTypeInit)
             L=[]
             if NTypeInit==0:
-                # run simplistic clean
-                print("FDLKSFLDK")
-                L.append(self.IslandBestIndiv_PolyModelArray)
-                #L.append(GivePolyArrayMP())
+                if self.GD["SSD3"]["RunSimpleClean"]:
+                    # run simplistic clean
+                    L.append(GivePolyArrayMP())
+                else:
+                    # zero-individual
+                    L.append(self.IslandIndivZero)
             else:
                 for iTypeInit in LTypeInit:
                     L.append(GivePolyArrayMP(iTypeInit=iTypeInit))
 
-            if np.max(np.abs(self.IslandBestIndiv))!=0. and self.NIndiv>0:
+            if np.max(np.abs(self.IslandBestIndiv))!=0. and self.GD["GAClean"]["NSourceKin"]>0:
                 L.append(self.IslandBestIndiv_PolyModelArray)
                 
             pop = toolbox.population(n=len(L))
@@ -459,6 +460,7 @@ class ClassEvolveGA_SingleIsland():
             self.IslandBestIndiv_PolyModelArray=np.zeros((self.ArrayMethodsMachine.PM.NOrderPoly,self.ArrayMethodsMachine.PM.NPixListParms),np.float32)
             for iOrder in range(self.ArrayMethodsMachine.PM.NOrderPoly):
                 self.IslandBestIndiv_PolyModelArray[iOrder]=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"Poly%i"%iOrder)
+            self.IslandIndivZero=np.zeros((self.ArrayMethodsMachine.PM.NOrderPoly,self.ArrayMethodsMachine.PM.NPixListParms),np.float32)
             
             # SModelArrayMP,Alpha=self.ArrayMethodsMachine.DeconvCLEAN()
             # AModelArrayMP=None
