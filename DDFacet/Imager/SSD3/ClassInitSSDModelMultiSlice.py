@@ -237,6 +237,10 @@ class ClassInitSSDModel():
 
         Margin_x=np.min([(x1-x0),200])
         Margin_y=np.min([(y1-y0),200])
+        Margin_x=np.max([Margin_x,30])
+        Margin_y=np.max([Margin_y,30])
+
+
         dx=(x1-x0)+2*Margin_x
         dy=(y1-y0)+2*Margin_y
         

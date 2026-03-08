@@ -57,7 +57,7 @@ class ClassEvolveGA():
     def _runGA(self,#ListIslands,
                iIsland,
                #IslandBestIndiv,
-               DicoDirty_path,DicoPSF_path,GridFreqs,DegridFreqs,NGen):
+               DicoDirty_path,DicoPSF_path,GridFreqs,DegridFreqs,NGen,NSourceKin):
 
 
         #from pympler import tracker
@@ -401,7 +401,7 @@ class ClassEvolveGA_SingleIsland():
                 for iTypeInit in LTypeInit:
                     L.append(GivePolyArrayMP(iTypeInit=iTypeInit))
 
-            if np.max(np.abs(self.IslandBestIndiv))!=0. and self.GD["GAClean"]["NSourceKin"]>0:
+            if np.max(np.abs(self.IslandBestIndiv))!=0. and self.GD["SSD3"]["PropagatePrevGen"]:
                 L.append(self.IslandBestIndiv_PolyModelArray)
                 
             pop = toolbox.population(n=len(L))

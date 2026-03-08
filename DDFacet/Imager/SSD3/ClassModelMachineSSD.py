@@ -470,6 +470,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             logS.fill(0)
             for iCoef in range(1,self.NParam):
                 logS+=C[iCoef]*(np.log(ThisFreq/RefFreq))**iCoef
+            logS[logS>10]=10
+            logS[logS<-10]=-10
             # ModelImage[ich,0]=S0*np.exp(logS)
             with warnings.catch_warnings():
                 warnings.filterwarnings("error", category=RuntimeWarning)

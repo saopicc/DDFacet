@@ -58,7 +58,7 @@ from DDFacet.Other import Verbose
 from DDFacet.ToolsDir import GeneDist
 
 DOPLOT=True
-DOPLOT=False
+#DOPLOT=False
 
 def Gaussian2D(x,y,GaussPar=(1.,1.,0)):
     d=np.sqrt(x**2+y**2)

@@ -65,7 +65,7 @@ SERIAL=True
 SERIAL=False
 
 ISLAND_DEBUG=None
-#ISLAND_DEBUG=517
+ISLAND_DEBUG=608
 if ISLAND_DEBUG is not None:
     SERIAL=True
     
@@ -920,18 +920,18 @@ class ClassImageDeconvMachine():
             if not DO_INIT:
                 continue
         
-            with warnings.catch_warnings():
-                warnings.filterwarnings("error", category=RuntimeWarning)
-                with np.errstate(all="raise"):
-                    rep = InitMachine.giveDicoInitIndiv(Island=ThisPixList,
-                                                        iIsland=iIsland,
-                                                        DicoDirty=self.DicoDirty,
-                                                        **kwargs)
+            # with warnings.catch_warnings():
+            #     warnings.filterwarnings("error", category=RuntimeWarning)
+            #     with np.errstate(all="raise"):
+            #         rep = InitMachine.giveDicoInitIndiv(Island=ThisPixList,
+            #                                             iIsland=iIsland,
+            #                                             DicoDirty=self.DicoDirty,
+            #                                             **kwargs)
                     
-            # rep = InitMachine.giveDicoInitIndiv(Island=ThisPixList,
-            #                                     iIsland=iIsland,
-            #                                     DicoDirty=self.DicoDirty,
-            #                                     **kwargs)
+            rep = InitMachine.giveDicoInitIndiv(Island=ThisPixList,
+                                                iIsland=iIsland,
+                                                DicoDirty=self.DicoDirty,
+                                                **kwargs)
                     
             t1=time.time()
             
@@ -952,16 +952,17 @@ class ClassImageDeconvMachine():
 
         
         NGen=None
+        NSourceKin=None
         if self.GD["SSD3"]["GAIslSize"] is not None:
             Min,Max=self.GD["SSD3"]["GAIslSize"].split("-")
             Min,Max=int(Min),int(Max)
             if SizeIsland<Min or SizeIsland>Max:
                 NGen=0
-
+                NSourceKin=1 # will just estimate fitness for all  
         t0=time.time()
         GAMachine=ClassEvolveGA(self,ParallelMode)
         GAMachine.setDicoInitModel(DicoInitModel)
-        DicoResult=GAMachine._runGA(iIsland,self.DicoDirty.path,self.DicoVariablePSF.path,self.GridFreqs,self.DegridFreqs,NGen)
+        DicoResult=GAMachine._runGA(iIsland,self.DicoDirty.path,self.DicoVariablePSF.path,self.GridFreqs,self.DegridFreqs,NGen,NSourceKin)
         t1=time.time()
         DInfo["GA"]={}
         DInfo["GA"]["Time"]=t1-t0
