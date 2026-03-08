@@ -876,7 +876,6 @@ class ClassImageDeconvMachine():
 
         self.DicoInitIndiv={}
 
-
         self.ThSpectralFit=ThSpectralFit
         
         LSilent=["ClassInitSSDModelHMP", "ClassMultiScaleMachine", "ClassInitSSDModelMultiSlice", "ClassImageDeconvMachineMSMF"]
@@ -903,8 +902,6 @@ class ClassImageDeconvMachine():
         
         self._init_InitMachine(useCachedHMP=True)
         
-        # print(self.GridFreqs,self.DegridFreqs)
-
         # Initialise the model using various deconv machines
         DicoInitModel  = {} # shared_dict.attach("DicoDicoInitIndiv%s"%self.StrField)
         t0=time.time()
@@ -919,6 +916,7 @@ class ClassImageDeconvMachine():
                 
             # if self.GD["GAClean"]["MinSizeInit"]==-1:
             #     continue
+            
             if not DO_INIT:
                 continue
         
