@@ -51,7 +51,7 @@ from collections import deque
 import scipy.stats
 from . import ClassFitPreviousModels
 import DDFacet.Other.AsyncProcessPool
-
+import warnings
 def fMyScale(x,RMS=1.): return np.arcsinh((x/RMS)/2)/np.log(10)
 def inv_fMyScale(x,RMS=1.): return RMS*np.sinh(x*np.log(10))*2
 
@@ -400,6 +400,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             ModelImage[ich,0,ii,:]=D["ModelImageLine"]
         APP.terminate()
         APP.shutdown()
+        del(APP)
         return ModelImage
 
     def _GiveModelImageBandsLine(self,ich,ii):
@@ -469,7 +470,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             logS.fill(0)
             for iCoef in range(1,self.NParam):
                 logS+=C[iCoef]*(np.log(ThisFreq/RefFreq))**iCoef
-            ModelImage[ich,0]=S0*np.exp(logS)
+            # ModelImage[ich,0]=S0*np.exp(logS)
+            with warnings.catch_warnings():
+                warnings.filterwarnings("error", category=RuntimeWarning)
+                with np.errstate(all="raise"):
+                    ModelImage[ich,0]=S0*np.exp(logS)
         
         return ModelImage
     

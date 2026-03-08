@@ -131,7 +131,7 @@ class ClassImageDeconvMachine():
             [(section, self.GD[section]) for section in (
                 "Data", "Beam", "Selection", "Freq",
                 "Image", "Facets", "Weight", "RIME",
-                "Comp", "CF", "WSCMS2")])
+                "Comp", "CF", "WSCMS")])
 
         cachepath, valid = self.maincache.checkCache(self.CacheFileName, cachehash, directory=True,
                                                      reset=cache or self.PSFHasChanged)

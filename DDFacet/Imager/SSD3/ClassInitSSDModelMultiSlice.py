@@ -233,9 +233,16 @@ class ClassInitSSDModel():
         x0,x1=x.min(),x.max()+1
         y0,y1=y.min(),y.max()+1
 
+
+
+        Margin_x=np.min([(x1-x0),200])
+        Margin_y=np.min([(y1-y0),200])
+        dx=(x1-x0)+2*Margin_x
+        dy=(y1-y0)+2*Margin_y
         
-        dx=3*(x1-x0)#+Margin
-        dy=3*(y1-y0)#+Margin
+        #dx=3*(x1-x0)
+        #dy=3*(y1-y0)
+        
         Size=np.max([dx,dy])
         if Size%2==0: Size+=1
         _,_,N0x,N0y=self.Dirty.shape
@@ -344,6 +351,7 @@ class ClassInitSSDModel():
 
         #if key in ["ImageCube", "MeanImage",'FacetNorm',"JonesNorm"]:            
         DirtyCube=self.DicoSubDirty["ImageCube"]
+        nch,npol,_,_=DirtyCube.shape
         if DirtyCube.shape[-1]!=DirtyCube.shape[-2]:
             nch,npol,_,_=DirtyCube.shape
             original_shape = DirtyCube[0,0].shape
@@ -359,30 +367,41 @@ class ClassInitSSDModel():
             nx,ny=dirty.shape
             dirty=np.array(Ldirty).reshape((nch,npol,nx,ny))
             self.IsPadded=True
-
+            
         
         ConvModel=self.giveConvModel(self.SubSSDModelImage)
         _,_,N0x,N0y=ConvModel.shape
         MeanConvModel=np.mean(ConvModel,axis=0).reshape((1,1,N0x,N0y))
 
-        # ##########################
-        ind=np.where(AddArray==np.max(np.abs(AddArray)))
-        if ind[0].size==0:
-            ALPHA=1.
-        else:
-            R=self.DirtyArray[ind].flat[0]
-            D=AddArray[ind].flat[0]
-            ALPHA=(1.-R/D)
-            ALPHA=np.max([1.,ALPHA])
-        self.ALPHA=ALPHA
-        if self.GD["SSDClean"]["ArtifactRobust"]:
-            self.DirtyArray/=self.ALPHA
-        # ##########################
-
-
         
         self.DicoSubDirty["ImageCube"]+=ConvModel
         self.DicoSubDirty['MeanImage']+=MeanConvModel
+        
+        # # ##########################
+        if MeanConvModel.max()>0:
+            for ich in range(nch):
+                Im=self.DicoSubDirty["ImageCube"][ich,0].copy()
+                Im[np.logical_not(self.SubMask)]=0
+                indx,indy=np.where(Im==Im.max())
+                indx=indx[0]
+                indy=indy[0]
+                M=ConvModel[ich,0,indx,indy]
+                R=self.DicoSubDirty["ImageCube"][ich,0,indx,indy]-M
+                Alpha=1-R/M
+                Min,Max=0.3,3.0
+                Alpha=np.max([Min,Alpha])
+                Alpha=np.min([Max,Alpha])
+                factScale=1./Alpha
+                self.DicoSubDirty["ImageCube"][ich]*=factScale
+                #print("DSFLMKFSDLKSDF ALPHA [%i,%i] %f"%(self.iIsland,ich,factScale))
+                #print("DSFLMKFSDLKSDF ALPHA [%i,%i] %f"%(self.iIsland,ich,factScale))
+                #print("DSFLMKFSDLKSDF ALPHA [%i,%i] %f"%(self.iIsland,ich,factScale))
+
+        # # ##########################
+        
+        
+
+        
         #print "MAX=",np.max(self.DicoSubDirty['MeanImage'])
         T.timeit("2")
 
@@ -402,6 +421,7 @@ class ClassInitSSDModel():
     def giveModel(self,ListPixParms,ThSpectralFit=True,iIsland=None):
         T=ClassTimeIt.ClassTimeIt("giveModel")
         T.disable()
+        self.iIsland=iIsland
         self.setSubDirty(ListPixParms)
         T.timeit("setsub")
         ModConstructor = ClassModModelMachine(self.GD)

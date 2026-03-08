@@ -34,9 +34,9 @@ def doFFT(A,dx=1.):
     F = np.fft.fft2(A)/ (Nx * Ny)
     dy=dx=dx/3600*np.pi/180 # not imporant
     # frequency axes (cycles per unit of x and y)
+    
     fx = np.fft.fftfreq(Nx, d=dx)
     fy = np.fft.fftfreq(Ny, d=dy)
-    
     # center zero frequency
     fAs = np.fft.fftshift(F)
     fx_shifted = np.fft.fftshift(fx)
@@ -44,8 +44,16 @@ def doFFT(A,dx=1.):
 
     return fAs,fx_shifted,fy_shifted
 
+def doIFFT(fAs):
+    # Undo shift
+    F_unshifted = np.fft.ifftshift(fAs)
+    Nx, Ny = F_unshifted.shape
+    # Undo normalization from forward FFT
+    A = np.fft.ifft2(F_unshifted) * (Nx * Ny)
+    return A.real  # or return A if you want the complex result
+
 def test2():
-    S=np.load("PNG2/AB_Major1_14342_12358.npz",allow_pickle=1)
+    S=np.load("PNG/AB_Major1_Isl5.npz",allow_pickle=1)
 
     ich=1
     _,A,B,model,indx,indy,Bapp=S["LAB"][ich]
@@ -126,7 +134,7 @@ def test2():
     pylab.clf()
     LScaleDirty=[]
     
-            
+    
     STD = scipy.stats.median_abs_deviation(A[A!=0],axis=None,scale="normal")
     v0,v1=-STD,A.max()#50*STD
     ax=pylab.subplot(nx, ny, iPlot); iPlot+=1
@@ -146,7 +154,13 @@ def test2():
         pylab.imshow(np.abs(CO.fBs))#,extent=(fx_shifted.min(),fx_shifted.max(),fy_shifted.min(),fy_shifted.max()))
         pylab.title("fBs [ch#%i]"%ich)
     
+        FX,FY=CO.FXFY
+        df=np.sqrt(FX**2+FY**2)
+        axp=pylab.subplot(nx,ny, iPlot); iPlot+=1
+        pylab.scatter(df.ravel(),np.log10(np.abs(CO.fAs)),alpha=0.1)#,extent=(fx_shifted.min(),fx_shifted.max(),fy_shifted.min(),fy_shifted.max()))
     
+        pylab.subplot(nx,ny, iPlot,sharey=axp,sharex=axp); iPlot+=1
+        pylab.scatter(df.ravel(),np.log10(np.abs(CO.fBs)),alpha=0.1)#,extent=(fx_shifted.min(),fx_shifted.max(),fy_shifted.min(),fy_shifted.max()))
     
     ax=pylab.subplot(nx, ny, iPlot); iPlot+=1
     pylab.imshow(Model[ich][0])#,vmin=v0,vmax=v1)
@@ -170,7 +184,8 @@ def test2():
     pylab.subplot(nx, ny, iPlot); iPlot+=1
     pylab.plot(x_I,y_I)#,vmin=v0,vmax=v1)
     pylab.title("hist resid")
-                    
+
+    
     pylab.tight_layout()
     pylab.draw()
     pylab.show(block=False)
@@ -186,12 +201,13 @@ def test2():
 
     
 class ClassOrieux():
-    def __init__(self,dirty,psf,RMS=None):
+    def __init__(self,dirty,psf,RMS=None,iIsland=None):
         self.RMS=RMS
         self.psf=psf
         self.dirty=dirty
         self.fAs=None
         self.fBs=None
+        self.iIsland=iIsland
         #%% Load
         self.reg_lapl = np.array([[0, -1, 0], [-1, 4, -1], [0, -1, 0]]) / 8
         self.reg_laplf = udft.ir2fr(self.reg_lapl, dirty.shape)
@@ -210,39 +226,37 @@ class ClassOrieux():
         B=self.psf
         fAs,fx_shifted, fy_shifted=doFFT(A)
         nx,ny=fAs.shape
-        fAs[nx//2,:]=0
-        fAs[:,ny//2]=0
+        #fAs[nx//2,:]=0
+        #fAs[:,ny//2]=0
         fBs,_,_=doFFT(B/B.max())
-        M0=(np.abs(fBs)<1e-2*np.abs(fBs).max())
+        M0=(np.abs(fBs)<1e-4*np.abs(fBs).max())
         fBs[M0]=1
-        fAs/=fBs
+        fAs/=np.real(fBs)
         
         fAs[M0]=0
+        fBs[M0]=0
         FX, FY = np.meshgrid(fx_shifted, fy_shifted)
         
-        fcutx=FX.max()/4
-        fcuty=FY.max()/4
-        Cx=(FX>-fcutx)&(FX<fcutx)
-        Cy=(FY>-fcuty)&(FY<fcuty)
-        indx,indy=np.where(Cx & Cy)
+        df=np.sqrt(FX**2+FY**2)
+        dfMax=np.abs(df).max()
+        indx,indy=np.where(df<dfMax/6)
         fAsc=fAs.copy()
         fAsc[indx,indy]=0
-        Max=np.abs(fAsc).max()
-        self.fAsc=fAsc
-        RMS=self.RMS
-        if True:#RMS is None:
-            RMS=scipy.stats.median_abs_deviation(fAsc[fAsc!=0],axis=None,scale="normal")
+        ffAsc=doIFFT(fAsc)
+        Max=np.abs(ffAsc).max()
+        RMS=scipy.stats.median_abs_deviation(ffAsc,axis=None,scale="normal")
         
         ThisSNR=Max/RMS
-        Flux=np.median(np.abs(fAsc[fAsc!=0]))
-        ThisSNR=Flux/RMS
         
         self.fAs=fAs
         self.fBs=fBs
+        self.fAsc=fAsc
+        self.ffAsc=ffAsc
+        self.FXFY=(FX,FY)
         
-        SNR0=1
-        SNR1=20
-        hyper0=1000
+        SNR0=3
+        SNR1=10
+        hyper0=5000
         hyper1=5
         a=(hyper0-hyper1)/(SNR0-SNR1)
         b=hyper0-a*SNR0
@@ -250,7 +264,11 @@ class ClassOrieux():
         hyper=hyp(ThisSNR)
         hyper=np.max([hyper1,hyper])
         hyper=np.min([hyper0,hyper])
-        print(ThisSNR,Flux,hyper)
+        print("FDSLSDKFLDKF",ThisSNR,Max,hyper)
+        self.fSNR=ThisSNR
+        self.hyper=hyper
+        
+        #hyper=5000
         return hyper
         
     def Deconv(self,hyper="auto",

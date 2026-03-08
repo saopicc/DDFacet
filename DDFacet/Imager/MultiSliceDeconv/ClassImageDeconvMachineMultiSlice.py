@@ -33,6 +33,7 @@ from DDFacet.Array import NpParallel
 from DDFacet.Array import NpShared
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.ToolsDir import ModToolBox
+from DDFacet.ToolsDir import ClassFitLevels
 from DDFacet.Other import ClassTimeIt
 from pyrap.images import image
 from DDFacet.Imager.ClassPSFServer import ClassPSFServer
@@ -219,7 +220,7 @@ class ClassImageDeconvMachine():
                 Lal=   [-7,  -5,   -1   , 1,    2]
                 Ldal=  [  0.2,  0.1, 0.05,  0.1]
                 
-                Lal=   [-7,  -5,   -1   , 1,    2]
+                Lal=   [-7,  -5,   -2   , 1,    2]
                 Ldal=  [  0.2,  0.2, 0.05,  0.1]
                 
                 LL=[]
@@ -348,7 +349,7 @@ class ClassImageDeconvMachine():
     def SetDirty(self,DicoDirty,iIsland=None,**kwargs):
         self.DicoDirty=DicoDirty
         self._Dirty=self.DicoDirty["ImageCube"]
-        self._MeanDirty=self.DicoDirty["MeanImage"]
+        #self._MeanDirty=self.DicoDirty["MeanImage"]
         NPSF_x,NPSF_y=self.PSFServer.NPSF
         _,_,NDirty_x,NDirty_y=self._Dirty.shape
         off_x=(NPSF_x-NDirty_x)//2
@@ -401,6 +402,18 @@ class ClassImageDeconvMachine():
         #     return "Skip", True, True
 
         iMajor=shared_dict.attach("ParmDict").get("iMajor",0)
+        if self.CurrentNegMask is not None:
+            print("  using externally defined Mask (self.CurrentNegMask)", file=log)
+            CurrentNegMask=self.CurrentNegMask
+        elif self.MaskMachine:
+            print("  using MaskMachine Mask", file=log)
+            CurrentNegMask=self.MaskMachine.CurrentNegMask
+        elif self._MaskArray is not None:
+            print("  using externally defined Mask (self._MaskArray)", file=log)
+            CurrentNegMask=self._MaskArray
+        else:
+            print("  not using a mask", file=log)
+            CurrentNegMask=None
 
         dirty=self._Dirty
         self.IsPadded=False
@@ -416,6 +429,9 @@ class ClassImageDeconvMachine():
             self.blc_trc=blc_trc
             nx,ny=dirty.shape
             dirty=np.array(Ldirty).reshape((nch,npol,nx,ny))
+            
+            mask,_=pad_to_square(CurrentNegMask[0,0])
+            CurrentNegMask=mask.reshape((1,1,nx,ny))
             self.IsPadded=True
             
             # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
@@ -440,18 +456,6 @@ class ClassImageDeconvMachine():
         self.iFacet=self.PSFServer.iFacet
         #print(xc,yc,self.PSFServer.iFacet)
         
-        if self.CurrentNegMask is not None:
-            print("  using externally defined Mask (self.CurrentNegMask)", file=log)
-            CurrentNegMask=self.CurrentNegMask
-        elif self.MaskMachine:
-            print("  using MaskMachine Mask", file=log)
-            CurrentNegMask=self.MaskMachine.CurrentNegMask
-        elif self._MaskArray is not None:
-            print("  using externally defined Mask (self._MaskArray)", file=log)
-            CurrentNegMask=self._MaskArray
-        else:
-            print("  not using a mask", file=log)
-            CurrentNegMask=None
 
         psf_app=self.PSFServer.DicoVariablePSF["CubeVariablePSF"][self.iFacet]
         psf_int=self.PSFServer.DicoVariablePSF["PeakNormed_CubeVariablePSF"][self.iFacet]
@@ -594,11 +598,60 @@ class ClassImageDeconvMachine():
                 CO=ClassOrieux.ClassOrieux(Ag,B,ARMS[ch])
                 #CO=ClassOrieux.ClassOrieux(dirty[ch,0,:,:], psf[ch,0,:,:])
 
-                model=CO.Deconv(niter=100,
-                                hyper="auto",
-                                Mode="Huber")
-                model/=G
 
+                ModeHuber="Huber"
+                if self.GD["MultiSliceDeconv"]["ForcePositiveModel"]:
+                    ModeHuber="HuberPos"
+                    
+                model=CO.Deconv(niter=100,
+                                hyper=10**self.GD["MultiSliceDeconv"]["HyperSmooth"],
+                                Mode=ModeHuber)
+                model/=G
+                model0=model
+                CFL=ClassFitLevels.ClassFitLevels(A,B,model,CurrentNegMask[0,0,s_dirty_cut,s_dirty_cut])
+                model=CFL.solve()
+
+                if DOPLOT:
+                    fig=pylab.figure("FitLevels_Isl%i_ch%i"%(self.iIsland,ch),figsize=(7,5))
+                    Mc0=fftconvolve(model0,B, mode='same')
+                    Mc1=fftconvolve(model,B, mode='same')
+                    R0=A-Mc0
+                    R1=A-Mc1
+                    fig.clf()
+                    npx,npy=4,2
+                    iPlot=1
+                    pylab.subplot(npx,npy,iPlot); iPlot+=1
+                    pylab.imshow(A*CFL.W)
+                    pylab.title("Dirty %i"%self.iIsland)
+                    pylab.subplot(npx,npy,iPlot); iPlot+=1
+                    pylab.imshow(B)
+                    pylab.title("PSF")
+
+                    if False:
+                        pylab.subplot(npx,npy,iPlot); iPlot+=1
+                        pylab.imshow(np.abs(CO.fAsc))
+                        pylab.title("Masked FT(Dirty)")
+                        pylab.subplot(npx,npy,iPlot); iPlot+=1
+                        pylab.imshow(np.abs(CO.ffAsc))
+                        pylab.title("iFT(Masked FT(Dirty))\n(%f,%f)"%(CO.fSNR,CO.hyper))
+                        FX,FY=CO.FXFY
+                        df=np.sqrt(FX**2+FY**2)
+                        axp=pylab.subplot(npx,npy, iPlot); iPlot+=1
+                        pylab.scatter(df.ravel(),np.log10(np.abs(CO.fAs)),alpha=0.1)
+                        pylab.subplot(npx, npy, iPlot,
+                                      sharex=axp, sharey=axp); iPlot+=1
+                        pylab.scatter(df.ravel(),np.log10(np.abs(CO.fBs)),alpha=0.1)
+
+                    pylab.subplot(npx,npy,iPlot); iPlot+=1
+                    pylab.imshow(R0*CFL.W)
+                    pylab.title("Resid")
+                    pylab.subplot(npx,npy,iPlot); iPlot+=1
+                    pylab.title("Resid scaled")
+                    pylab.imshow(R1*CFL.W)
+                    pylab.draw()
+                    pylab.show()
+                    fig.savefig("PNG/FitLevels_Major%i_Isl%i.png"%(iMajor,self.iIsland))
+                
                 # Arms=np.zeros_like(A)+np.random.randn(*A.shape)*ThisRMS
                 # Arms_c=scipy.signal.convolve2d(Arms,psf_int[ch,0], mode='same')
                 # Arms_c*=ThisRMS/np.std(Arms_c)
@@ -618,19 +671,19 @@ class ClassImageDeconvMachine():
                 #                     )
                 # #model_rms/=(fracZero)
                 
-                # # #################
-                # Bconv=B
-                # Bconv=psf_int
-                # Resid=A-fftconvolve(model,B, mode='same')
-                # mResid=np.median(Resid)
-                # if mResid<0:
-                #     A1=model.copy()
-                #     M=(A1!=0)
-                #     A1[M]=1
-                #     Mc=fftconvolve(A1,B, mode='same')
-                #     Bias2=mResid/np.median(Mc[M])
-                #     model[M]+=Bias2
-                # # #################
+                # #################
+                Bconv=B
+                Bconv=psf_int
+                Resid=A-fftconvolve(model,B, mode='same')
+                mResid=np.median(Resid)
+                if mResid<0:
+                    A1=model.copy()
+                    M=(A1!=0)
+                    A1[M]=1
+                    Mc=fftconvolve(A1,B, mode='same')
+                    Bias2=mResid/np.median(Mc[M])
+                    model[M]+=Bias2
+                # #################
 
                 model_c=fftconvolve(model,B, mode='same')
                 Resid=A-model_c
@@ -1134,7 +1187,7 @@ class ClassImageDeconvMachine():
         os.system("mkdir -p PNG")
         
         #A,B=dirty[:,0,s_dirty_cut,s_dirty_cut].copy(), psf[:,0,s_psf_cut,s_psf_cut].copy()
-        np.savez("PNG/AB_Major%i_%i_%i.npz"%(iMajor,xcc,ycc),
+        np.savez("PNG/AB_Major%i_Isl%i.npz"%(iMajor,self.iIsland),
                  LAB=LAB,
                  Asave=Asave,Bsave=Bsave,
                  s_dirty_cut=s_dirty_cut,
@@ -1440,4 +1493,3 @@ class ClassImageDeconvMachine():
 
         return CoefImage
     
-
