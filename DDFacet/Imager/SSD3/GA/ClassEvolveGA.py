@@ -26,7 +26,9 @@ from DDFacet.Other import ModColor
 log=logger.getLogger("ClassEvolveGA")
 import pylab
 from scipy.optimize import minimize
+import os
 
+DOPLOT=1
 DOPLOT=0
 DISABLE_TIMEIT=True
 
@@ -127,10 +129,10 @@ class ClassEvolveGA():
         
         ListPixParms=ThisPixList
         ListPixData=ThisPixList
-        dx=self.GD["SSDClean"]["NEnlargeData"]
-        if dx>0:
-            IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland(self.MaskMachine.CurrentNegMask)
-            ListPixData,_=IncreaseIslandMachine.IncreaseIsland(ListPixData,AllowMasked=True,dx=dx)
+        # dx=self.GD["SSDClean"]["NEnlargeData"]
+        # if dx>0:
+        #     IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland(self.MaskMachine.CurrentNegMask)
+        #     ListPixData,_=IncreaseIslandMachine.IncreaseIsland(ListPixData,AllowMasked=True,dx=dx)
 
             
         T.timeit("Increase")
@@ -142,7 +144,7 @@ class ClassEvolveGA():
         ##tr.print_diff()
 
 
-
+        self.iMajor=self.ImageDeconvMachine.DicoDirty["iMajorCycle"]
         self.CEv=ClassEvolveGA_SingleIsland(self._Dirty,
                                             PSF,
                                             self.FreqsInfo,
@@ -154,7 +156,8 @@ class ClassEvolveGA():
                                             iIsland=iIsland,
                                             island_dict=ThisIslandModelDict,
                                             ParallelMode=self.ParallelMode,
-                                            DicoInitIndiv=self.DicoInitIndiv
+                                            DicoInitIndiv=self.DicoInitIndiv,
+                                            iMajor=self.iMajor
                                             )
         T.timeit("Declare class")
 
@@ -210,13 +213,14 @@ class ClassEvolveGA_SingleIsland():
     def __init__(self,Dirty,PSF,FreqsInfo,ListPixData=None,ListPixParms=None,IslandBestIndiv=None,GD=None,
                  WeightFreqBands=None,PixVariance=1e-2,iFacet=0,iIsland=None,island_dict=None,
                  ParallelMode=None,
-                 DicoInitIndiv=None):
+                 DicoInitIndiv=None,
+                 iMajor=None):
         self.DicoInitIndiv=DicoInitIndiv
         self.ParallelMode=ParallelMode
         if GD["Misc"]["RandomSeed"] is not None:
             random.seed(int(GD["Misc"]["RandomSeed"]))
             np.random.seed(int(GD["Misc"]["RandomSeed"]))
-            
+        self.iMajor=iMajor
         _,_,NPixPSF,_ = PSF.shape
         if ListPixData is None:
             x,y=np.mgrid[0:NPixPSF:1,0:NPixPSF:1]
@@ -413,14 +417,14 @@ class ClassEvolveGA_SingleIsland():
             pop_init=pop
             if DOPLOT:
                 os.system("mkdir PNG")
-                for iChannel in range(1):
+                NFreqBands=self.ArrayMethodsMachine.NFreqBands
+                for iChannel in range(NFreqBands):
                     for iType in range(len(pop_init)):
-                        iIter=0
                         fig=pylab.figure("Plot indiv",figsize=(10,6))
                         pylab.clf()
                         self.ArrayMethodsMachine.PlotChannel(pop_init[iType:iType+1],0,iChannel=iChannel)
                         while True:
-                            FName="PNG/Fig_Ch%i_Type%i_Iter%i.png"%(iChannel,iType,iIter)
+                            FName="PNG/GA_Ch%i_Type%i_iMajor%i.png"%(iChannel,iType,self.iMajor)
                             if not os.path.isfile(FName):
                                 break
                             iIter+=1
@@ -480,6 +484,8 @@ class ClassEvolveGA_SingleIsland():
                 #self.ArrayMethodsMachine.PlotChannel([V],0,iChannel=iChannel)
                 
                 self.ArrayMethodsMachine.stopWorkers()
+                
+                
                 return V
             T.timeit("N=0")
 

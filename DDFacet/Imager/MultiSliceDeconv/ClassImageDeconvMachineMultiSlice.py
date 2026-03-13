@@ -58,7 +58,7 @@ from DDFacet.Other import Verbose
 from DDFacet.ToolsDir import GeneDist
 
 DOPLOT=True
-#DOPLOT=False
+DOPLOT=False
 
 def Gaussian2D(x,y,GaussPar=(1.,1.,0)):
     d=np.sqrt(x**2+y**2)
@@ -942,39 +942,57 @@ class ClassImageDeconvMachine():
         MM=MM/meanMM
         
         MM=MM.reshape((1,nx*ny,nch))
+        ind_MMNonZero=np.where(np.any(MM[0]!=0,axis=-1))[0]
+        MMs=MM[:,ind_MMNonZero,:]
         FF=self.DicoFreqBandToTaylor["FreqBandToTaylor_FluxVec"][self.iFacet]
         NComb,NParm=self.DicoFreqBandToTaylor["FreqBandToTaylor_ParmVec"].shape
         FF=FF.reshape((NComb,1,nch))
         
         #R=(MM-FF)
         
-        RsizeBytes=NComb*nx*ny*nch*4
+        RsizeBytes=NComb*ind_MMNonZero.size*nch*4
         RsizeMBytes=RsizeBytes/1e6
         ChunkMaxMBytes=10.
 
         NChunk=np.min([int(RsizeMBytes//ChunkMaxMBytes)+1,NComb])
         rows=np.uint32(np.linspace(0,NComb,NChunk+1))
-        AChi2Min=np.zeros((nx,ny),np.float32)
-        AindComb=np.zeros((nx,ny),np.uint32)
+        # AChi2Min=np.zeros((nx,ny),np.float32)
+        # AindComb=np.zeros((nx,ny),np.uint32)
+        
+        AChi2Min=np.zeros((ind_MMNonZero.size,),np.float32)
+        AindComb=np.zeros((ind_MMNonZero.size,),np.uint32)
+        
         for iChunk in range(NChunk):
+            T.reinit()
             row0,row1=rows[iChunk],rows[iChunk+1]
-            R=(MM-FF[row0:row1])/ARMS.reshape((1,1,-1))
+            #R=(MM-FF[row0:row1])/ARMS.reshape((1,1,-1))
+            R=(MMs-FF[row0:row1])/ARMS.reshape((1,1,-1))
+            T.timeit("--- R")
             # print("DSLKFJSDKJF [%i/%i] %i-%i: %s (%5.2f MBytes / %5.2f max)"%(iChunk,NChunk,row0,row1,
             #                                                                 str(R.shape),R.nbytes/1e6,ChunkMaxMBytes))
+            #Chi2=np.sum(R**2,axis=-1)
             Chi2=np.sum(R**2,axis=-1)
-            Chi2Min=np.min(Chi2,axis=0).reshape((nx,ny))
-            indComb=np.argmin(Chi2,axis=0).reshape((nx,ny))+row0
+            T.timeit("--- Chi2")
+            Chi2Min=np.min(Chi2,axis=0)#.reshape((nx,ny))
+            T.timeit("--- Chi2Min")
+            indComb=np.argmin(Chi2,axis=0)+row0
+            #indComb=np.argmin(Chi2,axis=0).reshape((nx,ny))+row0
+            T.timeit("--- indComb")
             
             if iChunk==0:
-                AChi2Min[:,:]=Chi2Min
-                AindComb[:,:]=indComb
+                AChi2Min[:]=Chi2Min[:]
+                AindComb[:]=indComb[:]
             else:
-                indx,indy=np.where(Chi2Min<AChi2Min)
+                indx,=np.where(Chi2Min<AChi2Min)
                 if indx.size==0: continue
-                AChi2Min[indx,indy]=Chi2Min[indx,indy]
-                AindComb[indx,indy]=indComb[indx,indy]
+                AChi2Min[indx]=Chi2Min[indx]
+                AindComb[indx]=indComb[indx]
+            T.timeit("--- if,else")
 
-        indComb=AindComb.ravel()
+        
+        AindComb2D=np.zeros((nx,ny),np.uint32)
+        AindComb2D.flat[ind_MMNonZero]=AindComb.flat[:]
+        indComb=AindComb2D.ravel()
         
         CoefImage2=self.DicoFreqBandToTaylor["FreqBandToTaylor_ParmVec"][indComb].copy()
         # CoefImage20=CoefImage2.copy().T.reshape((NParm,1,nx,ny))

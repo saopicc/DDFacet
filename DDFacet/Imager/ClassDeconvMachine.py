@@ -776,8 +776,8 @@ class ClassImagerDeconv():
         if self.GD["Output"]["Mode"] == 'Dirty' and self.GD["Predict"]["InitDicoModel"] is not None:
             FacetMachineNpix=self.FacetMachine.Npix_x,self.FacetMachine.Npix_y
             if self.ModelMachine.DicoSMStacked['ModelShape'][-2:] != FacetMachineNpix:
-                raise ValueError("Your DicoModel has incorrect shape. Expected %i pixels but "
-                                 "got %i"%(self.FacetMachine.Npix, self.ModelMachine.DicoSMStacked['ModelShape'][-1]))
+                raise ValueError("Your DicoModel has incorrect shape. Expected %s pixels but "
+                                 "got %s"%(str(self.FacetMachine.Npix), str(self.ModelMachine.DicoSMStacked['ModelShape'][-2:])))
 
         current_model_freqs = np.array([])
         ModelImage = None
@@ -1484,6 +1484,11 @@ class ClassImagerDeconv():
                     ThisCoefImage=DicoComp["Weights"].reshape((1,1,nx,ny))
                     self.FacetMachine.ToCasaImage(ThisCoefImage,
                                                   ImageName="%s.TaylorW.%2.2i"%(self.BaseName,iMajor),
+                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts(),
+                                                  Fits=True)
+                    ThisCoefImage=self.ModelMachine.MaskZero.reshape((1,1,nx,ny))
+                    self.FacetMachine.ToCasaImage(ThisCoefImage,
+                                                  ImageName="%s.MaskZero.%2.2i"%(self.BaseName,iMajor),
                                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts(),
                                                   Fits=True)
                     ThisResidImage=DicoComp.get("CurrentResid",None)

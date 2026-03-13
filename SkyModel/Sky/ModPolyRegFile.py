@@ -32,22 +32,10 @@ def value_to_rgb(val, cmap=DS9_CMAP):
     return cmap[-1][1]
 
 
-def island_to_polygons(filename,Lpixels, nxny=None):
-    if os.path.exists(filename):
-        os.system("rm %s"%filename)
-    nx,ny=nxny
-    for ipixels,pixels in enumerate(Lpixels):
-        polygons=island_to_polygons_single(pixels,nx,ny)#, contour_value)
-        write_ds9_region(filename, polygons, one_indexed=True,
-                         header=(ipixels==0),label="Isl %i"%ipixels)
-    
-
-
-
 import matplotlib.pyplot as plt
 
 
-def island_to_polygons_single(pixels,nxin,nyin):
+def island_to_polygons_single(pixels,nxin,nyin,weights=None):
     """
     Convert a list of (x, y) island pixels into a single ordered polygon
     using matplotlib contour (no plotting, no private API).
@@ -55,7 +43,8 @@ def island_to_polygons_single(pixels,nxin,nyin):
     Returns:
         Nx2 numpy array of (x, y) vertices.
     """
-    pixels = np.asarray(pixels)
+    pixels = np.asarray(pixels).copy()
+    
     pixels[:,0]=nxin-pixels[:,0]
     
     # Bounding box
@@ -67,29 +56,43 @@ def island_to_polygons_single(pixels,nxin,nyin):
 
     mask = np.zeros((ny, nx), dtype=float)
 
-    for x, y in pixels:
-        mask[y - min_xy[1] + 1, x - min_xy[0] + 1] = 1.0
+    npixels=len(pixels)
+    for ipix in range(npixels):
+        x, y=pixels[ipix]
+        w=1.
+        if weights is not None:
+            w=weights[ipix]
+        mask[y - min_xy[1] + 1, x - min_xy[0] + 1] = w
 
     # Create contour without displaying anything
-    fig = plt.figure()
-    cs = plt.contour(mask, levels=[0.5])
-    plt.close(fig)
+    def givePoly(mask,level=0.99):
+        fig = plt.figure()
+        level=level*mask.max()
+        cs = plt.contour(mask, levels=[level])
+        plt.close(fig)
+        if not cs.allsegs or not cs.allsegs[0]:
+            return None
 
-    if not cs.allsegs or not cs.allsegs[0]:
-        return None
+        polygon = cs.allsegs[0][0]
 
-    polygon = cs.allsegs[0][0]
+        # Shift back to original coordinates
+        polygon[:, 0] += min_xy[0] - 1
+        polygon[:, 1] += min_xy[1] - 1
+        return polygon
+    
+    polygon2=givePoly(mask,0.99)
+    polygon1=givePoly(mask,0.5)
+    polygon0=givePoly(mask,0.1)
+    
+    return polygon0,polygon1,polygon2
 
-    # Shift back to original coordinates
-    polygon[:, 0] += min_xy[0] - 1
-    polygon[:, 1] += min_xy[1] - 1
-
-    return polygon
-
-def write_ds9_region(filename, polygons, one_indexed=True,header=True,label=None):
+def write_ds9_region(filename, polygons, one_indexed=True,header=True,label=None,color="green",width=2):
     """
     Write DS9 region file with per-polygon RGB colors.
     """
+
+
+    
     with open(filename, "a") as f:
         if header:
             f.write("# Region file format: DS9 version 4.1\n")
@@ -103,12 +106,31 @@ def write_ds9_region(filename, polygons, one_indexed=True,header=True,label=None
             
         flat = ",".join(f"{x:.3f},{y:.3f}" for x, y in polygons)
         #f.write(f"polygon({flat}) # color={r} {g} {b}\n")
-        f.write(f"polygon({flat}) \n")
+        f.write(f"polygon({flat}) # color=%s width=%i \n"%(color,width))
 
         if label is not None:
             xc,yc=np.mean(polygons,axis=0)
             f.write("point(%.1f,%.1f) # point=cross text={%s} \n"%(xc,yc,label))
         
+
+def island_to_polygons(filename,Lpixels_nonIncreased, Lpixels, nxny=None,W=None):
+    if os.path.exists(filename):
+        os.system("rm %s"%filename)
+    nx,ny=nxny
+    for ipixels,pixels in enumerate(Lpixels):
+        
+        pixels=Lpixels_nonIncreased[ipixels]
+        _,_,polygons=island_to_polygons_single(pixels,nx,ny)#, contour_value)
+        write_ds9_region(filename, polygons, header=(ipixels==0),label="Isl %i"%ipixels,width=3,color="red")
+        
+        pixels=Lpixels[ipixels]
+        polygons2,polygons1,polygons0=island_to_polygons_single(pixels,nx,ny,weights=W[ipixels])#, contour_value)
+        write_ds9_region(filename, polygons0, header=False,width=3)
+        write_ds9_region(filename, polygons1, header=False,width=2)
+        write_ds9_region(filename, polygons2, header=False,width=1)
+    
+
+
 
 # Example
 def test():
@@ -119,8 +141,19 @@ def test():
     ]
     
     S=np.load("IslandsMajor1.npz",allow_pickle=1)
-    Lxy=S["ListIslandsNotIncreased"]
-    nxny=S["nxny"]
-
-    polygons = island_to_polygons(filename,Lxy,nxny=nxny)
+    nx,ny=nxny=S["nxny"]
+    ListAllIslands=S["ListAllIslands"]
+    ListAllSpacialWeight=S["ListAllSpacialWeight"]
+    ListIslandsNotIncreased=S["ListIslandsNotIncreased"]
+    
+    #polygons = island_to_polygons(filename,Lxy,nxny=nxny)
+    polygons = island_to_polygons("island.reg",ListIslandsNotIncreased,ListAllIslands, nxny=(nx,ny),W=ListAllSpacialWeight)
     #write_ds9_region("island.reg", polygons)
+    
+    # np.savez("IslandsMajor%i.npz"%self.DicoDirty["iMajorCycle"],
+    #          ListAllIslands=self.ListAllIslands,
+    #          ListAllSpacialWeight=self.ListAllSpacialWeight,
+    #          ListIslandsNotIncreased=self.ListIslandsNotIncreased,
+    #          nxny=(nx,ny))
+        
+        

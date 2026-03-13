@@ -52,6 +52,7 @@ import traceback
 import SkyModel.Sky.ModPolyRegFile
 from DDFacet.Other import Verbose
 import warnings
+import hashlib
 
 # from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 
@@ -65,7 +66,7 @@ SERIAL=True
 SERIAL=False
 
 ISLAND_DEBUG=None
-ISLAND_DEBUG=608
+#ISLAND_DEBUG=584
 if ISLAND_DEBUG is not None:
     SERIAL=True
     
@@ -94,6 +95,7 @@ class ClassImageDeconvMachine():
         self.NCPU=NCPU
         self.GD=copy.deepcopy(GD)
         self.iMajorCycle=None
+        self.HashMask=None
         
         from DDFacet.Imager.MultiFields.AppendSubFieldInfo import AppendSubFieldInfo
         AppendSubFieldInfo(self)
@@ -323,53 +325,57 @@ class ClassImageDeconvMachine():
         if self.GD["SSD3"]["UniqueIsland"]:
             NegMask=np.zeros((self.DicoDirty["MeanImage"].shape),bool)
         else:
-            #Mask = (self.MaskMachine.CurrentMask | ModelMask)
-            #NegMask = (Mask==0)
+            # Mask = (self.MaskMachine.CurrentMask | ModelMask)
+            # NegMask = (Mask==0)
             NegMask=self.MaskMachine.CurrentNegMask
         ModelMask=self.ModelMachine.giveMask_nonZeroModel()
-            
         
         IslandDistanceMachine=ClassIslandDistanceMachine.ClassIslandDistanceMachine(self.GD,
-                                                                                    NegMask,#self.MaskMachine.CurrentNegMask,
+                                                                                    NegMask,
                                                                                     self.PSFServer,
                                                                                     self.DicoDirty,
                                                                                     IdSharedMem=self.IdSharedMem)
-        ListIslands=IslandDistanceMachine.SearchIslands(Threshold)
-        # FluxIslands=[]
-        # for iIsland in range(len(ListIslands)):
-        #     x,y=np.array(ListIslands[iIsland]).T
-        #     FluxIslands.append(np.sum(Dirty[0,0,x,y]))
-        # ind=np.argsort(np.array(FluxIslands))[::-1]
+        
+        def array_hash(a):
+            return hashlib.md5(a.tobytes()).hexdigest()
 
-        # _,_,nx,ny=self._Dirty.shape
-        # self.iIslandImage=np.zeros_like(self._Dirty)
-        # for i in range(0,nx,5):
-        #     print("%i/%i"%(i,nx))
-        #     for j in range(0,ny,5):
-        #         FacetID=self.PSFServer.giveFacetID2(i,j)
-        #         self.iIslandImage[:,:,i,j]=FacetID
+        HashMask=array_hash(NegMask)
+        if self.HashMask==HashMask:
+            log.print("Current Island set hash is same than stored one, skipping computing islands...")
+        else:
+            if self.HashMask is None:
+                log.print("Compute islands from mask for the first time...")
+            else:
+                log.print("Current Mask hash is different than stored one, computing islands...")
                 
-        # ListIslandsSort=[ListIslands[i] for i in ind]
-        
+            self.HashMask=HashMask
+            ListIslands=IslandDistanceMachine.SearchIslands(Threshold)
 
-        # ListIslands=self.CalcCrossIslandFlux(ListIslandsSort)
-
-        
-        #ListIslands=[np.load("errIsland_000524.npy").tolist()]
-
-        if not self.GD["SSD3"]["UniqueIsland"]:
-            ListIslands=IslandDistanceMachine.CalcCrossIslandFlux(ListIslands)
-            if self.GD["SSD3"]["ConvexifyIslands"]:
-                ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
+            if not self.GD["SSD3"]["UniqueIsland"]:
+                ListIslands=IslandDistanceMachine.CalcCrossIslandFlux(ListIslands)
+                if self.GD["SSD3"]["ConvexifyIslands"]:
+                    ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
             
-        # ListIslands=IslandDistanceMachine.MergeIslands(ListIslands)
-        ListIslands=IslandDistanceMachine.BreakLargeIslands(ListIslands)
-
+            ListIslands=IslandDistanceMachine.BreakLargeIslands(ListIslands)
+            self.ListIslandsNotIncreased_nonFluxFiltered=copy.deepcopy(ListIslands)
+            ListIslands,ListSpacialWeight=IslandDistanceMachine.IncreaseIslands(ListIslands)
+            self.ListIslands_nonFluxFiltered=copy.deepcopy(ListIslands)
+            self.ListSpacialWeight_nonFluxFiltered=copy.deepcopy(ListSpacialWeight)
+            
+            
+        _,_,nx,ny=self._Dirty.shape
+        ListIslands=copy.deepcopy(self.ListIslands_nonFluxFiltered)
+        ListSpacialWeight=copy.deepcopy(self.ListSpacialWeight_nonFluxFiltered)
+        ListIslandsNotIncreased=copy.deepcopy(self.ListIslandsNotIncreased_nonFluxFiltered)
+                        
         # #############################
         # Filter by peak flux 
-        ListIslandsFiltered=[]
+        log.print("Filter islands based on flux density...")
+        ListIslands_Filtered=[]
+        ListSpacialWeight_Filtered=[]
+        ListIslandsNotIncreased_Filtered=[]
+        
         Dirty=self.DicoDirty["MeanImage"]
-        log.print("Filter islands...")
         N_PixelInCurrentModel,N_Th=0,0
         
         for iIsland in range(len(ListIslands)):
@@ -383,19 +389,20 @@ class ClassImageDeconvMachine():
             N_PixelInCurrentModel+=C_PixelInCurrentModel
             N_Th+=C_Th
             if C_Th or C_PixelInCurrentModel:
-                ListIslandsFiltered.append(ListIslands[iIsland])
-        print("  selected %i islands [out of %i] with peak flux > %.3g Jy [%i], or with pixel in previous ModelMachine [%i]"%(len(ListIslandsFiltered),len(ListIslands),Threshold, N_Th, N_PixelInCurrentModel), file=log)
-        if len(ListIslandsFiltered)==0:
+                ListIslands_Filtered.append(ListIslands[iIsland])
+                ListSpacialWeight_Filtered.append(ListSpacialWeight[iIsland])
+                ListIslandsNotIncreased_Filtered.append(ListIslandsNotIncreased[iIsland])
+                
+        print("  selected %i islands [out of %i] with peak flux > %.3g Jy [%i], or with pixel in previous ModelMachine [%i]"%(len(ListIslands_Filtered),len(ListIslands),Threshold, N_Th, N_PixelInCurrentModel), file=log)
+        if len(ListIslands_Filtered)==0:
             return "NoIslands"
-        ListIslands=ListIslandsFiltered
+        ListIslands=ListIslands_Filtered
+        ListSpacialWeight=ListSpacialWeight_Filtered
+        ListIslandsNotIncreased=ListIslandsNotIncreased_Filtered
         # #############################
         
         self.LabelIslandsImage=IslandDistanceMachine.CalcLabelImage(ListIslands)
 
-        self.ListIslandsNotIncreased=ListIslands
-        ListIslands,ListSpacialWeight=IslandDistanceMachine.IncreaseIslands(ListIslands)
-
-        #ListSpacialWeight_App=[]
         for Island,W in zip(ListIslands,ListSpacialWeight):
             x,y=Island.T
             xc=int(np.mean(x))
@@ -405,12 +412,7 @@ class ClassImageDeconvMachine():
             
         
 
-        self.ListAllIslands=ListIslands
-        self.NIslands=len(self.ListAllIslands)
-
         print("Sorting islands by size", file=log)
-        #Sz=np.array([len(self.ListAllIslands[iIsland]) for iIsland in range(self.NIslands)])
-        #ind=np.argsort(Sz)[::-1]
         def f(Isl): return len(Isl)
         def g(Isl):
             x,y=np.array(Isl).T
@@ -418,31 +420,33 @@ class ClassImageDeconvMachine():
         def h(Isl):
             x,y=np.array(Isl).T
             return np.mean(y)
-        lst=self.ListAllIslands
+        lst=ListIslands
         ind = sorted(range(len(lst)), key=lambda i: (f(lst[i]), g(lst[i]), h(lst[i])))
         ind=ind[::-1]
-        ListIslandsOut=[self.ListAllIslands[i] for i in ind]
         
-        self.ListAllIslands=ListIslandsOut#[100::10][0:1]
+        self.ListAllIslands=[ListIslands[i] for i in ind]
         self.ListAllSpacialWeight=[ListSpacialWeight[i] for i in ind]
-        self.ListIslandsNotIncreased=[self.ListIslandsNotIncreased[i] for i in ind]
+        self.ListIslandsNotIncreased=[ListIslandsNotIncreased[i] for i in ind]
 
-        # self.ListAllIslands=self.ListAllIslands[0:1]
-        # self.ListAllSpacialWeight=self.ListAllSpacialWeight[0:1]
-        # self.ListIslandsNotIncreased=self.ListIslandsNotIncreased[0:1]
-        
         self.NIslands=len(self.ListAllIslands)
         
+        
         _,_,nx,ny=self._Dirty.shape
+        
         filename="%s.IslandsSSD.%2.2i.reg"%(self.GD["Output"]["Name"],self.DicoDirty["iMajorCycle"])
         log.print("Saving selected islands reg file: %s"%filename)
-        polygons = SkyModel.Sky.ModPolyRegFile.island_to_polygons(filename,self.ListIslandsNotIncreased, nxny=(nx,ny))
+        polygons = SkyModel.Sky.ModPolyRegFile.island_to_polygons(filename,
+                                                                  self.ListIslandsNotIncreased,
+                                                                  self.ListAllIslands,
+                                                                  nxny=(nx,ny),
+                                                                  W=self.ListAllSpacialWeight)
         
         # np.savez("IslandsMajor%i.npz"%self.DicoDirty["iMajorCycle"],
         #          ListAllIslands=self.ListAllIslands,
         #          ListAllSpacialWeight=self.ListAllSpacialWeight,
         #          ListIslandsNotIncreased=self.ListIslandsNotIncreased,
         #          nxny=(nx,ny))
+        
 
 
 
@@ -645,6 +649,7 @@ class ClassImageDeconvMachine():
                 ParallelMode="PerIsland"
             else:
                 ParallelMode="OverIslands"
+            ParallelMode="OverIslands"
             fRun=self._initIslandExceptionFree
             if SERIAL:
                 fRun=self._initIsland
@@ -764,8 +769,8 @@ class ClassImageDeconvMachine():
             log.print("  Reinit islands in ModelMachine...")
 
             #print("FDLSJKFDJKSDFJJ")
-            self.ModelMachine.reinitIslands(self.ListIslandsNotIncreased)
-            #self.ModelMachine.reinitIslands(self.ListAllIslands)
+            self.ModelMachine.reinitIslands(self.ListIslandsNotIncreased,self.MeanJonesNorm)
+            #self.ModelMachine.reinitIslands(self.ListAllIslands,self.MeanJonesNorm)
             DOSTOP=0
             log.print("  Update islands...")
             for iIsland in sorted(list(DicoIslandsOut.keys())):
@@ -782,14 +787,14 @@ class ClassImageDeconvMachine():
                     Cflux=(np.count_nonzero(np.abs(MM)>10)>0)
                     if Cnan or Cinf or Cflux:
                         DOSTOP=1
-                        print("FDLDFLDFKJDFK",self.DicoDirty["iMajorCycle"],iIsland)
-                        print("FDLDFLDFKJDFK",self.DicoDirty["iMajorCycle"],iIsland)
-                        print("FDLDFLDFKJDFK",self.DicoDirty["iMajorCycle"],iIsland)
-                        print("FDLDFLDFKJDFK",self.DicoDirty["iMajorCycle"],iIsland)
-                        print("FDLDFLDFKJDFK",self.DicoDirty["iMajorCycle"],iIsland)
-                        print("FDLDFLDFKJDFK",Cnan, Cinf, Cflux)
-                        print("FDLDFLDFKJDFK",Cnan, Cinf, Cflux)
-                        print("FDLDFLDFKJDFK",Cnan, Cinf, Cflux)
+                        # print("FDLDFLDFKJDFK",self.DicoDirty["iMajorCycle"],iIsland)
+                        # print("FDLDFLDFKJDFK",self.DicoDirty["iMajorCycle"],iIsland)
+                        # print("FDLDFLDFKJDFK",self.DicoDirty["iMajorCycle"],iIsland)
+                        # print("FDLDFLDFKJDFK",self.DicoDirty["iMajorCycle"],iIsland)
+                        # print("FDLDFLDFKJDFK",self.DicoDirty["iMajorCycle"],iIsland)
+                        # print("FDLDFLDFKJDFK",Cnan, Cinf, Cflux)
+                        # print("FDLDFLDFKJDFK",Cnan, Cinf, Cflux)
+                        # print("FDLDFLDFKJDFK",Cnan, Cinf, Cflux)
                 #     np.savez("Island%i.Major%i.npz"%(iIsland,self.DicoDirty["iMajorCycle"]),
                 #              iIsland=iIsland,
                 #              Model=Model,
@@ -831,6 +836,7 @@ class ClassImageDeconvMachine():
 
             log.print("  Renormalise...")
             self.ModelMachine.RenormaliseMultiEstimatesPerPixel()
+            self.ModelMachine.ApplyMaskIsland(self.ListIslandsNotIncreased)
             self.ModelMachine.ToFile("%s.Major%i.DicoModel"%(self.GD["Output"]["Name"],self.DicoDirty["iMajorCycle"]))
             self.ModelMachine.FitLookBackModels()
             log.print("  Done updating SSD3 ModelMachine...")

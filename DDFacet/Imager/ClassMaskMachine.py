@@ -41,6 +41,7 @@ from DDFacet.ToolsDir import GeneDist
 import scipy.stats
 from DDFacet.Array import shared_dict
 from scipy.signal import fftconvolve
+from DDFacet.Other import ClassTimeIt
 
 def OR(a,b):
     if a is None and b is None:
@@ -81,20 +82,27 @@ class ClassFilterMachine():
         #pylab.clf()
         
         for ich in range(nch):
+            T=ClassTimeIt.ClassTimeIt("ClassFilterMachine")
+            T.disable()
             A=ResidualCube[ich,0]
             fA=np.fft.fft2(A)
+            T.timeit("fft2")
             fAs=np.fft.fftshift(fA)
+            T.timeit("fftshift")
             
             s_fAs=fAs[nx//2-NMax:nx//2+NMax+1,ny//2-NMax:ny//2+NMax+1]
             
             nxx,nyy=s_fAs.shape
             
             xx,yy=np.mgrid[-(nxx//2):nxx//2+1,-(nyy//2):nyy//2+1]
+            T.timeit("np.mgrid")
             dd=np.sqrt(xx**2+yy**2)
+            T.timeit("np.sqrt")
 
         
             dds=dd.flat[:]
             s_fAss=np.abs(s_fAs.flat[:])
+            T.timeit("s_fAss")
 
             drange=np.linspace(0,dds.max())
             sig=5.
@@ -109,15 +117,18 @@ class ClassFilterMachine():
                 
                 qq=GeneDist.weighted_quantile(s_fAss[ind], np.array([0.16,0.5,0.84]), sample_weight=W)
                 L.append(qq)
+            T.timeit("drange")
             q0,q,q1=np.array(L).T
             
             Th=q0+(q1-q0)*ThFilterRFI
             ThIm=np.interp(dds.ravel(), drange, Th, left=None, right=None).reshape((nxx,nyy))
             Mask_ch=(s_fAss.reshape((nxx,nyy))>ThIm)
+            T.timeit("Mask_ch")
 
             nConv=5
             ConvMask=np.ones((nConv,nConv),np.float32)
             Mask_ch=(fftconvolve(np.float32(Mask_ch),ConvMask,mode="same")>1e-3)
+            T.timeit("fftconvolve")
             
             nn=np.count_nonzero(Mask_ch)
             log2.print("  [ch #%i] found %i masked pixels (~%.2f%%)"%(ich,nn,100*(nn/Mask_ch.size)))
@@ -132,9 +143,13 @@ class ClassFilterMachine():
             # ########################
             factBias=(Mask.size-nn)/Mask.size
             fAs[Mask]=0
+            T.timeit("fAs[Mask]")
             sfAs=np.fft.ifftshift(fAs)
+            T.timeit("sfAs")
             fsfAs=np.fft.ifft2(sfAs)
+            T.timeit("fsfAs")
             ResidualCube[ich,0,:,:]=fsfAs[:,:].real/factBias
+            T.timeit("ResidualCube")
 
 
 

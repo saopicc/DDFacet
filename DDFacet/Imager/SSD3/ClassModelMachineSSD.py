@@ -63,7 +63,7 @@ def inv_fMyScale(x,RMS=1.): return RMS*np.sinh(x*np.log(10))*2
 
 
 
-
+TH_WEIGHT=1e-3
 
 
 class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
@@ -251,7 +251,19 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         return OutArr.flatten()
 
+    def ApplyMaskIsland(self,ListIslands):
+        _,_,nx,ny=self.ModelShape
+        MaskZero=np.ones((nx,ny),bool)
+        for Island in ListIslands:
+            x,y=np.array(Island).T
+            MaskZero[x,y]=0
+        DicoComp=self.DicoSMStacked["Comp"]
+        x,y=np.where(MaskZero)
 
+        self.MaskZero=np.float32(MaskZero).reshape((1,1,nx,ny))
+        for iParam in range(self.NParam):
+            DicoComp["Vals"][iParam][x,y]=0
+    
     def AppendIsland(self,ListPixParms,V,W=None,Resid=None):
         ListPix=ListPixParms
         Vr=V.reshape((self.NParam,V.size//self.NParam))
@@ -259,9 +271,22 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         DicoComp=self.DicoSMStacked["Comp"]
         x,y=np.array(ListPix).T
+
+        ind0=np.where(Vr[0]==0)[0]
+        for iParam in range(1,self.NParam):
+            Vr[iParam,ind0]=0
+        
         for iParam in range(self.NParam):
             #Vr[iParam].fill(1)
+            # print("iParam",iParam,np.abs(Vr[iParam]).max())
+            # print("iParam",iParam,np.abs(Vr[iParam]).max())
+            # print("iParam Vals",iParam,np.abs(DicoComp["Vals"][iParam][x,y]).max())
+            # print("iParam Vals",iParam,np.abs(DicoComp["Vals"][iParam][x,y]).max())
+            # print("iParam W",np.abs(W).max())
+            # print("iParam W",np.abs(W).max())
             DicoComp["Vals"][iParam][x,y]+=W[:]*Vr[iParam]
+            # print("iParam Vals2",iParam,np.abs(DicoComp["Vals"][iParam][x,y]).max())
+            # print("iParam Vals2",iParam,np.abs(DicoComp["Vals"][iParam][x,y]).max())
             
         DicoComp["IsUnnormalized"][x,y]=1
         DicoComp["Weights"][x,y]+=W[:]
@@ -288,12 +313,12 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             Mask[0,0].flat[:]=(ImTaylor0!=0).flat[:]
         return Mask
             
-    def reinitIslands(self,ListIslands):
+    def reinitIslands(self,ListIslands,MeanJonesNorm):
+        self.MeanJonesNorm=MeanJonesNorm
         if "Comp" not in self.DicoSMStacked.keys():
             self.DicoSMStacked["Comp"]={}
             
         DicoComp=self.DicoSMStacked["Comp"]
-
         _,_,nx,ny=self.ModelShape
         if DicoComp.get("Vals",None) is None:
             DicoComp["Vals"]=np.zeros((self.NParam,nx,ny),np.float32)
@@ -302,6 +327,15 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         if DicoComp.get("IsUnnormalized",None) is None:
             DicoComp["IsUnnormalized"]=np.zeros((nx,ny),bool)
             
+        x,y=np.where(DicoComp["Weights"]<TH_WEIGHT*MeanJonesNorm[0])
+        for iParam in range(self.NParam):
+            DicoComp["Vals"][iParam][x,y]=0
+        
+        DicoComp["Weights"].fill(0)
+        indx,indy=np.where(DicoComp["Vals"][0]!=0)
+        DicoComp["Weights"][indx,indy]=MeanJonesNorm[0,indx,indy]
+        DicoComp["IsUnnormalized"].fill(0)
+        
         for Island in ListIslands:
             x,y=np.array(Island).T
             for iParam in range(self.NParam):
@@ -337,8 +371,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             
     def RenormaliseMultiEstimatesPerPixel(self):
         DicoComp=self.DicoSMStacked["Comp"]
-        x,y=np.where((DicoComp["IsUnnormalized"]==1) & (DicoComp["Weights"]>1e-3))
-
+        
+        # DicoComp["Weights"]/=self.MeanJonesNorm[0]
+        x,y=np.where((DicoComp["IsUnnormalized"]==1) & (DicoComp["Weights"]>TH_WEIGHT))
 
         for iParam in range(self.NParam):
             DicoComp["Vals"][iParam][x,y]/=DicoComp["Weights"][x,y]
@@ -349,9 +384,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 DicoComp["CurrentResid"][ich,0][x,y]/=DicoComp["Weights"][x,y]
             self.CurrentResid=DicoComp["CurrentResid"]
             
-        DicoComp["Weights"].fill(0)
-        DicoComp["Weights"][DicoComp["Vals"][0]!=0]=1
-        DicoComp["IsUnnormalized"].fill(0)
         
         if self.GD["SSD3"]["ForcePositiveModel"]:
             x,y=np.where(DicoComp["Vals"][0]<0)

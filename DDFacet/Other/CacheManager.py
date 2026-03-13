@@ -40,7 +40,7 @@ from DDFacet.Array import shared_dict
 class RemnantManager():
     def __init__(self,GD):
         self.GD=GD
-        if self.GD["Cache"]["Remnant"]:
+        if self.GD["Cache"].get("Remnant",False):
             uname=getpass.getuser()
             self.RemnantPrefix="/dev/shm/Remnant_%s"%uname
             log.print("Using remnant mode, structures will be saved in %s"%self.RemnantPrefix)

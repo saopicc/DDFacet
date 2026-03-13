@@ -382,7 +382,7 @@ class ClassInitSSDModel():
         self.DicoSubDirty['MeanImage']+=MeanConvModel
         
         # # ##########################
-        if MeanConvModel.max()>0:
+        if MeanConvModel.max()>0 and self.GD["SSD3"]["AlphaScaleModel"]:
             for ich in range(nch):
                 Im=self.DicoSubDirty["ImageCube"][ich,0].copy()
                 Im[np.logical_not(self.SubMask)]=0
@@ -397,9 +397,9 @@ class ClassInitSSDModel():
                 Alpha=np.min([Max,Alpha])
                 factScale=1./Alpha
                 self.DicoSubDirty["ImageCube"][ich]*=factScale
-                #print("DSFLMKFSDLKSDF ALPHA [%i,%i] %f"%(self.iIsland,ich,factScale))
-                #print("DSFLMKFSDLKSDF ALPHA [%i,%i] %f"%(self.iIsland,ich,factScale))
-                #print("DSFLMKFSDLKSDF ALPHA [%i,%i] %f"%(self.iIsland,ich,factScale))
+                # print("DSFLMKFSDLKSDF ALPHA [%i,%i] %f"%(self.iIsland,ich,factScale))
+                # print("DSFLMKFSDLKSDF ALPHA [%i,%i] %f"%(self.iIsland,ich,factScale))
+                # print("DSFLMKFSDLKSDF ALPHA [%i,%i] %f"%(self.iIsland,ich,factScale))
 
         # # ##########################
         

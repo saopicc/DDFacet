@@ -593,11 +593,11 @@ class ClassArrayMethodSSD():
         pylab.colorbar(im1, cax=cax1)
     
         ax2=pylab.subplot(2,3,3,sharex=ax0,sharey=ax0)
-        R=Dirty[iChannel,0]-IM[iChannel,0]
-        im2=pylab.imshow(R,interpolation="nearest")#,vmin=vmin,vmax=vmax)
+        AA=Resid[iChannel,0]
+        im2=pylab.imshow(AA,interpolation="nearest")#,vmin=vmin,vmax=vmax)
         ax2.axes.get_xaxis().set_visible(False)
         ax2.axes.get_yaxis().set_visible(False)
-        pylab.title("Residual Data\n %f %f"%(R.min(),R.max()))
+        pylab.title("Incoming\nResidual Data\n %f %f"%(AA.min(),AA.max()))
         divider2 = make_axes_locatable(ax2)
         cax2 = divider2.append_axes("right", size="5%", pad=0.05)
         pylab.colorbar(im2, cax=cax2)
@@ -618,9 +618,9 @@ class ClassArrayMethodSSD():
             pylab.colorbar(im3, cax=cax3)
     
         ax0=pylab.subplot(2,3,4)
-        AA=Resid[iChannel,0]
-        im0=pylab.imshow(AA,interpolation="nearest",vmin=vmin,vmax=vmax)
-        pylab.title("Resid\n(mm= %f %f)"%(AA.min(),AA.max()))
+        R=Dirty[iChannel,0]-IM[iChannel,0]
+        im0=pylab.imshow(R,interpolation="nearest",vmin=vmin,vmax=vmax)
+        pylab.title("GA-Fitted Resid\n(mm= %f %f)"%(AA.min(),AA.max()))
         ax0.axes.get_xaxis().set_visible(False)
         ax0.axes.get_yaxis().set_visible(False)
         divider0 = make_axes_locatable(ax0)
