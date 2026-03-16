@@ -391,7 +391,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 DicoComp["Vals"][iParam][x,y]=0
         
     def FitLookBackModels(self):
-        if self.GD["SSD3"]["NLookBackModels"]!=0 and len(self.PastModels)>=2:
+        if self.GD["SSD3"]["NLookBackModels"]!=0 and len(self.PastModels)>=4:
             log.print("Use %i past models to update..."%len(self.PastModels))
             CFPM=ClassFitPreviousModels.ClassFitPreviousModels(self)
             MeanModelPast=CFPM.avgWeighted()

@@ -198,24 +198,34 @@ class ClassFitPreviousModels():
         #Lfreqs=[freqs.copy() for iModel in range(NPastModels)]
         #Lfreqs2=np.array([freqs.copy(),freqs.copy()]).flatten()
 
+        T=ClassTimeIt.ClassTimeIt("FitPreviousModel")
         NPastModels=len(MM.PastModels)
         LResid=np.concatenate([np.array(MM.PastModels_Resid)[-NPastModels:],CurrentResid])
+        T.timeit("Concat")
         RMS0=scipy.stats.median_abs_deviation(LResid,axis=None,scale="normal")
+        T.timeit("RMS0")
         
         NBands=LResid.shape[1]
         _,NBands,_,nx,ny=LResid.shape
         
         W=np.zeros((NModels,NBands,nx,ny),np.float32)
+        T.timeit("W")
         #W=np.abs(np.random.randn(NModels,NBands,nx,ny))
         for iResid in range(NModels):
             for iBand in range(NBands):
                 RMS=scipy.stats.median_abs_deviation(LResid[iResid,iBand],axis=None,scale="normal")
+                T.timeit("  RMS")
                 aW=np.abs(LResid[iResid,iBand,0])
+                T.timeit("  aW")
                 f=.1
                 aW[aW<f*RMS]=f*RMS
+                T.timeit("  aW[aW<f*RMS]")
                 W[iResid,iBand,:,:]=(1./aW)
+                T.timeit("  1/aW")
         Wmin=np.min(np.min(W,axis=0),axis=0).reshape((1,1,nx,ny))
+        T.timeit("np.min(np.min))")
         W=W/Wmin
+        T.timeit("W/Wmin")
         
         #     Wmin=np.min(W[iResid],axis=0).reshape((1,nx,ny))
         #     W[iResid]=W[iResid]/Wmin
@@ -235,6 +245,7 @@ class ClassFitPreviousModels():
 
         factRMS=1e-3
         LModel=fMyScale(LModel,RMS=RMS0*factRMS)
+        T.timeit("LModel")
 
         
 
@@ -257,14 +268,14 @@ class ClassFitPreviousModels():
         self.x=np.array([np.log10(freqs/MM.RefFreq) for iModels in range(self.NModels)]).ravel()
         self.V0 = np.vander(self.x0, N=NTerms, increasing=True)  # Vandermonde matrix
         self.Vx = np.vander(self.x, N=NTerms, increasing=True)  # Vandermonde matrix
-            
-
+        T.timeit("vander")
         
         # M1=np.zeros((NTerms,nx,ny),np.float32)
 
         self.ShmName="DicoFitModel"
         DicoFitModel  = shared_dict.attach(self.ShmName)
         DicoFitModel.addSharedArray("M1", (NTerms,nx,ny), np.float32)
+        T.timeit("addSharedArray")
 
         #self._runFit(indx[0],indy[0])
         
@@ -283,7 +294,6 @@ class ClassFitPreviousModels():
         DicoFitModel.reload()
         M1=DicoFitModel["M1"].copy()
         DicoFitModel.delete()
-
         
         self.M1s=M1.copy()
         SGN=np.sign(M1[0])

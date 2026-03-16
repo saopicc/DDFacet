@@ -404,7 +404,7 @@ class ClassInitSSDModel():
         # # ##########################
         
         
-
+        
         
         #print "MAX=",np.max(self.DicoSubDirty['MeanImage'])
         T.timeit("2")
