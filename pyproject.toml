@@ -88,7 +88,7 @@ moresane-support = ["pymoresane >= 0.3.0"]
 fits-beam-support = ["meqtrees-cattery <= 1.7.9"]
 kms-support = ["bdsf > 1.8.15,<=1.11.1; python_version >= '3.10'",
 	           "bdsf > 1.8.15,<=1.10.1; python_version >= '3.8' and python_version < '3.10'"]
-mpi-support = ["mpi4py == 3.1.5",
+mpi-support = ["mpi4py",
                "fasteners <= 0.19"]
 alternate-data-backends = ["dask-ms[xarray]<=0.2.20",
                            "xarray<=2023.12.0"]
