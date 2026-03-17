@@ -24,7 +24,11 @@ from SkyModel.PSourceExtract import ClassIncreaseIsland
 from DDFacet.Other import logger
 from DDFacet.Other import ModColor
 log=logger.getLogger("ClassEvolveGA")
+import pylab
+from scipy.optimize import minimize
+import os
 
+DOPLOT=1
 DOPLOT=0
 DISABLE_TIMEIT=True
 
@@ -55,7 +59,7 @@ class ClassEvolveGA():
     def _runGA(self,#ListIslands,
                iIsland,
                #IslandBestIndiv,
-               DicoDirty_path,DicoPSF_path,GridFreqs,DegridFreqs):
+               DicoDirty_path,DicoPSF_path,GridFreqs,DegridFreqs,NGen,NSourceKin):
 
 
         #from pympler import tracker
@@ -119,15 +123,16 @@ class ClassEvolveGA():
         IslandBestIndiv = ThisIslandModelDict["BestIndiv"]
 
         PSF=self.CubeVariablePSF[FacetID]
-        NGen=self.GD["GAClean"]["NMaxGen"]
+        if NGen is None:
+            NGen=self.GD["GAClean"]["NMaxGen"]
         NIndiv=self.GD["GAClean"]["NSourceKin"]
-
+        
         ListPixParms=ThisPixList
         ListPixData=ThisPixList
-        dx=self.GD["SSDClean"]["NEnlargeData"]
-        if dx>0:
-            IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland(self.MaskMachine.CurrentNegMask)
-            ListPixData,_=IncreaseIslandMachine.IncreaseIsland(ListPixData,AllowMasked=True,dx=dx)
+        # dx=self.GD["SSDClean"]["NEnlargeData"]
+        # if dx>0:
+        #     IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland(self.MaskMachine.CurrentNegMask)
+        #     ListPixData,_=IncreaseIslandMachine.IncreaseIsland(ListPixData,AllowMasked=True,dx=dx)
 
             
         T.timeit("Increase")
@@ -139,7 +144,7 @@ class ClassEvolveGA():
         ##tr.print_diff()
 
 
-
+        self.iMajor=self.ImageDeconvMachine.DicoDirty["iMajorCycle"]
         self.CEv=ClassEvolveGA_SingleIsland(self._Dirty,
                                             PSF,
                                             self.FreqsInfo,
@@ -151,12 +156,17 @@ class ClassEvolveGA():
                                             iIsland=iIsland,
                                             island_dict=ThisIslandModelDict,
                                             ParallelMode=self.ParallelMode,
-                                            DicoInitIndiv=self.DicoInitIndiv
+                                            DicoInitIndiv=self.DicoInitIndiv,
+                                            iMajor=self.iMajor
                                             )
         T.timeit("Declare class")
+
+
+
         
         Model=self.CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
         T.timeit("HasRun")
+
         
         #return {"Success":False,"iIsland":iIsland,"HasError":False}
         
@@ -164,6 +174,13 @@ class ClassEvolveGA():
         if "Model" not in  list(ThisIslandModelDict.keys()):
             ThisIslandModelDict.addSharedArray("Model", Model.shape, np.float32)
         ThisIslandModelDict["Model"][:] = np.array(Model)[:]
+        
+        V=Model.ravel()
+        ConvModelArray=self.CEv.ArrayMethodsMachine.ToConvArray(V,OutMode="Parms")
+        Resid1D=self.CEv.ArrayMethodsMachine.DirtyArrayParms-ConvModelArray
+        ThisIslandModelDict.addSharedArray("Resid", Resid1D.shape, Resid1D.dtype)
+        ThisIslandModelDict["Resid"] = np.array(Resid1D)[:]
+        
         
         # from sys import getsizeof
         # print("DLKSDLSDFLSDF [%i]"%iIsland,np.array(Model).shape,getsizeof(np.array(Model)),Model.max())
@@ -184,6 +201,10 @@ class ClassEvolveGA():
         #     summary.print_(sum_obj[:10])  # Top 10 object types
         # print_object_summary()
         # print("==================================")
+
+
+
+
         
         return {"Success":True,"iIsland":iIsland,"HasError":False}
     
@@ -192,13 +213,14 @@ class ClassEvolveGA_SingleIsland():
     def __init__(self,Dirty,PSF,FreqsInfo,ListPixData=None,ListPixParms=None,IslandBestIndiv=None,GD=None,
                  WeightFreqBands=None,PixVariance=1e-2,iFacet=0,iIsland=None,island_dict=None,
                  ParallelMode=None,
-                 DicoInitIndiv=None):
+                 DicoInitIndiv=None,
+                 iMajor=None):
         self.DicoInitIndiv=DicoInitIndiv
         self.ParallelMode=ParallelMode
         if GD["Misc"]["RandomSeed"] is not None:
             random.seed(int(GD["Misc"]["RandomSeed"]))
             np.random.seed(int(GD["Misc"]["RandomSeed"]))
-            
+        self.iMajor=iMajor
         _,_,NPixPSF,_ = PSF.shape
         if ListPixData is None:
             x,y=np.mgrid[0:NPixPSF:1,0:NPixPSF:1]
@@ -231,7 +253,6 @@ class ClassEvolveGA_SingleIsland():
                                                                          island_dict=island_dict,
                                                                          ParallelMode=self.ParallelMode,
                                                                          NCPU=NCPU)
-        self.ArrayMethodsMachine.startWorkers()
 
         
 
@@ -280,6 +301,7 @@ class ClassEvolveGA_SingleIsland():
         if DISABLE_TIMEIT: T.disable()        
         #T.disable()
         self.SModelArrayMP_CLEAN=None
+        self.ArrayMethodsMachine.startWorkers()
         self.setDEAP()
         T.timeit("self.setDEAP")
         #os.system("rm png/*.png")
@@ -315,10 +337,11 @@ class ClassEvolveGA_SingleIsland():
             T=CTI("[%i] GivePolyArrayMP"%self.iIsland)
             if DISABLE_TIMEIT: T.disable()        
             #T.disable()
-            NTypeInit=len(self.DicoInitIndiv.keys())
+            LTypeInit=list(self.DicoInitIndiv.keys())
+            NTypeInit=len(LTypeInit)
             
-            if iTypeInit is None:
-                iTypeInit=int(np.random.rand(1)[0]*NTypeInit)
+            if iTypeInit is None and NTypeInit>0:
+                iTypeInit=LTypeInit[int(np.random.rand(1)[0]*NTypeInit)]
             DicoModelMP=self.DicoInitIndiv.get(iTypeInit,None)
             T.timeit("Init")
             
@@ -339,9 +362,10 @@ class ClassEvolveGA_SingleIsland():
             L=[GivePolyArrayMP_LinComb() for iIndiv in range(N)]
             DoPutNoise=np.ones((N,),bool)
             # T.timeit("GiveListPolyArrayMP_LinComb: L")
-            NTypeInit=len(self.DicoInitIndiv.keys())
+            LTypeInit=list(self.DicoInitIndiv.keys())
+            NTypeInit=len(LTypeInit)
             for iTypeInit in range(NTypeInit):
-                L[iTypeInit]=GivePolyArrayMP(iTypeInit=iTypeInit)
+                L[iTypeInit]=GivePolyArrayMP(iTypeInit=LTypeInit[iTypeInit])
                 DoPutNoise[iTypeInit]=False
                 
             # # print("VLKFSDLKSFDL")
@@ -367,16 +391,21 @@ class ClassEvolveGA_SingleIsland():
             return L,DoPutNoise
 
         def GiveInitPop():
-            NTypeInit=len(self.DicoInitIndiv.keys())
+            LTypeInit=list(self.DicoInitIndiv.keys())
+            NTypeInit=len(LTypeInit)
             L=[]
             if NTypeInit==0:
-                # run simplistic clean
-                L.append(GivePolyArrayMP())
+                if self.GD["SSD3"]["RunSimpleClean"]:
+                    # run simplistic clean
+                    L.append(GivePolyArrayMP())
+                else:
+                    # zero-individual
+                    L.append(self.IslandIndivZero)
             else:
-                for iTypeInit in range(NTypeInit):
+                for iTypeInit in LTypeInit:
                     L.append(GivePolyArrayMP(iTypeInit=iTypeInit))
 
-            if np.max(np.abs(self.IslandBestIndiv))!=0. and self.GD["GAClean"]["NSourceKin"]>0:
+            if np.max(np.abs(self.IslandBestIndiv))!=0. and self.GD["SSD3"]["PropagatePrevGen"]:
                 L.append(self.IslandBestIndiv_PolyModelArray)
                 
             pop = toolbox.population(n=len(L))
@@ -388,14 +417,14 @@ class ClassEvolveGA_SingleIsland():
             pop_init=pop
             if DOPLOT:
                 os.system("mkdir PNG")
-                for iChannel in range(1):
+                NFreqBands=self.ArrayMethodsMachine.NFreqBands
+                for iChannel in range(NFreqBands):
                     for iType in range(len(pop_init)):
-                        iIter=0
                         fig=pylab.figure("Plot indiv",figsize=(10,6))
                         pylab.clf()
                         self.ArrayMethodsMachine.PlotChannel(pop_init[iType:iType+1],0,iChannel=iChannel)
                         while True:
-                            FName="PNG/Fig_Ch%i_Type%i_Iter%i.png"%(iChannel,iType,iIter)
+                            FName="PNG/GA_Ch%i_Type%i_iMajor%i.png"%(iChannel,iType,self.iMajor)
                             if not os.path.isfile(FName):
                                 break
                             iIter+=1
@@ -410,6 +439,7 @@ class ClassEvolveGA_SingleIsland():
             if DISABLE_TIMEIT: T.disable()        
             #T.disable()
             NTypeInit=len(self.DicoInitIndiv.keys())
+            LTypeInit=list(self.DicoInitIndiv.keys())
             LInit=[]
             Nrand=np.max([1,NTypeInit])
             w=np.random.rand(Nrand)
@@ -420,7 +450,8 @@ class ClassEvolveGA_SingleIsland():
             PolyModelArrayMP=w[0]*GivePolyArrayMP(iTypeInit=0)
             T.timeit("Init1")
             for iTypeInit in range(1,Nrand):
-                PolyModelArrayMP+=w[iTypeInit]*GivePolyArrayMP(iTypeInit=iTypeInit)
+                iTypeInit2=LTypeInit[iTypeInit]
+                PolyModelArrayMP+=w[iTypeInit]*GivePolyArrayMP(iTypeInit=iTypeInit2)
             T.timeit("Init2")
             return PolyModelArrayMP
 
@@ -433,6 +464,7 @@ class ClassEvolveGA_SingleIsland():
             self.IslandBestIndiv_PolyModelArray=np.zeros((self.ArrayMethodsMachine.PM.NOrderPoly,self.ArrayMethodsMachine.PM.NPixListParms),np.float32)
             for iOrder in range(self.ArrayMethodsMachine.PM.NOrderPoly):
                 self.IslandBestIndiv_PolyModelArray[iOrder]=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"Poly%i"%iOrder)
+            self.IslandIndivZero=np.zeros((self.ArrayMethodsMachine.PM.NOrderPoly,self.ArrayMethodsMachine.PM.NPixListParms),np.float32)
             
             # SModelArrayMP,Alpha=self.ArrayMethodsMachine.DeconvCLEAN()
             # AModelArrayMP=None
@@ -449,8 +481,11 @@ class ClassEvolveGA_SingleIsland():
                 # print([ind.fitness.values for ind in pop_init])
                 V = tools.selBest(pop_init, 1)[0]
 
+                #self.ArrayMethodsMachine.PlotChannel([V],0,iChannel=iChannel)
                 
                 self.ArrayMethodsMachine.stopWorkers()
+                
+                
                 return V
             T.timeit("N=0")
 
@@ -649,3 +684,111 @@ class ClassEvolveGA_SingleIsland():
         return V
 
 
+##############################
+        # NParms=self.CEv.ArrayMethodsMachine.PM.NParam
+        # DicoInitModel=self.DicoInitIndiv
+        # if len(DicoInitModel)==0:
+        #     S,Alpha=self.CEv.ArrayMethodsMachine.DeconvCLEAN()
+        #     if NParms==1:
+        #         AModel=np.array([S]).reshape((1,1,S.size))
+        #     else:
+        #         AModel=np.zeros((NParms,S.size),np.float32)
+        #         AModel[0,:]=S
+        #         AModel[1,:]=Alpha
+        #         AModel=AModel.reshape((1,NParms,S.size))
+        # else:
+        #     AModel=np.array([DicoInitModel[iMachine] for iMachine in DicoInitModel.keys()])
+        # NModel=AModel.shape[0]
+        # NFreqBands=self.CEv.ArrayMethodsMachine.NFreqBands
+
+        # LConvModel=[]
+        # Lx0=[]
+        # for iModel,Model in enumerate(AModel):
+        #     V=Model.copy().ravel()
+        #     Model1=Model.copy()
+        #     ind=np.where(Model1[0,:]!=0)[0]
+        #     Model1[0,ind]=1
+        #     V1=Model1.ravel()
+        #     ConvModelArray=self.CEv.ArrayMethodsMachine.ToConvArray(V,OutMode="Parms")
+        #     ConvModelArray1=self.CEv.ArrayMethodsMachine.ToConvArray(V1,OutMode="Parms")
+        #     LConvModel.append([ConvModelArray1,ConvModelArray])
+        #     Lx0+=[0.,.5]
+
+        # Lx0=np.array(Lx0)
+        # SpacialWeight=ThisIslandModelDict["SpacialWeight"]
+        # SpacialWeight=SpacialWeight.reshape((1,1,-1))
+        # ARMS=np.array(self.DicoDirty["LRMS"]).reshape((-1,1,1))
+
+        # def combineModels(x):
+        #     x=x.reshape((NModel,2))
+        #     IM=np.zeros(LConvModel[0][0].shape,np.float64)
+        #     for iModel in range(NModel):
+        #         b,a=x[iModel]
+        #         B,A=LConvModel[iModel]
+        #         IM+=b*np.float64(B)+a*np.float64(A)
+        #         #IM+=a*A
+        #     return IM
+        
+        # def giveChi2(x):
+        #     x=x.reshape((NModel,2))
+        #     IM=combineModels(x)
+        #     R=np.float64(self.CEv.ArrayMethodsMachine.DirtyArrayParms)-IM
+        #     R=R/ARMS
+        #     R=R*SpacialWeight
+        #     Chi2=(np.sqrt(np.sum(R**2)))
+        #     return Chi2
+            
+        # # Dirty2D=self.CEv.ArrayMethodsMachine.PM.ModelToSquareArray(self.CEv.ArrayMethodsMachine.DirtyArray,TypeInOut=("Data","Data"))
+
+        # res = minimize(giveChi2, Lx0)#, constraints=cons)
+        # x = res.x
+        
+        # Vm=np.zeros_like(AModel[0])
+        # x=x.reshape((NModel,2))
+        # for iModel in range(NModel):
+        #     b,a=x[iModel]
+        #     V=AModel[iModel].copy()
+        #     V=V.reshape((NParms,V.size//NParms)) 
+        #     V[0,:]=(b+a*V[0,:])
+        #     Vm+=V
+
+        # if "Model" not in  list(ThisIslandModelDict.keys()):
+        #     ThisIslandModelDict.addSharedArray("Model", Model.shape, np.float32)
+        # ThisIslandModelDict["Model"][:] = np.array(Vm)[:]
+        # V=Vm.ravel()
+        # ConvModelArray=self.CEv.ArrayMethodsMachine.ToConvArray(V,OutMode="Parms")
+        # Resid1D=self.CEv.ArrayMethodsMachine.DirtyArrayParms-ConvModelArray
+        # ThisIslandModelDict.addSharedArray("Resid", Resid1D.shape, Resid1D.dtype)
+        # ThisIslandModelDict["Resid"] = np.array(Resid1D)[:]
+
+        # return {"Success":True,"iIsland":iIsland,"HasError":False}
+    
+        # # def plotModel(V,Name=""):
+        # #     ConvModelArray=self.CEv.ArrayMethodsMachine.ToConvArray(V,OutMode="Data")
+        # #     Resid1D=self.CEv.ArrayMethodsMachine.DirtyArray-ConvModelArray
+        # #     Resid2D=self.CEv.ArrayMethodsMachine.PM.ModelToSquareArray(Resid1D,TypeInOut=("Data","Data"))
+        # #     Dirty2D=self.CEv.ArrayMethodsMachine.PM.ModelToSquareArray(self.CEv.ArrayMethodsMachine.DirtyArray,TypeInOut=("Data","Data"))
+        # #     Model2D=self.CEv.ArrayMethodsMachine.PM.ModelToSquareArray(V,TypeInOut=("Parms","Parms"))
+        # #     iPlot=1
+        # #     pylab.figure("Model %s"%Name)
+        # #     for ich in range(NFreqBands):
+        # #         ax=pylab.subplot(3,NFreqBands,iPlot); iPlot+=1
+        # #         ax.imshow(Dirty2D[ich,0])
+        # #     for ich in range(NFreqBands):
+        # #         ax=pylab.subplot(3,NFreqBands,iPlot); iPlot+=1
+        # #         ax.imshow(Model2D[ich,0])
+        # #     for ich in range(NFreqBands):
+        # #         v0,v1=Dirty2D[ich,0].min(),Dirty2D[ich,0].max()
+        # #         ax=pylab.subplot(3,NFreqBands,iPlot); iPlot+=1
+        # #         #ax.imshow(Resid2D[ich,0],vmin=v0,vmax=v1)
+        # #         ax.imshow(Resid2D[ich,0])
+        # #         ax.set_title("%f %f"%(Resid2D[ich,0].min(),Resid2D[ich,0].max()))
+        # # V0=combineModels(Lx0)
+        # # plotModel(V0,"Init")
+        # # for iModel,Model in enumerate(AModel):
+        # #     V=Model.ravel()
+        # #     plotModel(V,"Model %i"%iModel)
+        # # plotModel(Vm,"Fit")
+        # # pylab.show()
+        # # stop
+        # ##################################

@@ -776,8 +776,8 @@ class ClassImagerDeconv():
         if self.GD["Output"]["Mode"] == 'Dirty' and self.GD["Predict"]["InitDicoModel"] is not None:
             FacetMachineNpix=self.FacetMachine.Npix_x,self.FacetMachine.Npix_y
             if self.ModelMachine.DicoSMStacked['ModelShape'][-2:] != FacetMachineNpix:
-                raise ValueError("Your DicoModel has incorrect shape. Expected %i pixels but "
-                                 "got %i"%(self.FacetMachine.Npix, self.ModelMachine.DicoSMStacked['ModelShape'][-1]))
+                raise ValueError("Your DicoModel has incorrect shape. Expected %s pixels but "
+                                 "got %s"%(str(self.FacetMachine.Npix), str(self.ModelMachine.DicoSMStacked['ModelShape'][-2:])))
 
         current_model_freqs = np.array([])
         ModelImage = None
@@ -1487,6 +1487,17 @@ class ClassImagerDeconv():
                                                   ImageName="%s.TaylorW.%2.2i"%(self.BaseName,iMajor),
                                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts(),
                                                   Fits=True)
+                    ThisCoefImage=self.ModelMachine.MaskZero.reshape((1,1,nx,ny))
+                    self.FacetMachine.ToCasaImage(ThisCoefImage,
+                                                  ImageName="%s.MaskZero.%2.2i"%(self.BaseName,iMajor),
+                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts(),
+                                                  Fits=True)
+                    ThisResidImage=DicoComp.get("CurrentResid",None)
+                    if ThisResidImage is not None:
+                        self.FacetMachine.ToCasaImage(ThisResidImage,
+                                                      ImageName="%s.estimated_residual%2.2i"%(self.BaseName,iMajor),
+                                                      Stokes=self.VS.StokesConverter.RequiredStokesProducts(),
+                                                      Fits=True)
 
                 
             # Broadcast metadata regarding the state of Deconvolution form the master MPI process
@@ -1529,13 +1540,12 @@ class ClassImagerDeconv():
             if user_stopped:
                 print(ModColor.Str("user stop signal (SIGUSR1) received. This will be the last major cycle"))
                 continue_deconv = False
+                
             try:
-                self.FacetMachine.ToCasaImage(self.DeconvMachine.LabelIslandsImage,
-                                              ImageName="%s.labelIslands%2.2i"%(self.BaseName,iMajor),Fits=True,
-                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-                # ModelImage = self.DeconvMachine.GiveModelImage(np.array([100e6]))
-                # self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model%2.2i"%(self.BaseName,iMajor),
-                #                               Fits=True)#,Freqs=current_model_freqs,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                if MPIManager.rank == 0:
+                    self.FacetMachine.ToCasaImage(self.DeconvMachine.LabelIslandsImage,
+                                                  ImageName="%s.labelIslands%2.2i"%(self.BaseName,iMajor),Fits=True,
+                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             except:
                 pass
 
@@ -1547,17 +1557,17 @@ class ClassImagerDeconv():
 
             # write out model image, if asked to
             current_model_freqs = model_freqs
-            if MPIManager.rank == 0:
-                print("model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max()), file=log)
-                if "o" in self._saveims:
-                    self.FacetMachine.ToCasaImage(ModelImage, ImageName="%s.model%2.2i.rank%i" % (self.BaseName, iMajor,MPIManager.rank),
-                                              Fits=True, Freqs=current_model_freqs,
-                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-                _,_,nx,ny=ModelImage.shape
-                MeanModelImage=np.mean(ModelImage,axis=0).reshape((1,1,nx,ny))
-                self.FacetMachine.ToCasaImage(MeanModelImage, ImageName="%s.mean_model%2.2i.rank%i" % (self.BaseName, iMajor,MPIManager.rank),
-                                              Fits=True, Freqs=np.array([np.mean(current_model_freqs)]),
-                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            # if MPIManager.rank == 0:
+            #     print("model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max()), file=log)
+            #     if "o" in self._saveims:
+            #         self.FacetMachine.ToCasaImage(ModelImage, ImageName="%s.model%2.2i" % (self.BaseName, iMajor,MPIManager.rank),
+            #                                   Fits=True, Freqs=current_model_freqs,
+            #                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            #     _,_,nx,ny=ModelImage.shape
+            #     MeanModelImage=np.mean(ModelImage,axis=0).reshape((1,1,nx,ny))
+            #     self.FacetMachine.ToCasaImage(MeanModelImage, ImageName="%s.mean_model%2.2i" % (self.BaseName, iMajor,MPIManager.rank),
+            #                                   Fits=True, Freqs=np.array([np.mean(current_model_freqs)]),
+            #                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             # stop
             # ###
 

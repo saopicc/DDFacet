@@ -2,13 +2,23 @@
 from __future__ import division, absolute_import, print_function
 import numpy as np
 import scipy.signal
+import pylab
+
+DOPLOT=0
 
 def test():
-    S=np.load("ListPix.npz")
-    ListPix=S["ListPix"]
-    Mask=S["Mask"]
-    CII=ClassIncreaseIsland(Mask=Mask)
-    L=CII.IncreaseIslandFFT(ListPix,dx=10)
+    S=np.load("IslandsMajor.npz",allow_pickle=True)
+    ListPix=S["ListIslands"]
+    sizes=[len(isl) for isl in ListPix]
+    ind=np.argsort(sizes)
+    ListPix=[ListPix[i] for i in ind][::-1]
+    
+    #Mask=S["Mask"]
+    CII=ClassIncreaseIsland()
+    L=CII.IncreaseIslandFFT(ListPix[-1],dx="auto",DoPlot=1)
+    #input("lala?")
+    #CII=ClassIncreaseIsland()
+    #L=CII.IncreaseIslandFFT(ListPix[-1],dx="auto",DoPlot=1)
     
 
 def Gaussian2D(x,y,GaussPar=(1.,1.,0)):
@@ -26,11 +36,21 @@ class ClassIncreaseIsland():
     def IncreaseIsland(self,*args,**kwargs):
         return self.IncreaseIslandFFT(*args,**kwargs)
 
-    def IncreaseIslandFFT(self,ListPix,dx=2,AllowMasked=True):
-        
+    def IncreaseIslandFFT(self,ListPix,dx=2,AllowMasked=True,DoPlot=False):
+        x,y=np.array(ListPix).T
+        x0=x.min()
+        y0=y.min()
+        x1=x.max()
+        y1=y.max()
+        nx=x1-x0+1
+        ny=y1-y0+1
+        if dx=="auto":
+            dx=0.2*np.max([nx,ny])
+            dx=int(np.max([2,dx]))
+            
         sx,sy=dx,dx
         GaussPar=(sx,sy,0)
-        dxy=6.
+        dxy=5.
         Nsx,Nsy=dxy*sx,dxy*sy
         xin,yin=np.mgrid[-Nsx:Nsx:(2*Nsx+1)*1j,-Nsy:Nsy:(2*Nsy+1)*1j]
         G=Gaussian2D(xin,yin,GaussPar=GaussPar)
@@ -41,17 +61,9 @@ class ClassIncreaseIsland():
         dxy=6.
         Nsx,Nsy=sx,sy
         xin,yin=np.mgrid[-Nsx:Nsx:(2*Nsx+1)*1j,-Nsy:Nsy:(2*Nsy+1)*1j]
-        G=np.float32(np.sqrt(xin**2+yin**2)<dx)
-        G/=np.sum(G)
-        
-        x,y=np.array(ListPix).T
+        C=np.float32(np.sqrt(xin**2+yin**2)<dx)
+        C/=np.sum(C)
 
-        x0=x.min()
-        y0=y.min()
-        x1=x.max()
-        y1=y.max()
-        nx=x1-x0+1
-        ny=y1-y0+1
 
         nxG,nyG=G.shape
         dx0=nxG#//2
@@ -63,15 +75,34 @@ class ClassIncreaseIsland():
         xx=x-x0+dx0
         yy=y-y0+dy0
         A[xx,yy]=1
-
         
-        Ac=scipy.signal.fftconvolve(A,G, mode='same')
+        A0=A.copy()
 
-        indx,indy=np.where(Ac>(1e-3*Ac.max()))
-        W=Ac[indx,indy]
+        Ac=scipy.signal.fftconvolve(A,C, mode='same')
+        Th=1e-2
+        Ac[Ac>Th]=1
+        Ac[Ac<Th]=0
+        # Ac/=np.max(Ac)
+        
+        Ac2=scipy.signal.fftconvolve(Ac,G, mode='same')
+        Ac2/=np.max(Ac2)
+
+
+        Ac2[Ac==1]=0
+        Ac2/=Ac2.max()
+        Ac2[Ac==1]=1
+        
+        
+        indx,indy=np.where(Ac2>(1e-2*Ac2.max()))
+        # indx,indy=np.mgrid[0:Ac2.shape[0],0:Ac2.shape[1]]
+        # indx=indx.ravel()
+        # indy=indy.ravel()
+        
+        W=Ac2[indx,indy]
         xx=indx+x0-dx0
         yy=indy+y0-dy0
 
+        
         if self.Mask is not None:
             Nx,Ny=self.Mask.shape[-2:]
             Cx=((xx>=0)&(xx<Nx))
@@ -87,19 +118,25 @@ class ClassIncreaseIsland():
             xx=xx[ind]
             yy=yy[ind]
             W=W[ind]
-
+            
         OutListPix2=np.array([xx,yy]).T
         
-        # import pylab
-        # ax=pylab.subplot(1,3,1)
-        # pylab.imshow(G)
-        # ax=pylab.subplot(1,3,2)
-        # pylab.imshow(A)
-        # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
-        # pylab.imshow(Ac)
-        # pylab.draw()
-        # pylab.show()
+        if DOPLOT or DoPlot:
+            fig=pylab.figure("EnlargeIsl")
+            fig.clf()
+            ax=pylab.subplot(1,3,1)
+            pylab.imshow(A0,vmin=0,vmax=1.)
+            pylab.subplot(1,3,2,sharex=ax,sharey=ax)
+            pylab.imshow(Ac)
+            pylab.subplot(1,3,3,sharex=ax,sharey=ax)
+            pylab.imshow(Ac2)
+            pylab.colorbar()
+            pylab.draw()
+            pylab.show(block=False)
+            pylab.pause(0.1)
+            #fig.savefig("PNG/EnlargeIsl.png")
 
+        # print("FLDSJLSDJFJ IncreaseIsland ",OutListPix2.max(),W.max())
         return OutListPix2.tolist(),W.tolist()
 
     
