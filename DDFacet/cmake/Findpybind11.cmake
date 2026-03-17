@@ -5,7 +5,7 @@
 # User may force an include path by specifying PYBIND11_INCLUDE_PATH_HINT in commandline options
 # (C) Benjamin Hugo
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.5)
 if(NOT PYTHON_EXECUTABLE)
   if(NumPy_FIND_QUIETLY)
     find_package(PythonInterp QUIET)

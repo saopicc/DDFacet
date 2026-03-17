@@ -1178,8 +1178,9 @@ class ClassImagerDeconv():
             #     raise RuntimeError("Number of pixels in FITS file (%d) does not match "
             #                        "image size (%d). Cannot continue." % (nx, npixest))
             
-            if npol != 1:
-                raise RuntimeError("Unsupported: Polarization prediction is not defined")
+            # if npol != 1:
+            #     raise RuntimeError("Unsupported: Polarization prediction is not defined")
+
             # for msi in self.VS.FreqBandChannelsDegrid:
             #     nband = self.GD["Freq"]["NDegridBand"] if self.GD["Freq"]["NDegridBand"] != 0 \
             #                                            else len(self.VS.FreqBandChannelsDegrid[msi])
@@ -1202,8 +1203,8 @@ class ClassImagerDeconv():
             # get loaded chunk from I/O thread, schedule next chunk
             # self.VS.startChunkLoadInBackground()
             DATA = self.VS.collectLoadedChunk(start_next=True, last_cycle=True)
-            if self.VS.StokesConverter.RequiredStokesProducts() != ['I']:
-                raise RuntimeError("Unsupported: Polarization prediction is not defined")
+            # if self.VS.StokesConverter.RequiredStokesProducts() != ['I']:
+            #     raise RuntimeError("Unsupported: Polarization prediction is not defined")
             if type(DATA) is str:
                 print(ModColor.Str("no more data: %s" % DATA, col="red"), file=log)
                 break

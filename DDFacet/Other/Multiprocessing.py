@@ -91,6 +91,35 @@ def cleanupStaleShm ():
     """
     Cleans up "stale" shared memory from previous runs of DDF
     """
+    # check for stale shared memory
+    uid = os.getuid()
+    # list of all files in /dev/shm/ matching ddf.PID.* and belonging to us
+    shmlist = [ ("/dev/shm/"+filename, re.match(r'(sem\.)?ddf\.([0-9]+)(\..*)?$',filename)) for filename in os.listdir("/dev/shm/")
+                if os.stat("/dev/shm/"+filename).st_uid == uid ]
+    # convert to list of filename,pid tuples
+    shmlist = [ (filename, int(match.group(2))) for filename, match in shmlist if match ]
+    # now check all PIDs to find dead ones
+    # if we get ESRC error from sending signal 0 to the process, it's not running, so we mark it as dead
+    dead_pids = set()
+    for pid in set([x[1] for x in shmlist]):
+        try:
+            os.kill(pid, 0)
+        except OSError as err:
+            if err.errno == errno.ESRCH:
+                dead_pids.add(pid)
+    # ok, make list of candidates for deletion
+    victims = [ filename for filename,pid in shmlist if pid in dead_pids ]
+    if victims:
+        print("reaping %d shared memory objects associated with %d dead DDFacet processes"%(len(victims), len(dead_pids)), file=log)
+        dirs = [ v for v in victims if os.path.isdir(v) ]
+        files = [ v for v in victims if not os.path.isdir(v) ]
+        # rm -fr only works for a limited number of arguments (which the semaphore list can easily exceed)
+        # so use os.unlink() to remove files, and rm -fr for directories
+        for path in files:
+            os.unlink(path)
+        os.system("rm -fr " + " ".join(dirs))
+        # print "rm -fr " + " ".join(victims)
+
 
     # BH possible race condition if MPI processes are running on the same node
     # use POSIX lock mechanism to force synchronize MPI-created processes
