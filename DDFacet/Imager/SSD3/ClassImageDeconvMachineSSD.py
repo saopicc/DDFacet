@@ -433,13 +433,13 @@ class ClassImageDeconvMachine():
         
         _,_,nx,ny=self._Dirty.shape
         
-        filename="%s.IslandsSSD.%2.2i.reg"%(self.GD["Output"]["Name"],self.DicoDirty["iMajorCycle"])
-        log.print("Saving selected islands reg file: %s"%filename)
-        polygons = SkyModel.Sky.ModPolyRegFile.island_to_polygons(filename,
-                                                                  self.ListIslandsNotIncreased,
-                                                                  self.ListAllIslands,
-                                                                  nxny=(nx,ny),
-                                                                  W=self.ListAllSpacialWeight)
+        # filename="%s.IslandsSSD.%2.2i.reg"%(self.GD["Output"]["Name"],self.DicoDirty["iMajorCycle"])
+        # log.print("Saving selected islands reg file: %s"%filename)
+        # polygons = SkyModel.Sky.ModPolyRegFile.island_to_polygons(filename,
+        #                                                           self.ListIslandsNotIncreased,
+        #                                                           self.ListAllIslands,
+        #                                                           nxny=(nx,ny),
+        #                                                           W=self.ListAllSpacialWeight)
         
         # np.savez("IslandsMajor%i.npz"%self.DicoDirty["iMajorCycle"],
         #          ListAllIslands=self.ListAllIslands,
@@ -744,7 +744,8 @@ class ClassImageDeconvMachine():
             ThisIslandModelDict.reload()
             DicoIslandsOut[iIsland]={"Model":ThisIslandModelDict["Model"],
                                      "Resid":ThisIslandModelDict["Resid"]}
-        if HasErrors: stop
+        # if HasErrors: stop
+        
         LDicoIslandsOut=[DicoIslandsOut]
         
         if MPIManager.useMPI: MPIManager.COMM_WORLD.Barrier()
