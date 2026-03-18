@@ -26,11 +26,53 @@ from __future__ import print_function
 from DDFacet.compatibility import range
 
 import numpy as np
-from killMS.Array import ModLinAlg
+
 
 from DDFacet.Other import logger
 log = logger.getLogger("ClassJonesDomains")
 
+#Comes from killMS/Array/ModLinAlg.py
+def BatchDot(A,B):
+    shapeOut=A.shape
+    A=A.reshape((A.size//4,2,2))
+    B=B.reshape((B.size//4,2,2))
+
+    C=np.zeros_like(A)
+    # if A.size>=B.size:
+    #     C=np.zeros_like(A)
+    #     shapeOut=A.shape
+    # else:
+    #     C=np.zeros_like(B)
+    #     shapeOut=B.shape
+
+    # print("A:",A.shape)
+    # print("B:",B.shape)
+    # print("C:",C.shape)
+    
+    a0=A[:,0,0]
+    b0=A[:,1,0]
+    c0=A[:,0,1]
+    d0=A[:,1,1]
+
+    a1=B[:,0,0]
+    b1=B[:,1,0]
+    c1=B[:,0,1]
+    d1=B[:,1,1]
+
+    C00=C[:,0,0]
+    C01=C[:,0,1]
+    C10=C[:,1,0]
+    C11=C[:,1,1]
+
+    C00[:]=a0*a1+c0*b1
+    C01[:]=a0*c1+c0*d1
+    C10[:]=b0*a1+d0*b1
+    C11[:]=b0*c1+d0*d1
+
+
+    C=C.reshape(shapeOut)
+
+    return C
 
 class ClassJonesDomains():
     def __init__(self):
@@ -241,7 +283,7 @@ class ClassJonesDomains():
             for itime in range(nt):
                 G0=DicoJ0["Jones"][iG0_t[itime],:,:,indChG0,:,:]
                 G1=DicoJ1["Jones"][iG1_t[itime],:,:,indChG1,:,:]
-                DicoOut["Jones"][itime,:,:,ich,:,:]=ModLinAlg.BatchDot(G0,G1)
+                DicoOut["Jones"][itime,:,:,ich,:,:]=BatchDot(G0,G1)
             
         
         return DicoOut
