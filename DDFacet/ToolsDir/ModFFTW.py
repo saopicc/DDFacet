@@ -702,8 +702,15 @@ def GiveGauss(NpixIn,CellSizeRad=None,GaussPars=(0.,0.,0.),dtype=np.float32,para
     ST=np.sin(ang)
     C2T=np.cos(2*ang)
     S2T=np.sin(2*ang)
+    
+    if SigMaj==0 or SigMin==0:
+        Gauss = np.zeros((Npix_x,Npix_y), dtype)
+        Gauss[Npix_x//2,Npix_y//2] = 1.0
+        return Gauss
+
     sx2=SigMaj**2
     sy2=SigMin**2
+
     a=(CT**2/(2.*sx2))+(ST**2/(2.*sy2))
     b=-(S2T/(4.*sx2))+(S2T/(4.*sy2))
     c=(ST**2/(2.*sx2))+(CT**2/(2.*sy2))
