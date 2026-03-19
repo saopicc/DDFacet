@@ -47,8 +47,15 @@ import copy
 import DDFacet.Other.AsyncProcessPool
 from DDFacet.Other import MPIManager
 from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
+from scipy.signal import fftconvolve
+import traceback
+import SkyModel.Sky.ModPolyRegFile
+from DDFacet.Other import Verbose
+import warnings
+import hashlib
 
-#from DDFacet.Imager.ModModelMachine import ClassModModelMachine
+# from DDFacet.Imager.ModModelMachine import ClassModModelMachine
+
 from DDFacet.Imager.SSD3 import ClassModelMachineSSD
 
 logger.setSilent("ClassArrayMethodSSD")
@@ -57,6 +64,12 @@ logger.setSilent("ClassIsland")
 DO_INIT=True
 SERIAL=True
 SERIAL=False
+
+ISLAND_DEBUG=None
+#ISLAND_DEBUG=584
+if ISLAND_DEBUG is not None:
+    SERIAL=True
+    
 
 DO_MPI=False
 DO_MPI=True
@@ -82,6 +95,7 @@ class ClassImageDeconvMachine():
         self.NCPU=NCPU
         self.GD=copy.deepcopy(GD)
         self.iMajorCycle=None
+        self.HashMask=None
         
         from DDFacet.Imager.MultiFields.AppendSubFieldInfo import AppendSubFieldInfo
         AppendSubFieldInfo(self)
@@ -134,7 +148,6 @@ class ClassImageDeconvMachine():
         # In case PolyFreqOrder=0 in the parset, it has to be set to NFreqBands
         self.ModelMachine.GD["SSD3"]["PolyFreqOrder"]=self.GD["SSD3"]["PolyFreqOrder"]
         self.ModelMachine.setParams()
-
         
         ListInitType=self.GD["SSD3"]["InitType"]
         if isinstance(ListInitType,str):
@@ -142,28 +155,38 @@ class ClassImageDeconvMachine():
         if ListInitType is None:
             ListInitType=[]
         self.ListInitMachine=[]
-
+        
         for InitType in ListInitType:
-            if InitType == "HMP":
+            Min,Max=0,1e6
+            if "_" in InitType:
+                InitType,MinMax=InitType.split("_")
+                Min,Max=MinMax.split("-")
+                Min,Max=int(Min),int(Max)
+                
+            if InitType.startswith("HMP"):
                 from . import ClassInitSSDModelHMP
                 print(ModColor.Str("Initialisation of sourcekins using HMP",col="blue"),file=log)
-                self.ListInitMachine.append( ClassInitSSDModelHMP.ClassInitSSDModelParallel(self.GD,
-                                                                                            NFreqBands,RefFreq,
-                                                                                            MainCache=self.maincache,
-                                                                                            IdSharedMem=self.IdSharedMem,
-                                                                                            APP=self.APP) )
-            elif InitType == "MORESANE":
+                InitMachine=ClassInitSSDModelHMP.ClassInitSSDModelParallel(self.GD,
+                                                                           NFreqBands,RefFreq,
+                                                                           MainCache=self.maincache,
+                                                                           IdSharedMem=self.IdSharedMem,
+                                                                           APP=self.APP)
+                InitMachine.InitCondSizeMinMax=(Min,Max)
+                self.ListInitMachine.append(InitMachine)
+            elif InitType.startswith("MORESANE"):
                 from . import ClassInitSSDModelMoresane
                 print(ModColor.Str("Initialisation of sourcekins using MORESANE",col="blue"),file=log)
-                self.ListInitMachine.append( ClassInitSSDModelMoresane.ClassInitSSDModelParallel(self.GD,
-                                                                                                 NFreqBands, RefFreq,
-                                                                                                 NCPU=self.NCPU,
-                                                                                                 MainCache=self.maincache,
-                                                                                                 IdSharedMem=self.IdSharedMem,
-                                                                                                 APP=self.APP) )
-            elif "MultiSlice" in InitType:
+                InitMachine=ClassInitSSDModelMoresane.ClassInitSSDModelParallel(self.GD,
+                                                                                NFreqBands, RefFreq,
+                                                                                NCPU=self.NCPU,
+                                                                                MainCache=self.maincache,
+                                                                                IdSharedMem=self.IdSharedMem,
+                                                                                APP=self.APP)
+                InitMachine.InitCondSizeMinMax=(Min,Max)
+                self.ListInitMachine.append(InitMachine)
+            elif InitType.startswith("MultiSlice"):
                 GD=copy.deepcopy(GD)
-                _,SubType=InitType.split(":")
+                InitType,SubType=InitType.split(":")
                 GD["MultiSliceDeconv"]["Type"]=SubType
                 from . import ClassInitSSDModelMultiSlice
                 print(ModColor.Str("Initialisation of sourcekins using MultiSlice/%s"%GD["MultiSliceDeconv"]["Type"],col="blue"),file=log)
@@ -174,6 +197,7 @@ class ClassImageDeconvMachine():
                                                                                   IdSharedMem=self.IdSharedMem,
                                                                                   APP=self.APP)
                 
+                ThisMachine.InitCondSizeMinMax=(Min,Max)
                 self.ListInitMachine.append( ThisMachine)
             else:
                 raise ValueError("InitType should be HMP or MultiSlice or MORESANE")
@@ -278,7 +302,7 @@ class ClassImageDeconvMachine():
     def SetDirty(self,DicoDirty):
         self.DicoDirty=DicoDirty
         
-        self._Dirty=self.DicoDirty["ImageCube"]
+        self._CubeDirty=self._Dirty=self.DicoDirty["ImageCube"]
         self._MeanDirty=self.DicoDirty["MeanImage"]
 
         NPSF_x,NPSF_y=self.PSFServer.NPSF
@@ -301,53 +325,57 @@ class ClassImageDeconvMachine():
         if self.GD["SSD3"]["UniqueIsland"]:
             NegMask=np.zeros((self.DicoDirty["MeanImage"].shape),bool)
         else:
-            #Mask = (self.MaskMachine.CurrentMask | ModelMask)
-            #NegMask = (Mask==0)
+            # Mask = (self.MaskMachine.CurrentMask | ModelMask)
+            # NegMask = (Mask==0)
             NegMask=self.MaskMachine.CurrentNegMask
         ModelMask=self.ModelMachine.giveMask_nonZeroModel()
-            
         
         IslandDistanceMachine=ClassIslandDistanceMachine.ClassIslandDistanceMachine(self.GD,
-                                                                                    NegMask,#self.MaskMachine.CurrentNegMask,
+                                                                                    NegMask,
                                                                                     self.PSFServer,
                                                                                     self.DicoDirty,
                                                                                     IdSharedMem=self.IdSharedMem)
-        ListIslands=IslandDistanceMachine.SearchIslands(Threshold)
-        # FluxIslands=[]
-        # for iIsland in range(len(ListIslands)):
-        #     x,y=np.array(ListIslands[iIsland]).T
-        #     FluxIslands.append(np.sum(Dirty[0,0,x,y]))
-        # ind=np.argsort(np.array(FluxIslands))[::-1]
+        
+        def array_hash(a):
+            return hashlib.md5(a.tobytes()).hexdigest()
 
-        # _,_,nx,ny=self._Dirty.shape
-        # self.iIslandImage=np.zeros_like(self._Dirty)
-        # for i in range(0,nx,5):
-        #     print("%i/%i"%(i,nx))
-        #     for j in range(0,ny,5):
-        #         FacetID=self.PSFServer.giveFacetID2(i,j)
-        #         self.iIslandImage[:,:,i,j]=FacetID
+        HashMask=array_hash(NegMask)
+        if self.HashMask==HashMask:
+            log.print("Current Island set hash is same than stored one, skipping computing islands...")
+        else:
+            if self.HashMask is None:
+                log.print("Compute islands from mask for the first time...")
+            else:
+                log.print("Current Mask hash is different than stored one, computing islands...")
                 
-        # ListIslandsSort=[ListIslands[i] for i in ind]
-        
+            self.HashMask=HashMask
+            ListIslands=IslandDistanceMachine.SearchIslands(Threshold)
 
-        # ListIslands=self.CalcCrossIslandFlux(ListIslandsSort)
-
-        
-        #ListIslands=[np.load("errIsland_000524.npy").tolist()]
-
-        if not self.GD["SSD3"]["UniqueIsland"]:
-            ListIslands=IslandDistanceMachine.CalcCrossIslandFlux(ListIslands)
-            if self.GD["SSD3"]["ConvexifyIslands"]:
-                ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
+            if not self.GD["SSD3"]["UniqueIsland"]:
+                ListIslands=IslandDistanceMachine.CalcCrossIslandFlux(ListIslands)
+                if self.GD["SSD3"]["ConvexifyIslands"]:
+                    ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
             
-        # ListIslands=IslandDistanceMachine.MergeIslands(ListIslands)
-        ListIslands=IslandDistanceMachine.BreakLargeIslands(ListIslands)
-
+            ListIslands=IslandDistanceMachine.BreakLargeIslands(ListIslands)
+            self.ListIslandsNotIncreased_nonFluxFiltered=copy.deepcopy(ListIslands)
+            ListIslands,ListSpacialWeight=IslandDistanceMachine.IncreaseIslands(ListIslands)
+            self.ListIslands_nonFluxFiltered=copy.deepcopy(ListIslands)
+            self.ListSpacialWeight_nonFluxFiltered=copy.deepcopy(ListSpacialWeight)
+            
+            
+        _,_,nx,ny=self._Dirty.shape
+        ListIslands=copy.deepcopy(self.ListIslands_nonFluxFiltered)
+        ListSpacialWeight=copy.deepcopy(self.ListSpacialWeight_nonFluxFiltered)
+        ListIslandsNotIncreased=copy.deepcopy(self.ListIslandsNotIncreased_nonFluxFiltered)
+                        
         # #############################
         # Filter by peak flux 
-        ListIslandsFiltered=[]
+        log.print("Filter islands based on flux density...")
+        ListIslands_Filtered=[]
+        ListSpacialWeight_Filtered=[]
+        ListIslandsNotIncreased_Filtered=[]
+        
         Dirty=self.DicoDirty["MeanImage"]
-        log.print("Filter islands...")
         N_PixelInCurrentModel,N_Th=0,0
         
         for iIsland in range(len(ListIslands)):
@@ -361,16 +389,20 @@ class ClassImageDeconvMachine():
             N_PixelInCurrentModel+=C_PixelInCurrentModel
             N_Th+=C_Th
             if C_Th or C_PixelInCurrentModel:
-                ListIslandsFiltered.append(ListIslands[iIsland])
-        print("  selected %i islands [out of %i] with peak flux > %.3g Jy [%i], or with pixel in previous ModelMachine [%i]"%(len(ListIslandsFiltered),len(ListIslands),Threshold, N_Th, N_PixelInCurrentModel), file=log)
-        if len(ListIslandsFiltered)==0:
+                ListIslands_Filtered.append(ListIslands[iIsland])
+                ListSpacialWeight_Filtered.append(ListSpacialWeight[iIsland])
+                ListIslandsNotIncreased_Filtered.append(ListIslandsNotIncreased[iIsland])
+                
+        print("  selected %i islands [out of %i] with peak flux > %.3g Jy [%i], or with pixel in previous ModelMachine [%i]"%(len(ListIslands_Filtered),len(ListIslands),Threshold, N_Th, N_PixelInCurrentModel), file=log)
+        if len(ListIslands_Filtered)==0:
             return "NoIslands"
-        ListIslands=ListIslandsFiltered
+        ListIslands=ListIslands_Filtered
+        ListSpacialWeight=ListSpacialWeight_Filtered
+        ListIslandsNotIncreased=ListIslandsNotIncreased_Filtered
         # #############################
         
-        ListIslands,ListSpacialWeight=IslandDistanceMachine.IncreaseIslands(ListIslands)
+        self.LabelIslandsImage=IslandDistanceMachine.CalcLabelImage(ListIslands)
 
-        #ListSpacialWeight_App=[]
         for Island,W in zip(ListIslands,ListSpacialWeight):
             x,y=Island.T
             xc=int(np.mean(x))
@@ -379,25 +411,42 @@ class ClassImageDeconvMachine():
             # W[:]*=self.MeanJonesNorm[0,xc,yc]
             
         
-        self.LabelIslandsImage=None#IslandDistanceMachine.CalcLabelImage(ListIslands)
-
-        self.ListAllIslands=ListIslands
-        self.NIslands=len(self.ListAllIslands)
 
         print("Sorting islands by size", file=log)
-        Sz=np.array([len(self.ListAllIslands[iIsland]) for iIsland in range(self.NIslands)])
-        #print ":::::::::::::::::"
-        ind=np.argsort(Sz)[::-1]
-
-        # sorted_indices = sorted(range(len(data)), key=lambda i: (data[i][1], data[i][0]))
-        # stop
+        def f(Isl): return len(Isl)
+        def g(Isl):
+            x,y=np.array(Isl).T
+            return np.mean(x)
+        def h(Isl):
+            x,y=np.array(Isl).T
+            return np.mean(y)
+        lst=ListIslands
+        ind = sorted(range(len(lst)), key=lambda i: (f(lst[i]), g(lst[i]), h(lst[i])))
+        ind=ind[::-1]
         
-        ListIslandsOut=[self.ListAllIslands[i] for i in ind]
-        self.ListAllIslands=ListIslandsOut#[100::10][0:1]
+        self.ListAllIslands=[ListIslands[i] for i in ind]
         self.ListAllSpacialWeight=[ListSpacialWeight[i] for i in ind]
+        self.ListIslandsNotIncreased=[ListIslandsNotIncreased[i] for i in ind]
+
         self.NIslands=len(self.ListAllIslands)
         
-
+        
+        _,_,nx,ny=self._Dirty.shape
+        
+        # filename="%s.IslandsSSD.%2.2i.reg"%(self.GD["Output"]["Name"],self.DicoDirty["iMajorCycle"])
+        # log.print("Saving selected islands reg file: %s"%filename)
+        # polygons = SkyModel.Sky.ModPolyRegFile.island_to_polygons(filename,
+        #                                                           self.ListIslandsNotIncreased,
+        #                                                           self.ListAllIslands,
+        #                                                           nxny=(nx,ny),
+        #                                                           W=self.ListAllSpacialWeight)
+        
+        # np.savez("IslandsMajor%i.npz"%self.DicoDirty["iMajorCycle"],
+        #          ListAllIslands=self.ListAllIslands,
+        #          ListAllSpacialWeight=self.ListAllSpacialWeight,
+        #          ListIslandsNotIncreased=self.ListIslandsNotIncreased,
+        #          nxny=(nx,ny))
+        
 
 
 
@@ -480,7 +529,7 @@ class ClassImageDeconvMachine():
         self.ThSpectralFit=3
         print("    Stopping flux              = %10.6f Jy [%.3f of peak ]"%(StopFlux,StopFlux/MaxDirty), file=log)
 
-        self.ModelMachine.updateAlpha(self._MeanDirty)
+        self.ModelMachine.updateLookBack(self._CubeDirty,self.GridFreqs)
         
         # MaxModelInit=np.max(np.abs(self.ModelImage))
         # Fact=4
@@ -499,8 +548,11 @@ class ClassImageDeconvMachine():
                 print(ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done here" % (ThisFlux),col="green" ), file=log)
             return "FluxThreshold", False, False
         
-        FreqsModel=np.array([np.mean(self.DicoVariablePSF["freqs"][iBand]) for iBand in range(len(self.DicoVariablePSF["freqs"]))])
-        ModelImage=self.ModelMachine.GiveModelImage(FreqsModel)
+        # FreqsModel=np.array([np.mean(self.DicoVariablePSF["freqs"][iBand]) for iBand in range(len(self.DicoVariablePSF["freqs"]))])
+        # ModelImage=self.ModelMachine.GiveModelImage(FreqsModel)
+        ModelImage=self.ModelMachine.GiveModelImageBands(self.PSFServer)
+
+        
         if "SmoothJonesNorm" in self.DicoDirty.keys():
             MeanJonesNorm=np.mean(self.DicoDirty["SmoothJonesNorm"],axis=0)
             ModelImageApp=ModelImage*np.sqrt(self.DicoDirty["SmoothJonesNorm"])
@@ -518,10 +570,8 @@ class ClassImageDeconvMachine():
             rep=self.SearchIslands(StopFlux)
             if rep=="NoIslands":
                 return "FluxThreshold", False, False
-        ###########################
-
             
-
+        ###########################
         if not MPIManager.useMPI or not DO_MPI:
             DicoJobIslands={0:np.arange(len(self.ListAllIslands)).tolist()}
         else:
@@ -535,13 +585,11 @@ class ClassImageDeconvMachine():
                     DicoJobIslands[irank]=L
                     irank+=1
                     if irank==nrank: irank=0
-
             DicoJobIslands=MPIManager.COMM_WORLD.bcast(DicoJobIslands, root=0)
             log.print("Broadcast islands")
             self.ListAllIslands=MPIManager.COMM_WORLD.bcast(self.ListAllIslands, root=0)
             self.ListAllSpacialWeight=MPIManager.COMM_WORLD.bcast(self.ListAllSpacialWeight, root=0)
-            # self.ListIslands=[self.ListAllIslands[iIsland] for iIsland in DicoJobIslands.get(MPIManager.rank,[])]
-            # self.ListSpacialWeight=[self.ListAllSpacialWeight[iIsland] for iIsland in DicoJobIslands.get(MPIManager.rank,[])]
+        ###########################
 
         self.ListJobIslands=DicoJobIslands.get(MPIManager.rank,[])
         self.NIslands=len(self.ListJobIslands)
@@ -553,11 +601,13 @@ class ClassImageDeconvMachine():
             
         allIslandModelDict  = shared_dict.create("DeconvListIslands%s"%self.StrField)
         for iIsland in self.ListJobIslands:
-            IslandXY=self.ListAllIslands[iIsland]
-            IslandXY=np.array(IslandXY)
+            IslandXY=np.array(self.ListAllIslands[iIsland])
+            SpacialWeight=np.array(self.ListAllSpacialWeight[iIsland])
             allIslandModelDict.addSubdict(iIsland)
             allIslandModelDict[iIsland].addSharedArray("IslandXY", IslandXY.shape, np.int32)
+            allIslandModelDict[iIsland].addSharedArray("SpacialWeight", SpacialWeight.shape, np.int32)
             allIslandModelDict[iIsland]["IslandXY"][:]=IslandXY[:]
+            allIslandModelDict[iIsland]["SpacialWeight"][:]=SpacialWeight[:]
 
         
         ParmDict = shared_dict.create("ParmDict%s"%self.StrField) # ParmDict
@@ -570,11 +620,13 @@ class ClassImageDeconvMachine():
         
         self._init_InitMachine()
         
-        log.print("Deconvolving %i islands"%(self.NIslands))
+        log.print("Deconvolving %i islands (%i gen. of %i sourcekin)"%(self.NIslands,self.GD["GAClean"]["NMaxGen"],self.GD["GAClean"]["NSourceKin"]))
         
         DoAbs=int(self.GD["Deconv"]["AllowNegative"])
 
         logger.setSilent(["AsyncProcessPool"])
+
+        
         self.APP_GA=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_GA",
                                                            ncpu=self.GD["Parallel"]["NCPU"],
                                                            affinity="disable",
@@ -589,15 +641,23 @@ class ClassImageDeconvMachine():
         NDeconv=0
         NDeconvBig=0
         for iIsland in self.ListJobIslands:
+            if ISLAND_DEBUG is not None:
+                if iIsland!=ISLAND_DEBUG: continue
+            
             Island=self.ListAllIslands[iIsland]
             if len(Island)>self.GD["SSDClean"]["ConvFFTSwitch"]:
                 ParallelMode="PerIsland"
             else:
                 ParallelMode="OverIslands"
-
+            ParallelMode="OverIslands"
+            fRun=self._initIslandExceptionFree
+            if SERIAL:
+                fRun=self._initIsland
             self.APP_GA.runJob("initIsland.%i"%(iIsland),
-                               self._initIsland,
-                               args=(iIsland,self.DicoDirty.path,self.DicoVariablePSF.path,self.GridFreqs,self.DegridFreqs,self.ThSpectralFit,ParallelMode), serial=SERIAL) 
+                               fRun,
+                               #self._initIsland,
+                               args=(iIsland,self.DicoDirty.path,self.DicoVariablePSF.path,self.GridFreqs,
+                                     self.DegridFreqs,self.ThSpectralFit,ParallelMode), serial=SERIAL) 
                
         LDicoResults=self.APP_GA.awaitJobResults("initIsland.*", progress="Deconv Islands")
         if MPIManager.useMPI: MPIManager.COMM_WORLD.Barrier()
@@ -667,13 +727,25 @@ class ClassImageDeconvMachine():
         allIslandModelDict.reload()
         
         DicoIslandsOut={}
+        HasErrors=False
         for iRes,DicoResult in enumerate(LDicoResults):
             if not DicoResult["Success"]:
+                Message=DicoResult["Message"]
+                iIsland=DicoResult["iIsland"]
+                log.print(ModColor.Str("Something went wrong on Island#%i: \n   %s"%(iIsland,Message)))
+                Lxy=self.ListAllIslands[iIsland]
+                FName="errIsland.SSD3.MajorCycle_%i.Isl_%05i.npz"%(self.DicoDirty["iMajorCycle"],iIsland)
+                log.print(ModColor.Str("  saving bad island to: %s"%(FName)))
+                np.savez(FName,Lxy=Lxy,iIsland=iIsland,iMajorCycle=self.DicoDirty["iMajorCycle"],Message=Message)
+                HasErrors=True
                 continue
             iIsland=DicoResult["iIsland"]
             ThisIslandModelDict = allIslandModelDict[iIsland]
             ThisIslandModelDict.reload()
-            DicoIslandsOut[iIsland]=ThisIslandModelDict["Model"]
+            DicoIslandsOut[iIsland]={"Model":ThisIslandModelDict["Model"],
+                                     "Resid":ThisIslandModelDict["Resid"]}
+        # if HasErrors: stop
+        
         LDicoIslandsOut=[DicoIslandsOut]
         
         if MPIManager.useMPI: MPIManager.COMM_WORLD.Barrier()
@@ -696,15 +768,44 @@ class ClassImageDeconvMachine():
         
         if MPIManager.rank==0:
             log.print("  Reinit islands in ModelMachine...")
-            self.ModelMachine.reinitIslands(self.ListAllIslands)
-            
+
+            #print("FDLSJKFDJKSDFJJ")
+            self.ModelMachine.reinitIslands(self.ListIslandsNotIncreased,self.MeanJonesNorm)
+            #self.ModelMachine.reinitIslands(self.ListAllIslands,self.MeanJonesNorm)
+            DOSTOP=0
             log.print("  Update islands...")
             for iIsland in sorted(list(DicoIslandsOut.keys())):
-                Model=DicoIslandsOut[iIsland]
-                r=self.ModelMachine.AppendIsland(self.ListAllIslands[iIsland],Model,W=self.ListAllSpacialWeight[iIsland])
+                Model=DicoIslandsOut[iIsland]["Model"]
+                Resid=DicoIslandsOut[iIsland]["Resid"]
+                r=self.ModelMachine.AppendIsland(self.ListAllIslands[iIsland],Model,
+                                                 W=self.ListAllSpacialWeight[iIsland],
+                                                 Resid=Resid)
                 
-                # if r:
-                #     MM=Model.reshape((self.ModelMachine.NParam,-1))[1]
+                if r:
+                    MM=Model.reshape((self.ModelMachine.NParam,-1))[1]
+                    Cnan=(np.count_nonzero(np.isnan(MM))>0)
+                    Cinf=(np.count_nonzero(np.isinf(MM))>0)
+                    Cflux=(np.count_nonzero(np.abs(MM)>10)>0)
+                    if Cnan or Cinf or Cflux:
+                        DOSTOP=1
+                        # print("FDLDFLDFKJDFK",self.DicoDirty["iMajorCycle"],iIsland)
+                        # print("FDLDFLDFKJDFK",self.DicoDirty["iMajorCycle"],iIsland)
+                        # print("FDLDFLDFKJDFK",self.DicoDirty["iMajorCycle"],iIsland)
+                        # print("FDLDFLDFKJDFK",self.DicoDirty["iMajorCycle"],iIsland)
+                        # print("FDLDFLDFKJDFK",self.DicoDirty["iMajorCycle"],iIsland)
+                        # print("FDLDFLDFKJDFK",Cnan, Cinf, Cflux)
+                        # print("FDLDFLDFKJDFK",Cnan, Cinf, Cflux)
+                        # print("FDLDFLDFKJDFK",Cnan, Cinf, Cflux)
+                #     np.savez("Island%i.Major%i.npz"%(iIsland,self.DicoDirty["iMajorCycle"]),
+                #              iIsland=iIsland,
+                #              Model=Model,
+                #              W=self.ListAllSpacialWeight[iIsland],
+                #              xy=np.array(self.ListAllIslands[iIsland]).T,
+                #              ra=ra,
+                #              dec=dec,
+                #              sra=sra,
+                #              sdec=sdec)
+                        
                 #     # if np.abs(MM).max()>100:
                 #     xy=np.array(self.ListAllIslands[iIsland]).tolist()
                 #     x,y=np.array(self.ListAllIslands[iIsland]).T
@@ -736,9 +837,12 @@ class ClassImageDeconvMachine():
 
             log.print("  Renormalise...")
             self.ModelMachine.RenormaliseMultiEstimatesPerPixel()
-            log.print("  Done SSD3...")
+            self.ModelMachine.ApplyMaskIsland(self.ListIslandsNotIncreased)
+            self.ModelMachine.ToFile("%s.Major%i.DicoModel"%(self.GD["Output"]["Name"],self.DicoDirty["iMajorCycle"]))
+            self.ModelMachine.FitLookBackModels()
+            log.print("  Done updating SSD3 ModelMachine...")
 
-
+        if DOSTOP: stop
         if self.GD["Misc"]["ConserveMemory"]:
             self._reset_InitMachine()
         self.Reset()#_reset_InitMachine()
@@ -764,12 +868,20 @@ class ClassImageDeconvMachine():
         self.GridFreqs = GridFreqs
         self.DegridFreqs = DegridFreqs
 
-    
+
+    def _initIslandExceptionFree(self,iIsland,*args,**kwargs):
+        try:
+            return self._initIsland(iIsland,*args,**kwargs)
+        except Exception as e:
+            ss=traceback.format_exc()
+            Message="%s \n %s"%(ss,str(e))
+            return {"Success":False,"iIsland":iIsland,"HasError":False,"Message":Message}
+            
+            
     def _initIsland(self,
                     iIsland,DicoDirty_path,DicoPSF_path,GridFreqs,DegridFreqs,ThSpectralFit,ParallelMode):
 
         self.DicoInitIndiv={}
-
 
         self.ThSpectralFit=ThSpectralFit
         
@@ -784,16 +896,19 @@ class ClassImageDeconvMachine():
         ThisPixList=allIslandModelDict[iIsland]["IslandXY"]
         
         x,y=np.array(ThisPixList,dtype=np.float32).T
+        xp,yp=np.mean(x),np.mean(y)
         dx,dy=x.max()-x.min(),y.max()-y.min()
         dd=np.max([dx,dy])+1
-        DoIslandsInit = (dd>=self.GD["GAClean"]["MinSizeInit"])
+        #DoIslandsInit = (dd>=self.GD["GAClean"]["MinSizeInit"])
+        
+        xNotIncreased,yNotIncreased=np.array(self.ListIslandsNotIncreased[iIsland].T)
+        dxNotIncreased,dyNotIncreased=xNotIncreased.max()-xNotIncreased.min(),yNotIncreased.max()-yNotIncreased.min()
+        SizeIsland=np.max([dxNotIncreased,dyNotIncreased])+1
         
         self._updateWorkerInternals(DicoDirty_path,DicoPSF_path,GridFreqs,DegridFreqs)
         
         self._init_InitMachine(useCachedHMP=True)
         
-        # print(self.GridFreqs,self.DegridFreqs)
-
         # Initialise the model using various deconv machines
         DicoInitModel  = {} # shared_dict.attach("DicoDicoInitIndiv%s"%self.StrField)
         t0=time.time()
@@ -802,21 +917,29 @@ class ClassImageDeconvMachine():
             kwargs={}
             if InitMachine.Type=="MultiSlice":
                 kwargs["ThSpectralFit"]=self.ThSpectralFit
-                
-            if self.GD["GAClean"]["MinSizeInit"]==-1:
+            sMin,sMax=InitMachine.InitCondSizeMinMax
+            if SizeIsland<sMin or SizeIsland>sMax:
                 continue
-            if not DoIslandsInit or not DO_INIT:
+                
+            # if self.GD["GAClean"]["MinSizeInit"]==-1:
+            #     continue
+            
+            if not DO_INIT:
                 continue
         
+            # with warnings.catch_warnings():
+            #     warnings.filterwarnings("error", category=RuntimeWarning)
+            #     with np.errstate(all="raise"):
+            #         rep = InitMachine.giveDicoInitIndiv(Island=ThisPixList,
+            #                                             iIsland=iIsland,
+            #                                             DicoDirty=self.DicoDirty,
+            #                                             **kwargs)
+                    
             rep = InitMachine.giveDicoInitIndiv(Island=ThisPixList,
-                                                #ListIslands=ListIslands,
                                                 iIsland=iIsland,
-                                                #ModelImage=ModelImage,
                                                 DicoDirty=self.DicoDirty,
                                                 **kwargs)
-            #InitMachine.Reset()
-            #print("SDKSDFKJSFKLJSF",rep,type(rep))
-            #self.DicoDicoInitIndiv[iMachine].addSubdict(iIsland)
+                    
             t1=time.time()
             
             DInfo[InitMachine.Type]={}
@@ -832,11 +955,21 @@ class ClassImageDeconvMachine():
         logger.setLoud(LSilent)
 
         # logger.setSilent(["AsyncProcessPool"])
+
+
         
+        NGen=None
+        NSourceKin=None
+        if self.GD["SSD3"]["GAIslSize"] is not None:
+            Min,Max=self.GD["SSD3"]["GAIslSize"].split("-")
+            Min,Max=int(Min),int(Max)
+            if SizeIsland<Min or SizeIsland>Max:
+                NGen=0
+                NSourceKin=1 # will just estimate fitness for all  
         t0=time.time()
         GAMachine=ClassEvolveGA(self,ParallelMode)
         GAMachine.setDicoInitModel(DicoInitModel)
-        DicoResult=GAMachine._runGA(iIsland,self.DicoDirty.path,self.DicoVariablePSF.path,self.GridFreqs,self.DegridFreqs)
+        DicoResult=GAMachine._runGA(iIsland,self.DicoDirty.path,self.DicoVariablePSF.path,self.GridFreqs,self.DegridFreqs,NGen,NSourceKin)
         t1=time.time()
         DInfo["GA"]={}
         DInfo["GA"]["Time"]=t1-t0

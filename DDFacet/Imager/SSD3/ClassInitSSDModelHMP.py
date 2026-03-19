@@ -121,7 +121,7 @@ class ClassInitSSDModel():
         self.GD["Deconv"]["Mode"] = "HMP"
         self.GD["Deconv"]["CycleFactor"] = 0
         self.GD["Deconv"]["PeakFactor"] = 0.0
-        self.GD["Deconv"]["RMSFactor"] = self.GD["GAClean"]["RMSFactorInitHMP"]
+        self.GD["Deconv"]["RMSFactor"] = 0.1#self.GD["GAClean"]["RMSFactorInitHMP"]
         self.GD["Deconv"]["Gain"] = self.GD["GAClean"]["GainInitHMP"]
         self.GD["Deconv"]["AllowNegative"] = self.GD["GAClean"]["AllowNegativeInitHMP"]
         self.GD["Deconv"]["MaxMinorIter"] = int(self.GD["GAClean"]["MaxMinorIterInitHMP"])
@@ -287,7 +287,9 @@ class ClassInitSSDModel():
 
     def giveConvModel(self,SubModelImage):
 
-        PSF,MeanPSF=self.DeconvMachine.PSFServer.GivePSF()
+        #PSF,MeanPSF=self.DeconvMachine.PSFServer.GivePSF()
+        iFacet=self.DeconvMachine.PSFServer.iFacet
+        PSF=self.DeconvMachine.PSFServer.DicoVariablePSF["PeakNormed_CubeVariablePSF"][iFacet]
         ConvModel=ClassConvMachineImages(PSF).giveConvModel(SubModelImage)
 
         # ConvModel=np.zeros_like(SubModelImage)
@@ -452,6 +454,10 @@ class ClassInitSSDModel():
         else:
             AModel=np.zeros_like(SModel)
         T.timeit("spec index")
+
+        # Otherwise SSD3/ClassModelMachineSSD.py ModelImage[ich,0]=S0*np.exp(logS) can get crazy (nan)
+        AModel[AModel<-10]=-10
+        AModel[AModel>10]=10
 
         return SModel,AModel
 
