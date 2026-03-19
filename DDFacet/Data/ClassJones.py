@@ -1135,7 +1135,7 @@ class ClassJones():
 
         return np.argmin(DFreq, axis=1)
 
-    def EstimateBeam(self, TimesBeam, RA, DEC,progressBar=True, quiet=False):
+    def EstimateBeam(self, TimesBeam, RA, DEC,progressBar=True, quiet=False,Parallel=True):
         TimesBeam = np.float64(np.array(TimesBeam))
         T0s = TimesBeam[:-1].copy()
         T1s = TimesBeam[1:].copy()
@@ -1168,35 +1168,40 @@ class ClassJones():
         pBAR.render(0, Tm.size)
 
         #logger.setSilent(["AsyncProcessPool"])
-        APP=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_Beam",
-                                                   ncpu=self.GD["Parallel"]["NCPU"],
-                                                   affinity="disable",
-                                                   silent_warning=True,
-                                                   )
-        APP.registerJobHandlers(self)
-        APP.startWorkers()
-        APP.awaitWorkerStart()
+        if Parallel:
+            APP=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_Beam_MS%i"%self.MS.iMS,
+                                                       ncpu=self.GD["Parallel"]["NCPU"],
+                                                       affinity="disable",
+                                                       silent_warning=True,
+                                                       )
+            APP.registerJobHandlers(self)
+            APP.startWorkers()
+            APP.awaitWorkerStart()
         #logger.setLoud(["AsyncProcessPool"])
             
         # for iDir in range(RA.size):
         #     Srac,Sdecx=(rad2hmsdms(RA[iDir],Type="ra").replace(" ",":"),rad2hmsdms(DEC[iDir],Type="dec").replace(" ","."))
         #     print("Src : ",Srac,Sdecx)
-        
+        LDicoResults=[]
         for itime in range(Tm.size):
             DicoBeam["t0"][itime]=T0s[itime]
             DicoBeam["t1"][itime]=T1s[itime]
             DicoBeam["tm"][itime]=Tm[itime]
             ThisTime=Tm[itime]
 
-            APP.runJob("ComputeBeam:%i"%(itime),
-                       self._estimateBeamThisTime,
-                       args=(itime,ThisTime,RA,DEC,rac,decc),
-                       serial=False)
+            if Parallel:
+                APP.runJob("ComputeBeam:%i"%(itime),
+                           self._estimateBeamThisTime,
+                           args=(itime,ThisTime,RA,DEC,rac,decc),
+                           serial=False)
+            else:
+                r=self._estimateBeamThisTime(itime,ThisTime,RA,DEC,rac,decc)
+                LDicoResults.append(r)
+                
+        if Parallel:    
+            LDicoResults=APP.awaitJobResults("ComputeBeam:*",progress="Compute Beam")
+                
             
-            
-
-            
-        LDicoResults=APP.awaitJobResults("ComputeBeam:*",progress="Compute Beam")
         for DicoResults in LDicoResults:
             itime=DicoResults["itime"]
             Beam=DicoResults["Beam"]
@@ -1204,10 +1209,11 @@ class ClassJones():
 
         nt, nd, na, nch, _, _ = DicoBeam["Jones"].shape
 
-        APP.terminate()
-        APP.shutdown()
-        del(APP)
-
+        if Parallel:
+            APP.terminate()
+            APP.shutdown()
+            del(APP)
+        
         
         # DicoBeam["Jones"]=np.mean(DicoBeam["Jones"],axis=3).reshape((nt,nd,na,1,2,2))
 

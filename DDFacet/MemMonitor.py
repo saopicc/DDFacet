@@ -655,7 +655,7 @@ class ClassMemMonitor():
 
             LCPU=np.array(LCPU)
             vs=y1
-            vs=ym
+            # vs=ym
             normal = pylab.Normalize(0,3)
             from matplotlib import colors, cm
 

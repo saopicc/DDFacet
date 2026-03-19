@@ -324,7 +324,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                                     #print "SUM MM:",np.sum(v)/Flux
                     else:
                         for pol in range(npol):
-                            ModelImage[ch,pol,x,y]+=Flux
+                            ModelImage[ch,pol,x,y]+=Flux[0]
 
         
         #print "np.sum(ModelImage)",np.sum(ModelImage[0])

@@ -911,7 +911,7 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
 			))  return NULL;
   int nx,ny,nz,nzz;
 
-  //np_vis = (PyArrayObject *) PyArray_ContiguousFromObject(ObjVis, PyArray_COMPLEX64, 0, 3);
+  //np_vis = (PyArrayObject *) PyArray_ContiguousFromObject(ObjVis, NPY_COMPLEX64, 0, 3);
   
   
   /* int nVisRow  = np_vis->dimensions[0]; */
@@ -1085,18 +1085,18 @@ void DeGridderWPol(PyArrayObject *grid,
 
       /* DoApplyJones=1; */
 
-      /* npTimeMappingJonesMatrices  = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 0), PyArray_INT32, 0, 4); */
+      /* npTimeMappingJonesMatrices  = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 0), NPY_INT32, 0, 4); */
       /* ptrTimeMappingJonesMatrices = p_int32(npTimeMappingJonesMatrices); */
 
-      /* npA0 = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 1), PyArray_INT32, 0, 4); */
+      /* npA0 = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 1), NPY_INT32, 0, 4); */
       /* ptrA0 = p_int32(npA0); */
       /* int ifor; */
 
-      /* npA1= (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 2), PyArray_INT32, 0, 4); */
+      /* npA1= (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 2), NPY_INT32, 0, 4); */
       /* ptrA1=p_int32(npA1); */
       
       /* // (nt,nd,na,1,2,2) */
-      /* npJonesMatrices = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 3), PyArray_COMPLEX64, 0, 6); */
+      /* npJonesMatrices = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 3), NPY_COMPLEX64, 0, 6); */
       /* ptrJonesMatrices=p_complex64(npJonesMatrices); */
       /* nt_Jones=(int)npJonesMatrices->dimensions[0]; */
       /* nd_Jones=(int)npJonesMatrices->dimensions[1]; */
@@ -1107,14 +1107,14 @@ void DeGridderWPol(PyArrayObject *grid,
       /* JonesDims[2]=na_Jones; */
       /* JonesDims[3]=nch_Jones; */
 
-      /* npJonesIDIR= (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 4), PyArray_INT32, 0, 4); */
+      /* npJonesIDIR= (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 4), NPY_INT32, 0, 4); */
       /* ptrJonesIDIR=p_int32(npJonesIDIR); */
       /* i_dir=ptrJonesIDIR[0]; */
 
-      /* npCoefsInterp= (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 5), PyArray_FLOAT32, 0, 4); */
+      /* npCoefsInterp= (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 5), NPY_FLOAT32, 0, 4); */
       /* ptrCoefsInterp=p_float32(npCoefsInterp); */
 
-      /* npModeInterpolation= (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 6), PyArray_INT32, 0, 4); */
+      /* npModeInterpolation= (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 6), NPY_INT32, 0, 4); */
       /* ptrModeInterpolation=p_int32(npModeInterpolation); */
       /* ModeInterpolation=ptrModeInterpolation[0]; */
 

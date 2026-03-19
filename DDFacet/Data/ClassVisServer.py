@@ -666,9 +666,10 @@ class ClassVisServer():
         
         if weights is None:
             print(ModColor.Str("This chunk is all flagged or has zero weight."), file=log)
-            return
+            if self.GD["Output"]["Mode"]!="Predict":
+                return
         
-        if DATA["sort_index"] is not None: # and DATA["Weights"] is not 1: # OMS 2023/12 they're not "1" ever and this seems a bug
+        if DATA.get("sort_index",None) is not None and weights is not None: # and DATA["Weights"] is not 1: # OMS 2023/12 they're not "1" ever and this seems a bug
             DATA["Weights"] = DATA["Weights"][DATA["sort_index"]]
 
         self.computeBDAInBackground(dictname, ms, DATA,

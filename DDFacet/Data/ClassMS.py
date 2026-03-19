@@ -37,6 +37,7 @@ from DDFacet.Other import ModColor
 from DDFacet.Other import logger
 from DDFacet.Other import reformat
 from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
+from DDFacet.Array import shared_dict
 
 log = logger.getLogger("ClassMS")
 from DDFacet.Other import ClassTimeIt
@@ -134,7 +135,8 @@ class ClassMS():
         # once.
         self._reset_cache = ResetCache
         self._chunk_caches = {}
-        
+        cachedir=None
+        self.maincache=None
         if self.GD is not None: cachedir=self.GD["Cache"]["Dir"]
         # CT: add iMS because it can happen that two MSs are different but have the same name (in a different parent directory)
         # and in that case the cache manager gets confused, loading cache for MSs are indeed different
@@ -143,7 +145,7 @@ class ClassMS():
                 self.maincache = CacheManager(MSName+".rank_%d.N%i.F%d.D%d.ddfcache"%(MPIManager.rank, self.iMS, self.Field, self.DDID), reset=ResetCache, cachedir=cachedir, nfswarn=True)
             else:
                 self.maincache = CacheManager(MSName+".N%i.F%d.D%d.ddfcache"%(self.iMS, self.Field, self.DDID), reset=ResetCache, cachedir=cachedir, nfswarn=True)
-        else:
+        elif cachedir is not None:
             self.maincache = CacheManager(MSName+".N%i.F%d.D%d.ddfcache"%(self.iMS, self.Field, self.DDID), reset=ResetCache, cachedir=cachedir, nfswarn=True)
 
 
@@ -161,7 +163,16 @@ class ClassMS():
 
         #self.LoadLOFAR_ANTENNA_FIELD()
 
-        if DoReadData: self.ReadData()
+        if DoReadData:
+            DATA = shared_dict.create("DATA")
+            # DATA["iMS"]    = iMS
+            # DATA["iChunk"] = iChunk
+            ichunk=0
+            use_cache=0
+            read_data=1
+            sort_by_baseline=0
+            self.ReadData(DATA, ichunk, use_cache=use_cache, read_data=read_data, sort_by_baseline=sort_by_baseline)
+            self.DATA=DATA
         #self.RemoveStation()
 
 
@@ -983,6 +994,7 @@ class ClassMS():
 
         # init the per-chunk caches
         for ichunk in range(self.Nchunk):
+            if self.maincache is None: continue
             # note that we don't need to reset the chunk cache -- the top-level MS cache would already have been reset,
             # being the parent directory
             self._chunk_caches[ichunk] = CacheManager(
