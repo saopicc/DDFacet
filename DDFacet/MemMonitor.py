@@ -480,7 +480,7 @@ class ClassMemMonitor():
         # ax3b = ax3.twinx()
 
         fig=self.fig
-        gs = gridspec.GridSpec(4,4, figure=fig)
+        gs = gridspec.GridSpec(5,4, figure=fig)
         gs.update(wspace=0.05, hspace=0.0, left=0.15,
                   right=0.9, bottom=0.08, top=0.8)
         fig.clf()
@@ -488,7 +488,8 @@ class ClassMemMonitor():
         ax1 = fig.add_subplot(gs[0,:])
         ax1b = fig.add_subplot(gs[1,:])
         ax2 = fig.add_subplot(gs[2,:])
-        ax3 = fig.add_subplot(gs[3,:])
+        ax2b = fig.add_subplot(gs[3,:])
+        ax3 = fig.add_subplot(gs[4,:])
         ax3b = ax3.twinx()
 
         
@@ -514,7 +515,8 @@ class ClassMemMonitor():
             for ii in range(xx.size-1):
                 ind=np.where((x>=xx[ii])&(x<xx[ii+1]))[0]
                 # Lyy.append(np.quantile(y[ind],[0.16,0.5,0.84]))
-                if ind.size==0: continue
+                if ind.size==0:
+                    continue
                 Lyy.append(np.quantile(y[ind],[q]))
                 Lyym.append(np.max(y[ind]))
                 Lxx.append((xx[ii]+xx[ii+1])/2)
@@ -588,14 +590,21 @@ class ClassMemMonitor():
             _,LCPUm=giveGridded(LT,LCPU,q=0.5)
             LT,LCPU1=giveGridded(LT,LCPU,q=0.84)
             
-            LT-=self.t0
-            LT/=3600
-            LT=LT.tolist()
-
-            
             TotSeen=np.array(LMemAvail)+np.array(LMem)
             Cache=TotSeen-np.array(LMemTotal)
             PureRAM=np.array(LMem)-Cache
+            
+            LTRAM,LPureRAM1=giveGridded(LT,PureRAM,q=0.84)
+            
+            LT-=self.t0
+            LT/=3600
+            LT=LT.tolist()
+            
+            LTRAM-=self.t0
+            LTRAM/=3600
+            LTRAM=LTRAM.tolist()
+
+            
             
             N=len(LMem)
             
@@ -605,6 +614,7 @@ class ClassMemMonitor():
             
             plotRegister(host,ax2,yminmax=[0,1.1*np.max(LMemTotal)],Mode="Line")
             plotRegister(host,ax1b,yminmax=[0,NHost],Mode="Line")
+            plotRegister(host,ax2b,yminmax=[0,NHost],Mode="Line")
             # Total Available
             x,y=GivePolygon(LT,LMemTotal)
             ax2.fill(x,y,'black', alpha=0.1, edgecolor='black')
@@ -638,6 +648,7 @@ class ClassMemMonitor():
             # CPU
 
             y0,ym,y1=LCPU0,LCPUm,LCPU1
+            y1MEM=LPureRAM1
             if host==self.HostName:
                 ls="-"
                 color="purple"
@@ -655,6 +666,7 @@ class ClassMemMonitor():
 
             LCPU=np.array(LCPU)
             vs=y1
+            vsMEM=y1MEM
             # vs=ym
             normal = pylab.Normalize(0,3)
             from matplotlib import colors, cm
@@ -679,6 +691,7 @@ class ClassMemMonitor():
             colors = pylab.cm.PuBuGn(normal(vs))
             colors = pylab.cm.binary(normal(vs))
             colors = pylab.cm.BuPu(normal(vs))
+            colorsMEM = pylab.cm.BuPu(normal(vsMEM))
             LT=np.array(LT)
             dt=np.median(LT[1:]-LT[:-1])
             for itime in range(LT.size-1):
@@ -689,17 +702,30 @@ class ClassMemMonitor():
                 y=ihost
                 rect = pylab.Rectangle((x-w/2,y),w,h,color=colors[itime])
                 ax1b.add_patch(rect)
+
+            LTRAM=np.array(LTRAM)
+            for itime in range(LTRAM.size-1):
+                t0,t1=LTRAM[itime],LTRAM[itime+1]
+                h=1
+                w=t1-t0
+                x=(t0+t1)/2
+                y=ihost
+                rect = pylab.Rectangle((x-w/2,y),w,h,color=colorsMEM[itime])
+                ax2b.add_patch(rect)
                 
             # import matplotlib.colorbar as cbar
             # cax, _ = cbar.make_axes(ax1b) 
             # cb2 = cbar.ColorbarBase(cax, cmap=pylab.cm.jet,norm=normal)
+            
         for ihost in range(NHost):
             ax1b.plot([LT.min(),LT.max()],[ihost,ihost],lw=2,ls="-",color="black")
-            
+        for ihost in range(NHost):
+            ax2b.plot([LTRAM.min(),LTRAM.max()],[ihost,ihost],lw=2,ls="-",color="black")
         LL=copy.deepcopy(LHosts)
         LL[-1]="%s\n%s"%(LL[-1],"[rank0]")
         
         ax1b.set_yticks(np.arange(NHost)+0.5,LL)
+        ax2b.set_yticks(np.arange(NHost)+0.5,LL)
         ax2.set_ylabel("Mem [GB]")
         ax1.set_ylabel("CPU [%]")
 
@@ -715,16 +741,19 @@ class ClassMemMonitor():
         ax2.set_ylim(0,1.1*np.max(LMemTotal))
         ax1.grid()
         ax1b.grid(axis="x")
+        ax2b.grid(axis="x")
         
         # ax1b.set_title("")
         # ax2.set_title("")
         ax1.set_xticklabels([])
         ax1b.set_xticklabels([])
         ax2.set_xticklabels([])
+        ax2b.set_xticklabels([])
         
         ax2.grid()
         ax1.set_ylim(0,110)
         ax1b.set_ylim(0,NHost)
+        ax2b.set_ylim(0,NHost)
 
         Max=0
         for ihost,host in enumerate(LHosts):
@@ -783,6 +812,7 @@ class ClassMemMonitor():
         ax1.set_xlim(t0,t1)
         ax1b.set_xlim(t0,t1)
         ax2.set_xlim(t0,t1)
+        ax2b.set_xlim(t0,t1)
         ax3.set_xlim(t0,t1)
         ax1top.set_xlim(t0,t1)
         
