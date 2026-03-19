@@ -135,6 +135,8 @@ class ClassMS():
         self._reset_cache = ResetCache
         self._chunk_caches = {}
         
+        cachedir=None
+        self.maincache=None
         if self.GD is not None: cachedir=self.GD["Cache"]["Dir"]
         # CT: add iMS because it can happen that two MSs are different but have the same name (in a different parent directory)
         # and in that case the cache manager gets confused, loading cache for MSs are indeed different
@@ -143,7 +145,7 @@ class ClassMS():
                 self.maincache = CacheManager(MSName+".rank_%d.N%i.F%d.D%d.ddfcache"%(MPIManager.rank, self.iMS, self.Field, self.DDID), reset=ResetCache, cachedir=cachedir, nfswarn=True)
             else:
                 self.maincache = CacheManager(MSName+".N%i.F%d.D%d.ddfcache"%(self.iMS, self.Field, self.DDID), reset=ResetCache, cachedir=cachedir, nfswarn=True)
-        else:
+        elif cachedir is not None:
             self.maincache = CacheManager(MSName+".N%i.F%d.D%d.ddfcache"%(self.iMS, self.Field, self.DDID), reset=ResetCache, cachedir=cachedir, nfswarn=True)
 
 
@@ -983,6 +985,7 @@ class ClassMS():
 
         # init the per-chunk caches
         for ichunk in range(self.Nchunk):
+            if self.maincache is None: continue
             # note that we don't need to reset the chunk cache -- the top-level MS cache would already have been reset,
             # being the parent directory
             self._chunk_caches[ichunk] = CacheManager(
