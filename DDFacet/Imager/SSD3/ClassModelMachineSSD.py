@@ -647,8 +647,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
 
     def CleanMaskedComponants(self,MaskName,InvertMask=False):
-        stop
-        print("Cleaning model dictionary from masked components using %s [%i components]"%(MaskName,len(self.DicoSMStacked["Comp"])), file=log)
 
         im=image(MaskName)
         MaskArray=im.getdata()[0,0].T[::-1]
@@ -656,11 +654,15 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             print("  Inverting the mask", file=log)
             MaskArray=1-MaskArray
         # copy keys to avoid py3 error
-        iterkeys=list(self.DicoSMStacked["Comp"].keys())
-        for (x,y) in iterkeys:
-            if MaskArray[x,y]==0:
-                del(self.DicoSMStacked["Comp"][(x,y)])
-        print("  There are %i components left"%len(self.DicoSMStacked["Comp"]), file=log)
+
+        Vals=self.DicoSMStacked["Comp"].get("Vals",None)
+        if Vals is None:
+            return
+    
+        print("Cleaning model dictionary from masked components using %s [%i components]"%(MaskName,np.count_nonzero(Vals[0])), file=log)
+        for iCoef in range(self.NParam):
+            Vals[iCoef]*=MaskArray
+        log.print("  There are %i components left"%np.count_nonzero(Vals[0]))
 
                 
     def ToNPYModel(self,FitsFile,SkyModel,BeamImage=None):

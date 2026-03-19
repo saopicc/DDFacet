@@ -1207,9 +1207,12 @@ class ClassImagerDeconv():
             if type(DATA) is str:
                 print(ModColor.Str("no more data: %s" % DATA, col="red"), file=log)
                 break
-            # None weights indicates an all-flagged chunk: go on to the next chunk
-            if DATA["Weights"] is None:
-                continue
+
+            
+            # # None weights indicates an all-flagged chunk: go on to the next chunk
+            # if DATA["Weights"] is None:
+            #     continue
+            
             # insert null array for predict
             predict = DATA.addSharedArray("data", DATA["datashape"], DATA["datatype"])
 
