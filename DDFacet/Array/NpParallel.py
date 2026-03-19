@@ -34,7 +34,7 @@ from DDFacet.Other import ClassTimeIt
 import numpy as np
 import psutil
 
-NCPU_global = 0 #len(psutil.Process().cpu_affinity())
+NCPU_global = 0 #psutil.cpu_count()
 
 def A_add_B_prod_factor(
     A,

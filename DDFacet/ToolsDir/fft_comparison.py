@@ -42,7 +42,7 @@ def fft_comparison_tests(size=2048, dtype=np.complex128, byte_align=False):
     test_array = np.ones( (size,size), dtype=dtype)
     test_array[size*3//8:size*5//8, size*3//8:size*5//8] = 1 # square aperture oversampling 2...
  
-    ncores = len(psutil.Process().cpu_affinity())
+    ncores = multiprocessing.cpu_count()
  
     pl.clf()
     for FFT_direction in ['forward']: #,'backward']:
@@ -96,7 +96,7 @@ def fft_comparison_tests(size=2048, dtype=np.complex128, byte_align=False):
                 test_array = np.fft.fft2(test_array)
             elif fft_type=='pyfftw3':
  
-                fftplan = fftw3.Plan(test_array, None, nthreads = len(psutil.Process().cpu_affinity()),direction=FFT_direction, flags=['measure'])
+                fftplan = fftw3.Plan(test_array, None, nthreads = multiprocessing.cpu_count(),direction=FFT_direction, flags=['measure'])
                 fftplan.execute() # execute the plan
             elif fft_type=='pyfftw':
                 test_array = pyfftw.interfaces.numpy_fft.fft2(test_array, overwrite_input=True, planner_effort='FFTW_MEASURE', threads=ncores)

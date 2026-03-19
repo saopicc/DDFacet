@@ -93,8 +93,8 @@ class ClassScaleMachine(object):
         self.PeakFactor = self.GD["WSCMS"]["SubMinorPeakFact"]
         self.NSubMinorIter = self.GD["WSCMS"]["NSubMinorIter"]
         if NCPU == 0:
-            import psutil
-            NCPU = len(psutil.Process().cpu_affinity())
+            import multiprocessing
+            NCPU = multiprocessing.cpu_count()
         self.NCPU = NCPU
         self.ModelMachine=ModelMachine
         self.iIter=0

@@ -120,9 +120,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         if NCPU is None:
             self.NCPU = self.GD['Parallel'][NCPU]
             if self.NCPU == 0:
-                import psutil
+                import multiprocessing
 
-                self.NCPU = len(psutil.Process().cpu_affinity())
+                self.NCPU = multiprocessing.cpu_count()
         else:
              self.NCPU = NCPU
         self.DoAbs = self.GD["Deconv"]["AllowNegative"]
@@ -285,8 +285,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         import pyfftw
         nthreads = int(self.GD['Parallel']['NCPU'])
         if not nthreads:
-            import psutil
-            nthreads = len(psutil.Process().cpu_affinity())
+            import multiprocessing
+            nthreads = multiprocessing.cpu_count()
         else:
             from multiprocessing.pool import ThreadPool
             import dask

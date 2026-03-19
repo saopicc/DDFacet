@@ -50,7 +50,7 @@ log=logger.getLogger("ClassRestoreMachine")
 import scipy.signal
 import scipy.stats
 import multiprocessing
-NCPU_default=str(int(0.75*len(psutil.Process().cpu_affinity())))
+NCPU_default=str(int(0.75*multiprocessing.cpu_count()))
 
             
 

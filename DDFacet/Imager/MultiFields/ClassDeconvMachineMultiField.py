@@ -791,7 +791,7 @@ class ClassImagerDeconv():
         import psutil
         import os
         old_OMP_setting = os.environ["OMP_NUM_THREADS"]
-        os.environ["OMP_NUM_THREADS"] = str(self.GD["Parallel"]["NCPU"] or len(psutil.Process().cpu_affinity()))
+        os.environ["OMP_NUM_THREADS"] = str(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
 
         MS = self.VS.ListMS[DATA["iMS"]]
         pointing_sols = self._pointing_machines[DATA["iMS"]]
