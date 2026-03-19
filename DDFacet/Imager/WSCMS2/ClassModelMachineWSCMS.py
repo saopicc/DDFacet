@@ -267,8 +267,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         import pyfftw
         nthreads = int(self.GD['Parallel']['NCPU'])
         if not nthreads:
-            import multiprocessing
-            nthreads = multiprocessing.cpu_count()
+            import psutil
+            nthreads = len(psutil.Process().cpu_affinity())
         else:
             from multiprocessing.pool import ThreadPool
             import dask

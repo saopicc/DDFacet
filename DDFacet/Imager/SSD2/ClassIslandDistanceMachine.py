@@ -70,9 +70,9 @@ class ClassIslandDistanceMachine():
         self.PSFCross=None
         self.DicoDirty=DicoDirty
         if self.GD is not None:
-            self.NCPU=(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
+            self.NCPU=(self.GD["Parallel"]["NCPU"] or len(psutil.Process().cpu_affinity())
         else:
-            self.NCPU=psutil.cpu_count()
+            self.NCPU=len(psutil.Process().cpu_affinity())
         self.IdSharedMem=IdSharedMem
 
     def SearchIslands(self,Threshold,Image=None):

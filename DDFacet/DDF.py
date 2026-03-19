@@ -272,7 +272,7 @@ def main(OP=None, messages=[]):
     np.random.seed(DicoConfig["Misc"]["RandomSeed"])
 
     # init NCPU for different bits of parallelism
-    ncpu = int(DicoConfig["Parallel"]["NCPU"] or psutil.cpu_count())
+    ncpu = int(DicoConfig["Parallel"]["NCPU"] or len(psutil.Process().cpu_affinity()))
     DicoConfig["Parallel"]["NCPU"]=ncpu
     _pyArrays.pySetOMPNumThreads(ncpu)
     NpParallel.NCPU_global = ModFFTW.NCPU_global = ncpu

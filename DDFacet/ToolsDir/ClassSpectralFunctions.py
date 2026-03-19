@@ -96,8 +96,7 @@ class ClassSpectralFunctions():
         for iChannel in range(NFreqBand):
             for iAlpha in range(NAlpha):
                 ThisAlpha=Alpha[iAlpha]
-                
-                FreqBandsFluxRatio[iAlpha,iChannel]=self.IntExpFunc(Alpha=ThisAlpha,iChannel=iChannel,iFacet=iFacet)
+                FreqBandsFluxRatio[iAlpha,iChannel]=self.IntExpFunc(Alpha=ThisAlpha,iChannel=iChannel,iFacet=iFacet)[0]
 
 
         return FreqBandsFluxRatio

@@ -165,7 +165,7 @@ class FFTM2D():
         self.fft_FORWARD = pyfftw.FFTW(self.a, self.b,axes=(-1,-2),direction="FFTW_FORWARD",flags=('FFTW_ESTIMATE', ))#,threads=4)
         self.fft_BACKWARD = pyfftw.FFTW(self.a, self.b,axes=(-1,-2),direction="FFTW_BACKWARD",flags=('FFTW_ESTIMATE', ))#,threads=4)
 
-        # fft = pyfftw.builders.fft2(a, overwrite_input=True, planner_effort='FFTW_ESTIMATE', threads=multiprocessing.cpu_count())
+        # fft = pyfftw.builders.fft2(a, overwrite_input=True, planner_effort='FFTW_ESTIMATE', threads=len(psutil.Process().cpu_affinity()))
         # b = fft()
 
         #print>>log, "done"
