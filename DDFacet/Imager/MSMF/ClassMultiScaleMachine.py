@@ -1145,7 +1145,12 @@ class ClassMultiScaleMachine():
 
             A=W*BM
             y=W*dirtyVec
-            x,_=scipy.optimize.nnls(A, y.ravel())
+            try:
+                x,_=scipy.optimize.nnls(A, y.ravel())
+            except:
+                x=np.zeros((A.shape[1],),dtype=np.float32)
+                
+                
             Sol=x
             ConvSM=np.dot(BM,x.reshape((-1,1))).reshape((nchan,1,nxp,nyp))[:,0]
             ########################################################
