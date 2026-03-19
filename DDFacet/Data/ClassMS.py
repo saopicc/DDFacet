@@ -1971,7 +1971,7 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
             host=None
             msspec = ThisMS
         
-        regrp = "(([0-9]+)|([0-9]+)([~:])([0-9]+)|(\*))"   # regex matching N or N:M or N~M or *
+        regrp = r"(([0-9]+)|([0-9]+)([~:])([0-9]+)|(\*))"   # regex matching N or N:M or N~M or *
         # match :F and :D suffixes, if present. Don't regexes make your brain melt
         terms = msspec.split("//")
         msname = terms[0]

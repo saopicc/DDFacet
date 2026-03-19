@@ -30,18 +30,13 @@ from DDFacet.compatibility import range
 import pylab
 
 import numpy as np
-from scipy.integrate import cumtrapz
 import numexpr
 from DDFacet.Other import logger
 from DDFacet.Other import ModColor
 log=logger.getLogger("ImageDeconvMachineWSCMS2")
 from DDFacet.Array import NpParallel
-from DDFacet.Other import ClassTimeIt
-from pyrap.images import image
 from DDFacet.Imager.ClassPSFServer import ClassPSFServer
 from DDFacet.Imager import ClassGainMachine  # Currently required by model machine but fixed to static mode
-from DDFacet.Imager.ClassMaskMachine import ClassMaskMachine
-from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 from . import ClassWSCMS_MinorLoop
 # from DDFacet.Other.AsyncProcessPool import APP
 # from DDFacet.ToolsDir.ModFFTW import FFTW_Scale_Manager  # usage just to register job handlers but has no effect atm

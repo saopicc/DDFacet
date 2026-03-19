@@ -92,7 +92,7 @@ class PointingProvider(object):
                                                  np.zeros(na * 4, dtype=np.float64)),
                                              columns=PointingProvider.__COMPULSORY_HEADER)
         else:
-            self._raw_offsets = pd.read_csv(pointing_errs_file, sep="\s+")
+            self._raw_offsets = pd.read_csv(pointing_errs_file, sep=r"\s+")
             if not (set(PointingProvider.__COMPULSORY_HEADER) <= set([l for l in self._raw_offsets.columns])):
                 raise InvalidPointingSolutions("Requires at least %s columns present" % ",".join(PointingProvider.__COMPULSORY_HEADER))
 

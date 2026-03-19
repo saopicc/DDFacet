@@ -29,17 +29,13 @@ This is an implementation of the multi-scale algorithm implemented in wsclean
 from DDFacet.compatibility import range
 
 import numpy as np
-from scipy.integrate import cumtrapz
 import numexpr
 from DDFacet.Other import logger
 from DDFacet.Other import ModColor
 log=logger.getLogger("ClassImageDeconvMachine")
 from DDFacet.Array import NpParallel
-from DDFacet.Other import ClassTimeIt
-from pyrap.images import image
 from DDFacet.Imager.ClassPSFServer import ClassPSFServer
 from DDFacet.Imager import ClassGainMachine  # Currently required by model machine but fixed to static mode
-from DDFacet.Imager.ClassMaskMachine import ClassMaskMachine
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 # from DDFacet.Other.AsyncProcessPool import APP
 # from DDFacet.ToolsDir.ModFFTW import FFTW_Scale_Manager  # usage just to register job handlers but has no effect atm
@@ -158,7 +154,7 @@ class ClassImageDeconvMachine():
         # so we should avoid keeping it as None
         self.Nchan, self.Npol, self.Npix, _ = self.DicoVariablePSF["OutImShape"]
         if self.MaskArray is None:
-            self.MaskArray = np.zeros([1, 1, self.Npix, self.Npix], dtype=np.bool8)
+            self.MaskArray = np.zeros([1, 1, self.Npix, self.Npix], dtype=np.bool_)
         else:  # Make sure mask is correct shape
             if self.MaskArray.shape != (1, 1, self.Npix, self.Npix):
                 raise ValueError("Mask is incorrect shape. Expected %s but got %s" % ((1,1,self.Npix, self.Npix), self.MaskArray.shape))
@@ -176,10 +172,10 @@ class ClassImageDeconvMachine():
             print("Applying external mask", file=log)
             MaskArray=self.MaskMachine.ExternalMask
             nch,npol,_,_=MaskArray.shape
-            self.MaskArray=np.zeros(MaskArray.shape,np.bool8)
+            self.MaskArray=np.zeros(MaskArray.shape,np.bool_)
             for ch in range(nch):
                 for pol in range(npol):
-                    self.MaskArray[ch,pol,:,:]=np.bool8(1-MaskArray[ch,pol].copy())[:,:]
+                    self.MaskArray[ch,pol,:,:]=np.bool_(1-MaskArray[ch,pol].copy())[:,:]
             self.MaskArray = np.ascontiguousarray(self.MaskArray)
 
 
