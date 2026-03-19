@@ -346,9 +346,9 @@ class ClassWSCMS_MinorLoop():
             AbsConvMaxDirty = absA.max()
             # TODO - How does this happen? It seems sometimes we have two components with the same max flux
             try:
-                pq = int(np.argwhere(absA == AbsConvMaxDirty))
+                pq = int(np.where(absA == AbsConvMaxDirty)[0][0])
             except:
-                pq = int(np.argwhere(absA == AbsConvMaxDirty)[0])
+                pq = int(np.where(absA == AbsConvMaxDirty)[0][0])
             ConvMaxDirty = A[pq]
             T2.timeit("  pq")    
 
