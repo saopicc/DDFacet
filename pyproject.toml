@@ -1,9 +1,9 @@
 [build-system]
-requires = ["numpy >= 1.15.1, <= 1.22.4; python_version >= '3.10'",
-            "numpy >= 1.15.1, <= 1.22.4; python_version >= '3.8' and python_version < '3.10'",
+requires = ["numpy >= 1.15.1, <= 2.3.2; python_version >= '3.11' and python_version < '3.13'",
+            "numpy >= 1.15.1, <= 1.22.4; python_version >= '3.8' and python_version < '3.11'",
             'pybind11 >= 2.2.2',
-            'cython<=0.29.30',
-#            'cmake', # scikit_build_core - WARNING - cmake should not be in build-system.requires - scikit-build-core will inject it as needed
+            'cython',
+            'cmake',
             'scikit-build-core']
 build-backend = "scikit_build_core.build"
 
@@ -48,6 +48,7 @@ dependencies = [
     "pywavelets <= 1.9.0; python_version >= '3.8' and python_version < '3.13'",
     "tqdm<=4.64.0, ; python_version >= '3.8' and python_version < '3.13'"
 ]
+entrypoints = []
 authors = [{ name = "Cyril Tasse", email = "cyril.tasse@obspm.fr" }]
 maintainers = [{ name = "Benjamin Hugo", email = "bhugo@sarao.ac.za" }]
 urls = { Homepage = "http://github.com/saopicc/DDFacet"}
@@ -64,7 +65,6 @@ classifiers = [
 [project.scripts]
 "DDF.py" = "DDFacet.__main__:ddf_main"
 "CleanSHM.py" = "DDFacet.__main__:cleanshm_main"
-"IOMonitor.py" = "DDFacet.__main__:iomonitor_main"
 "MemMonitor.py" = "DDFacet.__main__:memmonitor_main"
 "Restore.py" = "DDFacet.__main__:restore_main"
 "ClusterCat.py" = "SkyModel.__main__:clustercat_main"
@@ -238,9 +238,6 @@ editable.rebuild = false
 # The components to install. If empty, all default components are installed.
 install.components = []
 
-# Whether to strip the binaries. True for scikit-build-core 0.5+
-install.strip = false
-
 # List dynamic metadata fields and hook locations in this table.
 metadata = {}
 
@@ -256,3 +253,6 @@ minimum-version = "0.8"  # current version
 
 # The build directory. Defaults to a temporary directory, but can be set.
 build-dir = "DDFacet/cbuild"
+
+# Whether to strip the binaries. True for scikit-build-core 0.5+
+install.strip = false
