@@ -1135,7 +1135,7 @@ class ClassJones():
 
         return np.argmin(DFreq, axis=1)
 
-    def EstimateBeam(self, TimesBeam, RA, DEC,progressBar=True, quiet=False):
+    def EstimateBeam(self, TimesBeam, RA, DEC,progressBar=True, quiet=False,Parallel=True):
         TimesBeam = np.float64(np.array(TimesBeam))
         T0s = TimesBeam[:-1].copy()
         T1s = TimesBeam[1:].copy()
@@ -1167,80 +1167,54 @@ class ClassJones():
         # pBAR.disable()
         pBAR.render(0, Tm.size)
 
-        # self.ParallelBeam=True
-        # if self.ParallelBeam:
-        #     #logger.setSilent(["AsyncProcessPool"])
-        #     APP=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_Beam",
-        #                                                ncpu=self.GD["Parallel"]["NCPU"],
-        #                                                affinity="disable",
-        #                                                silent_warning=True,
-        #                                                )
-        #     APP.registerJobHandlers(self)
-        #     APP.startWorkers()
-        #     APP.awaitWorkerStart()
-        #     #logger.setLoud(["AsyncProcessPool"])
+        #logger.setSilent(["AsyncProcessPool"])
+        if Parallel:
+            APP=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_Beam_MS%i"%self.MS.iMS,
+                                                       ncpu=self.GD["Parallel"]["NCPU"],
+                                                       affinity="disable",
+                                                       silent_warning=True,
+                                                       )
+            APP.registerJobHandlers(self)
+            APP.startWorkers()
+            APP.awaitWorkerStart()
+        #logger.setLoud(["AsyncProcessPool"])
             
-        
+        # for iDir in range(RA.size):
+        #     Srac,Sdecx=(rad2hmsdms(RA[iDir],Type="ra").replace(" ",":"),rad2hmsdms(DEC[iDir],Type="dec").replace(" ","."))
+        #     print("Src : ",Srac,Sdecx)
+        LDicoResults=[]
         for itime in range(Tm.size):
             DicoBeam["t0"][itime]=T0s[itime]
             DicoBeam["t1"][itime]=T1s[itime]
             DicoBeam["tm"][itime]=Tm[itime]
             ThisTime=Tm[itime]
 
-            
-            Beam=self.GiveInstrumentBeam(ThisTime,RA,DEC)#
-            # for iDir in range(RA.size):
-            #     Srac,Sdecx=(rad2hmsdms(RA[iDir],Type="ra").replace(" ",":"),rad2hmsdms(DEC[iDir],Type="dec").replace(" ","."))
-            #     print("Src : ",Srac,Sdecx)
-
-            if self.GD["Beam"]["CenterNorm"]==1:
-                Beam0=self.GiveInstrumentBeam(ThisTime,np.array([rac]),np.array([decc]))
-                Srac,Sdecx=(rad2hmsdms(rac,Type="ra").replace(" ",":"),rad2hmsdms(decc,Type="dec").replace(" ","."))
-                # print("Center : ",Srac,Sdecx)
-                # print("Center : ",Srac,Sdecx)
-                # print("Center : ",Srac,Sdecx)
-                # print("Center : ",Srac,Sdecx)
-                Beam0inv= ModLinAlg.BatchInverse(Beam0)
-
-                nd,_,_,_,_=Beam.shape
-                Ones=np.ones((nd, 1, 1, 1, 1),np.float32)
-                Beam0inv=Beam0inv*Ones
-                BeamN= ModLinAlg.BatchDot(Beam0inv, Beam)
-                Beam=BeamN
-
+            if Parallel:
+                APP.runJob("ComputeBeam:%i"%(itime),
+                           self._estimateBeamThisTime,
+                           args=(itime,ThisTime,RA,DEC,rac,decc),
+                           serial=False)
+            else:
+                r=self._estimateBeamThisTime(itime,ThisTime,RA,DEC,rac,decc)
+                LDicoResults.append(r)
                 
-            Bxx=Beam[...,0,0]
-            Bxx[np.abs(Bxx)<1e-6]=1e-6
-            Byy=Beam[...,1,1]
-            Byy[np.abs(Byy)<1e-6]=1e-6
-
-            if self.GD["Beam"]["ForceScalar"]:
-                log.print("Scararify Jones matrices of the beam...")
-                Bxx=Beam[...,0,0]
-                Byy=Beam[...,1,1]
-                Ba=(np.abs(Bxx)+np.abs(Byy))/2
-                Beam.fill(0)
-                Beam[...,0,0]=Ba[...]
-                Beam[...,1,1]=Ba[...]
+        if Parallel:    
+            LDicoResults=APP.awaitJobResults("ComputeBeam:*",progress="Compute Beam")
+                
             
-            # import pylab
-            # pylab.clf()
-            # pylab.scatter(RA*180/np.pi,DEC*180/np.pi,c=np.abs(Beam[:,0,0,0,0]))
-            # ra0,dec0=self.MS.OriginalRadec
-            # pylab.scatter(ra0*180/np.pi,dec0*180/np.pi,color="blue",marker="s")
-            # pylab.scatter(rac*180/np.pi,decc*180/np.pi,color="red",marker="+")
-            # pylab.colorbar()
-            # pylab.draw()
-            # pylab.show()
-            # stop
+        for DicoResults in LDicoResults:
+            itime=DicoResults["itime"]
+            Beam=DicoResults["Beam"]
             DicoBeam["Jones"][itime]=Beam
-            NDone=itime+1
-            pBAR.render(NDone,Tm.size)
-
-            DicoBeam["Jones"][itime] = Beam
 
         nt, nd, na, nch, _, _ = DicoBeam["Jones"].shape
 
+        if Parallel:
+            APP.terminate()
+            APP.shutdown()
+            del(APP)
+        
+        
         # DicoBeam["Jones"]=np.mean(DicoBeam["Jones"],axis=3).reshape((nt,nd,na,1,2,2))
 
         # print TimesBeam-TimesBeam[0]
@@ -1249,6 +1223,52 @@ class ClassJones():
 
         return DicoBeam
 
+    def _estimateBeamThisTime(self,itime,ThisTime,RA,DEC,rac,decc):
+        Beam=self.GiveInstrumentBeam(ThisTime,RA,DEC)#
+
+        if self.GD["Beam"]["CenterNorm"]==1:
+            Beam0=self.GiveInstrumentBeam(ThisTime,np.array([rac]),np.array([decc]))
+            Srac,Sdecx=(rad2hmsdms(rac,Type="ra").replace(" ",":"),rad2hmsdms(decc,Type="dec").replace(" ","."))
+            # print("Center : ",Srac,Sdecx)
+            # print("Center : ",Srac,Sdecx)
+            # print("Center : ",Srac,Sdecx)
+            # print("Center : ",Srac,Sdecx)
+            Beam0inv= ModLinAlg.BatchInverse(Beam0)
+
+            nd,_,_,_,_=Beam.shape
+            Ones=np.ones((nd, 1, 1, 1, 1),np.float32)
+            Beam0inv=Beam0inv*Ones
+            BeamN= ModLinAlg.BatchDot(Beam0inv, Beam)
+            Beam=BeamN
+
+            
+        Bxx=Beam[...,0,0]
+        Bxx[np.abs(Bxx)<1e-6]=1e-6
+        Byy=Beam[...,1,1]
+        Byy[np.abs(Byy)<1e-6]=1e-6
+
+        if self.GD["Beam"]["ForceScalar"]:
+            log.print("Scararify Jones matrices of the beam...")
+            Bxx=Beam[...,0,0]
+            Byy=Beam[...,1,1]
+            Ba=(np.abs(Bxx)+np.abs(Byy))/2
+            Beam.fill(0)
+            Beam[...,0,0]=Ba[...]
+            Beam[...,1,1]=Ba[...]
+            
+        # import pylab
+        # pylab.clf()
+        # pylab.scatter(RA*180/np.pi,DEC*180/np.pi,c=np.abs(Beam[:,0,0,0,0]))
+        # ra0,dec0=self.MS.OriginalRadec
+        # pylab.scatter(ra0*180/np.pi,dec0*180/np.pi,color="blue",marker="s")
+        # pylab.scatter(rac*180/np.pi,decc*180/np.pi,color="red",marker="+")
+        # pylab.colorbar()
+        # pylab.draw()
+        # pylab.show()
+        # stop
+            
+        return {"Beam":Beam,"itime":itime}
+    
     def MergeJones(self, DicoJ0, DicoJ1):
         import DDFacet.Other.ClassJonesDomains
         DomainMachine=DDFacet.Other.ClassJonesDomains.ClassJonesDomains()

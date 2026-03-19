@@ -70,6 +70,7 @@ from astropy.coordinates import SkyCoord
 import astropy.units as u
 from DDFacet.Imager import ClassMaskMachine
 from DDFacet.Other.Verbose import VERBOSE_SHARED_DICT
+import os
 
 from DDFacet.Other import MPIManager
 
@@ -93,7 +94,8 @@ class ClassFacetMachine():
                  Oversize=1,   # factor by which image is oversized
                  custom_id=None,
                  iField=None,
-                 cpudict=None
+                 cpudict=None,
+                 RemnantManager=None,
                  ):
 
         self.HasFourierTransformed = False
@@ -101,7 +103,8 @@ class ClassFacetMachine():
         if self.cpudict is None:
             self.cpudict=cpuinfo.get_cpu_info()
         self.Type="SingleField"
-
+        self.RemnantManager=RemnantManager
+        
         self.CounterName=""
         
         self.iField=iField
@@ -224,7 +227,8 @@ class ClassFacetMachine():
         # suppress harmless error message which occurs when
         # the Init routine that sets this attribute was not called
         if hasattr(self,"_delete_cf_in_destructor") and self._delete_cf_in_destructor:
-            if VERBOSE_SHARED_DICT: print(socket.gethostname(),"DELETE FLKDFSLKGLKFFDSL FACETMACHINE::!!!!!!!",self.DoPSF,self._app_id,self._delete_cf_in_destructor,id(self))
+            if VERBOSE_SHARED_DICT:
+                print(socket.gethostname(),"DELETE FLKDFSLKGLKFFDSL FACETMACHINE::!!!!!!!",self.DoPSF,self._app_id,self._delete_cf_in_destructor,id(self))
             self.releaseCFs()
 
     def releaseGrids(self):
@@ -238,7 +242,8 @@ class ClassFacetMachine():
     def releaseCFs(self):
         if self._CF is not None:
             if VERBOSE_SHARED_DICT: print(socket.gethostname(),"RELEASE CF FLKDFSLKGLKFFDSL FACETMACHINE::!!!!!!!",self.DoPSF,self._app_id)
-            self._CF.delete()
+            if not self.RemnantManager.Enabled:
+                self._CF.delete()
             self._CF = None
 
     def setAverageBeamMachine(self,AverageBeamMachine):
@@ -830,9 +835,10 @@ class ClassFacetMachine():
             print("max w=%.6g from MS (--CF-wmax=0)"%wmax, file=log)
 
         # subprocesses will place W-terms etc. here. Reset this first.
-        self._CF = shared_dict.create("%s_CFPSF"%self._app_id if self.DoPSF else "%s_CF"%self._app_id)
-        # check if w-kernels, spacial weights, etc. are cached
 
+        CFName=("%s_CFPSF"%self._app_id if self.DoPSF else "%s_CF"%self._app_id)
+
+        # check if w-kernels, spacial weights, etc. are cached
         if self.GD["Cache"]["CF"]:
             cachekey = dict(ImagerCF=self.GD["CF"], 
                             ImagerMainFacet=self.GD["Image"], 
@@ -849,6 +855,24 @@ class ClassFacetMachine():
         else:
             print(ModColor.Str("Explicitly not caching nor using cache for the Convolution Function"), file=log)
             cachepath, cachevalid="",False
+
+        if self.RemnantManager.Enabled:
+            if cachevalid:
+                self._CF=self.RemnantManager.mountRemnant(CFName)
+                if self._CF is not None:
+                    self.IsDDEGridMachineInit=True
+                    return
+                else:
+                    self._CF = shared_dict.create(CFName)
+            else:
+                CFPath=self.RemnantManager.giveNameRemnant(CFName)
+                if os.path.exists(CFPath):
+                    log.print(ModColor.Str("Remnant CF shm path %s is invalid but exists, removing..."%CFPath))
+                    os.system("rm -rf %s"%CFPath)
+                self._CF = shared_dict.create(CFPath)
+        else:
+            self._CF = shared_dict.create(CFName)
+        
             
         # up to workers to load/save cache
         for iFacet in getattr(self.DicoImager, "iterkeys", self.DicoImager.keys)():
@@ -1222,7 +1246,14 @@ class ClassFacetMachine():
             self.collectFourierTransformResults()
             self.HasFourierTransformed = True
         _, npol, Npix_x, Npix_y = self.OutImShape
-        DicoImages = shared_dict.create("AllImages_%s"%self._app_id)
+        DicoName="AllImages_%s"%self._app_id
+        DicoNameSHM=self.RemnantManager.giveNameRemnant(DicoName)
+        if DicoNameSHM is not None:
+            DicoImages = shared_dict.create(DicoNameSHM)
+        else:
+            DicoImages = shared_dict.create(DicoName)
+            
+            
         #print("AAAAAA","AllImages_%s"%self._app_id)
         DicoImages["freqs"] = {}
         DicoImages.addSubdict("freqs")

@@ -72,9 +72,12 @@ class ProgressBar(object):
         self.empty = empty
         self.progress = None
         self.lines = 0
-
+        self.ShiftMPI=0
         if MPIManager.useMPI:
-            Title="[Rank %i] %s"%(MPIManager.rank,Title)
+            Title=" [#%i]%s"%(MPIManager.rank,Title)
+        else:
+            self.ShiftMPI=5
+            
         self.Title=Title
         
         self.HasRendered=False
@@ -83,6 +86,7 @@ class ProgressBar(object):
         self.disableTag=False
 
     def format(self,strin,Size,side=0,TitleIn=None):
+        stop
         if TitleIn is None:
             Title=self.TitleIn
         else:
@@ -141,7 +145,8 @@ class ProgressBar(object):
 
         TSize=len(self.Title)
         MSize=len(message)
-        NDots=self.HeaderSize-TSize-MSize
+        NDots=self.HeaderSize-TSize-MSize-self.ShiftMPI
+        
         Header=ModColor.Str(self.Title, col="blue", Bold=False)+"."*NDots+message
             
         inline_msg_len = 0

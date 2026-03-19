@@ -633,7 +633,7 @@ class AsyncProcessPool (object):
         if progress:
             current = counter.getValue()
             total = total or current or 1
-            pBAR = ProgressBar(Title="  "+progress)
+            pBAR = ProgressBar(Title=progress)
             #pBAR.disable()
             pBAR.render(total-current,total)
             while current:
@@ -668,10 +668,11 @@ class AsyncProcessPool (object):
                         print("  termination event spotted, exiting", file=log)
                     raise WorkerProcessError()
                 if self.verbose > 2:
-                    print("  %s not yet complete, waiting" % name, file=log)
+                    print(name)
+                    print("  %s not yet complete, waiting" % str(name), file=log)
                 if event.wait(1):
                     if self.verbose > 2:
-                        print("  %s is complete" % name, file=log)
+                        print("  %s is complete" % str(name), file=log)
                     break
 
     def awaitJobResults (self, jobspecs, progress=None, timing=None):

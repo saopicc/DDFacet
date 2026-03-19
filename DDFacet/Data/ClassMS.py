@@ -37,6 +37,7 @@ from DDFacet.Other import ModColor
 from DDFacet.Other import logger
 from DDFacet.Other import reformat
 from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
+from DDFacet.Array import shared_dict
 
 log = logger.getLogger("ClassMS")
 from DDFacet.Other import ClassTimeIt
@@ -134,7 +135,6 @@ class ClassMS():
         # once.
         self._reset_cache = ResetCache
         self._chunk_caches = {}
-        
         cachedir=None
         self.maincache=None
         if self.GD is not None: cachedir=self.GD["Cache"]["Dir"]
@@ -163,7 +163,16 @@ class ClassMS():
 
         #self.LoadLOFAR_ANTENNA_FIELD()
 
-        if DoReadData: self.ReadData()
+        if DoReadData:
+            DATA = shared_dict.create("DATA")
+            # DATA["iMS"]    = iMS
+            # DATA["iChunk"] = iChunk
+            ichunk=0
+            use_cache=0
+            read_data=1
+            sort_by_baseline=0
+            self.ReadData(DATA, ichunk, use_cache=use_cache, read_data=read_data, sort_by_baseline=sort_by_baseline)
+            self.DATA=DATA
         #self.RemoveStation()
 
 

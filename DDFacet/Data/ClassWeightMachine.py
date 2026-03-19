@@ -141,7 +141,7 @@ class ClassWeightMachine():
         if MPIManager.size > 1:
             self.APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event, serial=True)
         else:
-            print("SDFLDSFFSDLFD CalcWeightsBackground self._ignore_vis_weights",self._ignore_vis_weights)
+            # print("SDFLDSFFSDLFD CalcWeightsBackground self._ignore_vis_weights",self._ignore_vis_weights)
             if self.GD["Misc"]["ConserveMemory"]:
                 #self.APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event)
                 self.APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event, args=(iField,self._ignore_vis_weights) ,serial=SERIAL)

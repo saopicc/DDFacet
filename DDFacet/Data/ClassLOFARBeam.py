@@ -86,7 +86,7 @@ def test():
 
 
 class ClassLOFARBeamEB():
-    def __init__(self,MS,GD):
+    def __init__(self,MS,GD={}):
         self.GD=GD
         self.MS=MS
         self.SR=None
@@ -166,7 +166,7 @@ class ClassLOFARBeamEB():
 
 
 class ClassLOFARBeam():
-    def __init__(self,MS,GD):
+    def __init__(self,MS,GD={}):
         self.GD=GD
         self.MS=MS
         self.SR=None
@@ -175,7 +175,7 @@ class ClassLOFARBeam():
 
     def InitLOFARBeam(self):
         GD=self.GD
-        PhasedArrayMode=GD["Beam"]["PhasedArrayMode"]
+        PhasedArrayMode=GD.get("Beam",{}).get("PhasedArrayMode","A")
         print("  LOFAR beam model in %s mode"%(PhasedArrayMode), file=log)
         useArrayFactor=("A" in PhasedArrayMode)
         useElementBeam=("E" in PhasedArrayMode)
@@ -192,7 +192,7 @@ class ClassLOFARBeam():
 
 
     def getBeamSampleTimes(self,times, **kwargs):
-        DtBeamMin = self.GD["Beam"]["DtBeamMin"]
+        DtBeamMin = self.GD.get("Beam",{}).get("DtBeamMin",5)
         DtBeamSec = DtBeamMin*60
         tmin=times[0]
         tmax=times[-1]+1
@@ -207,7 +207,7 @@ class ClassLOFARBeam():
         ChanWidth=self.MS.ChanWidth.ravel()[0]
         ChanFreqs=self.MS.ChanFreq.flatten()
 
-        NChanJones=self.GD["Beam"]["NBand"]
+        NChanJones=self.GD.get("Beam",{}).get("NBand",1)
         if NChanJones==0:
             NChanJones=self.MS.NSPWChan
         ChanEdges=np.linspace(ChanFreqs.min()-ChanWidth/2.,ChanFreqs.max()+ChanWidth/2.,NChanJones+1)

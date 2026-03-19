@@ -142,7 +142,11 @@ class ClassIslandDistanceMachine():
             ListW=[np.ones((len(Island),),np.float32) for Island in ListIslands]
             ListIslands=[np.array(Island) for Island in ListIslands]
             return ListIslands,ListW
-        print("  increase their sizes by %i pixels"%dx, file=log)
+        if type(dx)==int:
+            print("  increase their sizes by %i pixels"%dx, file=log)
+        elif dx=="auto":
+            print("  increase their sizes in auto mode", file=log)
+            
         self.ListIslands=ListIslands
         logger.setSilent(["AsyncProcessPool"])
         increaseIslandDict  = shared_dict.create("increaseIslandDict")
@@ -210,12 +214,18 @@ class ClassIslandDistanceMachine():
         return Labels.reshape((1,1,nx,ny))
 
     def BreakLargeIslands(self,ListIslands):
-        
+        log.print("    Break large islands...")
         CBI=ClassBreakIslands.ClassBreakIslands(self.GD,self._MaskArray,self.PSFServer,self.DicoDirty)
+
         
-        #return CBI.BreakLargeIslands(ListIslands)
         #return CBI.BreakLargeIslandsFacets(ListIslands)
-        return CBI.BreakLargeIslandsFacetsPolygon(ListIslands)
+        if self.GD["SSD3"]["AllowFacetOverlap"]:
+            r=CBI.BreakLargeIslands(ListIslands)
+        else:
+            r=CBI.BreakLargeIslandsFacetsPolygon(ListIslands)
+        
+        log.print("    Break large islands: done")
+        return r
     
         
 
@@ -511,6 +521,7 @@ class ClassIslandDistanceMachine():
             xx,yy=np.array(Island).T
             self._MaskArray[0,0,xx,yy]=0
         # np.save("Mask1.npy",self._MaskArray)
+        log.print("    update internal Mask: done")
         
                 
         # if PolygonFile is not None:

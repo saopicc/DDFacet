@@ -60,7 +60,7 @@ def radec_to_xyz(ra, dec, time, loc):
 
 
 class ClassEveryBeam():
-    def __init__(self,MS,GD):
+    def __init__(self,MS,GD={}):
         self.GD=GD
         self.MS=MS
         self.SR=None
@@ -75,7 +75,7 @@ class ClassEveryBeam():
             #self.antlocs.append(EarthLocation(lon=locITRS.lon.deg*u.deg,lat=locITRS.lat.deg*u.deg,height=locITRS.height))
         
     def getBeamSampleTimes(self,times, **kwargs):
-        DtBeamMin = self.GD["DtBeamMin"]
+        DtBeamMin = self.GD.get("DtBeamMin",5)
         DtBeamSec = DtBeamMin*60
         tmin=times[0]
         tmax=times[-1]+1
@@ -89,7 +89,7 @@ class ClassEveryBeam():
     def CalcFreqDomains(self):
         ChanWidth=self.MS.ChanWidth.ravel()[0]
         ChanFreqs=self.MS.ChanFreq.flatten()
-        NChanJones=self.GD["NBand"]
+        NChanJones=self.GD.get("NBand",1)
         if NChanJones==0:
             NChanJones=self.MS.NSPWChan
         ChanEdges=np.linspace(ChanFreqs.min()-ChanWidth/2.,ChanFreqs.max()+ChanWidth/2.,NChanJones+1)
@@ -104,7 +104,56 @@ class ClassEveryBeam():
     def evaluateBeam(self,time,ras,decs):
         return self.GiveInstrumentBeam(time,ras,decs)
 
+    def GiveInstrumentBeam(self,time,ras,decs):
+        # DDF internal: I assume this times the call to the beam for logging purposes
+        T=ClassTimeIt.ClassTimeIt("GiveInstrumentBeam")
+        T.disable()
+        # get number of directions for later iterations
+        nd=len(ras)
+        # get frequencies
+        freqs=self.MS.ChanFreq.flatten()*u.Hz
+        # initialise internal beam matrix shape
+        Beam=np.zeros((nd,self.MS.na,self.MS.NSPWChan,2,2),dtype=float)
+        # load the telescope; everybeam automatically finds the appropriate setup for the provided dataset
+        obs = everybeam.load_telescope(self.MS.MSName) # ,use_differential_beam=False,element_response_model = "skala40_wave")
+        # initialise average beam over frequency chunk
+        MeanBeam=np.zeros((nd,self.MS.na,self.NChanJones,2,2),dtype=Beam.dtype)
+        
+        T=ClassTimeIt.ClassTimeIt("GiveInstrumentBeam")
+        T.disable()
+        # calculate the array response
+        obs_coords_xyz  = radec_to_xyz(self.MS.PointingRadec[0] * u.rad, self.MS.PointingRadec[1] * u.rad, time, self.AntLocs[0])
+        for idir in range(ras.size):
+            T.timeit("obs_coords_xyz")
+            # calculate the observation coords and phase coord for this station's XYZ position
+            phase_xyz = radec_to_xyz(ras[idir] * u.rad, decs[idir] * u.rad, time, self.AntLocs[0])
+            T.timeit("  phase_xyz")
 
+            # calculate the average beam
+            for ich in range(self.NChanJones):
+                indCh=np.where(self.VisToJonesChanMapping==ich)[0]
+                freq=np.mean(freqs[indCh])
+            
+                arr_factor = obs.array_factor(time, range(self.MS.na), freq, phase_xyz, obs_coords_xyz)
+                T.timeit("    arr_factor")
+                if "E" in self.GD.get("PhasedArrayMode","A"):
+                    # elem_resp  = obs.array_factor(time, iant, freq, phase_xyz, obs_coords_xyz)
+                    elem_resp  = obs.station_response(time=time,
+                                                      station_idx=iant,
+                                                      freq=freq,
+                                                      direction=phase_xyz,
+                                                      station0_direction=obs_coords_xyz,
+                                                      )
+                    stat_resp  = np.matmul(arr_factor, elem_resp)
+                else:
+                    stat_resp  = arr_factor
+                    
+                MeanBeam[idir,:,ich,:,:]=stat_resp
+                T.timeit("    rest")
+
+                    
+        T.timeit("NChan")
+        return MeanBeam
 
     # def GiveInstrumentBeam(self,time,ras,decs):
     #     # DDF internal: I assume this times the call to the beam for logging purposes
@@ -154,58 +203,3 @@ class ClassEveryBeam():
     #         MeanBeam[:,:,ich,:,:]=np.mean(Beam[:,:,indCh,:,:],axis=2)
     #     T.timeit("NChan")
     #     return MeanBeam
-    
-    
-    def GiveInstrumentBeam(self,time,ras,decs):
-        # DDF internal: I assume this times the call to the beam for logging purposes
-        T=ClassTimeIt.ClassTimeIt("GiveInstrumentBeam")
-        T.disable()
-        # get number of directions for later iterations
-        nd=len(ras)
-        # get frequencies
-        freqs=self.MS.ChanFreq.flatten()*u.Hz
-        # initialise internal beam matrix shape
-        Beam=np.zeros((nd,self.MS.na,self.MS.NSPWChan,2,2),dtype=float)
-        # load the telescope; everybeam automatically finds the appropriate setup for the provided dataset
-        obs = everybeam.load_telescope(self.MS.MSName,
-                                       use_differential_beam=False,
-                                       element_response_model = "skala40_wave")
-        # initialise average beam over frequency chunk
-        MeanBeam=np.zeros((nd,self.MS.na,self.NChanJones,2,2),dtype=Beam.dtype)
-        
-        T=ClassTimeIt.ClassTimeIt("GiveInstrumentBeam")
-        T.disable()
-        # calculate the array response
-        obs_coords_xyz  = radec_to_xyz(self.MS.PointingRadec[0] * u.rad, self.MS.PointingRadec[1] * u.rad, time, self.AntLocs[0])
-        for idir in range(ras.size):
-            T.timeit("obs_coords_xyz")
-            # calculate the observation coords and phase coord for this station's XYZ position
-            phase_xyz = radec_to_xyz(ras[idir] * u.rad, decs[idir] * u.rad, time, self.AntLocs[0])
-            T.timeit("  phase_xyz")
-
-            # calculate the average beam
-            for ich in range(self.NChanJones):
-                indCh=np.where(self.VisToJonesChanMapping==ich)[0]
-                freq=np.mean(freqs[indCh])
-            
-                arr_factor = obs.array_factor(time, range(self.MS.na), freq, phase_xyz, obs_coords_xyz)
-                T.timeit("    arr_factor")
-                if "E" in self.GD["PhasedArrayMode"]:
-                    # elem_resp  = obs.array_factor(time, iant, freq, phase_xyz, obs_coords_xyz)
-                    elem_resp  = obs.station_response(time=time,
-                                                      station_idx=iant,
-                                                      freq=freq,
-                                                      direction=phase_xyz,
-                                                      station0_direction=obs_coords_xyz,
-                                                      )
-                    stat_resp  = np.matmul(arr_factor, elem_resp)
-                else:
-                    stat_resp  = arr_factor
-                    
-                MeanBeam[idir,:,ich,:,:]=stat_resp
-                T.timeit("    rest")
-
-                    
-        T.timeit("NChan")
-        return MeanBeam
-

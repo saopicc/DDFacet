@@ -157,7 +157,8 @@ class ClassRegister():
                 t0,t1=t0t1
                 t0b,t1b=L[iName]
                 for DBlock in self.LDeleteInterval:
-                    t0d,t1d=DBlock["TRange"]
+                    t0d=DBlock["TRange"][0]
+                    t1d=DBlock["TRange"][-1]
                     dt=t1d-t0d
                     if t0>=t1d:
                         t0b-=dt
@@ -254,7 +255,9 @@ class ClassMemMonitor():
                 Sel=np.ones((tt.size,),bool)
                 ttc=tt.copy()
                 for DicoBlock in self.Register.LDeleteInterval:
-                    t0,t1=DicoBlock["TRange"]
+                    t0=DicoBlock["TRange"][0]
+                    t1=DicoBlock["TRange"][1]
+                    
                     ind=np.where((tt>t0)&(tt<t1))[0]
                     print(t0,t1,ind.size)
                     Sel[ind]=0
@@ -328,9 +331,8 @@ class ClassMemMonitor():
                 self.plotSeparate()
                 
             pylab.draw()
-            pylab.show()
-            # block=False)
-            pylab.pause(0.1)
+            pylab.show(block=False)
+            pylab.pause(5)
             if self.SavePNG:
                 self.fig.savefig("%s/Monitor%5.5i.png"%(self.SaveDir,self.iFig))
                 self.iFig+=1
@@ -653,7 +655,7 @@ class ClassMemMonitor():
 
             LCPU=np.array(LCPU)
             vs=y1
-            vs=ym
+            # vs=ym
             normal = pylab.Normalize(0,3)
             from matplotlib import colors, cm
 

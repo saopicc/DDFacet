@@ -50,6 +50,8 @@ from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 from collections import deque
 import scipy.stats
 from . import ClassFitPreviousModels
+import DDFacet.Other.AsyncProcessPool
+import warnings
 def fMyScale(x,RMS=1.): return np.arcsinh((x/RMS)/2)/np.log(10)
 def inv_fMyScale(x,RMS=1.): return RMS*np.sinh(x*np.log(10))*2
 
@@ -61,7 +63,7 @@ def inv_fMyScale(x,RMS=1.): return RMS*np.sinh(x*np.log(10))*2
 
 
 
-
+TH_WEIGHT=1e-3
 
 
 class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
@@ -86,9 +88,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         #self.PastModels_STD=deque([],self.NDeque)
         self.Alpha=1.
         self.AAlpha=None
-        self.xrRand=None
+
         self.LSTD=[]
         self.LResid1D=[]
+        self.GridFreqs=None
         
     def setParams(self):
         NOrderPoly=self.GD["SSD3"]["PolyFreqOrder"]
@@ -133,6 +136,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         D["SolveParam"]=self.SolveParam
         D["PastModels"]=self.PastModels
         D["PastModels_Resid"]=self.PastModels_Resid
+        D["GridFreqs"]=self.GridFreqs
 
         MyPickle.Save(D,FileName)
 
@@ -182,7 +186,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.SolveParam=self.DicoSMStacked["SolveParam"]
         self.PastModels=self.DicoSMStacked["PastModels"]
         self.PastModels_Resid=self.DicoSMStacked["PastModels_Resid"]
-            
+        self.GridFreqs=self.DicoSMStacked["GridFreqs"]
+        if self.DicoSMStacked["Comp"].get("CurrentResid",None) is not None:
+            self.CurrentResid=self.DicoSMStacked["Comp"]["CurrentResid"]
         self.NParam=len(self.SolveParam)
 
     def GiveConvertedSolveParamDico(self,SolveParam1):
@@ -245,21 +251,60 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         return OutArr.flatten()
 
+    def ApplyMaskIsland(self,ListIslands):
+        _,_,nx,ny=self.ModelShape
+        MaskZero=np.ones((nx,ny),bool)
+        for Island in ListIslands:
+            x,y=np.array(Island).T
+            MaskZero[x,y]=0
+        DicoComp=self.DicoSMStacked["Comp"]
+        x,y=np.where(MaskZero)
 
-    def AppendIsland(self,ListPixParms,V,W=None,JonesNorm=None):
+        self.MaskZero=np.float32(MaskZero).reshape((1,1,nx,ny))
+        for iParam in range(self.NParam):
+            DicoComp["Vals"][iParam][x,y]=0
+    
+    def AppendIsland(self,ListPixParms,V,W=None,Resid=None):
         ListPix=ListPixParms
         Vr=V.reshape((self.NParam,V.size//self.NParam))
         NPixListParms=len(ListPixParms)
 
         DicoComp=self.DicoSMStacked["Comp"]
-        ListPixParms
         x,y=np.array(ListPix).T
+
+        ind0=np.where(Vr[0]==0)[0]
+        for iParam in range(1,self.NParam):
+            Vr[iParam,ind0]=0
+        
         for iParam in range(self.NParam):
             #Vr[iParam].fill(1)
+            # print("iParam",iParam,np.abs(Vr[iParam]).max())
+            # print("iParam",iParam,np.abs(Vr[iParam]).max())
+            # print("iParam Vals",iParam,np.abs(DicoComp["Vals"][iParam][x,y]).max())
+            # print("iParam Vals",iParam,np.abs(DicoComp["Vals"][iParam][x,y]).max())
+            # print("iParam W",np.abs(W).max())
+            # print("iParam W",np.abs(W).max())
             DicoComp["Vals"][iParam][x,y]+=W[:]*Vr[iParam]
+            # print("iParam Vals2",iParam,np.abs(DicoComp["Vals"][iParam][x,y]).max())
+            # print("iParam Vals2",iParam,np.abs(DicoComp["Vals"][iParam][x,y]).max())
+            
+        DicoComp["IsUnnormalized"][x,y]=1
         DicoComp["Weights"][x,y]+=W[:]
 
-
+        if Resid is not None:# and self.GD["SSD3"]["NLookBackModels"]>0:
+            nch=self.GridFreqs.size # DicoComp["CurrentResid"].shape[0]
+            Resid=Resid.reshape((nch,x.size))
+            for ich in range(nch):
+                DicoComp["CurrentResid"][ich,0][x,y]+=W[:]*Resid[ich]
+                
+        # ListIslands=DicoComp.get("ListIslands",[])
+        # ListIslands.append((ListPixParms,V,W,Resid))
+        # DicoXY={}
+        # for ixy,xy in enumerate(ListPixParms):
+        #     x,y=xy
+        #     DicoXY[xy]=DicoXY.get(xy,[]).append([W[ixy],Vr[:,ixy],Resid[:,ixy]])
+        # self.Dico_xy2LParm=DicoXY
+        
     def giveMask_nonZeroModel(self):
         Mask=np.zeros(self.ModelShape,np.bool_)
         if "Comp" in self.DicoSMStacked.keys() and len(self.DicoSMStacked["Comp"])>0:
@@ -268,209 +313,144 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             Mask[0,0].flat[:]=(ImTaylor0!=0).flat[:]
         return Mask
             
-    def reinitIslands(self,ListIslands):
+    def reinitIslands(self,ListIslands,MeanJonesNorm):
+        self.MeanJonesNorm=MeanJonesNorm
         if "Comp" not in self.DicoSMStacked.keys():
             self.DicoSMStacked["Comp"]={}
             
         DicoComp=self.DicoSMStacked["Comp"]
-
+        _,_,nx,ny=self.ModelShape
         if DicoComp.get("Vals",None) is None:
-            _,_,nx,ny=self.ModelShape
             DicoComp["Vals"]=np.zeros((self.NParam,nx,ny),np.float32)
+        if DicoComp.get("Weights",None) is None:
             DicoComp["Weights"]=np.zeros((nx,ny),np.float32)
+        if DicoComp.get("IsUnnormalized",None) is None:
+            DicoComp["IsUnnormalized"]=np.zeros((nx,ny),bool)
             
+        x,y=np.where(DicoComp["Weights"]<TH_WEIGHT*MeanJonesNorm[0])
+        for iParam in range(self.NParam):
+            DicoComp["Vals"][iParam][x,y]=0
         
-            
+        DicoComp["Weights"].fill(0)
+        indx,indy=np.where(DicoComp["Vals"][0]!=0)
+        DicoComp["Weights"][indx,indy]=MeanJonesNorm[0,indx,indy]
+        DicoComp["IsUnnormalized"].fill(0)
+        
         for Island in ListIslands:
             x,y=np.array(Island).T
             for iParam in range(self.NParam):
                 DicoComp["Vals"][iParam][x,y]=0
-                DicoComp["Weights"][x,y]=0
-                
-            # for key in Island:
-            #     key=tuple(key)
-            #     try:
-            #         del(DicoComp[key]["Vals"])
-            #         del(DicoComp[key]["Weights"])
-            #     except:
-            #         pass
-            #     DicoComp[key]={}
-            #     DicoComp[key]["Vals"]=[]
-            #     DicoComp[key]["Weights"]=[]
+            DicoComp["Weights"][x,y]=0
+            DicoComp["IsUnnormalized"][x,y]=0
 
-    def AppendComponentToDictStacked(self,key,Vals,W=None):
-        stop
-        DicoComp=self.DicoSMStacked["Comp"]
-        DicoComp[key]["Vals"].append(Vals)
-        if W is None:
-            DicoComp[key]["Weights"].append(1.)
+        # Will update the current resid estimation
+        if len(self.PastModels_Resid)>0:#self.GD["SSD3"]["NLookBackModels"]>0:
+            DicoComp["CurrentResid"]=self.PastModels_Resid[-1].copy()
+            DicoComp["CurrentResid"].fill(0)
+            self.CurrentResid=DicoComp["CurrentResid"]
+            nch=DicoComp["CurrentResid"].shape[0]
+            for Island in ListIslands:
+                x,y=np.array(Island).T
+                for ich in range(nch):
+                    DicoComp["CurrentResid"][ich,0][x,y]=0
         else:
-            DicoComp[key]["Weights"].append(W)
+            DicoComp["CurrentResid"]=np.zeros((self.GridFreqs.size,1,nx,ny),np.float32)
             
-    def updateAlpha(self,MeanDirty):
+    def updateLookBack(self,CubeDirty,GridFreqs):
+        self.GridFreqs=GridFreqs
         if self.GD["SSD3"]["NLookBackModels"]==0: return
-        nch,_,nx,ny=MeanDirty.shape
-        if nch!=1: stop
-        if self.xrRand is None:
-            Nr=10000
-            xr=np.int64(np.random.rand(Nr)*nx)
-            yr=np.int64(np.random.rand(Nr)*nx)
-            self.xryr=(xr,yr)
         
-        self.PastModels_Resid.append(MeanDirty.copy())
-        
-        # xr,yr = self.xryr
-        # Resid1D=MeanDirty.flat[xr*ny+yr]
-        # STD = scipy.stats.median_abs_deviation(Resid1D,axis=None,scale="normal")
-        # self.LSTD.append(STD)
-        # #self.PastModels_STD.append(STD)
-        # if len(self.LSTD)>0:
-        #     CSTD=(STD>0.75*self.LSTD[-1])
-        #     if CSTD:
-        #         STD0,STD1=self.LSTD[-1],STD
-        #         Alpha=self.Alpha/2
-        #         log.print("Reducing Alpha %.2f -> %.2f [std = %f vs %f Jy]"%(self.Alpha,Alpha,STD0,STD1))
-        #         self.Alpha=Alpha
-        # self.LResid1D.append( Resid1D.copy() )
-        
+        Vals=self.DicoSMStacked["Comp"].get("Vals",None)
+        _,_,nx,ny=self.ModelShape
+        if Vals is None:
+            Vals=np.zeros((self.NParam,nx,ny),np.float32)
+        else:
+            Vals=Vals.copy()
+        self.PastModels.append(Vals)
+        self.PastModels_Resid.append(CubeDirty.copy())
             
     def RenormaliseMultiEstimatesPerPixel(self):
         DicoComp=self.DicoSMStacked["Comp"]
-
-                
-        x,y=np.where(DicoComp["Vals"][0]!=0)
+        
+        # DicoComp["Weights"]/=self.MeanJonesNorm[0]
+        x,y=np.where((DicoComp["IsUnnormalized"]==1) & (DicoComp["Weights"]>TH_WEIGHT))
 
         for iParam in range(self.NParam):
             DicoComp["Vals"][iParam][x,y]/=DicoComp["Weights"][x,y]
-        # DicoComp["Weights"][x,y]=1
-
-        # ThisModel=DicoComp["Vals"][0]
-        # if len(self.PastModels)>1:
-        #     sgn0=np.sign(self.PastModels[1][0]-self.PastModels[0][0])
-        #     sgn1=np.sign(ThisModel-self.PastModels[1][0])
-        #     C0=True#(self.PastModels[0][0]!=0)
-        #     C1=True#(self.PastModels[1][0]!=0)
-        #     C2=True#(ThisModel!=0)
-        #     Cs=(sgn0!=sgn1)
-        #     x,y=np.where(C0 & C1 & C2 & Cs)
-        #     # # ThisModel[x,y] = (self.PastModels[-1][x,y]+ThisModel[x,y])/2
-        # #     dThisModel = ThisModel[x,y]-self.PastModels[-1][x,y]
-        # #     ThisModel[x,y]=self.PastModels[-1][x,y]+dThisModel/4
-        # #     log.print("  Have rescaled %.2f%% of oscilating componants"%(100*x.size/ThisModel.size))
-        # # self.PastModels.append(ThisModel.copy())
-        #     DicoComp["Vals"][:,x,y]=(self.PastModels[-1][:,x,y]+DicoComp["Vals"][:,x,y])/2
-        #     log.print("  Have rescaled %.2f%% of oscilating componants"%(100*x.size/ThisModel.size))
-        # self.PastModels.append(DicoComp["Vals"].copy())
-
-        nParms,nx,ny=DicoComp["Vals"].shape
-        if self.AAlpha is None:
-            self.AAlpha=np.ones((1,nx,ny),np.float32)
-        ThisModel_mean=DicoComp["Vals"][0]
-
-        
-        #if len(self.PastModels)>=self.GD["Deconv"]["MaxMajorIter"]//2:
-        if self.GD["SSD3"]["NLookBackModels"]!=0 and len(self.PastModels)>=2:
-            log.print("Use %i past models to update..."%len(self.PastModels))
-            # sgn0=np.sign(self.PastModels[1][0]-self.PastModels[0][0])
-            # sgn1=np.sign(ThisModel_mean-self.PastModels[1][0])
-            # C0=True#(self.PastModels[0][0]!=0)
-            # C1=True#(self.PastModels[1][0]!=0)
-            # C2=True#(ThisModel!=0)
-            # Cs=(sgn0!=sgn1)
-            # x,y=np.where(C0 & C1 & C2 & Cs)
-            # self.AAlpha[0,x,y]=self.AAlpha[0,x,y]/2
-            # dThisModel = DicoComp["Vals"][:]-self.PastModels[-1][:]
-            # DicoComp["Vals"][:] = self.PastModels[-1][:] + self.AAlpha * dThisModel
-            # ##################
             
-            # self.PastModels_Resid: NDeque,1,1,nx,ny
-            # self.PastModels: NDeque,nParm,nx,ny
-            PastModels_Resid=np.array(self.PastModels_Resid).copy()
-            PastModels=np.array(self.PastModels)
-            NDeque,nParm,nx,ny=PastModels.shape
+        if DicoComp.get("CurrentResid",None) is not None:
+            nch=DicoComp["CurrentResid"].shape[0]
+            for ich in range(nch):
+                DicoComp["CurrentResid"][ich,0][x,y]/=DicoComp["Weights"][x,y]
+            self.CurrentResid=DicoComp["CurrentResid"]
             
-            
-            PastModels_Resid=PastModels_Resid[-NDeque:].reshape((NDeque,1,nx,ny))
-            PastModels=PastModels.reshape((NDeque,self.NParam,nx,ny))
-            #STD=np.array(self.PastModels_STD[-NDeque:]).reshape((NDeque,1,1,1))
-
-            LSTD=[]
-            xr,yr = self.xryr
-            for ThisResid in PastModels_Resid:
-                Resid1D=ThisResid.flat[xr*ny+yr]
-                LSTD.append(scipy.stats.median_abs_deviation(Resid1D,axis=None,scale="normal"))
-            STD=np.array(LSTD)
-            
-            aPastModels_Resid=np.abs(PastModels_Resid)
-            
-            
-            Th=0.1*STD
-            for iModel in range(NDeque):
-                M=(aPastModels_Resid[iModel,0]<Th[iModel])
-                indx,indy=np.where(M)
-                aPastModels_Resid[iModel,0,indx,indy]=Th[iModel]
-            W=1./aPastModels_Resid**2#**2
-            
-            S0=PastModels[:,0:1]
-            W[S0==0]=0
-            
-            Ws=np.sum(W,axis=0)
-            Ws[Ws==0]=1.
-            MeanModelPast0=np.sum(W*PastModels,axis=0)/Ws
-
-            # weight parameters others than the flux by the flux
-            MeanModelPast=np.zeros((PastModels[0].shape),PastModels.dtype)
-            for iTerm in range(self.NParam):
-                wt=W
-                if iTerm!=0:
-                    wt=W*np.abs(S0)
-                Sm=np.sum(wt*PastModels[:,iTerm:iTerm+1],axis=0)
-                Sw=np.sum(wt,axis=0)
-                Sw[Sw==0]=1
-                Sm=Sm/Sw
-                MeanModelPast[iTerm]=Sm[0]
-
-            # Wa=np.ones((1,nx,ny),np.float32)
-            # Wa[MeanModelPast[0:1]==0]=0
-            # Wb=np.ones((1,nx,ny),np.float32)
-            # #DicoComp["Vals"][:] = MeanModelPast[:]
-            # DicoComp["Vals"][:] = (Wa*MeanModelPast + Wb*DicoComp["Vals"][:])/(Wa+Wb)
-
-            Wa=np.ones((self.NParam,nx,ny),np.float32)
-            Wb=np.ones((self.NParam,nx,ny),np.float32)
-            for iTerm in range(1,self.NParam):
-                Wa[iTerm]*=np.abs(MeanModelPast[0])
-                Wb[iTerm]*=np.abs(DicoComp["Vals"][0])
-
-
-
-            # ####################
-            # self.CurrentModel = DicoComp["Vals"][:]
-            # CFPM=ClassFitPreviousModels.ClassFitPreviousModels(self)
-            # MeanModelPast=CFPM.avgWeighted()
-            
-            # Wa.fill(1)
-            
-            # Sw=Wa+Wb
-            # Sw[Sw==0]=1
-            # #Wa[MeanModelPast[0:1]==0]=0
-            # #DicoComp["Vals"][:] = (Wa*MeanModelPast + Wb*DicoComp["Vals"][:])/Sw#(Wa+Wb)
-            # DicoComp["Vals"][:] = MeanModelPast[:]
-            # ##################
-
-            
-            #DicoComp["Vals"][:] = self.PastModels[-1][:] + self.Alpha * dThisModel
-            #log.print("  Have rescaled model using Alpha = %.2f"%(self.Alpha))
-
-        if self.GD["SSD3"]["NLookBackModels"]!=0:
-            self.PastModels.append(DicoComp["Vals"].copy())
         
         if self.GD["SSD3"]["ForcePositiveModel"]:
             x,y=np.where(DicoComp["Vals"][0]<0)
             for iParam in range(self.NParam):
                 DicoComp["Vals"][iParam][x,y]=0
         
+    def FitLookBackModels(self):
+        if self.GD["SSD3"]["NLookBackModels"]!=0 and len(self.PastModels)>=(self.G["Deconv"]["MaxMajorIter"]-2):
+            log.print("Use %i past models to update..."%len(self.PastModels))
+            CFPM=ClassFitPreviousModels.ClassFitPreviousModels(self)
+            MeanModelPast=CFPM.avgWeighted()
+            self.DicoSMStacked["Comp"]["Vals"][:] = MeanModelPast[:]
+
         
+        
+    def GiveModelImageBands(self,PSFServer):
+        _,npol,nx,ny=self.ModelShape
+        nch=PSFServer.SpectralFunctionsMachine.NFreqBand
+        ModelImage=np.zeros((nch,npol,nx,ny),np.float32)
+        
+        # DicoModelImageBands=shared_dict.attach("DicoModelImageBands")#["CubeVariablePSF"]
+        # DicoModelImageBands["Model"]=ModelImage
+        
+        # self.DicoSMStacked["Comp"]["Vals"]=np.zeros((self.NParam,nx,ny),np.float32)
+        # self.DicoSMStacked["Comp"]["Vals"][:,0,0]=np.array([1,1],np.float32)[:]
+        if self.DicoSMStacked["Comp"].get("Vals",None) is None: return ModelImage
+        self.PSFServer=PSFServer
+        
+        APP=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_MM",
+                                                   ncpu=self.GD["Parallel"]["NCPU"],
+                                                   affinity="disable",
+                                                   )
+        APP.registerJobHandlers(self)
+        APP.startWorkers()
+        APP.awaitWorkerStart()
+        SERIAL=False
+        for ich in range(nch):
+            for ii in range(nx):
+                APP.runJob("GiveModelImageBandsLine.%i.%i"%(ich,ii),
+                           self._GiveModelImageBandsLine,
+                           args=(ich,ii), serial=SERIAL) 
+        LDicoResults=APP.awaitJobResults("GiveModelImageBandsLine.*", progress="Est. Inbd. Model")
+        for D in LDicoResults:
+            ich=D["ich"]
+            ii=D["ii"]
+            ModelImage[ich,0,ii,:]=D["ModelImageLine"]
+        APP.terminate()
+        APP.shutdown()
+        del(APP)
+        return ModelImage
+
+    def _GiveModelImageBandsLine(self,ich,ii):
+        _,npol,nx,ny=self.ModelShape
+        PSFServer=self.PSFServer
+        ModelImageLine=np.zeros((ny,),np.float32)
+        for jj in range(ny):
+            if self.DicoSMStacked["Comp"]["Vals"][:,ii,jj][0]==0: continue
+            x=self.DicoSMStacked["Comp"]["Vals"][:,ii,jj] # shape=(NParam,nx,ny)
+            iFacet=PSFServer.giveFacetID2(ii,jj)
+            ModelImageLine[jj]=PSFServer.SpectralFunctionsMachine.IntExpFuncPoly(x.reshape((1,-1)),
+                                                                                 iChannel=ich,
+                                                                                 iFacet=iFacet,
+                                                                                 FluxScale="Exp",
+                                                                                 OutMode="int")
+        D={"ich":ich,"ii":ii,"ModelImageLine":ModelImageLine}
+        return D
+    
         
     def GiveModelImage(self,FreqIn=None,out=None,InModelParms=None):
         
@@ -522,7 +502,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             logS.fill(0)
             for iCoef in range(1,self.NParam):
                 logS+=C[iCoef]*(np.log(ThisFreq/RefFreq))**iCoef
-            ModelImage[ich,0]=S0*np.exp(logS)
+            logS[logS>10]=10
+            logS[logS<-10]=-10
+            # ModelImage[ich,0]=S0*np.exp(logS)
+            with warnings.catch_warnings():
+                warnings.filterwarnings("error", category=RuntimeWarning)
+                with np.errstate(all="raise"):
+                    ModelImage[ich,0]=S0*np.exp(logS)
         
         return ModelImage
     
@@ -634,8 +620,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
 
     def CleanMaskedComponants(self,MaskName,InvertMask=False):
-        stop
-        print("Cleaning model dictionary from masked components using %s [%i components]"%(MaskName,len(self.DicoSMStacked["Comp"])), file=log)
 
         im=image(MaskName)
         MaskArray=im.getdata()[0,0].T[::-1]
@@ -643,11 +627,15 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             print("  Inverting the mask", file=log)
             MaskArray=1-MaskArray
         # copy keys to avoid py3 error
-        iterkeys=list(self.DicoSMStacked["Comp"].keys())
-        for (x,y) in iterkeys:
-            if MaskArray[x,y]==0:
-                del(self.DicoSMStacked["Comp"][(x,y)])
-        print("  There are %i components left"%len(self.DicoSMStacked["Comp"]), file=log)
+
+        Vals=self.DicoSMStacked["Comp"].get("Vals",None)
+        if Vals is None:
+            return
+    
+        print("Cleaning model dictionary from masked components using %s [%i components]"%(MaskName,np.count_nonzero(Vals[0])), file=log)
+        for iCoef in range(self.NParam):
+            Vals[iCoef]*=MaskArray
+        log.print("  There are %i components left"%np.count_nonzero(Vals[0]))
 
                 
     def ToNPYModel(self,FitsFile,SkyModel,BeamImage=None):

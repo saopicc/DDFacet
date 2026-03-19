@@ -246,10 +246,11 @@ class ClassImageNoiseMachine():
 
         print("  Getting model image...", file=log)
         Model=self.ModelMachine.GiveModelImage(DoAbs=True)
-            
-        if "Comp" in self.ExternalModelMachine.DicoSMStacked.keys():
-            Model+=np.abs(self.ExternalModelMachine.GiveModelImage())
 
+        HasModelNonZeroModel=(len(self.ExternalModelMachine.DicoSMStacked.get("Comp",{}))>0)
+        if HasModelNonZeroModel:
+            Model+=np.abs(self.ExternalModelMachine.GiveModelImage())
+            
         if "JonesNorm" in self.DicoDirty.keys():
             nchIm,npolIm,nxIm,nyIm=self.DicoDirty["JonesNorm"].shape
             MeanBeam=np.sum(self.DicoDirty["WeightChansImages"].reshape((nchIm,1,1,1))*self.DicoDirty["JonesNorm"],axis=0).reshape((1,npolIm,nxIm,nyIm))

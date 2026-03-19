@@ -100,9 +100,11 @@ class ClassIslandDistanceMachine():
             dx=self.GD["SSDClean"]["NEnlargePars"]
             if dx>0:
                 print("  increase their sizes by %i pixels"%dx, file=log)
-                IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
+                IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland(self._MaskArray)
                 for iIsland in range(len(ListIslands)):#self.NIslands):
-                    ListIslands[iIsland]=IncreaseIslandMachine.IncreaseIsland(ListIslands[iIsland],dx=dx)
+                    ListIslands[iIsland],W=IncreaseIslandMachine.IncreaseIsland(ListIslands[iIsland],
+                                                                                dx=dx,
+                                                                                AllowMasked=False)
 
         
         return ListIslands

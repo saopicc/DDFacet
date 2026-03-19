@@ -46,9 +46,11 @@ import sys,os
 if "PYTHONPATH_FIRST" in os.environ.keys() and int(os.environ["PYTHONPATH_FIRST"]):
     sys.path = os.environ["PYTHONPATH"].split(":") + sys.path
 
-
-#import matplotlib
-# matplotlib.use('agg')
+if int(os.environ.get("DOSHOW",1))==0:
+    print("Switch to Agg backend: will not show matplotlib plots")
+    import matplotlib
+    matplotlib.use('agg')
+    
 #import optparse
 import traceback
 import atexit
@@ -352,18 +354,24 @@ def CleanupAPP():
         del(Imager.APP)
     except:
         pass
+
+    try:
+        Imager.FacetMachine._delete_cf_in_destructor=True
+    except:
+        pass
     
     try:
         del(Imager)
     except:
         pass
     Imager=None
+    import gc
+    gc.collect()
     
     try:
         Multiprocessing.cleanupShm()
     except:
         pass
-    import gc
     gc.collect()
     
 def driver(OP_IN=None):

@@ -11,6 +11,8 @@ if not DDF_FORCE_NOT_USE_MPI:
         from mpi4py.MPI import *
         size = COMM_WORLD.size
         rank = COMM_WORLD.rank
+        comm=COMM_WORLD
+
         if size>1:
             useMPI=True
         else:
@@ -54,3 +56,124 @@ except ModuleNotFoundError:
             pass
         def __exit__(self, exc_type, exc_val, exc_tb):
             pass
+
+
+
+import numpy as np
+
+
+
+
+# ---------- large numpy broadcast ----------
+
+def _bcast_large_array(arr, root=0, chunk_bytes=256*1024*1024):
+    comm = COMM_WORLD
+    rank = comm.rank
+
+    if rank == root:
+        arr = np.ascontiguousarray(arr)
+        shape = arr.shape
+        dtype = arr.dtype.str
+        nbytes = arr.nbytes
+    else:
+        shape = dtype = nbytes = None
+
+    shape = comm.bcast(shape, root)
+    dtype = np.dtype(comm.bcast(dtype, root))
+    nbytes = comm.bcast(nbytes, root)
+
+    if rank != root:
+        arr = np.empty(shape, dtype=dtype)
+        arr = np.ascontiguousarray(arr)
+
+    buf = memoryview(arr).cast('B')   # ✅ MPI-safe byte view
+
+    offset = 0
+    while offset < nbytes:
+        size = min(chunk_bytes, nbytes - offset)
+        chunk = buf[offset:offset+size]
+
+        # explicit count form — most robust
+        comm.Bcast([chunk, size, BYTE], root=root)
+
+        offset += size
+
+    return arr
+
+
+
+# ---------- recursive broadcast ----------
+
+def _bcast_any(obj, root=0):
+    comm = COMM_WORLD
+
+    rank = comm.rank
+
+    # ---- detect type on root ----
+    if rank == root:
+        if isinstance(obj, np.ndarray):
+            tag = "ndarray"
+        elif isinstance(obj, dict):
+            tag = "dict"
+        elif isinstance(obj, (list, tuple)):
+            tag = "list"
+        else:
+            tag = "scalar"
+    else:
+        tag = None
+
+    tag = comm.bcast(tag, root=root)
+
+    # ---- ndarray ----
+    if tag == "ndarray":
+        if rank != root:
+            obj = None
+        return _bcast_large_array(obj, root=root)
+
+    # ---- dict ----
+    elif tag == "dict":
+        if rank == root:
+            keys = list(obj.keys())
+        else:
+            keys = None
+
+        keys = comm.bcast(keys, root=root)
+
+        out = {}
+        for k in keys:
+            if rank == root:
+                v = obj[k]
+            else:
+                v = None
+            out[k] = _bcast_any(v, root=root)
+
+        return out
+
+    # ---- list / tuple ----
+    elif tag == "list":
+        if rank == root:
+            n = len(obj)
+        else:
+            n = None
+
+        n = comm.bcast(n, root=root)
+
+        out = []
+        for i in range(n):
+            if rank == root:
+                v = obj[i]
+            else:
+                v = None
+            out.append(_bcast_any(v, root=root))
+
+        return tuple(out) if isinstance(obj, tuple) else out
+
+    # ---- small scalar ----
+    else:
+        return comm.bcast(obj, root=root)
+
+
+# ---------- public function ----------
+
+def bcast_chunk_dict(d, root=0):
+    return _bcast_any(d, root=root)

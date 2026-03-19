@@ -62,9 +62,10 @@ from DDFacet.Data import ClassStokes
 from DDFacet.Imager import ClassGainMachine
 import socket
 from DDFacet.Data.PointingProvider import PointingProvider
+import getpass
 
 from DDFacet.Other import MPIManager
-from DDFacet.Other.CacheManager import CacheManager
+from DDFacet.Other.CacheManager import CacheManager,RemnantManager
 
 
 # from astropy import wcs
@@ -179,6 +180,7 @@ class ClassImagerDeconv():
         self.do_predict_only = predict_only
         self.do_data, self.do_psf, self.do_readcol, self.do_deconvolve = data, psf, readcol, deconvolve
 
+        
         self.FacetMachine=None
         self.FWHMBeam = None
         self.PSFGaussPars = None
@@ -188,6 +190,8 @@ class ClassImagerDeconv():
         self.PSFSidelobesAvg = None
         self.HasFittedPSFBeam=False
         self.fit_stat = None # PSF fit status
+        
+        self.RemnantManager=RemnantManager(self.GD)
 
         self.DicoDirty = None         # shared dict with current dirty/residual image
         self.DicoImagesPSF = None     # shared dict with current PSF images
@@ -320,9 +324,9 @@ class ClassImagerDeconv():
                                                                              GridFreqs=self.VS.FreqBandCenters,
                                                                              MainCache=self.VS.maincache,
                                                                              APP=self.APP)
-        if MPIManager.rank == 0:
-            self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
-            self.MaskMachine.setImageNoiseMachine(self.ImageNoiseMachine)
+        # if MPIManager.rank == 0:
+        self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
+        self.MaskMachine.setImageNoiseMachine(self.ImageNoiseMachine)
 
         MinorCycleConfig["RefFreq"] = self.RefFreq
         MinorCycleConfig["ModelMachine"] = ModelMachine
@@ -397,8 +401,8 @@ class ClassImagerDeconv():
                 print("Using WSCMS2 algorithm", file=log)
             else:
                 raise NotImplementedError("Unknown --Deconvolution-Mode setting '%s'" % self.GD["Deconv"]["Mode"])
-            if MPIManager.rank == 0:
-                self.DeconvMachine.setMaskMachine(self.MaskMachine)
+            self.DeconvMachine.setMaskMachine(self.MaskMachine)
+            
         self.CreateFacetMachines()
         self.VS.setFacetMachine(self.FacetMachine or self.FacetMachinePSF)
         
@@ -449,7 +453,8 @@ class ClassImagerDeconv():
                                                             self.GD,
                                                             Precision=self.Precision,
                                                             PolMode=self.GD["Output"]["StokesResidues"],
-                                                            custom_id="STOKESFM")
+                                                            custom_id="STOKESFM",
+                                                            RemnantManager=self.RemnantManager)
                 self.StokesFacetMachine.appendMainField(ImageName="%s.image"%self.BaseName,**MainFacetOptions)
                 self.StokesFacetMachine.Init()
 
@@ -457,7 +462,7 @@ class ClassImagerDeconv():
             self.FacetMachine = ClassFacetMachine(self.VS, self.GD,
                                                   Precision=self.Precision,
                                                   PolMode=self.PolMode,
-                                                  custom_id="FM")
+                                                  custom_id="FM",RemnantManager=self.RemnantManager)
             self.FacetMachine.appendMainField(ImageName="%s"%self.BaseName,**MainFacetOptions)
 
             self.FacetMachine.Init()
@@ -476,7 +481,7 @@ class ClassImagerDeconv():
             self.FacetMachinePSF = ClassFacetMachine(self.VS, self.GD,
                                                      Precision=self.Precision, PolMode=self.PolMode,
                                                      DoPSF=True, Oversize=oversize,
-                                                     custom_id="FMPSF")
+                                                     custom_id="FMPSF",RemnantManager=self.RemnantManager)
             self.FacetMachinePSF.appendMainField(ImageName="%s.psf" % self.BaseName, **MainFacetOptions)
             self.FacetMachinePSF.Init()
 
@@ -512,15 +517,21 @@ class ClassImagerDeconv():
         if mode in (0, False, None, 'off'):
             return None, False, False
         elif mode == 'reset':
+            
             print(ModColor.Str("Forcing to reset the cached PSF image", col="red"), file=log)
             cachepath, valid = self.VS.maincache.checkCache("PSF", key or self._createDirtyPSFCacheKey(sparsify),
                                                                       reset=True)
             writecache = True
         elif mode in (1, True, 'auto'):
-            cachepath, valid = self.VS.maincache.checkCache("PSF", key or self._createDirtyPSFCacheKey(sparsify))
+            CachePathSHM=self.RemnantManager.giveNameRemnant(DicoName="AllImages_FMPSF")
+            cachepath, valid = self.VS.maincache.checkCache("PSF", key or self._createDirtyPSFCacheKey(sparsify),CachePathSHM=CachePathSHM)
             writecache = not valid
         elif mode.lower() == 'force':
-            cachepath = self.VS.maincache.getElementPath("PSF")
+            CachePathSHM=self.RemnantManager.giveNameRemnant(DicoName="AllImages_FMPSF")
+            if CachePathSHM is None:
+                cachepath = self.VS.maincache.getElementPath("PSF")
+            else:
+                cachepath=CachePathSHM
             valid = os.path.exists(cachepath)
             print(ModColor.Str("Forcing to read the cached PSF", col="red"), file=log)
             writecache = False
@@ -541,10 +552,15 @@ class ClassImagerDeconv():
                                                                       reset=True)
             writecache = True
         elif mode in (1, True, 'auto'):
-            cachepath, valid = self.VS.maincache.checkCache("Dirty", key or self._createDirtyDirtyCacheKey(sparsify))
+            CachePathSHM=self.RemnantManager.giveNameRemnant(DicoName="AllImages_FM")
+            cachepath, valid = self.VS.maincache.checkCache("Dirty", key or self._createDirtyDirtyCacheKey(sparsify),CachePathSHM=CachePathSHM)
             writecache = not valid
         elif mode == 'forcedirty':
-            cachepath = self.VS.maincache.getElementPath("Dirty")
+            CachePathSHM=self.RemnantManager.giveNameRemnant(DicoName="AllImages_FM")
+            if CachePathSHM is None:
+                cachepath = self.VS.maincache.getElementPath("Dirty")
+            else:
+                cachepath = CachePathSHM
             valid = os.path.exists(cachepath)
             if not valid:
                 print(ModColor.Str("Can't force-read cached dirty %s: does not exist" % cachepath, col="red"), file=log)
@@ -552,7 +568,11 @@ class ClassImagerDeconv():
             print(ModColor.Str("Forcing reading the cached dirty image", col="red"), file=log)
             writecache = False
         elif mode == 'forceresidual':
-            cachepath = self.VS.maincache.getElementPath("LastResidual")
+            CachePathSHM=self.RemnantManager.giveNameRemnant(DicoName="AllImages_FM")
+            if CachePathSHM is None:
+                cachepath = self.VS.maincache.getElementPath("LastResidual")
+            else:
+                cachepath = CachePathSHM
             valid = os.path.exists(cachepath)
 
             if not valid:
@@ -566,8 +586,12 @@ class ClassImagerDeconv():
         return cachepath, valid, writecache
 
     def _loadCachedPSF (self, cachepath):
-        self.DicoImagesPSF = shared_dict.create("AllImages_FMPSF")
-        self.DicoImagesPSF.restore(cachepath)
+
+        
+        self.DicoImagesPSF=self.RemnantManager.mountRemnant("AllImages_FMPSF")
+        if self.DicoImagesPSF is None:
+            self.DicoImagesPSF = shared_dict.create("AllImages_FMPSF")
+            self.DicoImagesPSF.restore(cachepath)
 
         #DicoImagesPSF = MyPickle.FileToDicoNP(cachepath)
         #self.DicoImagesPSF = SharedDict.dict_to_shm("FMPSF_AllImages",DicoImagesPSF)
@@ -623,15 +647,17 @@ class ClassImagerDeconv():
         self.HasFittedPSFBeam = False
         self.fit_stat = self.FitPSF()
         if cachepath:
-
             try:
                 self.DicoImagesPSF["FWHMBeam"]=self.FWHMBeam
                 self.DicoImagesPSF["PSFGaussPars"]=self.PSFGaussPars
                 self.DicoImagesPSF["PSFSidelobes"]=self.PSFSidelobes
                 self.DicoImagesPSF["EstimatesAvgPSF"]=(self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg)
                 #cPickle.dump(self.DicoImagesPSF, open(self._psf_cachepath, 'w'), 2)
-                self.DicoImagesPSF.save(cachepath)
-                print(cachepath)
+                if not self.RemnantManager.Enabled:
+                    self.DicoImagesPSF.save(cachepath)
+                else:
+                    log.print("Skipped saving DicoImagesPSF, because Remnant mode enabled")
+
                 #MyPickle.DicoNPToFile(self.DicoImagesPSF,"%s.DicoPickle"%cachepath)
                 #print("%s.DicoPickle"%cachepath)
                 self.VS.maincache.saveCache("PSF")
@@ -686,6 +712,11 @@ class ClassImagerDeconv():
 
         cachepath, valid, writecache = self._checkForCachedPSF(sparsify)
 
+        if not valid and self.RemnantManager.Enabled:
+                DicoPSFPath=self.RemnantManager.giveNameRemnant(DicoName="AllImages_FMPSF")
+                if os.path.exists(DicoPSFPath):
+                    log.print(ModColor.Str("Remnant PSF shm path %s is invalid but exists, removing..."%DicoPSFPath))
+                    os.system("rm -rf %s"%DicoPSFPath)
 
         if valid:
             print(ModColor.Str("============================ Loading cached PSF =========================="), file=log)
@@ -745,12 +776,19 @@ class ClassImagerDeconv():
         if self.GD["Output"]["Mode"] == 'Dirty' and self.GD["Predict"]["InitDicoModel"] is not None:
             FacetMachineNpix=self.FacetMachine.Npix_x,self.FacetMachine.Npix_y
             if self.ModelMachine.DicoSMStacked['ModelShape'][-2:] != FacetMachineNpix:
-                raise ValueError("Your DicoModel has incorrect shape. Expected %i pixels but "
-                                 "got %i"%(self.FacetMachine.Npix, self.ModelMachine.DicoSMStacked['ModelShape'][-1]))
+                raise ValueError("Your DicoModel has incorrect shape. Expected %s pixels but "
+                                 "got %s"%(str(self.FacetMachine.Npix), str(self.ModelMachine.DicoSMStacked['ModelShape'][-2:])))
 
         current_model_freqs = np.array([])
         ModelImage = None
         # load from cache
+
+        if not dirty_valid and self.RemnantManager.Enabled:
+                DicoDirtyPath=self.RemnantManager.giveNameRemnant(DicoName="AllImages_FM")
+                if os.path.exists(DicoDirtyPath):
+                    log.print("Remnant dirty shm path %s is invalid but exists, removing..."%DicoDirtyPath)
+                    os.system("rm -rf %s"%DicoDirtyPath)
+                
         if dirty_valid:
             if self.GD["Cache"]["Dirty"] == "forceresidual":
                 print(ModColor.Str("============================ Loading last residual image ========================"), file=log)
@@ -763,9 +801,12 @@ class ClassImagerDeconv():
                 print(ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,"), file=log)
                 print(ModColor.Str("or if your MS has changed, please remove the cache, or run with --Cache-Dirty reset."), file=log)
 
-            self.DicoDirty = shared_dict.create("AllImages_FM")
-            self.DicoDirty.restore(dirty_cachepath)
 
+            self.DicoDirty=self.RemnantManager.mountRemnant("AllImages_FM")
+            if self.DicoDirty is None:
+                self.DicoDirty = shared_dict.create("AllImages_FM")
+                self.DicoDirty.restore(dirty_cachepath)
+                    
 
             if self.DicoDirty["JonesNorm"] is not None:
                 self.FacetMachine.setNormImages(self.DicoDirty)
@@ -785,6 +826,13 @@ class ClassImagerDeconv():
             if MPIManager.rank == 0 and self.DicoDirty.get("LastMask") is not None and self.GD["Mask"]["Auto"]:
                 self.MaskMachine.joinExternalMask(self.DicoDirty["LastMask"])
 
+
+        if not psf_valid and self.RemnantManager.Enabled:
+            DicoPSFPath=self.RemnantManager.giveNameRemnant(DicoName="AllImages_FMPSF")
+            if os.path.exists(DicoPSFPath):
+                log.print(ModColor.Str("Remnant PSF shm path %s is invalid but exists, removing..."%DicoPSFPath))
+                os.system("rm -rf %s"%DicoPSFPath)
+                
         if psf_valid:
             print(ModColor.Str("============================ Loading cached PSF ================================="), file=log)
             print("found valid cached PSF in %s" % psf_cachepath, file=log)
@@ -932,7 +980,11 @@ class ClassImagerDeconv():
                 if dirty_writecache:
                     try:
                         #cPickle.dump(self.DicoDirty, open(cachepath, 'w'), 2)
-                        self.DicoDirty.save(dirty_cachepath)
+                        if not self.RemnantManager.Enabled:
+                            self.DicoDirty.save(dirty_cachepath)
+                        else:
+                            log.print("Skipped saving DicoDirty to cache beause remnant mode enabled,")
+                            log.print("  instead it will remain in %s"%self.DicoDirty.path)
                         self.VS.maincache.saveCache("Dirty")
                     except:
                         print(traceback.format_exc(), file=log)
@@ -1155,9 +1207,12 @@ class ClassImagerDeconv():
             if type(DATA) is str:
                 print(ModColor.Str("no more data: %s" % DATA, col="red"), file=log)
                 break
-            # None weights indicates an all-flagged chunk: go on to the next chunk
-            if DATA["Weights"] is None:
-                continue
+
+            
+            # # None weights indicates an all-flagged chunk: go on to the next chunk
+            # if DATA["Weights"] is None:
+            #     continue
+            
             # insert null array for predict
             predict = DATA.addSharedArray("data", DATA["datashape"], DATA["datatype"])
 
@@ -1409,20 +1464,42 @@ class ClassImagerDeconv():
 
             CheckFM(self,"deconv")
             repMinor, continue_deconv, update_model = None, None, None
-            if MPIManager.rank == 0:
-                self.DeconvMachine.Update(self.DicoDirty)
 
+            if self.GD["Deconv"]["Mode"]=="SSD3":
+                DoMinorCycle=True
+            else:
+                DoMinorCycle=(MPIManager.rank==0)
+                
+            if DoMinorCycle:
+                self.DeconvMachine.Update(self.DicoDirty)
 
                 repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
                 
-                if self.GD["Deconv"]["Mode"]=="SSD3":
+                if self.GD["Deconv"]["Mode"]=="SSD3" and MPIManager.rank==0:
                     DicoComp=self.ModelMachine.DicoSMStacked["Comp"]
                     NParms,nx,ny=DicoComp["Vals"].shape
                     for iCoef in range(NParms):
                         ThisCoefImage=DicoComp["Vals"][iCoef,:,:].reshape((1,1,nx,ny))
-                        self.FacetMachine.ToCasaImage(ThisCoefImage,ImageName="%s.Taylor%i.%2.2i"%(self.BaseName,iCoef,iMajor),Stokes=self.VS.StokesConverter.RequiredStokesProducts(),Fits=True)
+                        self.FacetMachine.ToCasaImage(ThisCoefImage,
+                                                      ImageName="%s.Taylor%i.%2.2i"%(self.BaseName,iCoef,iMajor),
+                                                      Stokes=self.VS.StokesConverter.RequiredStokesProducts(),
+                                                      Fits=True)
                     ThisCoefImage=DicoComp["Weights"].reshape((1,1,nx,ny))
-                    self.FacetMachine.ToCasaImage(ThisCoefImage,ImageName="%s.TaylorW.%2.2i"%(self.BaseName,iMajor),Stokes=self.VS.StokesConverter.RequiredStokesProducts(),Fits=True)
+                    self.FacetMachine.ToCasaImage(ThisCoefImage,
+                                                  ImageName="%s.TaylorW.%2.2i"%(self.BaseName,iMajor),
+                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts(),
+                                                  Fits=True)
+                    ThisCoefImage=self.ModelMachine.MaskZero.reshape((1,1,nx,ny))
+                    self.FacetMachine.ToCasaImage(ThisCoefImage,
+                                                  ImageName="%s.MaskZero.%2.2i"%(self.BaseName,iMajor),
+                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts(),
+                                                  Fits=True)
+                    ThisResidImage=DicoComp.get("CurrentResid",None)
+                    if ThisResidImage is not None:
+                        self.FacetMachine.ToCasaImage(ThisResidImage,
+                                                      ImageName="%s.estimated_residual%2.2i"%(self.BaseName,iMajor),
+                                                      Stokes=self.VS.StokesConverter.RequiredStokesProducts(),
+                                                      Fits=True)
 
                 
             # Broadcast metadata regarding the state of Deconvolution form the master MPI process
@@ -1442,19 +1519,22 @@ class ClassImagerDeconv():
             
             
             if MPIManager.useMPI:
-                DicoSMStacked                   = MPIManager.COMM_WORLD.bcast(self.ModelMachine.DicoSMStacked, root=0)
-                self.ModelMachine.FromDico(DicoSMStacked)
-                
+                DicoSMStacked                   = MPIManager.bcast_chunk_dict(self.ModelMachine.DicoSMStacked, root=0)
+                if MPIManager.rank != 0:
+                    self.ModelMachine.FromDico(DicoSMStacked)
+                    
             # ###
             model_freqs = np.array([self.RefFreq],np.float64)
             model_image = None
-            if MPIManager.rank == 0:
-                model_image = self.DeconvMachine.GiveModelImage(model_freqs)
-                if MPIManager.useMPI:
-                    model_image                   = MPIManager.COMM_WORLD.bcast(model_image, root=0)
-            else:
-                if MPIManager.useMPI:
-                    model_image                   = MPIManager.COMM_WORLD.bcast(None, root=0)
+            model_image = self.DeconvMachine.GiveModelImage(model_freqs)
+            
+            # if MPIManager.rank == 0:
+            #     model_image = self.DeconvMachine.GiveModelImage(model_freqs)
+            #     if MPIManager.useMPI:
+            #         model_image                   = MPIManager.COMM_WORLD.bcast(model_image, root=0)
+            # else:
+            #     if MPIManager.useMPI:
+            #         model_image                   = MPIManager.COMM_WORLD.bcast(None, root=0)
 
             ModelImage = self.FacetMachine.setModelImage(model_image)
 
@@ -1462,13 +1542,12 @@ class ClassImagerDeconv():
             if user_stopped:
                 print(ModColor.Str("user stop signal (SIGUSR1) received. This will be the last major cycle"))
                 continue_deconv = False
+                
             try:
-                self.FacetMachine.ToCasaImage(self.DeconvMachine.LabelIslandsImage,
-                                              ImageName="%s.labelIslands%2.2i"%(self.BaseName,iMajor),Fits=True,
-                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-                # ModelImage = self.DeconvMachine.GiveModelImage(np.array([100e6]))
-                # self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model%2.2i"%(self.BaseName,iMajor),
-                #                               Fits=True)#,Freqs=current_model_freqs,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                if MPIManager.rank == 0:
+                    self.FacetMachine.ToCasaImage(self.DeconvMachine.LabelIslandsImage,
+                                                  ImageName="%s.labelIslands%2.2i"%(self.BaseName,iMajor),Fits=True,
+                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             except:
                 pass
 
@@ -1480,17 +1559,17 @@ class ClassImagerDeconv():
 
             # write out model image, if asked to
             current_model_freqs = model_freqs
-            if MPIManager.rank == 0:
-                print("model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max()), file=log)
-                if "o" in self._saveims:
-                    self.FacetMachine.ToCasaImage(ModelImage, ImageName="%s.model%2.2i" % (self.BaseName, iMajor),
-                                              Fits=True, Freqs=current_model_freqs,
-                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-                _,_,nx,ny=ModelImage.shape
-                MeanModelImage=np.mean(ModelImage,axis=0).reshape((1,1,nx,ny))
-                self.FacetMachine.ToCasaImage(MeanModelImage, ImageName="%s.mean_model%2.2i" % (self.BaseName, iMajor),
-                                              Fits=True, Freqs=np.array([np.mean(current_model_freqs)]),
-                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            # if MPIManager.rank == 0:
+            #     print("model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max()), file=log)
+            #     if "o" in self._saveims:
+            #         self.FacetMachine.ToCasaImage(ModelImage, ImageName="%s.model%2.2i" % (self.BaseName, iMajor,MPIManager.rank),
+            #                                   Fits=True, Freqs=current_model_freqs,
+            #                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            #     _,_,nx,ny=ModelImage.shape
+            #     MeanModelImage=np.mean(ModelImage,axis=0).reshape((1,1,nx,ny))
+            #     self.FacetMachine.ToCasaImage(MeanModelImage, ImageName="%s.mean_model%2.2i" % (self.BaseName, iMajor,MPIManager.rank),
+            #                                   Fits=True, Freqs=np.array([np.mean(current_model_freqs)]),
+            #                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             # stop
             # ###
 
@@ -1532,7 +1611,7 @@ class ClassImagerDeconv():
                 print("the PSF will be recomputed", file=log)
                 self.FacetMachinePSF.ReinitDirty()
             if do_psf or not continue_deconv:
-                if self.DicoImagesPSF is not None:
+                if self.DicoImagesPSF is not None and not self.RemnantManager.Enabled:
                     self.DicoImagesPSF.delete()
                     self.DicoImagesPSF = None
 
@@ -1696,28 +1775,27 @@ class ClassImagerDeconv():
 
 
             self.HasDeconvolved=True
-            # dump dirty to cache
-            if self.GD["Cache"]["LastResidual"] and self.DicoDirty is not None:
-                cachepath, valid = self.VS.maincache.checkCache("LastResidual",
-                                                                dict(
-                                                                    [("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
-                                                                    [(section, self.GD[section]) for section in
-                                                                     ["Data", "Beam", "Selection",
-                                                                      "Freq", "Image", "Comp",
-                                                                      "RIME","Weight","Facets",
-                                                                      "DDESolutions"]]
-                                                                ),
-                                                                reset=False)
-                try:
-                    print("Saving last residual image to %s"%cachepath, file=log)
-                    self.DicoDirty.save(cachepath)
-                    #MyPickle.DicoNPToFile(self.DicoDirty,"%s.DicoPickle"%cachepath)
-                    self.VS.maincache.saveCache("LastResidual")
-                    last_residual_is_saved=True
-                    
-                except:
-                    print(traceback.format_exc(), file=log)
-                    print(ModColor.Str("WARNING: Residual image cache could not be written, see error report above. Proceeding anyway."), file=log)
+            # # dump dirty to cache
+            # if self.GD["Cache"]["LastResidual"] and self.DicoDirty is not None:
+            #     cachepath, valid = self.VS.maincache.checkCache("LastResidual",
+            #                                                     dict(
+            #                                                         [("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
+            #                                                         [(section, self.GD[section]) for section in
+            #                                                          ["Data", "Beam", "Selection",
+            #                                                           "Freq", "Image", "Comp",
+            #                                                           "RIME","Weight","Facets",
+            #                                                           "DDESolutions"]]
+            #                                                     ),
+            #                                                     reset=False)
+            #     try:
+            #         print("Saving last residual image to %s"%cachepath, file=log)
+            #         self.DicoDirty.save(cachepath)
+            #         #MyPickle.DicoNPToFile(self.DicoDirty,"%s.DicoPickle"%cachepath)
+            #         self.VS.maincache.saveCache("LastResidual")
+            #         last_residual_is_saved=True
+            #     except:
+            #         print(traceback.format_exc(), file=log)
+            #         print(ModColor.Str("WARNING: Residual image cache could not be written, see error report above. Proceeding anyway."), file=log)
 
         self.FacetMachine.finaliseSmoothBeam()
 
@@ -1726,9 +1804,14 @@ class ClassImagerDeconv():
             self.FacetMachine.ToCasaImage(mod_image,ImageName="%s.model.mean_posterior.int"%self.BaseName,Fits=True)
             mod_image = self.DeconvMachine.ModelMachine.GiveModelImage()
             self.FacetMachine.ToCasaImage(mod_image,ImageName="%s.model.best_individual.int"%self.BaseName,Fits=True)
+
             
-                    
-        # dump dirty to cache
+        # the Dirty cache mapping to the stored remnant shm is not valid anymore
+        if self.HasDeconvolved and self.RemnantManager.Enabled:
+            log.print("Delete the stored cache for Dirty, since we are in Remnant mode and we have deconvolved...")
+            self.VS.maincache.deleteCache("Dirty")
+            
+        # dump dirty to LastResidual
         if self.GD["Cache"]["LastResidual"] and self.DicoDirty is not None and not last_residual_is_saved:
             cachepath, valid = self.VS.maincache.checkCache("LastResidual",
                                                             dict(
@@ -1742,7 +1825,10 @@ class ClassImagerDeconv():
                                                             reset=False)
             try:
                 print("Saving last residual image to %s"%cachepath, file=log)
-                self.DicoDirty.save(cachepath)
+                if not self.RemnantManager.Enabled:
+                    self.DicoDirty.save(cachepath)
+                else:
+                    log.print("Skipped saving LastResidual to cache beause Remnant mode enabled,\n   instead it will remain in %s"%self.DicoDirty.path)
                 self.VS.maincache.saveCache("LastResidual")
             except:
                 print(traceback.format_exc(), file=log)
@@ -1755,7 +1841,7 @@ class ClassImagerDeconv():
         if self.FacetMachinePSF is not None:
             self.FacetMachinePSF.releaseGrids()
             self.FacetMachinePSF.releaseCFs()
-        if self.DicoImagesPSF is not None:
+        if self.DicoImagesPSF is not None and not self.RemnantManager.Enabled:
             self.DicoImagesPSF.delete()
             self.DicoImagesPSF = None
 
@@ -2120,6 +2206,8 @@ class ClassImagerDeconv():
             raise RuntimeError("--Cache-Dirty forceresidual in effect, but no cached residual image found")
         print(ModColor.Str("Forcing reading the cached last residual image", col="red"), file=log)
 
+        stop
+        # need to do the Remnant mount
         self.DicoDirty = shared_dict.create("AllImages_FMPSF")
         self.DicoDirty.restore(dirty_cachepath)
 
