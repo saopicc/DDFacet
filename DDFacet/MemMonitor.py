@@ -298,7 +298,10 @@ class ClassMemMonitor():
         # #self.LSMem.append(Smem-self.Swap0)
         Swap_memAvail=swap_mem.total/float(2**20)/1024
         
-        cpu=psutil.cpu_percent()
+        logical = psutil.cpu_count(logical=True)
+        physical = psutil.cpu_count(logical=False)
+
+        cpu = psutil.cpu_percent() * logical / physical
         AbsTime=time.time()
         
         if self.Mode=="Plot":
