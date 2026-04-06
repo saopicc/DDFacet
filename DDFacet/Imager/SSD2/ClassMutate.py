@@ -82,7 +82,10 @@ class ClassMutate():
                 a0=A[iAlpha,0,i0,j0]
                 a1=A[iAlpha,0,i1,j1]
 
-                a2=(f0/f2)*(2**a0)+(f1/f2)*(2**a1)
+                # ignore RuntimeWarning: overflow encountered in double_scalars
+                with np.errstate(over='ignore', invalid='ignore', divide='ignore'):
+                    a2=(f0/f2)*(2**a0)+(f1/f2)*(2**a1)
+                    
                 #print(f0,f2,f1,a0,a1)
                 
                 if 1e-3<a2<1e3:
