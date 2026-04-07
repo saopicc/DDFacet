@@ -219,8 +219,11 @@ class ClassFitPreviousModels():
                 T.timeit("  aW")
                 f=.1
                 aW[aW<f*RMS]=f*RMS
+                MaW=(aW==0)
+                aW[MaW]=1.
                 T.timeit("  aW[aW<f*RMS]")
                 W[iResid,iBand,:,:]=(1./aW)
+                W[iResid,iBand][MaW]=0.
                 T.timeit("  1/aW")
         Wmin=np.min(np.min(W,axis=0),axis=0).reshape((1,1,nx,ny))
         T.timeit("np.min(np.min))")
