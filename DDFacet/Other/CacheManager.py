@@ -162,6 +162,7 @@ class CacheManager (object):
             if reset:
                 print("clearing cache %s, since we were asked to reset the cache" % dirname, file=log)
                 os.system("rm -fr "+dirname)
+
                 os.mkdir(dirname)
         # check for NFS system and print warning
         if nfswarn:

@@ -245,7 +245,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                              GiveComponents=False, ChannelWeights=None):
 
         # convert to radians
-        ex, ey, pa = GaussPars,
+        ex, ey, pa = GaussPars
         ex *= np.pi/180/np.sqrt(2)/2
         ey *= np.pi/180/np.sqrt(2)/2
         epar = (ex + ey)/2.0

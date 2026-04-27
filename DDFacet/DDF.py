@@ -32,6 +32,7 @@ from pyrap.tables  import table
 from DDFacet.compatibility import range
 
 import os
+
 # somewhere some library is trying to be too clever for its own good
 # we will set our own settings up later on
 

@@ -896,7 +896,7 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
 			&PyArray_Type, &LExpectedOutStokes
 			))  return NULL;
   int nx,ny,nz,nzz;
-  //np_grid = (PyArrayObject *) PyArray_ContiguousFromObject(ObjGridIn, PyArray_COMPLEX64, 0, 4);
+  //np_grid = (PyArrayObject *) PyArray_ContiguousFromObject(ObjGridIn, NPY_COMPLEX64, 0, 4);
   (PyArrayObject *) PyList_GetItem(Lmaps, 0);
   char* stokeslookup[] = {"undef","I","Q","U","V","RR","RL","LR","LL","XX","XY","YX","YY"};
   size_t ncorr = PyArray_Size((PyObject*)LDataCorrFormat);

@@ -901,7 +901,7 @@ class ClassImageDeconvMachine():
         dd=np.max([dx,dy])+1
         #DoIslandsInit = (dd>=self.GD["GAClean"]["MinSizeInit"])
         
-        xNotIncreased,yNotIncreased=np.array(self.ListIslandsNotIncreased[iIsland].T)
+        xNotIncreased,yNotIncreased=np.array(self.ListIslandsNotIncreased[iIsland]).T
         dxNotIncreased,dyNotIncreased=xNotIncreased.max()-xNotIncreased.min(),yNotIncreased.max()-yNotIncreased.min()
         SizeIsland=np.max([dxNotIncreased,dyNotIncreased])+1
         

@@ -27,6 +27,7 @@ from DDFacet.compatibility import range
 import numpy as np
 import math
 import itertools
+import collections
 from DDFacet.Other import logger
 from DDFacet.Array import NpShared
 log = logger.getLogger("ClassSmearMapping")
@@ -90,13 +91,22 @@ class SmearMappingMachine (object):
         # process worker results
         # for each map (each array returned from worker), BlockSizes[MapName] will
         # contain a list of BlocksSizesBL entries returned from that worker
+        def _load_uncached(sd, key):
+            value = collections.OrderedDict.__getitem__(sd, key)
+            if isinstance(value, shared_dict.SharedDict.ItemProxy):
+                return value.load()
+            return value
+
         NTotBlocks = 0
         NTotRows = 0
 
-        for key in getattr(sizedict, "iterkeys", sizedict.keys)():
-            bsz = sizedict[key]
+        keys = list(getattr(sizedict, "iterkeys", sizedict.keys)())
+
+        for key in keys:
+            bsz = _load_uncached(sizedict, key)
             NTotBlocks += len(bsz)
             NTotRows += bsz.sum()
+            del bsz
 
         mapping = DATA.addSharedArray(field, (2 + NTotBlocks + NTotRows,), np.int32)
 
@@ -110,10 +120,10 @@ class SmearMappingMachine (object):
         iii = 0
         jjj = 0
 
-        # now go through each per-baseline mapping, sorted by baseline
-        for key in sorted(getattr(sizedict, "iterkeys", sizedict.keys)()):
-            BlocksSizesBL = sizedict[key]
-            BlocksRowsListBL = blockdict[key]
+        for key in sorted(keys):
+            BlocksSizesBL = _load_uncached(sizedict, key)
+            BlocksRowsListBL = _load_uncached(blockdict, key)
+
 
             FinalMapping[iii:iii+BlocksRowsListBL.size] = BlocksRowsListBL[:]
             iii += BlocksRowsListBL.size
@@ -122,6 +132,9 @@ class SmearMappingMachine (object):
             # MM=np.concatenate((MM,BlocksSizesBL))
             FinalMappingSizes[jjj:jjj+BlocksSizesBL.size] = BlocksSizesBL[:]
             jjj += BlocksSizesBL.size
+
+            del BlocksRowsListBL
+            del BlocksSizesBL
 
         NVis = np.where(DATA["A0"] != DATA["A1"])[0].size * DATA["freqs"].size
         #print>>log, "  Number of blocks:         %i"%NTotBlocks

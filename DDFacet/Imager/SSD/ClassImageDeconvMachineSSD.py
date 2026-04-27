@@ -328,6 +328,7 @@ class ClassImageDeconvMachine():
             self.DicoInitIndiv = self.InitMachine.giveDicoInitIndiv(self.ListIslands,
                                                                     ListDoIsland=ListDoIslandsInit,
                                                                     ModelImage=ModelImage, DicoDirty=self.DicoDirty)
+
         if self.GD["Misc"]["ConserveMemory"]:
             self._reset_InitMachine()
 
