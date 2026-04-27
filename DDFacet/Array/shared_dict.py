@@ -250,7 +250,7 @@ class SharedDict (collections.OrderedDict):
             filepath = os.path.join(self.path, name)
             # each filename is composed as "key_type:name:value_type", e.g. "str:Data:a", where value_type
             # is looked up in _proxy_class_map to determine how to load the file
-            match = re.match("^(\w+):(.*):(%s)$" % "|".join(SharedDict._proxy_class_map.keys()), name)
+            match = re.match(r"^(\w+):(.*):(%s)$" % "|".join(SharedDict._proxy_class_map.keys()), name)
             if not match:
                 print("Can't parse shared dict entry " + filepath)
                 continue
