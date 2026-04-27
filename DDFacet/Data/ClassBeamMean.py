@@ -35,9 +35,10 @@ from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Array import shared_dict
 from scipy.interpolate import griddata
-from DDFacet.Other.AsyncProcessPool import APP
+
 import copy
 import os
+from DDFacet.Other import MPIManager
 
 class ClassBeamMean():
     def __init__(self,VS):
@@ -246,13 +247,21 @@ class ClassBeamMean():
         self.StackedBeamDict.reload()
         self.SumJJsq=np.zeros((self.npix_x,self.npix_y,self.VS.NFreqBands),np.float64)
         self.SumWsq=np.zeros((1,self.VS.NFreqBands),np.float64)
-        self.SumWsq[0,:]=self.StackedBeamDict[0]["SumWsq"]
+        
+        if MPIManager.useMPI:
+            self.SumWsq[0,:] = MPIManager.COMM_WORLD.allreduce(self.StackedBeamDict[0]["SumWsq"], MPIManager.SUM)
+        else:
+            self.SumWsq[0,:]=self.StackedBeamDict[0]["SumWsq"]
+            
         if np.max(self.StackedBeamDict[0]["SumWsq"])==0:
             return "NoStackedData"
         for iDir in range(self.NDir):
             i,j=self.iPix[iDir],self.jPix[iDir]
-            self.SumJJsq[i,j,:]=self.StackedBeamDict[iDir]["SumJJsq"]
 
+            if MPIManager.useMPI:
+                self.SumJJsq[i,j,:] = MPIManager.COMM_WORLD.allreduce(self.StackedBeamDict[iDir]["SumJJsq"], MPIManager.SUM)
+            else:
+                self.SumJJsq[i,j,:]=self.StackedBeamDict[iDir]["SumJJsq"]
         
 
         self.SumJJsq/=self.SumWsq.reshape(1,1,self.VS.NFreqBands)

@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 from __future__ import division, absolute_import, print_function
 import sys,os
+os.environ["DDF_FORCE_NOT_USE_MPI"] = "1"
+
+
 if "PYTHONPATH_FIRST" in list(os.environ.keys()) and int(os.environ["PYTHONPATH_FIRST"]):
     sys.path = os.environ["PYTHONPATH"].split(":") + sys.path
 import os
@@ -14,7 +17,6 @@ import numpy as np
 import glob
 import os
 from SkyModel.Other import reformat
-SaveFile="last_MyCasapy2BBS.obj"
 import pickle
 import scipy.ndimage
 from SkyModel.Tools import ModFFTW
@@ -46,6 +48,7 @@ def PutDataInNewImage(oldfits,newfits,data):
     hdu[0].data=data
     hdu.writeto(outim,overwrite=True)
 
+SaveFile="last_MakeMask.obj"
 def read_options():
     desc=""" cyril.tasse@obspm.fr"""
     

@@ -13,6 +13,7 @@ from .edwin.criterions import Huber
 # from edwin.criterions import Huber
 # #from edwin.udft import urdft2 as dft
 # #from edwin.udft import uirdft2 as idft
+from scipy.signal import fftconvolve
 
 from numpy.fft import rfftn
 from numpy.fft import irfftn
@@ -23,44 +24,190 @@ def idft(var, shape=None):
 
 import astropy.io.fits as pyfits
 from tqdm import tqdm
+import scipy.stats
+import pylab
+from DDFacet.ToolsDir import GeneDist
 
-
-
-
-
-def test():
-    dirty = np.squeeze(pyfits.open("../test.dirty.fits")[0].data)
-    psf = np.squeeze(pyfits.open("../test.psf.fits")[0].data)
+def doFFT(A,dx=1.):
+    # 2D FFT
+    Nx,Ny=A.shape
+    F = np.fft.fft2(A)/ (Nx * Ny)
+    dy=dx=dx/3600*np.pi/180 # not imporant
+    # frequency axes (cycles per unit of x and y)
     
-    CO=ClassOrieux(dirty,psf)
+    fx = np.fft.fftfreq(Nx, d=dx)
+    fy = np.fft.fftfreq(Ny, d=dy)
+    # center zero frequency
+    fAs = np.fft.fftshift(F)
+    fx_shifted = np.fft.fftshift(fx)
+    fy_shifted = np.fft.fftshift(fy)
+
+    return fAs,fx_shifted,fy_shifted
+
+def doIFFT(fAs):
+    # Undo shift
+    F_unshifted = np.fft.ifftshift(fAs)
+    Nx, Ny = F_unshifted.shape
+    # Undo normalization from forward FFT
+    A = np.fft.ifft2(F_unshifted) * (Nx * Ny)
+    return A.real  # or return A if you want the complex result
+
+def test2():
+    S=np.load("PNG/AB_Major1_Isl5.npz",allow_pickle=1)
+
+    ich=1
+    _,A,B,model,indx,indy,Bapp=S["LAB"][ich]
+    # A=B.copy()
     
-    #%% Plot
-    gauss = (slice(450, 550), slice(450, 550))
-    star = (slice(150, 250), slice(700, 800))
-    deconv=CO.Deconv()
+    # Asave=S["Asave"]#[0]
+    # Bsave=S["Bsave"]#[0]
+    # Asave=Bsave.copy()
+
+    Model=S["Model"]
+    nch=S["nch"][()]
+    FreqBandToTaylor_ParmVec=S["FreqBandToTaylor_ParmVec"]
+    FreqBandToTaylor_FluxVec=S["FreqBandToTaylor_FluxVec"]
+    #ModelMachine=S["ModelMachine"][()]
+    #ModelFit=S["ModelFit"]
+    s_dirty_cut=S["s_dirty_cut"][()]
+    s_psf_cut=S["s_psf_cut"][()]
+    ARMS=S["ARMS"]
+    RMS=ARMS[ich]
+    SNR=A.max()/RMS
+
     
-    plt.figure(1)
-    plt.clf()
-    plt.subplot(2, 2, 1)
-    plt.imshow(dirty)
-    plt.subplot(2, 2, 2)
-    plt.imshow(deconv)
-    # plt.subplot(2, 2, 1)
-    # plt.imshow(dirty[gauss])
-    # plt.subplot(2, 2, 2)
-    # plt.imshow(deconv[gauss])
-    # plt.subplot(2, 2, 3)
-    # plt.imshow(dirty[star])
-    # plt.subplot(2, 2, 4)
-    # plt.imshow(deconv[star])
-    plt.draw()
-    plt.show()
+    dx=dy=1.5/3600*np.pi/180
+    signal = A
+
+
+    # 2D frequency grids
+    # magnitude (optional)
+    #magnitude = np.abs(F_shifted)
+
+    
+    # nx,ny=Model.shape[-2:]
+    # MM=Model.copy().reshape((nch,nx*ny)).T
+    # meanMM=MM.mean(axis=-1).reshape((-1,1))
+    # indZero=np.where(meanMM==0)[0]
+    # meanMM[indZero]=1
+    # MM=MM/meanMM
+        
+    # MM=MM.reshape((1,nx*ny,nch))
+    # FF=FreqBandToTaylor_FluxVec
+    # NComb,NParm=FreqBandToTaylor_ParmVec.shape
+    # FF=FF.reshape((NComb,1,nch))
+    # indComb=np.argmin(np.sum((MM-FF)**2,axis=-1),axis=0)
+        
+        
+    # CoefImage2=FreqBandToTaylor_ParmVec[indComb].copy()
+    # CoefImage2[:,0]=meanMM.ravel()
+    # CoefImage2[indZero,:]=0
+    # CoefImage2=CoefImage2.T.reshape((NParm,1,nx,ny))
+    
+    # CoefImage=CoefImage2
+
+    #CoefImage=S["CoefImage"]
+
+    
+    #Model=CoefImage#-Model
+
+    #A=A+A.T
+    #A=B+B.T
+    
+    LScaleModel=[]
+    Model.fill(0)
+    CO=ClassOrieux(A.copy(),B.copy(),
+                   RMS=RMS)
+    C=CO.Deconv(hyper="auto",
+                sq=0.1,
+                c=10,
+                niter=20,
+                Mode="HuberPos")
+    
+    Model[ich,0,s_dirty_cut,s_dirty_cut]=C[:,:]
+    #print(Model.max())
+
+
+    nx,ny=3,4
+    pylab.figure("test",figsize=(20,10))
+    iPlot=1
+    pylab.clf()
+    LScaleDirty=[]
+    
+    
+    STD = scipy.stats.median_abs_deviation(A[A!=0],axis=None,scale="normal")
+    v0,v1=-STD,A.max()#50*STD
+    ax=pylab.subplot(nx, ny, iPlot); iPlot+=1
+    LScaleDirty.append((v0,v1))
+    pylab.imshow(A,vmin=v0,vmax=v1)
+    pylab.title("Dirty [ch#%i]"%ich)
+    
+    if CO.fAs is not None:
+        ax2=pylab.subplot(nx,ny, iPlot); iPlot+=1
+        pylab.imshow(np.abs(CO.fAs))#,extent=(fx_shifted.min(),fx_shifted.max(),fy_shifted.min(),fy_shifted.max()))
+        pylab.title("fAs [ch#%i]"%ich)
+        ax2=pylab.subplot(nx,ny, iPlot,sharex=ax2,sharey=ax2); iPlot+=1
+        pylab.imshow(np.abs(CO.fAsc))#,extent=(fx_shifted.min(),fx_shifted.max(),fy_shifted.min(),fy_shifted.max()))
+        pylab.title("fAsc [ch#%i]"%ich)
+    
+        pylab.subplot(nx,ny, iPlot,sharex=ax2,sharey=ax2); iPlot+=1
+        pylab.imshow(np.abs(CO.fBs))#,extent=(fx_shifted.min(),fx_shifted.max(),fy_shifted.min(),fy_shifted.max()))
+        pylab.title("fBs [ch#%i]"%ich)
+    
+        FX,FY=CO.FXFY
+        df=np.sqrt(FX**2+FY**2)
+        axp=pylab.subplot(nx,ny, iPlot); iPlot+=1
+        pylab.scatter(df.ravel(),np.log10(np.abs(CO.fAs)),alpha=0.1)#,extent=(fx_shifted.min(),fx_shifted.max(),fy_shifted.min(),fy_shifted.max()))
+    
+        pylab.subplot(nx,ny, iPlot,sharey=axp,sharex=axp); iPlot+=1
+        pylab.scatter(df.ravel(),np.log10(np.abs(CO.fBs)),alpha=0.1)#,extent=(fx_shifted.min(),fx_shifted.max(),fy_shifted.min(),fy_shifted.max()))
+    
+    ax=pylab.subplot(nx, ny, iPlot); iPlot+=1
+    pylab.imshow(Model[ich][0])#,vmin=v0,vmax=v1)
+    pylab.title("Model [ch#%i]"%ich)
+
+    
+
+    ModelConv=fftconvolve(Model[ich][0][s_dirty_cut,s_dirty_cut],B, mode='same')
+    Resid=A-ModelConv
+    pylab.subplot(nx, ny, iPlot,sharex=ax,sharey=ax); iPlot+=1
+    pylab.imshow(Resid,vmin=v0,vmax=v1)
+    pylab.colorbar()
+    #pylab.imshow(Asave[ich,0],vmin=v0,vmax=v1)
+    pylab.title("D-P*Model [ch#%i]"%ich)
+    
+    DM=GeneDist.ClassDistMachine()
+    DM.setRefSample(Resid,Ns=1000,
+                    #xmm=(model_rms.min(),model_rms.max()),
+                    )
+    x_I,y_I=DM.xyCumulD
+    pylab.subplot(nx, ny, iPlot); iPlot+=1
+    pylab.plot(x_I,y_I)#,vmin=v0,vmax=v1)
+    pylab.title("hist resid")
+
+    
+    pylab.tight_layout()
+    pylab.draw()
+    pylab.show(block=False)
+    pylab.pause(0.1)
+    
+    
+
+
+
+
+
+
+
     
 class ClassOrieux():
-    def __init__(self,dirty,psf):
-        
-
+    def __init__(self,dirty,psf,RMS=None,iIsland=None):
+        self.RMS=RMS
+        self.psf=psf
         self.dirty=dirty
+        self.fAs=None
+        self.fBs=None
+        self.iIsland=iIsland
         #%% Load
         self.reg_lapl = np.array([[0, -1, 0], [-1, 4, -1], [0, -1, 0]]) / 8
         self.reg_laplf = udft.ir2fr(self.reg_lapl, dirty.shape)
@@ -73,15 +220,79 @@ class ClassOrieux():
         
         self.fr = udft.ir2fr(psf, dirty.shape)
         # fr = udft.ir2fr(idft(np.abs(dft(psf))**2), dirty.shape)
+
+    def giveHyper(self):
+        A=self.dirty
+        B=self.psf
+        fAs,fx_shifted, fy_shifted=doFFT(A)
+        nx,ny=fAs.shape
+        #fAs[nx//2,:]=0
+        #fAs[:,ny//2]=0
+        fBs,_,_=doFFT(B/B.max())
+        M0=(np.abs(fBs)<1e-4*np.abs(fBs).max())
+        fBs[M0]=1
+        fAs/=np.real(fBs)
         
-    def Deconv(self,niter=20):
+        fAs[M0]=0
+        fBs[M0]=0
+        FX, FY = np.meshgrid(fx_shifted, fy_shifted)
+        
+        df=np.sqrt(FX**2+FY**2)
+        dfMax=np.abs(df).max()
+        indx,indy=np.where(df<dfMax/6)
+        fAsc=fAs.copy()
+        fAsc[indx,indy]=0
+        ffAsc=doIFFT(fAsc)
+        Max=np.abs(ffAsc).max()
+        RMS=scipy.stats.median_abs_deviation(ffAsc,axis=None,scale="normal")
+        
+        ThisSNR=Max/RMS
+        
+        self.fAs=fAs
+        self.fBs=fBs
+        self.fAsc=fAsc
+        self.ffAsc=ffAsc
+        self.FXFY=(FX,FY)
+        
+        SNR0=3
+        SNR1=10
+        hyper0=5000
+        hyper1=5
+        a=(hyper0-hyper1)/(SNR0-SNR1)
+        b=hyper0-a*SNR0
+        hyp=lambda SNR: a*SNR+b
+        hyper=hyp(ThisSNR)
+        hyper=np.max([hyper1,hyper])
+        hyper=np.min([hyper0,hyper])
+        print("FDSLSDKFLDKF",ThisSNR,Max,hyper)
+        self.fSNR=ThisSNR
+        self.hyper=hyper
+        
+        #hyper=5000
+        return hyper
+        
+    def Deconv(self,hyper="auto",
+               sq=0.001,
+               c=10,
+               niter=20,
+               Mode="HuberRcPos"):
         #%% Run pos
-        deconv, aux_r, aux_c = self.deconv_huber_rc_pos(self.dirty,
-                                                        self.fr,
-                                                        hyper=5.0,
-                                                        sq=0.001,
-                                                        c=10,
-                                                        n_iter=niter)
+
+        if hyper=="auto":
+            hyper=self.giveHyper()
+        
+        if Mode=="HuberRcPos":
+            deconv, aux_r, aux_c = self.deconv_huber_rc_pos(self.dirty,
+                                                            self.fr,
+                                                            hyper=hyper,
+                                                            sq=sq,
+                                                            c=c,
+                                                            n_iter=niter)
+        elif Mode=="Huber":
+            deconv,_ = self.deconv_huber(self.dirty, self.fr, hyper, sq, niter)
+        elif Mode=="HuberPos":
+            deconv,_ = self.deconv_huber_pos(self.dirty, self.fr, hyper, sq, c=c, n_iter=niter)
+            
         return deconv
 
     #%% CvxDiff deconv
@@ -101,9 +312,11 @@ class ClassOrieux():
         """
         aux = np.zeros_like(data)
         dirtyf = dft(data)
+        
+        hub = Huber(sq)
         for it in range(n_iter):#tqdm(range(n_iter)):
-            im = wiener(dirtyf, aux, fr, hyper)
-            aux = sq.min_gy(im)
+            im = self.wiener(dirtyf, aux, fr, hyper)
+            aux = hub.min_gy(im)
 
         return im, aux
 
@@ -116,9 +329,10 @@ class ClassOrieux():
         slack = np.zeros_like(data)
         lagrangians = np.zeros_like(data)
         dirtyf = dft(data)
+        hub = Huber(sq)
         for it in range(n_iter):#tqdm(range(n_iter)):
-            im = wiener(dirtyf, aux, fr, hyper, slack, lagrangians, c)
-            aux = sq.min_gy(im)
+            im = self.wiener(dirtyf, aux, fr, hyper, slack, lagrangians, c)
+            aux = hub.min_gy(im)
             slack = np.fmax(0, (c * im - lagrangians) / c)
             lagrangians = np.fmax(0, lagrangians - c * im)
             c = 0.9 * c
@@ -196,7 +410,7 @@ class ClassOrieux():
         dirtyf = dft(data)
         hub = Huber(sq)
         for it in range(n_iter):#tqdm(range(n_iter)):
-            ims = biwiener(dirtyf, aux, fr, reg_laplf,
+            ims = self.biwiener(dirtyf, aux, fr, reg_laplf,
                            hyper_d, hyper_p,
                            slacks, lagrangians, c)
             aux = hub.min_gy(ims[1])
@@ -228,7 +442,7 @@ class ClassOrieux():
 # plt.subplot(2, 3, 2)
 # plt.imshow(deconv[0][gauss])
 # plt.title('D')
-# plt.subplot(2, 3, 3)
+# plt.subplot(2, ny, ny)
 # plt.imshow(deconv[1][gauss])
 # plt.title('P')
 # plt.subplot(2, 3, 4)

@@ -23,7 +23,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning) 
 
@@ -35,7 +34,8 @@ from DDFacet.compatibility import range
 import os
 # somewhere some library is trying to be too clever for its own good
 # we will set our own settings up later on
-os.environ["OMP_NUM_THREADS"] = "1"
+
+#os.environ["OMP_NUM_THREADS"] = "1"
 
 # dirty hack to fix what seems to be an easy install problem
 # see https://stackoverflow.com/questions/5984523/eggs-in-path-before-pythonpath-environment-variable
@@ -46,10 +46,12 @@ import sys,os
 if "PYTHONPATH_FIRST" in os.environ.keys() and int(os.environ["PYTHONPATH_FIRST"]):
     sys.path = os.environ["PYTHONPATH"].split(":") + sys.path
 
-
-#import matplotlib
-# matplotlib.use('agg')
-import optparse
+if int(os.environ.get("DOSHOW",1))==0:
+    print("Switch to Agg backend: will not show matplotlib plots")
+    import matplotlib
+    matplotlib.use('agg')
+    
+#import optparse
 import traceback
 import atexit
 SaveFile = "last_DDFacet.obj"
@@ -65,8 +67,8 @@ from DDFacet.Other import logo
 from DDFacet.Array import NpParallel
 
 from DDFacet.Imager import ClassDeconvMachine
-
 from DDFacet.Imager.MultiFields import ClassDeconvMachineMultiField
+from DDFacet.MemMonitor import ClassRegister
 
 from DDFacet.Imager import ClassFacetMachine
 from DDFacet.Parset import ReadCFG
@@ -80,7 +82,8 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import Multiprocessing
 import SkyModel.Other.ModColor   # because it's duplicated there
 from DDFacet.Other import progressbar
-from DDFacet.Other.AsyncProcessPool import APP, WorkerProcessError
+import DDFacet.Other.AsyncProcessPool
+from DDFacet.Other.AsyncProcessPool import WorkerProcessError
 import six
 if six.PY3:
     from DDFacet.cbuild.Gridder import _pyArrays3x as _pyArrays
@@ -153,12 +156,13 @@ def read_options():
 def test():
     options = read_options()
 
-
+global Imager
 def main(OP=None, messages=[]):
     if OP is None:
         OP = MyPickle.Load(SaveFile)
         print("Using settings from %s, then command line."%SaveFile)
 
+    global Imager
     DicoConfig = OP.DicoConfig
 
     ImageName = DicoConfig["Output"]["Name"]
@@ -333,93 +337,49 @@ def main(OP=None, messages=[]):
     elif "RestoreAndShift" == Mode:
         Imager.RestoreAndShift()
 
-    APP.terminate()
-    APP.shutdown()
-    Multiprocessing.cleanupShm()
-    # # open default viewer, these options should match those in
-    # # ClassDeconvMachine if changed:
-    # viewer = DicoConfig["Output"]["DefaultImageViewer"]
-    # for img in DicoConfig["Output"]["Open"]:
-    #     if img == "Dirty":
-    #         ret = subprocess.call(
-    #             "%s %s.dirty.fits" %
-    #             (viewer, DicoConfig["Output"]["Name"]),
-    #             shell=True)
-    #         if ret:
-    #             print>>log, ModColor.Str(
-    #                 "\nCan't open dirty image\n", col="yellow")
-    #     elif img == "DirtyCorr":
-    #         ret = subprocess.call(
-    #             "%s %s.dirty.corr.fits" %
-    #             (viewer, DicoConfig["Output"]["Name"]),
-    #             shell=True)
-    #         if ret:
-    #             print>>log, ModColor.Str(
-    #                 "\nCan't open dirtyCorr image\n", col="yellow")
-    #     elif img == "PSF":
-    #         ret = subprocess.call(
-    #             "%s %s.psf.fits" %
-    #             (viewer, DicoConfig["Output"]["Name"]), shell=True)
-    #         if ret:
-    #             print>>log, ModColor.Str(
-    #                 "\nCan't open PSF image\n", col="yellow")
-    #     elif img == "Model":
-    #         ret = subprocess.call(
-    #             "%s %s.model.fits" %
-    #             (viewer, DicoConfig["Output"]["Name"]),
-    #             shell=True)
-    #         if ret:
-    #             print>>log, ModColor.Str(
-    #                 "\nCan't open model image\n", col="yellow")
-    #     elif img == "Residual":
-    #         ret = subprocess.call(
-    #             "%s %s.residual.fits" %
-    #             (viewer, DicoConfig["Output"]["Name"]),
-    #             shell=True)
-    #         if ret:
-    #             print>>log, ModColor.Str(
-    #                 "\nCan't open residual image\n", col="yellow")
-    #     elif img == "Restored":
-    #         ret = subprocess.call(
-    #             "%s %s.restored.fits" %
-    #             (viewer, DicoConfig["Output"]["Name"]),
-    #             shell=True)
-    #         if ret:
-    #             print>>log, ModColor.Str(
-    #                 "\nCan't open restored image\n", col="yellow")
-    #     elif img == "Alpha":
-    #         ret = subprocess.call(
-    #             "%s %s.alpha.fits" %
-    #             (viewer, DicoConfig["Output"]["Name"]),
-    #             shell=True)
-    #         if ret:
-    #             print>>log, ModColor.Str(
-    #                 "\nCan't open alpha image\n", col="yellow")
-    #     elif img == "Norm":
-    #         ret = subprocess.call(
-    #             "%s %s.Norm.fits" %
-    #             (viewer, DicoConfig["Output"]["Name"]),
-    #             shell=True)
-    #         if ret:
-    #             print>>log, ModColor.Str(
-    #                 "\nCan't open norm image\n", col="yellow")
-    #     elif img == "NormFacets":
-    #         ret = subprocess.call(
-    #             "%s %s.NormFacets.fits" %
-    #             (viewer, DicoConfig["Output"]["Name"]),
-    #             shell=True)
-    #         if ret:
-    #             print>>log, ModColor.Str(
-    #                 "\nCan't open normfacets image\n", col="yellow")
-    #     else:
-    #         print>>log, ModColor.Str(
-    #             "\nDon't understand %s, not opening that image\n" %
-    #             img, col="yellow")
+    CleanupAPP()
+    
 
-def driver():
+
+def CleanupAPP():
+    global Imager
+    try:
+        Imager.APP.terminate()
+        Imager.APP.shutdown()
+        print(ModColor.Str("I have terminated and shutdown APP [%s]"%Imager.APP.Name), file=log)
+    except:
+        pass
+    
+    try:
+        del(Imager.APP)
+    except:
+        pass
+
+    try:
+        Imager.FacetMachine._delete_cf_in_destructor=True
+    except:
+        pass
+    
+    try:
+        del(Imager)
+    except:
+        pass
+    Imager=None
+    import gc
+    gc.collect()
+    
+    try:
+        Multiprocessing.cleanupShm()
+    except:
+        pass
+    gc.collect()
+    
+def driver(OP_IN=None):
     #warnings.filterwarnings("default", category=DeprecationWarning)
     #os.system('clear')
-    logo.print_logo()
+    
+    if MPIManager.rank==0:
+        logo.print_logo()
 
     # work out DDFacet version
     version=report_version()
@@ -429,7 +389,11 @@ def driver():
     T = ClassTimeIt.ClassTimeIt()
 
     # parset should have been read in by now
-    OP = read_options()
+    if OP_IN is not None:
+        OP=OP_IN
+    else:
+        OP = read_options()
+        
     args = OP.GiveArguments()
     
     DicoConfig = OP.DicoConfig
@@ -485,26 +449,26 @@ def driver():
         OP.ExitWithError("Incorrect number of arguments. Use -h for help.")
         sys.exit(1)
 
-    retcode = report_error = 0
+    
+    if int(os.environ.get("DDF_SAVE_OPTIONS_AND_EXIT",0)):
+        SaveFile1 = "last_DDFacet.finalised.obj"
+        MyPickle.Save(OP, SaveFile1)
+        CleanupAPP()
+        sys.exit(0)
+        
+    if OP_IN is not None:
+        OP=OP_IN
 
+    retcode = report_error = 0
+    
+    # Resister=None
+    # DDF_USE_MONIT0R=os.environ.get("DDF_USE_MONIT0R","NO").strip()
+    # if DDF_USE_MONIT0R!="NO":
+    #     Reset=(DDF_USE_MONIT0R=="RESET")
+    #     Resister=ClassRegister(Reset=Reset)
+    #     Resister.register("[DDFacet-start] %s"%OP.DicoConfig["Output"]["Name"],"DDFacet")
+        
     try:
-        if OP.DicoConfig["Parallel"]["UseMPI"]:
-            try:
-                from mpi4py import MPI
-            except ImportError:
-                MPI = None
-            if MPI is None:
-                # raise RuntimeError("MPI requested but it is not installed. You can install this optional requirement using "
-                #                    "pip install 'DDFacet[mpi-support]' when installing DDFacet.")
-                print(ModColor.Str("MPI requested but it is not installed. You can install this optional requirement using pip install 'DDFacet[mpi-support]' when installing DDFacet."))
-            #elif MPIManager.size==1:
-                #print(ModColor.Str("MPI requested but only one MPI process. Disabling MPI"))
-                # MPIManager.useMPI=False
-        else:
-            if MPIManager.size>1:
-                raise RuntimeError("MPI not requested but you likely use mpi4py use --Parallel-UseMPI=True?")
-            MPIManager.useMPI=False
-            
         main(OP, messages)
         print(ModColor.Str(
             "DDFacet ended successfully after %s" %
@@ -512,12 +476,10 @@ def driver():
     except KeyboardInterrupt:
         print(traceback.format_exc(), file=log)
         print(ModColor.Str("DDFacet interrupted by Ctrl+C", col="red"), file=log)
-        APP.terminate()
         retcode = 1 #Should at least give the command line an indication of failure
     except Exceptions.UserInputError:
         print(ModColor.Str(sys.exc_info()[1], col="red"), file=log)
         print(ModColor.Str("There was a problem with some user input. See messages above for an indication."), file=log)
-        APP.terminate()
         retcode = 1  # Should at least give the command line an indication of failure
     except WorkerProcessError:
         print(ModColor.Str("A worker process has died on us unexpectedly. This probably indicates a bug:"), file=log)
@@ -525,12 +487,17 @@ def driver():
         report_error = True
     except:
         if sys.exc_info()[0] is not WorkerProcessError and Exceptions.is_pdb_enabled():
-            APP.terminate()
+            CleanupAPP()
             raise
         else:
             print(traceback.format_exc(), file=log)
         report_error = True
 
+    
+    # if Resister is not None:
+    #     Resister.register("[DDFacet-stop] %s"%OP.DicoConfig["Output"]["Name"])
+        
+    CleanupAPP()
     if report_error:
         logfileName = logger.getLogFilename()
         logfileName = logfileName if logfileName is not None else "[file logging is not enabled]"
@@ -546,13 +513,12 @@ def driver():
             "Your logfile is available here: %s" %
             logfileName, col="red"), file=log)
         # print>>log, traceback_msg
-        # Should at least give the command line an indication of failure
-        APP.terminate()
         retcode = 1 # Should at least give the command line an indication of failure
 
-    APP.shutdown()
-    Multiprocessing.cleanupShm()
-    sys.exit(retcode)
+
+
+    if OP_IN is None:
+        sys.exit(retcode)
 
 if __name__ == "__main__":
     # do not place any other code here --- cannot be called as a package entrypoint otherwise, see:

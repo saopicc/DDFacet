@@ -4,6 +4,8 @@ import numpy as np
 import regions
 from DDFacet.Other import logger
 log=logger.getLogger("ModRegFile")
+from regions import Regions
+
 
 def test():
     R=RegToNp()
@@ -114,7 +116,7 @@ class RegToNp():
         self.REGFile=RegName
         
     def Read(self):
-        regs = Regions.read(self.REGFile)
+        regs = Regions.read(self.REGFile, format='ds9')
 
         Cat=np.zeros((len(regs),),dtype=[("ra",np.float32),("dec",np.float32),
                                     ("I",np.float32),("Radius",np.float32),
@@ -133,12 +135,12 @@ class RegToNp():
         for iCat, reg in enumerate(regs):
             # Excluse region if color is any kind of red 
             # This is a bit hacky, because the color can be a word, or it can be
-            # a '#RRGGBB' hex code
-            
-            color = reg.visual.get('facecolor',None)
-            if color is None:
-                color = reg.visual.get('color',None)
-            
+            # color = reg.visual.get('facecolor',None)
+            # if color is None:
+            #     color = reg.visual.get('color',None)
+            # a '#RRGGBB' hex code 
+            color = reg.visual.get('color', reg.visual.get('edgecolor', 'green'))
+
             if color.startswith("#") and len(color) >= 7:
                 exclude = color[1:3] != "00"   # exclude if RR part of tuple is !=0
             else:

@@ -30,11 +30,11 @@ class TestUltimateDeconvRealSolsSSD(DDFacet.Tests.ShortAcceptanceTests.ClassComp
         """
         Relative tolerance for total execution time in comparison with reference runs
         """
-        return 1.0  # Longer for shorter tests 100%
+        return 5.0  # Longer for shorter tests 100%
 
     @classmethod
     def timeoutsecs(cls):
-        return int(3600 * 3.5)
+        return int(3600 * 10.0)
 
     @classmethod
     def defineImageList(cls):

@@ -20,17 +20,17 @@ from DDFacet.Imager import ClassMaskMachine
 from DDFacet.Array import shared_dict
 import psutil
 from DDFacet.Other.progressbar import ProgressBar
-from DDFacet.Other.AsyncProcessPool import APP
 
 class ClassInitSSDModelParallel():
-    def __init__(self, GD, NFreqBands, RefFreq, MainCache=None, IdSharedMem=""):
+    def __init__(self, GD, NFreqBands, RefFreq, MainCache=None, IdSharedMem="",APP=None):
         self.GD=GD
-        self.InitMachine = ClassInitSSDModel(GD, NFreqBands, RefFreq, MainCache, IdSharedMem)
+        self.APP=APP
+        self.InitMachine = ClassInitSSDModel(GD, NFreqBands, RefFreq, MainCache, IdSharedMem,APP=self.APP)
         self.NCPU=(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
         from DDFacet.Imager.MultiFields.AppendSubFieldInfo import AppendSubFieldInfo
         AppendSubFieldInfo(self)
-        
-        APP.registerJobHandlers(self)
+        self.Type="HMP"
+        self.APP.registerJobHandlers(self)
 
     def Init(self, DicoVariablePSF, GridFreqs, DegridFreqs):
         self.DicoVariablePSF=DicoVariablePSF
@@ -47,17 +47,24 @@ class ClassInitSSDModelParallel():
     def _initIsland_worker(self, DicoOut, iIsland, Island,
                            DicoVariablePSF, DicoDirty, DicoParm, FacetCache,NCPU):
         logger.setSilent(["ClassImageDeconvMachineMSMF", "ClassPSFServer", "ClassMultiScaleMachine", "GiveModelMachine", "ClassModelMachineMSMF"])
+        #logger.setLoud(["ClassImageDeconvMachineMSMF", "ClassPSFServer", "ClassMultiScaleMachine", "GiveModelMachine", "ClassModelMachineMSMF"])
         self.InitMachine.Init(DicoVariablePSF, DicoParm["GridFreqs"], DicoParm["DegridFreqs"], facetcache=FacetCache)
         self.InitMachine.setDirty(DicoDirty)
         # self.InitMachine.DeconvMachine.setNCPU(NCPU)
         self.InitMachine.setSSDModelImage(DicoParm["ModelImage"])
-
+        # nch,_,_,_=DicoParm["ModelImage"].shape
+        # print("SDLKJDSFKJ MODEL",np.max(DicoParm["ModelImage"].reshape((nch,-1)),axis=-1))
+        # print("SDLKJDSFKJ MODEL",np.max(DicoParm["ModelImage"].reshape((nch,-1)),axis=-1))
+        # print("SDLKJDSFKJ MODEL",np.max(DicoParm["ModelImage"].reshape((nch,-1)),axis=-1))
+        # print("SDLKJDSFKJ MODEL",np.max(DicoParm["ModelImage"].reshape((nch,-1)),axis=-1))
+        
+        
         #print ":::::::::::::::::::::::",iIsland
 
         try:
             SModel, AModel = self.InitMachine.giveModel(Island)
         except:
-            if not self.GD["GAClean"]["ParallelInitHMP"]:
+            if not self.GD["GAClean"]["ParallelInit"]:
                 raise
             print(traceback.format_exc(), file=log)
             FileOut = "errIsland_%6.6i.npy" % iIsland
@@ -146,7 +153,7 @@ class ClassInitSSDModelParallel():
           for iIsland,Island in enumerate(ListIslands):
             if not ListDoIsland or ListDoIsland[iIsland]:
                 subdict = DicoInitIndiv.addSubdict(iIsland)
-                APP.runJob("InitIsland%s:%d" % (self.StrField,iIsland), self._initIsland_worker,
+                self.APP.runJob("InitIsland%s:%d" % (self.StrField,iIsland), self._initIsland_worker,
                            args=(subdict.writeonly(), 
                                  iIsland, 
                                  Island,
@@ -156,7 +163,7 @@ class ClassInitSSDModelParallel():
                                  self.InitMachine.DeconvMachine.facetcache.readonly() 
                                     if self.InitMachine.DeconvMachine.facetcache is not None else None,
                                  1))
-          APP.awaitJobResults("InitIsland%s:*"%self.StrField, progress="Init islands HMP")
+          self.APP.awaitJobResults("InitIsland%s:*"%self.StrField, progress="Init islands HMP")
           DicoInitIndiv.reload()
         
         ParmDict.delete()
@@ -173,11 +180,12 @@ class ClassInitSSDModel():
     The class is initialized once in the main process (to populate the HMP basis function cache),
     then re-initialized in the workers on a per-island basis.
     """
-    def __init__(self, GD, NFreqBands, RefFreq, MainCache=None, IdSharedMem=""):
+    def __init__(self, GD, NFreqBands, RefFreq, MainCache=None, IdSharedMem="",APP=None):
         """Constructs initializer. 
         Note that this should be called pretty much when setting up the imager,
         before APP workers are started, because the object registers APP handlers.
         """
+        self.APP=APP
         self.GD = copy.deepcopy(GD)
         self.GD["Parallel"]["NCPU"] = 1
         # self.GD["HMP"]["Alpha"]=[0,0,1]#-1.,1.,5]
@@ -185,6 +193,7 @@ class ClassInitSSDModel():
         self.GD["Deconv"]["Mode"] = "HMP"
         self.GD["Deconv"]["CycleFactor"] = 0
         self.GD["Deconv"]["PeakFactor"] = 0.0
+        self.GD["Deconv"]["Threshold"] = 0.0
         self.GD["Deconv"]["RMSFactor"] = self.GD["GAClean"]["RMSFactorInitHMP"]
         self.GD["Deconv"]["Gain"] = self.GD["GAClean"]["GainInitHMP"]
         self.GD["Deconv"]["AllowNegative"] = self.GD["GAClean"]["AllowNegativeInitHMP"]
@@ -224,6 +233,7 @@ class ClassInitSSDModel():
                                                                                  CacheFileName="HMP_Init",
                                                                                  IdSharedMem=IdSharedMem,
                                                                                  GD=self.GD,
+                                                                                 APP=self.APP,
                                                                                  **MinorCycleConfig)
 
         self.GD["Mask"]["Auto"]=False
@@ -348,6 +358,8 @@ class ClassInitSSDModel():
 
     def giveConvModel(self,SubModelImage):
 
+        # Here PSFServer is in peak-normalised mode
+        # SubModelImage is apparant
         PSF,MeanPSF=self.DeconvMachine.PSFServer.GivePSF()
         ConvModel=ClassConvMachineImages(PSF).giveConvModel(SubModelImage)
 
@@ -373,7 +385,12 @@ class ClassInitSSDModel():
         T=ClassTimeIt.ClassTimeIt("InitSSD.addSubModelToSubDirty")
         T.disable()
         ConvModel=self.giveConvModel(self.SubSSDModelImage)
-        _,_,N0x,N0y=ConvModel.shape
+        nch,_,N0x,N0y=ConvModel.shape
+        # print("FDSLKJSDLJFLSDFJ ADDDD",np.max(self.SubSSDModelImage.reshape((nch,-1)),axis=-1))
+        # print("FDSLKJSDLJFLSDFJ ADDDD",np.max(self.SubSSDModelImage.reshape((nch,-1)),axis=-1))
+        # print("FDSLKJSDLJFLSDFJ ADDDD",np.max(ConvModel.reshape((nch,-1)),axis=-1))
+        # print("FDSLKJSDLJFLSDFJ ADDDD",np.max(ConvModel.reshape((nch,-1)),axis=-1))
+        
         MeanConvModel=np.mean(ConvModel,axis=0).reshape((1,1,N0x,N0y))
         self.DicoSubDirty["ImageCube"]+=ConvModel
         #self.DicoSubDirty['MeanImage']+=MeanConvModel

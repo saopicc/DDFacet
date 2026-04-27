@@ -21,7 +21,7 @@ logger.setSilent(["NpShared"])
 from DDFacet.Data import ClassSmearMapping
 from DDFacet.Data import ClassJones
 from DDFacet.Array import shared_dict
-from DDFacet.Other.AsyncProcessPool import APP
+
 from DDFacet.Other import reformat
 import six
 import DDFacet.Other.PrintList
@@ -46,12 +46,13 @@ SERIAL=False
 class ClassWeightMachine():
     def __init__(self,VS):
         self.VS=VS
+        self.APP=self.VS.APP
         
-        self._weightjob_counter = APP.createJobCounter("VisWeights")
-        self._taperjob_counter = APP.createJobCounter("TaperWeights")
-        self._calcweights_event = APP.createEvent("VisWeights")
-        if APP is not None:
-            APP.registerJobHandlers(self)
+        self._weightjob_counter = self.APP.createJobCounter("VisWeights")
+        self._taperjob_counter = self.APP.createJobCounter("TaperWeights")
+        self._calcweights_event = self.APP.createEvent("VisWeights")
+        if self.APP is not None:
+            self.APP.registerJobHandlers(self)
             self._app_id = "WeightMachine"
 
         GD=self.GD=VS.GD
@@ -88,14 +89,14 @@ class ClassWeightMachine():
         """
         # wmax-only means weights not computed (i.e. predict-only mode)
         if self._ignore_vis_weights:
-            return 1
+            return 1,None
         # otherwise make sure we get them
         self.awaitWeights()
         if self.VisWeights[iMS][iChunk]["null"]:
-            return None
+            return None,None
         path = self.VisWeights[iMS][iChunk]["cachepath"]
         if not os.path.getsize(path):
-            return None
+            return None,None
         return np.load(open(path, "rb")),np.load(open("%s.sgn.npy"%path, "rb"))
 
     def getMaxW(self):
@@ -113,7 +114,7 @@ class ClassWeightMachine():
     def awaitWeights(self):
         if self.VisWeights is None:
             # ensure the background calculation is complete
-            APP.awaitEvents(self._calcweights_event)
+            self.APP.awaitEvents(self._calcweights_event)
             # load shared dict prepared in background thread
             self.VisWeights = shared_dict.attach("VisWeights")
             # check for errors
@@ -138,14 +139,15 @@ class ClassWeightMachine():
         """Starts parallel jobs to load weights in the background"""
         self.VisWeights = None
         if MPIManager.size > 1:
-            APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event, serial=True)
+            self.APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event, serial=True)
         else:
+            # print("SDFLDSFFSDLFD CalcWeightsBackground self._ignore_vis_weights",self._ignore_vis_weights)
             if self.GD["Misc"]["ConserveMemory"]:
-                #APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event)
-                APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event, args=(iField,) ,serial=SERIAL)
+                #self.APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event)
+                self.APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event, args=(iField,self._ignore_vis_weights) ,serial=SERIAL)
             else:
-                APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event, args=(iField,) ,serial=SERIAL)
-            # APP.awaitEvents(self._calcweights_event)
+                self.APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event, args=(iField,self._ignore_vis_weights) ,serial=SERIAL)
+            # self.APP.awaitEvents(self._calcweights_event)
 
     def _sigtaper(self, msw, chanfreq, inner_cut, outer_cut, outer_taper_strength, inner_taper_strength): 
         u = msw["uv"][:, 0]
@@ -192,20 +194,27 @@ class ClassWeightMachine():
                 print("\t Inner Rolloff Strength {0:.2f}".format(self.SigmoidInRoll), file=log)
                 print("\t Outer Rolloff Strength {0:.2f}".format(self.SigmoidOutRoll), file=log)
                 self.HasPrintedTaperingSettings = True
-            # APP will handle any serialization if NCPU == 1
-            APP.runJob("SigmoidTaper:%d:%d" % (ims, ichunk), self._sigtaper,
+            # self.APP will handle any serialization if NCPU == 1
+            self.APP.runJob("SigmoidTaper:%d:%d" % (ims, ichunk), self._sigtaper,
                         args=(self._weight_dict[ims][ichunk].readwrite(),
                                 ms.ChanFreq,
                                 self.SigmoidInCut, self.SigmoidOutCut, 
                                 self.SigmoidOutRoll, self.SigmoidInRoll),
                         counter=self._weightjob_counter, collect_result=False,serial=SERIAL)
-            APP.awaitJobCounter(self._weightjob_counter, progress="Sigmoid Tapering")
+            self.APP.awaitJobCounter(self._weightjob_counter, progress="Sigmoid Tapering")
 
-    def _CalcWeights_handler(self,iField=None):
+    def _CalcWeights_handler(self,iField=None,_ignore_vis_weights=None):
         StrField=""
         # if iField is not None:
         #     StrField="_Field%i"%iField
         self._weight_dict = shared_dict.create("VisWeights")
+        if _ignore_vis_weights is None:
+            _ignore_vis_weights=self._ignore_vis_weights
+        else:
+            # if GetVisWeight is invoked it needs to eventually
+            # ignore the weights, if they are not computed
+            self._ignore_vis_weights=_ignore_vis_weights
+            
         # check for wmax in cache
         cache_keys = dict([(section, self.GD[section]) for section
               in ("Data", "Selection", "Freq", "Image", "Weight", "DDESolutions")])
@@ -236,11 +245,11 @@ class ClassWeightMachine():
             msweights = self._weight_dict[ims]
             for ichunk in range(len(ms.getPerChunkRowCounts())):
                 msw = msweights[ichunk]
-                APP.runJob("LoadWeights:%d:%d%s"%(ims,ichunk,StrField), self._loadWeights_handler,
-                           args=(msw.writeonly(), ims, ichunk, self._ignore_vis_weights),
+                self.APP.runJob("LoadWeights:%d:%d%s"%(ims,ichunk,StrField), self._loadWeights_handler,
+                           args=(msw.writeonly(), ims, ichunk, _ignore_vis_weights),
                            counter=self._weightjob_counter, collect_result=False,serial=SERIAL)
         # wait for results
-        APP.awaitJobCounter(self._weightjob_counter, progress="Load weights")
+        self.APP.awaitJobCounter(self._weightjob_counter, progress="Load weights")
         self._weight_dict.reload()
         wmax = self._uvmax = 0
         num_valid_chunks = 0
@@ -269,8 +278,9 @@ class ClassWeightMachine():
         cPickle.dump(self._uvmax, open(uvmax_path, "wb"))
         self.maincache.saveCache("uvmax")
         self._weight_dict["uvmax"] = self._uvmax
-        if self._ignore_vis_weights:
+        if _ignore_vis_weights:
             return
+        
         if not self._uvmax:
             UserWarning("data appears to be fully flagged: can't compute imaging weights")
 
@@ -338,7 +348,7 @@ class ClassWeightMachine():
             for ims, ms in enumerate(self.ListMS):
                 for ichunk in range(len(ms.getPerChunkRowCounts())):
                     if "weight" in self._weight_dict[ims][ichunk]:
-                        APP.runJob("AccumWeights:%d:%d%s" % (ims, ichunk,StrField), self._accumulateWeights_handler,
+                        self.APP.runJob("AccumWeights:%d:%d%s" % (ims, ichunk,StrField), self._accumulateWeights_handler,
                                    args=(self._weight_grid.readonly(),
                                          self._weight_dict[ims][ichunk].readwrite(),
                                          ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax, useSems,iGrid),
@@ -347,7 +357,7 @@ class ClassWeightMachine():
                             iGrid+=1
                             
             # wait for results
-            APP.awaitJobCounter(self._weightjob_counter, progress="Accumulate weights")
+            self.APP.awaitJobCounter(self._weightjob_counter, progress="Accumulate weights")
             self._weight_grid["grid"]=np.sum(gridJobs,axis=0)
             #self._weight_grid["gridJobs"].delete()
             grid0=self._weight_grid["grid"]
@@ -368,12 +378,12 @@ class ClassWeightMachine():
         for ims, ms in enumerate(self.ListMS):
             for ichunk in range(len(ms.getPerChunkRowCounts())):
                 self._CalcSigmoidTaper(ims, ms, ichunk)
-                APP.runJob("FinalizeWeights:%d:%d%s" % (ims, ichunk,StrField), self._finalizeWeights_handler,
+                self.APP.runJob("FinalizeWeights:%d:%d%s" % (ims, ichunk,StrField), self._finalizeWeights_handler,
                            args=(self._weight_grid.readonly(),
                                  self._weight_dict[ims][ichunk].readwrite(),
                                  ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax),
                            counter=self._weightjob_counter, collect_result=False,serial=SERIAL)
-        APP.awaitJobCounter(self._weightjob_counter, progress="Finalize weights")
+        self.APP.awaitJobCounter(self._weightjob_counter, progress="Finalize weights")
         # delete stuff
         if self._weight_grid is not None:
             self._weight_grid.delete()
@@ -400,7 +410,6 @@ class ClassWeightMachine():
             if not isinstance(List_weight_col,list):
                 List_weight_col=[List_weight_col]
             uvw, flags, rowflags, weights, sgnweights = ms.readWeights(ichunk, uvw_only=wmax_only, weightcols=List_weight_col)
-            
             # skip empty or fully flagged chunks
             if uvw is None:
                 msw["wmax"] = 0
@@ -530,7 +539,7 @@ class ClassWeightMachine():
         # stop
         # if we're in per-band weighting mode, then adjust the index to refer to each band's grid
         if nbands > 1:
-            index += self.DicoMSChanMapping[ims][np.newaxis, :] * npix
+            index += np.uint32(self.DicoMSChanMapping[ims][np.newaxis, :]) * npix
         # zero weight refers to zero cell (otherwise it may end up outside the grid, since grid is
         # only big enough to accommodate the *unflagged* uv-points)
         index[weights == 0] = 0
@@ -638,6 +647,8 @@ class ClassWeightMachine():
 
                 np.save(msw["cachepath"], weight)
                 np.save("%s.sgn.npy"%msw["cachepath"], msw["sgnweight"])
+                #np.save("%s.grid.npy"%msw["cachepath"], grid)
+                
                 msw.delete_item("weight")
                 msw.delete_item("sgnweight")
                 msw.delete_item("uv")
@@ -661,11 +672,13 @@ class ClassWeightMachine():
             msw["success"] = False
             os.unlink(msw["cachepath"])
 
-    def _CalcWeights_serial(self,iField=None):
+    def _CalcWeights_serial(self,iField=None,_ignore_vis_weights=None):
         if iField is not None and self.VS.DicoFields is not None:
             FacetMachine=self.FacetMachine.LFM[iField]
         else:
             FacetMachine=self.FacetMachine
+        if _ignore_vis_weights is None:
+            _ignore_vis_weights=self._ignore_vis_weights
         FullImShape = FacetMachine.OutImShape
         # self.PaddedFacetShape = self.FacetMachine.PaddedGridShape
         FacetShape = FacetMachine.FacetShape
@@ -688,7 +701,7 @@ class ClassWeightMachine():
             msweights = self._weight_dict.addSubdict(iMS)
             for ichunk in range(len(MS.getPerChunkRowCounts())):
                 msw = msweights.addSubdict(ichunk)
-                path, valid = MS.getChunkCache(ichunk).checkCache("ImagingWeights.npy", cache_keys)
+                path, valid = MS.getChunkCache(ichunk).checkCache("ImagingWeights.npy", cache_keys, reset=(self.GD["Cache"]["Weight"]=="reset"))
                 have_all_weights = have_all_weights and valid
                 msw["cachepath"] = path
                 if valid:
@@ -780,7 +793,7 @@ class ClassWeightMachine():
             for ichunk in range(len(ms.getPerChunkRowCounts())):
                 msw = msweights[ichunk]
                 print("loading weights %d.%d"%(ims, ichunk), file=log)
-                self._loadWeights_handler(msw, ims, ichunk, self._ignore_vis_weights)
+                self._loadWeights_handler(msw, ims, ichunk, _ignore_vis_weights)
 
                 # if nothing in MS, handler will not return a "weight" field. Mark this chunk as null then, and truncate the cache
                 msw["null"] = "weight" not in msw
@@ -815,7 +828,7 @@ class ClassWeightMachine():
         self.maincache.saveCache("uvmax")
         self._weight_dict["uvmax"] = self._uvmax
         print("overall max W is %.2f meters"%wmax, file=log)
-        if self._ignore_vis_weights:
+        if _ignore_vis_weights:
             return
         if not self._uvmax:
             raise RuntimeError("data appears to be fully flagged: can't compute imaging weights")
@@ -843,7 +856,7 @@ class ClassWeightMachine():
                         open(msw["cachepath"], 'w').truncate(0)
                         continue
                     print("reloading weights %d.%d" % (ims, ichunk), file=log)
-                    self._loadWeights_handler(msw, ims, ichunk, self._ignore_vis_weights)
+                    self._loadWeights_handler(msw, ims, ichunk, _ignore_vis_weights)
                     self._CalcSigmoidTaper(ims, ms, ichunk)
                     self._finalizeWeights_handler(self._weight_grid, msw,
                                                       ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax)

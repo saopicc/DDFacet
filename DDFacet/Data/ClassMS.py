@@ -719,7 +719,8 @@ class ClassMS():
 
             
         if self.zero_flag and visdata is not None:
-            visdata[flags] = 1e10
+            # visdata[flags] = 1e10 # Problem when flag of data and predict are not the same (for calibration)
+            visdata[flags] = 0
 
         # print "count",np.count_nonzero(flag_all),np.count_nonzero(np.isnan(vis_all))
             visdata[np.isnan(visdata)] = 0.
@@ -1397,9 +1398,11 @@ class ClassMS():
         
         row0, row1 = self._chunk_r0r1[ichunk]
         nrow = row1 - row0
-        if flags is not None:
-            vis=vis.copy()
-            vis[flags]=0
+
+        # # commented for master to give same results
+        # if flags is not None:
+        #     vis=vis.copy()
+        #     vis[flags]=0
             
         if self._reverse_channel_order:
             vis = vis[:,::-1,...]
@@ -1702,7 +1705,7 @@ class ClassMS():
         row0, row1 = self._chunk_r0r1[ichunk]
         nrows = row1 - row0
         if not nrows:
-            return None, None, None, None
+            return None, None, None, None, None
         tab = self.GiveMainTable()
         uvw = tab.getcol("UVW", row0, nrows) 
         #flags = tab.getcol("FLAG", row0, nrows)
@@ -1730,10 +1733,10 @@ class ClassMS():
         rowflags = flags.min(axis=1)
         # if everything is flagged, skip this entry
         if rowflags.all():
-            return None, None, None, None
+            return None, None, None, None, None
         # if only UVWs needed, return now
         if uvw_only:
-            return uvw, None, None, None
+            return uvw, flags, rowflags, None, None
         
         # now read the weights
         weights = None
@@ -1932,7 +1935,7 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
     host is either a string or None and ddid and field are indices.
     """
     if isinstance(MSName,list):
-        print("multi-MS mode", file=log)
+        print("reading MSs from a python list", file=log)
     elif not isinstance(MSName,str):
         raise TypeError("MSName parameter must be a list or a filename")
     elif MSName.endswith(".txt"):
@@ -1947,17 +1950,20 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
         MSName = [MSName]
     # now, at this point each entry in the list can still contain wildcards, and ":Fx:Dx" groups. Process it
     mslist = []
-    for msspec in MSName:
-        regrp = "(([0-9]+)|([0-9]+)([~:])([0-9]+)|(\*))"   # regex matching N or N:M or N~M or *
+    for ThisMS in MSName:
+
+        if ":" in ThisMS:
+            host = ThisMS.split(':')[0]
+            msspec = ":".join(ThisMS.split(':')[1:])
+        else:
+            host=None
+            msspec = ThisMS
+        
+        regrp = r"(([0-9]+)|([0-9]+)([~:])([0-9]+)|(\*))"   # regex matching N or N:M or N~M or *
         # match :F and :D suffixes, if present. Don't regexes make your brain melt
         terms = msspec.split("//")
-        host=None
         msname = terms[0]
-        if ":" in terms:
-            host = terms[0].split(':')[0]
-            msname = terms[0].split(':')[1:]
-            
-        #msname = terms[0]
+
         ddid_match = [ re.match("D("+regrp+")$", x) for x in terms[1:] ]
         field_match = [ re.match("F("+regrp+")$", x) for x in terms[1:] ]
         col_match = [ re.match("(.*_DATA)$", x) for x in terms[1:]]
@@ -2028,7 +2034,7 @@ def splitMSList(MSList):
     # filter msfile with host defined
     mslist_with_host = list(filter(lambda x: x[1] == hostname, MSList))
     mslist_without_host = list(filter(lambda x: x[1] == None, MSList))
-
+    
     if len(mslist_with_host)*len(mslist_without_host) > 0:
         raise RuntimeError("You have not define a hostname for each MS File")
 

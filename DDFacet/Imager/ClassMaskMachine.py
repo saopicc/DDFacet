@@ -28,11 +28,20 @@ import numpy as np
 from DDFacet.Other import logger
 from DDFacet.Other import ModColor
 log=logger.getLogger("MaskMachine")
+log2=logger.getLogger("FilterMachine")
 from astropy.io import fits as pyfits
 import scipy.special
 import copy
 from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
+from astropy.io import fits
+import numpy as np
+import pylab
+from DDFacet.ToolsDir import GeneDist
+import scipy.stats
+from DDFacet.Array import shared_dict
+from scipy.signal import fftconvolve
+from DDFacet.Other import ClassTimeIt
 
 def OR(a,b):
     if a is None and b is None:
@@ -44,6 +53,136 @@ def OR(a,b):
     else:
         return np.logical_or(a,b)
 
+def test():
+    DicoDirty = shared_dict.create("AllImages_FMPSF")
+    DicoDirty.restore("Cache.ReOrg/J1101_visit1_512ch.ms.N0.F0.D0.ddfcache/LastResidual")
+    FM=ClassFilterMachine()
+    FM.filterCube(DicoImages=DicoDirty,ThFilterRFI=5.)
+    
+class ClassFilterMachine():
+    def __init__(self):
+        pass
+    
+    def filterCube(self,DicoImages=None,ThFilterRFI=5.):
+        ResidualCube=DicoImages["ImageCube"]
+        nch,npol, Npix_x, Npix_y=ResidualCube.shape
+
+        nx,ny=Npix_x, Npix_y
+    
+        NMax=0
+        if NMax==0:
+            NMax=int(np.sqrt((nx//2)**2+(ny//2)**2))//2
+            if NMax%2!=0: NMax-=1
+            
+        log2.print("Filtering residual cube against RFI in the central %i pixels"%NMax)
+
+        Mask=np.zeros((nx,ny),bool)
+        
+        #import pylab
+        #pylab.clf()
+        
+        for ich in range(nch):
+            T=ClassTimeIt.ClassTimeIt("ClassFilterMachine")
+            T.disable()
+            A=ResidualCube[ich,0]
+            fA=np.fft.fft2(A)
+            T.timeit("fft2")
+            fAs=np.fft.fftshift(fA)
+            T.timeit("fftshift")
+            
+            s_fAs=fAs[nx//2-NMax:nx//2+NMax+1,ny//2-NMax:ny//2+NMax+1]
+            
+            nxx,nyy=s_fAs.shape
+            
+            xx,yy=np.mgrid[-(nxx//2):nxx//2+1,-(nyy//2):nyy//2+1]
+            T.timeit("np.mgrid")
+            dd=np.sqrt(xx**2+yy**2)
+            T.timeit("np.sqrt")
+
+        
+            dds=dd.flat[:]
+            s_fAss=np.abs(s_fAs.flat[:])
+            T.timeit("s_fAss")
+
+            drange=np.linspace(0,dds.max())
+            sig=5.
+            L=[]
+            for id0,d0 in enumerate(drange):
+                dds0=d0-5*sig
+                dds1=d0+5*sig
+                ind=np.where((dds>dds0)&(dds<dds1))[0]
+                ddss=dds[ind]
+                
+                W=np.exp(-(ddss-d0)**2/(2*sig**2))
+                
+                qq=GeneDist.weighted_quantile(s_fAss[ind], np.array([0.16,0.5,0.84]), sample_weight=W)
+                L.append(qq)
+            T.timeit("drange")
+            q0,q,q1=np.array(L).T
+            
+            Th=q0+(q1-q0)*ThFilterRFI
+            ThIm=np.interp(dds.ravel(), drange, Th, left=None, right=None).reshape((nxx,nyy))
+            Mask_ch=(s_fAss.reshape((nxx,nyy))>ThIm)
+            T.timeit("Mask_ch")
+
+            nConv=5
+            ConvMask=np.ones((nConv,nConv),np.float32)
+            Mask_ch=(fftconvolve(np.float32(Mask_ch),ConvMask,mode="same")>1e-3)
+            T.timeit("fftconvolve")
+            
+            nn=np.count_nonzero(Mask_ch)
+            log2.print("  [ch #%i] found %i masked pixels (~%.2f%%)"%(ich,nn,100*(nn/Mask_ch.size)))
+
+            
+            # ########################
+            # MM=Mask[nx//2-NMax:nx//2+NMax+1,ny//2-NMax:ny//2+NMax+1]
+            # Mask[nx//2-NMax:nx//2+NMax+1,ny//2-NMax:ny//2+NMax+1]=(MM|Mask_ch)[:,:]
+            # ########################
+            Mask.fill(0)
+            Mask[nx//2-NMax:nx//2+NMax+1,ny//2-NMax:ny//2+NMax+1]=(Mask_ch)[:,:]
+            # ########################
+            factBias=(Mask.size-nn)/Mask.size
+            fAs[Mask]=0
+            T.timeit("fAs[Mask]")
+            sfAs=np.fft.ifftshift(fAs)
+            T.timeit("sfAs")
+            fsfAs=np.fft.ifft2(sfAs)
+            T.timeit("fsfAs")
+            ResidualCube[ich,0,:,:]=fsfAs[:,:].real/factBias
+            T.timeit("ResidualCube")
+
+
+
+            # ind=np.int64(np.random.rand(1000)*A.size)
+            # RMS= scipy.stats.median_abs_deviation(A.flat[ind],axis=None,scale="normal")
+            # pylab.subplot(1,2,1)
+            # pylab.imshow(A,vmin=-5*RMS,vmax=50*RMS)
+            # RMS1= scipy.stats.median_abs_deviation(fsfAs.flat[ind],axis=None,scale="normal")
+            # pylab.subplot(1,2,2)
+            # pylab.imshow(fsfAs.real,vmin=-5*RMS1,vmax=50*RMS1)
+            # pylab.show()
+            
+        #     pylab.subplot(3,1,ich+1)
+        #     pylab.scatter(dds,np.abs(s_fAss),label="%i"%ich)
+        #     pylab.plot(drange,q0)
+        #     pylab.plot(drange,q)
+        #     pylab.plot(drange,q1)
+        #     pylab.plot(drange,q0+(q1-q0)*5,color="black")
+        
+        # #F.writeto("%s.FT.fits"%FName,overwrite=True)
+        # pylab.legend()
+        # pylab.show()
+            
+        #log2.print("  Flagged %i pixels"%(np.count_nonzero(Mask[nx//2-NMax:nx//2+NMax+1,ny//2-NMax:ny//2+NMax+1])))
+        if nch>1:
+            WBAND=DicoImages["ImageInfo"]["WBAND"]
+            DicoImages["MeanImage"] = np.sum(DicoImages["ImageCube"] * WBAND, axis=0).reshape((1, npol, Npix_x, Npix_y))
+        else:
+            DicoImages["MeanImage"][:] = DicoImages["ImageCube"][:]
+
+
+    
+    
 class ClassMaskMachine():
     def __init__(self,GD):
         self.GD=GD
@@ -76,7 +215,7 @@ class ClassMaskMachine():
         if not self.DoMask: return
         print("Computing Mask", file=log)
         
-        if self.GD["Mask"]["Auto"] and self.GD["Deconv"]["Mode"] in ["HMP", "SSD", "SSD2"]:
+        if self.GD["Mask"]["Auto"] and self.GD["Deconv"]["Mode"] in ["HMP", "SSD", "SSD2", "SSD3"]:
             self.ImageNoiseMachine.calcNoiseMap(DicoResidual)
             self.NoiseMask=(self.ImageNoiseMachine.FluxImage>self.GD["Mask"]["SigTh"]*self.ImageNoiseMachine.NoiseMapReShape)
         elif self.GD["Mask"]["Auto"]:

@@ -14,9 +14,26 @@ import numpy as np
 import traceback
 import collections
 import glob
+from pathlib import Path
+from DDFacet.Other import ModColor
+from DDFacet.Other import logger
+log=logger.getLogger("shared_dict")
 
 SHM_PREFIX = "/dev/shm/"
 SHM_PREFIX_LEN = len(SHM_PREFIX)
+global BASENAME
+BASENAME=None
+from DDFacet.Other.Verbose import VERBOSE_SHARED_DICT
+
+def setBaseName(BaseName=None):
+    global BASENAME
+    if BaseName is None:
+        BASENAME=("ddf."+str(os.getpid()))
+        log.print(ModColor.Str("setBaseName from pid: %s"%BASENAME))
+    else:
+        log.print(ModColor.Str("setBaseName from ext: %s"%BaseName))
+        BASENAME=BaseName
+        
 
 def _to_shm (path):
     """Helper function, converts /dev/shm/name to shm://name"""
@@ -45,6 +62,7 @@ def attach(name, load=True, readwrite=True):
     return SharedDict(name, reset=False, load=load, readwrite=readwrite)
 
 def create(name):
+    #print("SDKQJQSDKJ Create ",name)
     return SharedDict(name, reset=True)
 
 def dict_to_shm(name, D):
@@ -54,10 +72,16 @@ def dict_to_shm(name, D):
         Ds[key]=D[key]
     return Ds
 
+import socket
+
 def delDict(Name):
     D=attach(Name)
     if D is not None:
-        #print("DDDDDDDDDDDDDD")
+        if VERBOSE_SHARED_DICT:
+            log.print(ModColor.Str("Delete: %s"%D.path))
+            print(socket.gethostname(),ModColor.Str("(%s) Delete: %s"%(BASENAME,D.path)))
+        # if D.path.endswith("APP"):
+        #     stop
         D.delete()
         os.system("rm -fr %s" % D.path)
 
@@ -80,6 +104,7 @@ class SharedDict (collections.OrderedDict):
         def __init__(self, path, exc_info):
             RuntimeError.__init__(self, "Error loading SharedDict item %s"%path)
             self.path = path
+            print("DICOPath",self.path)
             self.exc_info = exc_info
 
     class ItemProxy(object):
@@ -114,10 +139,11 @@ class SharedDict (collections.OrderedDict):
     _proxy_class_map = dict(a=SharedArrayProxy, d=SubdictProxy,  p=PickleProxy) # l=ListProxy,
 
     @staticmethod
-    def setBaseName(name):
-        SharedDict.basepath = os.path.join(SHM_PREFIX, name)
+    def setBasePath(basename):
+        SharedDict.basepath = os.path.join(SHM_PREFIX, basename)
         if not os.path.exists(SharedDict.basepath):
             os.mkdir(SharedDict.basepath)
+            log.print(ModColor.Str("Create shm dict: %s"%SharedDict.basepath,col="green"))
 
     def __init__ (self, path, reset=True, load=True, readwrite=True):
         collections.OrderedDict.__init__(self)
@@ -131,15 +157,20 @@ class SharedDict (collections.OrderedDict):
             #        self._path_fd = os.open(self.path, os.O_RDONLY)  # for sync purposes
         Exists=os.path.exists(self.path)
         if reset or not Exists:
-            #print("INITTTT r=%i %i %s"%(reset,Exists,self.path))
+            if VERBOSE_SHARED_DICT: print("%s INITTTT r=%i %i %s %s"%(socket.gethostname(),reset,Exists,self.path,path))
             self.delete()
+            if BASENAME is None: setBaseName()
+            self.setBasePath(BASENAME)
         elif load:
             self.reload()
 
     def __del__(self):
  #       os.close(self._path_fd)
         if self._delete_items:
-            #print("__DEL__")
+            print("__DEL__")
+            print("__DEL__")
+            print("__DEL__")
+            print("__DEL__")
             self.delete()
 
     def is_writeable(self):
@@ -167,21 +198,34 @@ class SharedDict (collections.OrderedDict):
             raise RuntimeError("SharedDict %s attached as read-only" % self.path)
         collections.OrderedDict.clear(self)
         if os.path.exists(self.path):
-            #print("del %s"%self.path)
+            if VERBOSE_SHARED_DICT: print(socket.gethostname(),"del %s"%self.path,type(self),id(self))
             os.system("rm -fr %s" % self.path)
         try:
-            #print("mkdir %s"%self.path)
-            os.mkdir(self.path)
+            if VERBOSE_SHARED_DICT: print(socket.gethostname(),"mkdir %s"%self.path)
+            #os.mkdir(self.path)
+            path = Path(self.path)
+            path.mkdir(parents=True)
+
+            
         except FileNotFoundError:
             # suppress error message that can only occur if
             # parent directory has already been deleted
             pass
 
+        # print("========================")
+        # ss="mkdir %s"%self.path
+        # print(ss)
+        # os.system(ss)
+        # ss="ls %s"%self.path
+        # print(ss)
+        # os.system(ss)
+        # if "APP_MC" in self.path: stop
+
     def clear(self):
         if self._delete_items:
             if not self._readwrite:
                 raise RuntimeError("SharedDict %s attached as read-only" % self.path)
-            #print("CLEAR")
+            print("CLEAR")
             
             self.delete()
         else:
@@ -191,6 +235,7 @@ class SharedDict (collections.OrderedDict):
         os.system("tar cf %s -C %s ." % (filename, self.path))
 
     def restore(self, filename):
+        # print("restore")
         self.delete()
         os.system("tar xf %s -C %s" % (filename, self.path))
         self.reload()
@@ -257,9 +302,12 @@ class SharedDict (collections.OrderedDict):
     def __delitem__(self, item):
         if not self._readwrite:
             raise RuntimeError("SharedDict %s attached as read-only" % self.path)
+        print("del %s"%str(item))
         if self._delete_items:
+            print("del_delete_items %s"%str(item))
             return self.delete_item(item)
         else:
+            print("del_collections.OrderedDict %s"%str(item))
             return collections.OrderedDict.__delitem__(self, item)
 
     def delete_item (self, item):
@@ -343,7 +391,6 @@ class SharedDict (collections.OrderedDict):
         collections.OrderedDict.__setitem__(self, item, array)
         return array
 
-SharedDict.setBaseName("shared_dict:"+str(os.getpid()))
 
 def testSharedDict ():
     dic = SharedDict("foo")
@@ -366,6 +413,6 @@ def testSharedDict ():
     print(other_view)
 
 
-SharedDict.setBaseName("ddf."+str(os.getpid()))
+SharedDict.setBasePath("ddf."+str(os.getpid()))
 
 

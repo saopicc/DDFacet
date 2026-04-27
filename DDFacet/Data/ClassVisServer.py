@@ -31,6 +31,7 @@ if six.PY3:
 else:
     import cPickle
 import math, os, traceback
+from DDFacet.Other import AsyncProcessPool
 
 from DDFacet.Data import ClassMS
 from DDFacet.Data import ClassWeightMachine
@@ -44,7 +45,7 @@ logger.setSilent(["NpShared"])
 from DDFacet.Data import ClassSmearMapping
 from DDFacet.Data import ClassJones
 from DDFacet.Array import shared_dict
-from DDFacet.Other.AsyncProcessPool import APP
+
 from DDFacet.Other import reformat
 import six
 import DDFacet.Other.PrintList
@@ -64,6 +65,8 @@ log = logger.getLogger("ClassVisServer")
 
 _cc = 299792458
 
+SERIAL=True
+SERIAL=False
 
 def test():
     MSName = "/media/tasse/data/killMS_Pack/killMS2/Test/0000.MS"
@@ -73,21 +76,30 @@ def test():
 
 
 class ClassVisServer():
-
     def __init__(self, MSList, GD=None,
                  ColName=None,       # None if no data is read (only written)
                  TChunkSize=1,             # chunk size, in hours
                  LofarBeam=None,
                  AddNoiseJy=None,
-                 DicoFields=None):
+                 DicoFields=None,
+                 APP=None):
         self.GD = GD
         self.DicoFields=DicoFields
         if self.DicoFields is not None:
             self.NFields=len(self.DicoFields)
-        if APP is not None:
-            APP.registerJobHandlers(self)
-            self._app_id = "VS"
 
+            
+        self.APP=APP
+        if self.APP is None:
+            self.APP= AsyncProcessPool.initNew(Name="VS_DDFacet",
+                                               ncpu=self.GD["Parallel"]["NCPU"],
+                                               affinity=self.GD["Parallel"]["Affinity"],
+                                               parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
+                                               verbose=self.GD["Debug"]["APPVerbose"])
+        self.APP.registerJobHandlers(self)
+        self._app_id = "VS"
+        
+        
         self.MSList = [ MSList ] if isinstance(MSList, str) else MSList
         self.FacetMachine = None
         self.AddNoiseJy = AddNoiseJy
@@ -117,12 +129,22 @@ class ClassVisServer():
 
 
         # smear mapping machines
-        self._smm_grid = ClassSmearMapping.SmearMappingMachine("BDA.Grid")
-        self._smm_degrid = ClassSmearMapping.SmearMappingMachine("BDA.Degrid")
+        self._smm_grid = ClassSmearMapping.SmearMappingMachine("BDA.Grid",APP=self.APP)
+        self._smm_degrid = ClassSmearMapping.SmearMappingMachine("BDA.Degrid",APP=self.APP)
         self._put_vis_column_job_id = self._put_vis_column_label = None
         
         self.WM=ClassWeightMachine.ClassWeightMachine(self)
 
+    def startAPP(self):
+        self.APP.startWorkers()
+        self.APP.awaitWorkerStart()
+        
+    def stopAPP(self):
+        if self.APP is None: return
+        self.APP.terminate()
+        self.APP.shutdown()
+        del(self.APP)
+        self.APP=None
 
 
     def Init(self, PointingID=0):
@@ -347,7 +369,7 @@ class ClassVisServer():
             self.DicoMSChanMapping[iMS] = np.array(bands)
             self.DicoMSChanMappingChan[iMS] = np.array(
                 [freq_to_grid_band_chan[freq] for freq in MS.ChanFreq])
-
+            #stop
             # OMS: new option, DegridBandMHz specifies degridding band step. If
             # 0, fall back to NChanDegridPerMS
             degrid_bw = self.GD["Freq"]["DegridBandMHz"]*1e+6
@@ -440,7 +462,7 @@ class ClassVisServer():
         iMS, iChunk = DATA["iMS"], DATA["iChunk"]
         self._put_vis_column_label = "%d.%d" % (iMS+1, iChunk+1)
         self._put_vis_column_job_id = "PutData:%d:%d" % (iMS, iChunk)
-        APP.runJob(self._put_vis_column_job_id, self. visPutColumnHandler, args=(DATA.readonly(), field, column, likecol), io=0)#,serial=True)
+        self.APP.runJob(self._put_vis_column_job_id, self.visPutColumnHandler, args=(DATA.readonly(), field, column, likecol), io=0,serial=SERIAL)
 
     def visPutColumnHandler (self, DATA, field, column, likecol):
         iMS, iChunk = DATA["iMS"], DATA["iChunk"]
@@ -455,7 +477,7 @@ class ClassVisServer():
 
     def collectPutColumnResults(self):
         if self._put_vis_column_job_id:
-            APP.awaitJobResults(self._put_vis_column_job_id, progress="Writing %s" % self._put_vis_column_label)
+            self.APP.awaitJobResults(self._put_vis_column_job_id, progress="Writing %s" % self._put_vis_column_label)
             self._put_vis_column_job_id = None
             
 
@@ -493,9 +515,9 @@ class ClassVisServer():
             # in single-chunk mode, DATA may already be loaded, in which case we do nothing
             if self.nTotalChunks > 1 or self.DATA is None:
                 # tell the IO thread to start loading the chunk
-                APP.runJob(self._next_chunk_name, self._handler_LoadVisChunk,
+                self.APP.runJob(self._next_chunk_name, self._handler_LoadVisChunk,
                            args=(self._next_chunk_name, self.iCurrentMS, self.iCurrentChunk), 
-                           io=0)#,serial=True)
+                           io=0,serial=SERIAL)
             return self._next_chunk_label
 
     def collectLoadedChunk(self, start_next=True, last_cycle=False):
@@ -513,7 +535,7 @@ class ClassVisServer():
             np.copyto(self.DATA["data"], self._saved_data)
         else:
             # await completion of data loading jobs (which, presumably, includes smear mapping)
-            APP.awaitJobResults(self._next_chunk_name, timing="Reading %s"%self._next_chunk_label )
+            self.APP.awaitJobResults(self._next_chunk_name, timing="Reading %s"%self._next_chunk_label )
             # reload the data dict -- background thread will now have populated it
             self.DATA = shared_dict.attach(self._next_chunk_name)
             self.DATA["label"] = self._next_chunk_label
@@ -586,10 +608,11 @@ class ClassVisServer():
         DATA["ROW1"] = ms.ROW1
 
         # get weights
+        
         weights,sgnweights = self.WM.GetVisWeights(iMS, iChunk)
         DATA["Weights"] = weights
 
-        if -1 in sgnweights:
+        if sgnweights is not None and -1 in sgnweights:
             if not np.allclose(self.VisCorrelationLayout,np.array([ 9, 10, 11, 12], dtype=np.int32)): stop
             sort_index=DATA["sort_index"]
             nrow,nch,npol= DATA["data"].shape

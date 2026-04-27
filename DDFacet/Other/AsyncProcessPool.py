@@ -42,6 +42,7 @@ import glob
 import re
 import numexpr
 import time
+import socket
 
 from DDFacet.Other import logger
 from DDFacet.Other import ClassTimeIt
@@ -124,9 +125,10 @@ class JobCounterPool(object):
                 self._cond.wait(timeout)
                 return self._pool._counters_array[self.index_in_pool]
 
-    def __init__(self):
+    def __init__(self,silent_warning=False):
         self._counters = OrderedDict()
         self._counters_array = None
+        self.silent_warning=silent_warning
 
     def new(self, name=None):
         """Creates a new counter and registers this in this pool"""
@@ -138,20 +140,22 @@ class JobCounterPool(object):
 
     def finalize(self, shared_dict):
         """Called in parent process to complete initialization of all counters"""
-        if os.getpid() != parent_pid:
-            raise RuntimeError("This method can only be called in the parent process. This is a bug.")
+        if os.getpid() != parent_pid and not self.silent_warning:
+            # raise RuntimeError("This method can only be called in the parent process. This is a bug.")
+            log.print(ModColor.Str("finalize: In principle this method can only be called in the parent process. This could be a bug."))
         if self._counters_array is not None:
-            raise RuntimeError("Workers already started. This is a bug.")
+            raise RuntimeError("Workers already started. This is a bug. (finalize)")
         self._counters_array = shared_dict.addSharedArray("Counters", (len(self._counters),), np.int32)
 
     def _register(self, counter):
         cid = id(counter)
         if cid in self._counters:
             raise RuntimeError("job counter %s already exists. This is a bug."%cid)
-        if os.getpid() != parent_pid:
-            raise RuntimeError("This method can only be called in the parent process. This is a bug.")
+        if os.getpid() != parent_pid and not self.silent_warning:
+            # raise RuntimeError("This method can only be called in the parent process. This is a bug.")
+            log.print(ModColor.Str("_register: In principle this method can only be called in the parent process. This could be a bug."))
         if self._counters_array is not None:
-            raise RuntimeError("Workers already started. This is a bug.")
+            raise RuntimeError("Workers already started. This is a bug. (_register)")
         counter.index_in_pool = len(self._counters)
         self._counters[cid] = counter
 
@@ -159,13 +163,15 @@ class JobCounterPool(object):
 class AsyncProcessPool (object):
     """
     """
-    def __init__ (self):
+    def __init__ (self,Name="APP",silent_warning=False):
         self._started = False
+        self.Name=Name
         # init these here so that jobs can be registered
         self._job_handlers = {}
         self._events = {}
         self._results_map = {}
-        self._job_counters = JobCounterPool()
+        self.silent_warning=silent_warning
+        self._job_counters = JobCounterPool(silent_warning=self.silent_warning)
 
     def __del__(self):
         self.shutdown()
@@ -187,7 +193,7 @@ class AsyncProcessPool (object):
         """
         self.affinity = affinity
         self.verbose = verbose
-
+        
         self.pause_on_start = pause_on_start
 
         if isinstance(self.affinity, int):
@@ -307,6 +313,7 @@ class AsyncProcessPool (object):
         else:
             print(ModColor.Str("Worker processes fixed to vthreads %s" % (','.join([str(x) for x in cores])),
                                       col="green"), file=log)
+        # log.print("Cores %s"%str(cores))
         self._compute_workers = []
         self._io_workers = []
         self._compute_queue   = multiprocessing.Queue()
@@ -333,10 +340,11 @@ class AsyncProcessPool (object):
 
     def registerJobHandlers (self, *handlers):
         """Adds recognized job handlers. Job handlers may be functions or objects."""
-        if os.getpid() != parent_pid:
-            raise RuntimeError("This method can only be called in the parent process. This is a bug.")
+        if os.getpid() != parent_pid and not self.silent_warning:
+            # raise RuntimeError("This method can only be called in the parent process. This is a bug.")
+            log.print(ModColor.Str("registerJobHandlers: In principle this method can only be called in the parent process. This could be a bug."))
         if self._started:
-            raise RuntimeError("Workers already started. This is a bug.")
+            raise RuntimeError("Workers already started. This is a bug. (registerJobHandlers)")
         for handler in handlers:
             if not inspect.isfunction(handler) and not isinstance(handler, object):
                 raise RuntimeError("Job handler must be a function or object. This is a bug.")
@@ -344,28 +352,31 @@ class AsyncProcessPool (object):
 
     def createEvent (self, name=None):
         if os.getpid() != parent_pid:
-            raise RuntimeError("This method can only be called in the parent process. This is a bug.")
+            # raise RuntimeError("This method can only be called in the parent process. This is a bug.")
+            log.print(ModColor.Str("createEvent: In principle this method can only be called in the parent process. This could be a bug."))
         if self._started:
-            raise RuntimeError("Workers already started. This is a bug.")
+            raise RuntimeError("Workers already started. This is a bug. (createEvent)")
         event = multiprocessing.Event()
         self._events[id(event)] = event, name
         return event
 
     def createJobCounter (self, name=None):
         if os.getpid() != parent_pid:
-            raise RuntimeError("This method can only be called in the parent process. This is a bug.")
+            # raise RuntimeError("This method can only be called in the parent process. This is a bug.")
+            log.print(ModColor.Str("createJobCounter: In principle this method can only be called in the parent process. This could be a bug."))
         if self._started:
-            raise RuntimeError("Workers already started. This is a bug.")
+            raise RuntimeError("Workers already started. This is a bug. (createJobCounter)")
         return self._job_counters.new(name)
 
     def startWorkers(self):
         """Starts worker threads. All job handlers and events must be registered *BEFORE*"""
-        self._shared_state = shared_dict.create("APP")
+        self._shared_state = shared_dict.create(self.Name)
         self._job_counters.finalize(self._shared_state)
         if self.ncpu > 1:
             self._taras_bulba.start()
         self._started = True
 
+        
     def _checkResultQueue(self):
         """
         Check the result queue for any unread results, read them off and move them to the result map.
@@ -386,7 +397,6 @@ class AsyncProcessPool (object):
             if job is None:
                 raise KeyError("Job '%s' was not enqueued. This is a logic error." % job_id)
             job.setResult(result)
-
     def restartWorkers(self):
         if self.ncpu > 1:
             if self._termination_event.is_set():
@@ -418,7 +428,8 @@ class AsyncProcessPool (object):
                 nres,LJobs = self._checkResultQueue()
                 if nres:
                     print("collected %d outstanding results from the queue: %s" % (nres,str(LJobs)), file=log)
-                print("waiting for worker processes to start up", file=log)
+                #print("[%s] waiting for worker processes to start up [%i/%i started]"%(self.Name,), file=log)
+                print("[%s] waiting for worker processes to start up"%(self.Name,), file=log)
                 self._workers_started_event.wait(10)
 
     def _startBulba (self):
@@ -551,9 +562,13 @@ class AsyncProcessPool (object):
                     run again.
             serial: if True, job is run serially in the main process. Useful for debugging.
         """
-        if collect_result and os.getpid() != parent_pid:
-            raise RuntimeError("runJob() with collect_result can only be called in the parent process. This is a bug.")
+        if collect_result and os.getpid() != parent_pid and not self.silent_warning:
+            # raise RuntimeError("runJob() with collect_result can only be called in the parent process. This is a bug.")
+            log.print(ModColor.Str("In principle runJob() with collect_result can only be called in the parent process. This is could be a bug."))
         if collect_result and job_id in self._results_map:
+            log.print(ModColor.Str("RAISE"))
+            log.print(ModColor.Str("RAISE"))
+            log.print(ModColor.Str("RAISE"))
             raise RuntimeError("Job '%s' has an uncollected result, or is a singleton. This is a bug."%job_id)
         # make sure workers are started
         self.awaitWorkerStart()
@@ -618,7 +633,7 @@ class AsyncProcessPool (object):
         if progress:
             current = counter.getValue()
             total = total or current or 1
-            pBAR = ProgressBar(Title="  "+progress)
+            pBAR = ProgressBar(Title=progress)
             #pBAR.disable()
             pBAR.render(total-current,total)
             while current:
@@ -643,7 +658,8 @@ class AsyncProcessPool (object):
         from any of the background processes.
         """
         if self.verbose > 2:
-            print("checking for completion events on %s" % " ".join(events), file=log)
+            # print("checking for completion events on %s" % " ".join(events), file=log)
+            print("checking for completion events on")
         for event in events:
             name = self._events.get(id(event))
             while not event.is_set():
@@ -652,10 +668,11 @@ class AsyncProcessPool (object):
                         print("  termination event spotted, exiting", file=log)
                     raise WorkerProcessError()
                 if self.verbose > 2:
-                    print("  %s not yet complete, waiting" % name, file=log)
+                    print(name)
+                    print("  %s not yet complete, waiting" % str(name), file=log)
                 if event.wait(1):
                     if self.verbose > 2:
-                        print("  %s is complete" % name, file=log)
+                        print("  %s is complete" % str(name), file=log)
                     break
 
     def awaitJobResults (self, jobspecs, progress=None, timing=None):
@@ -674,8 +691,10 @@ class AsyncProcessPool (object):
             a list of results. Each entry is the result returned by the job (if no wildcard), or a list
             of results from each job (if has a wildcard)
         """
-        if os.getpid() != parent_pid:
-            raise RuntimeError("This method can only be called in the parent process. This is a bug.")
+        if os.getpid() != parent_pid and not self.silent_warning:
+            # raise RuntimeError("This method can only be called in the parent process. This is a bug.")
+            log.print(ModColor.Str("awaitJobResults: In principle this method can only be called in the parent process. This could be a bug."))
+        
         if type(jobspecs) is str:
             jobspecs = [ jobspecs ]
         # make a dict of all jobs still outstanding
@@ -802,6 +821,7 @@ class AsyncProcessPool (object):
         self._compute_queue.close()
         for queue in self._io_queues:
             queue.close()
+        shared_dict.delDict(self.Name)
         if self.verbose > 1:
             print("shutdown complete", file=log)
 
@@ -855,7 +875,24 @@ class AsyncProcessPool (object):
                     raise RuntimeError("Job %s: unknown counter %s. This is a bug." % (job_id, counter_id))
             # instantiate SharedDict arguments
 #            timer.timeit('init '+job_id)
+
+            # Largs=[  ]
+            # for arg in args:
+            #     if type(arg) is shared_dict.SharedDictRepresentation:
+            #         try:
+            #             rr=arg.instantiate()
+            #             if "FM_CF/int" in arg.path: print(socket.gethostname(),"OKKKKK %s OKKKK"%arg.path)
+            #         except:
+            #             import os
+            #             print(socket.gethostname(),"NOOO %s NOOO"%arg.path)
+            #             os.system("ls %s"%arg.path)
+            #             stop
+            #     else:
+            #         rr=arg
+            #     Largs.append(rr)
+            # args=Largs
             args = [ arg.instantiate() if type(arg) is shared_dict.SharedDictRepresentation else arg for arg in args ]
+            
             for key in kwargs.keys():
                 if type(kwargs[key]) is shared_dict.SharedDictRepresentation:
                     kwargs[key] = kwargs[key].instantiate()
@@ -903,7 +940,7 @@ class AsyncProcessPool (object):
             calls them, and returns results in the work queue.
         """
         if self.verbose > 0:
-            print(ModColor.Str("started worker pid %d"%os.getpid()), file=log)
+            print(ModColor.Str("started worker pid %d"%os.getpid(),col="green"), file=log)
         try:
             pill = True
             # While no poisoned pill has been given grab items from the queue.
@@ -928,20 +965,22 @@ class AsyncProcessPool (object):
     # CPU id. This will be None in the parent process, and a unique number in each worker process
     proc_id = None
 
-APP = None
+# APP = None
 
 def _init_default(force=False):
-    global APP
-    if APP is None or force:
-        APP = AsyncProcessPool()
-        APP.init(psutil.cpu_count(), affinity=0, num_io_processes=1, verbose=0)
+    APP = AsyncProcessPool()
+    APP.init(psutil.cpu_count(), affinity=0, num_io_processes=1, verbose=0)
 
-_init_default()
+
+#_init_default()
 
 def init(ncpu=None, affinity=None, parent_affinity=0, num_io_processes=1, verbose=0, pause_on_start=False):
-    global APP
-    if APP is None:
-        APP = AsyncProcessPool()
+    APP = AsyncProcessPool()
     APP.init(ncpu, affinity, parent_affinity, num_io_processes, verbose, pause_on_start=pause_on_start)
+    return APP
 
+def initNew(Name="APP2",ncpu=None, affinity=None, parent_affinity=0, num_io_processes=1, verbose=0, pause_on_start=False,silent_warning=False):
+    APP = AsyncProcessPool(Name,silent_warning=silent_warning)
+    APP.init(ncpu, affinity, parent_affinity, num_io_processes, verbose, pause_on_start=pause_on_start)
+    return APP
 

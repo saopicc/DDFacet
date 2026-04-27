@@ -114,7 +114,14 @@ def ReadBBSModelNew(infile,infile_cluster="",nSources=1000,PatchName=None):
                 if "-" in SDec:
                     sgn=-1.
                     SDec=SDec.replace("-","")
-                decd,decm,decs,decss=SDec.split(".")
+                if len(SDec.split("."))==4:
+                    decd,decm,decs,decss=SDec.split(".")
+                elif len(SDec.split("."))==3:
+                    decd,decm,decs=SDec.split(".")
+                    decss="0"
+                else:
+                    stop
+                    
                 ncoma=10**len(decss)
                 dec=sgn*(float(decd)+float(decm)/60.+(float(decs)+float(decss)/ncoma)/3600.)*np.pi/180.
                 Cat.dec[icat]=dec

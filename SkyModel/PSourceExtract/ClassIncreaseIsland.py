@@ -1,24 +1,185 @@
 
 from __future__ import division, absolute_import, print_function
 import numpy as np
+import scipy.signal
+import pylab
 
+DOPLOT=0
+
+def test():
+    S=np.load("IslandsMajor.npz",allow_pickle=True)
+    ListPix=S["ListIslands"]
+    sizes=[len(isl) for isl in ListPix]
+    ind=np.argsort(sizes)
+    ListPix=[ListPix[i] for i in ind][::-1]
+    
+    #Mask=S["Mask"]
+    CII=ClassIncreaseIsland()
+    L=CII.IncreaseIslandFFT(ListPix[-1],dx="auto",DoPlot=1)
+    #input("lala?")
+    #CII=ClassIncreaseIsland()
+    #L=CII.IncreaseIslandFFT(ListPix[-1],dx="auto",DoPlot=1)
+    
+
+def Gaussian2D(x,y,GaussPar=(1.,1.,0)):
+    d=np.sqrt(x**2+y**2)
+    sx,sy,_=GaussPar
+    if sx==0: sx=1e-6
+    if sy==0: sy=1e-6
+    return np.exp(-x**2/(2.*sx**2)-y**2/(2.*sy**2))
+  
 class ClassIncreaseIsland():
-    def __init__(self):
+    def __init__(self,Mask=None):
+        self.Mask=Mask # is inverted ie 0 within ilands
         pass
 
-    def IncreaseIsland(self,ListPix,dx=2):
+    def IncreaseIsland(self,*args,**kwargs):
+        return self.IncreaseIslandFFT(*args,**kwargs)
+
+    def IncreaseIslandFFT(self,ListPix,dx=2,AllowMasked=True,DoPlot=False):
+        x,y=np.array(ListPix).T
+        x0=x.min()
+        y0=y.min()
+        x1=x.max()
+        y1=y.max()
+        nx=x1-x0+1
+        ny=y1-y0+1
+        if dx=="auto":
+            dx=0.2*np.max([nx,ny])
+            dx=int(np.max([2,dx]))
+            
+        sx,sy=dx,dx
+        GaussPar=(sx,sy,0)
+        dxy=5.
+        Nsx,Nsy=dxy*sx,dxy*sy
+        xin,yin=np.mgrid[-Nsx:Nsx:(2*Nsx+1)*1j,-Nsy:Nsy:(2*Nsy+1)*1j]
+        G=Gaussian2D(xin,yin,GaussPar=GaussPar)
+        G/=np.sum(G)
+
+        sx,sy=dx,dx
+        GaussPar=(sx,sy,0)
+        dxy=6.
+        Nsx,Nsy=sx,sy
+        xin,yin=np.mgrid[-Nsx:Nsx:(2*Nsx+1)*1j,-Nsy:Nsy:(2*Nsy+1)*1j]
+        C=np.float32(np.sqrt(xin**2+yin**2)<dx)
+        C/=np.sum(C)
+
+
+        nxG,nyG=G.shape
+        dx0=nxG#//2
+        dy0=nyG#//2
+        #dx0=dy0=0
+        
+        A=np.zeros((nx+2*dx0,ny+2*dy0),np.float32)
+        
+        xx=x-x0+dx0
+        yy=y-y0+dy0
+        A[xx,yy]=1
+        
+        A0=A.copy()
+
+        Ac=scipy.signal.fftconvolve(A,C, mode='same')
+        Th=1e-2
+        Ac[Ac>Th]=1
+        Ac[Ac<Th]=0
+        # Ac/=np.max(Ac)
+        
+        Ac2=scipy.signal.fftconvolve(Ac,G, mode='same')
+        Ac2/=np.max(Ac2)
+
+
+        Ac2[Ac==1]=0
+        Ac2/=Ac2.max()
+        Ac2[Ac==1]=1
+        
+        
+        indx,indy=np.where(Ac2>(1e-2*Ac2.max()))
+        # indx,indy=np.mgrid[0:Ac2.shape[0],0:Ac2.shape[1]]
+        # indx=indx.ravel()
+        # indy=indy.ravel()
+        
+        W=Ac2[indx,indy]
+        xx=indx+x0-dx0
+        yy=indy+y0-dy0
+
+        
+        if self.Mask is not None:
+            Nx,Ny=self.Mask.shape[-2:]
+            Cx=((xx>=0)&(xx<Nx))
+            Cy=((yy>=0)&(yy<Ny))
+            ind=np.where(Cx & Cy)[0]
+            xx=xx[ind]
+            yy=yy[ind]
+            W=W[ind]
+            
+        if not AllowMasked:
+            MM=self.Mask[0,0,xx,yy]
+            ind=np.where((MM==0))[0]
+            xx=xx[ind]
+            yy=yy[ind]
+            W=W[ind]
+            
+        OutListPix2=np.array([xx,yy]).T
+        
+        if DOPLOT or DoPlot:
+            fig=pylab.figure("EnlargeIsl")
+            fig.clf()
+            ax=pylab.subplot(1,3,1)
+            pylab.imshow(A0,vmin=0,vmax=1.)
+            pylab.subplot(1,3,2,sharex=ax,sharey=ax)
+            pylab.imshow(Ac)
+            pylab.subplot(1,3,3,sharex=ax,sharey=ax)
+            pylab.imshow(Ac2)
+            pylab.colorbar()
+            pylab.draw()
+            pylab.show(block=False)
+            pylab.pause(0.1)
+            #fig.savefig("PNG/EnlargeIsl.png")
+
+        # print("FLDSJLSDJFJ IncreaseIsland ",OutListPix2.max(),W.max())
+        return OutListPix2.tolist(),W.tolist()
+
+    
+    def IncreaseIslandSlow(self,ListPix,dx=2,AllowMasked=True):
+        #np.savez("ListPix.npz",ListPix=ListPix,Mask=self.Mask)
+        #stop
+        _,_,Nx,Ny=self.Mask.shape
         nx=dx*2+1
         xg,yg=np.mgrid[-dx:dx:1j*nx,-dx:dx:1j*nx]
         xg=np.int64(xg.flatten())
         yg=np.int64(yg.flatten())
         OutListPix=[]
+        #AA=np.zeros((Nx,Ny),bool)
+        #BB=np.zeros((Nx,Ny),bool)
         for Pix in ListPix:
             x0,y0=Pix
+            #AA[x0,y0]=1
             x1=xg+x0
             y1=yg+y0
             for iPixAdd in range(xg.size):
-                OutListPix.append((x1[iPixAdd],y1[iPixAdd]))
+                i,j=x1[iPixAdd],y1[iPixAdd]
+                try:
+                    if AllowMasked:
+                        OutListPix.append((i,j))
+                    else:
+                        if self.Mask[0,0,i,j]==0:
+                            OutListPix.append((i,j))
+                except:
+                    print("failed",i,j)
+                    pass
         OutListPix=list(set(OutListPix))
         OutListPix2=[[x,y] for x,y in OutListPix]
+
+        # np.savez("MM.npz",M=np.logical_not(self.Mask[0,0]),A=AA)
+        # import pylab
+        # ax=pylab.subplot(1,3,1)
+        # pylab.imshow(np.logical_not(self.Mask[0,0])[:,:])
+        # pylab.subplot(1,3,2,sharex=ax,sharey=ax)
+        # pylab.imshow(AA)
+        # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
+        # pylab.imshow(BB)
+        # pylab.draw()
+        # pylab.show()
+        # stop
         return OutListPix2
 

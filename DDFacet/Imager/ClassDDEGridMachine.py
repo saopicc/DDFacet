@@ -864,6 +864,7 @@ class ClassDDEGridMachine():
         SinglePSF=self.GD["Facets"]["SinglePSF"]
         DoPSF=int(DoPSF)
         
+        os.environ["OMP_NUM_THREADS"] = "6"
         if False: # # self.GD["Comp"]["GridMode"] == 0:  # really deprecated for now
             raise RuntimeError("Deprecated flag. Please use BDA gridder")
         elif self.GD["RIME"]["BackwardMode"] == "BDA-grid":
@@ -1031,7 +1032,7 @@ class ClassDDEGridMachine():
         A0, A1 = A0A1
 
         T.timeit("0")
-
+        
         if ImToGrid:
             if np.max(np.abs(ModelImage)) == 0:
                 return vis
@@ -1211,7 +1212,8 @@ class ClassDDEGridMachine():
                 self.LSmear, np.int32(ChanMapping),
                 np.array(self.DataCorrelationFormat).astype(np.uint16),
                 np.array(self.ExpectedOutputStokes).astype(np.uint16))
-            vis[flag]=0
+            # # commented for compatibility with master
+            # vis[flag]=0
         elif self.GD["RIME"]["ForwardMode"]=="BDA-degrid-classic":
             OptimisationInfos = [
                 self.JonesType,
@@ -1250,11 +1252,11 @@ class ClassDDEGridMachine():
             raise ValueError("unknown --RIME-ForwardMode %s"%self.GD["RIME"]["ForwardMode"])
 
         T.timeit("4 (degrid)")
+        
         # print vis
-
         # uvw,vis=self.ShiftVis(uvwOrig,vis,reverse=False)
-
         # T.timeit("5")
+        
         return vis
 
     #########################################################
