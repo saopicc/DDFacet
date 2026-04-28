@@ -511,9 +511,14 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         A = CurrentDirty[0, 0, Ip, Iq]
         absA = np.abs(A)
         try:
-            pq = int(np.argwhere(absA == AbsConvMaxDirty))
-        except:
-            raise RuntimeError("Somehow Threshold > CurrentDirty.max()? This is a bug!")
+            pq = int(np.argwhere(absA == AbsConvMaxDirty).flat[0]) # .flat[0] necessary when multiple maximum
+        except Exception as e:
+            print("Exception: %s"%str(e))
+            raise #RuntimeError("Somehow Threshold > CurrentDirty.max()? This is a bug!")
+
+
+
+        
         ConvMaxDirty = A[pq]
 
 
@@ -559,9 +564,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             AbsConvMaxDirty = absA.max()
             # TODO - How does this happen? It seems sometimes we have two components with the same max flux
             try:
-                pq = int(np.argwhere(absA == AbsConvMaxDirty))
-            except:
-                pq = int(np.argwhere(absA == AbsConvMaxDirty)[0])
+                pq = int(np.argwhere(absA == AbsConvMaxDirty).flat[0])
+            except Exception as e:
+                print("Exception: %s"%str(e))
+                raise
+                # pq = int(np.argwhere(absA == AbsConvMaxDirty)[0])
             ConvMaxDirty = A[pq]
 
             # get location of component in residual frame

@@ -109,7 +109,7 @@ class ClassBeamMean():
         ra=np.zeros_like(lc)
         dec=np.zeros_like(lc)
         for i in range(ra.size):
-            ra[i],dec[i]=self.CoordMachine.lm2radec(np.array([lc[i]]),
+            ra[i:i+1],dec[i:i+1]=self.CoordMachine.lm2radec(np.array([lc[i]]),
                                                     np.array([mc[i]]))
         self.radec=ra,dec
         self.npix_x=npix_x

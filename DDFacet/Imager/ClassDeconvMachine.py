@@ -1096,15 +1096,20 @@ class ClassImagerDeconv():
         from DDFacet.Imager.ClassMontblancMachine import ClassMontblancMachine
         import psutil
         import os
-        old_OMP_setting = os.environ["OMP_NUM_THREADS"]
+        old_OMP_setting = os.environ.get("OMP_NUM_THREADS","")
         os.environ["OMP_NUM_THREADS"] = str(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
 
         MS = self.VS.ListMS[DATA["iMS"]]
         pointing_sols = self._pointing_machines[DATA["iMS"]]
         model = self.ModelMachine.GiveModelList(MS.ChanFreq)
+        
+        nx,ny=self.FacetMachine.Npix_x,self.FacetMachine.Npix_y
+        if nx!=ny: raise ValueError("Image should be square for Montblanc")
+        dx,dy=self.FacetMachine.CellSizeRad_x,self.FacetMachine.CellSizeRad_y
+        if dx!=dy: raise ValueError("Pixel should be square for Montblanc")
         mb_machine = ClassMontblancMachine(self.GD,
-                                           self.FacetMachine.Npix,
-                                           self.FacetMachine.CellSizeRad,
+                                           nx,
+                                           dx,
                                            MS,
                                            pointing_sols)
         mb_machine.get_chunk(DATA, datacolumn, model)

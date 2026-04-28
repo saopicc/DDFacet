@@ -65,7 +65,7 @@ class ClassDaskMS(ClassMS):
                  DicoSelectOptions={},
                  ResetCache=False,
                  first_ms=None,
-                 get_obs_detail=False):
+                 get_obs_detail=False,iMS=0):
         if not BACKEND_AVAIL:
             raise RuntimeError("Dask-MS backend not available. Reinstall with "
                                "pip install DDFacet[alternate-data-backends]")
@@ -74,17 +74,19 @@ class ClassDaskMS(ClassMS):
         self._chunking = None
         self._num_dataset = None
         self._dask_store_type = None
+        self.iMS=iMS
         ClassMS.__init__(self, MSname,
-                 Col,
-                 SubCol,
-                 zero_flag,ReOrder,EqualizeFlag,DoPrint,DoReadData,
-                 TimeChunkSize,GetBeam,RejectAutoCorr,SelectSPW,DelStationList,
-                 AverageTimeFreq,
-                 Field,DDID,TaQL,ChanSlice,GD,
-                 DicoSelectOptions,
-                 ResetCache,
-                 first_ms,
-                 get_obs_detail)
+                         Col,
+                         SubCol,
+                         zero_flag,ReOrder,EqualizeFlag,DoPrint,DoReadData,
+                         TimeChunkSize,GetBeam,RejectAutoCorr,SelectSPW,DelStationList,
+                         AverageTimeFreq,
+                         Field,DDID,TaQL,ChanSlice,GD,
+                         DicoSelectOptions,
+                         ResetCache,
+                         first_ms,
+                         get_obs_detail,
+                         iMS)
 
 
     @property
@@ -416,7 +418,8 @@ class ClassDaskMS(ClassMS):
     def readWeights(self, ichunk, weightcols: List[str], uvw_only=False):
         nrows = self._chunk_rowcounts[ichunk]
         if not nrows:
-            return None, None, None, None
+            return None, None, None, None, None
+
         ds = self.dataset
         uvw, flags = dask.compute(ds.UVW.data.blocks[ichunk], ds.FLAG.data.blocks[ichunk], scheduler="sync")
         flags = flags[:,self.ChanSlice,:]
@@ -430,15 +433,18 @@ class ClassDaskMS(ClassMS):
         if rowflags.all():
             del ds  # close and check
             assert_liveness(0, 0)
-            return None, None, None, None
+            return None, None, None, None, None
         # if only UVWs needed, return now
         if uvw_only:
             del ds  # close and check
             assert_liveness(0, 0)
-            return uvw, None, None, None
+            return uvw, flags, rowflags, None, None
         
         # now read the weights
-        weights = None 
+        weights = None
+        
+        # To do REW in V, need to mupliply V by sgn(W) 
+        sgnweight = np.ones((nrows, self.Nchan), np.int8)
 
         for weight_col in weightcols:
             print("reading weighting column %s"%weight_col, file=log)
@@ -493,7 +499,7 @@ class ClassDaskMS(ClassMS):
 
         del ds  # close and check
         assert_liveness(0, 0)
-        return uvw, flags, rowflags, weights
+        return uvw, flags, rowflags, weights, sgnweight
 
     def ReadMSInfo(self,first_ms=None,DoPrint=True):
         """radec_first: ra/dec of first MS, if available"""
@@ -642,7 +648,7 @@ class ClassDaskMS(ClassMS):
         del tf # close
 
         if rarad<0.: rarad+=2.*np.pi
-        self.OriginalRadec = self.OldRadec = rarad,decrad
+        self.PointingRadec = self.OriginalRadec = rarad,decrad
 
         if self.ToRADEC is not None:
             ranew, decnew = rarad, decrad
@@ -666,7 +672,7 @@ class ClassDaskMS(ClassMS):
             # only enable rotation if coordinates actually change
             if ranew != rarad or decnew != decrad:
                 print(ModColor.Str("MS %s will be rephased to %s"%(self.MSName,which)), file=log)
-                self.OldRadec = rarad,decrad
+                self.OriginalRadec = rarad,decrad
                 self.NewRadec = ranew,decnew
                 rarad,decrad = ranew,decnew
             else:
@@ -709,7 +715,7 @@ class ClassDaskMS(ClassMS):
         self.nbl=nbl
         self.StrRA  = rad2hmsdms(self.rarad,Type="ra").replace(" ",":")
         self.StrDEC = rad2hmsdms(self.decrad,Type="dec").replace(" ",".")
-        self.lm_PhaseCenter=self.radec2lm_scalar(self.OldRadec[0],self.OldRadec[1])
+        self.lm_PhaseCenter=self.radec2lm_scalar(self.OriginalRadec[0],self.OriginalRadec[1])
         T.timeit()
 
         del datasets, dataset
