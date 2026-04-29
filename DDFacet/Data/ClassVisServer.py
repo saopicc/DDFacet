@@ -170,7 +170,6 @@ class ClassVisServer():
         self._chunk_shape = [0, 0, 0]
         self.MSList = ClassMS.splitMSList(self.MSList)
         CMS = ClassDaskMS.ClassDaskMS if self.GD["Data"]["Dask"] else ClassMS.ClassMS 
-
         for iMS,msspec in enumerate(self.MSList):
             if not isinstance(msspec,str):
                 msname, host, ddid, field, column = msspec
@@ -271,8 +270,6 @@ class ClassVisServer():
         # if this is 0, then looks at NFreqBands parameter
         grid_bw = self.GD["Freq"]["BandMHz"]*1e+6
         
-        if self.GD["Freq"].get("FMinMHz",None): min_freq_Cube=self.GD["Freq"]["FMinMHz"]*1e6
-        if self.GD["Freq"].get("FMaxMHz",None): max_freq_Cube=self.GD["Freq"]["FMaxMHz"]*1e6
         bandwidth_Cube =  max_freq_Cube - min_freq_Cube
         
         if grid_bw:
@@ -669,7 +666,10 @@ class ClassVisServer():
             if self.GD["Output"]["Mode"]!="Predict":
                 return
         
-        if DATA.get("sort_index",None) is not None and weights is not None: # and DATA["Weights"] is not 1: # OMS 2023/12 they're not "1" ever and this seems a bug
+        if DATA.get("sort_index",None) is not None and weights is not None:
+            # and DATA["Weights"] is not 1: # OMS 2023/12 they're not "1" ever and this seems a bug
+            # a value of '1' is used as a flag by GetVisWeights, but we can't compare with 1 because the weights could be and generally will be an array...
+
             DATA["Weights"] = DATA["Weights"][DATA["sort_index"]]
 
         self.computeBDAInBackground(dictname, ms, DATA,
@@ -784,3 +784,5 @@ class ClassVisServer():
         
     def getMaxW(self):
         return self.WM.getMaxW()
+
+

@@ -269,8 +269,6 @@ class ClassImagerDeconv():
     def Init(self):
         DC = self.GD
 
-            
-
         self.NMajor=self.GD["Deconv"]["MaxMajorIter"]
         # del(self.GD["Deconv"]["MaxMajorIter"])
         # If we do the deconvolution construct a model according to what is in MinorCycleConfig

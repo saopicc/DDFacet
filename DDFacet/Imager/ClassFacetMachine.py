@@ -891,7 +891,6 @@ class ClassFacetMachine():
         if cachevalid:
             try:
                 npzfile = np.load(open(path, "rb"))
-                #for key, value in getattr(npzfile, "items", npzfile.iteritems)():
                 for key, value in npzfile.items():
                     facet_dict[key] = value
                     
