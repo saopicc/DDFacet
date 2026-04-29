@@ -206,7 +206,6 @@ class ClassImageDeconvMachine():
     def setSideLobeLevel(self,SideLobeLevel,OffsetSideLobe):
         self.SideLobeLevel=SideLobeLevel
         self.OffsetSideLobe=OffsetSideLobe
-        
 
     def SetPSF(self,DicoVariablePSF):
         self.PSFServer=ClassPSFServer(self.GD)
@@ -400,7 +399,7 @@ class ClassImageDeconvMachine():
 
             # Get side lobe stopping criterion
             Fluxlimit_Sidelobe = ((self.CycleFactor-1.)/4.*(1.-self.SideLobeLevel)+self.SideLobeLevel)*MaxDirty if self.CycleFactor else 0
-
+            
             mm0, mm1 = PeakMap.min(), PeakMap.max()
 
             # Choose whichever threshold is highest
@@ -561,12 +560,12 @@ class ClassImageDeconvMachine():
                         W = self.WeightsChansImages[:, indx] if self.WeightsChansImages.ndim == 2 else self.WeightsChansImages
                         # FG:the Coeffs_Q will have the length of the exact polynomial order used in the fitting
                         Coeffs_Q = self.ModelMachine.FreqMachine.Fit(Iapp, JonesNorm, W)
-                        #Coeffs_Q_dev = self.ModelMachine.FreqMachine.FitLin(Iapp, JonesNorm, W) 
+                        Coeffs_Q_dev = self.ModelMachine.FreqMachine.FitLin(Iapp, JonesNorm, W) 
                     elif pol_task == "U":
                         indx = indexU
                         W = self.WeightsChansImages[:, indx] if self.WeightsChansImages.ndim == 2 else self.WeightsChansImages
                         Coeffs_U = self.ModelMachine.FreqMachine.Fit(Iapp, JonesNorm, W)
-                        #Coeffs_U_dev = self.ModelMachine.FreqMachine.FitLin(Iapp, JonesNorm, W)
+                        Coeffs_U_dev = self.ModelMachine.FreqMachine.FitLin(Iapp, JonesNorm, W)
                     else:
                         indx = indexI if pol_task == "I" else indexV
                         W = self.WeightsChansImages[:, indx] if self.WeightsChansImages.ndim == 2 else self.WeightsChansImages
@@ -580,10 +579,10 @@ class ClassImageDeconvMachine():
                         Iapp_U_dev = self.ModelMachine.FreqMachine.EvalLin(Coeffs_U_dev, self.ModelMachine.FreqMachine.Freqs)
                     elif pol_task == "Q" :
                         Iapp_Q = self.ModelMachine.FreqMachine.Eval(Coeffs_Q)
-                        #Iapp_Q_dev = self.ModelMachine.FreqMachine.EvalLin(Coeffs_Q_dev, self.ModelMachine.FreqMachine.Freqs)
+                        Iapp_Q_dev = self.ModelMachine.FreqMachine.EvalLin(Coeffs_Q_dev, self.ModelMachine.FreqMachine.Freqs)
                     elif pol_task == "U":
                         Iapp_U = self.ModelMachine.FreqMachine.Eval(Coeffs_U)
-                        #Iapp_U_dev = self.ModelMachine.FreqMachine.EvalLin(Coeffs_U_dev, self.ModelMachine.FreqMachine.Freqs)
+                        Iapp_U_dev = self.ModelMachine.FreqMachine.EvalLin(Coeffs_U_dev, self.ModelMachine.FreqMachine.Freqs)
                     else:
                         Iapp = self.ModelMachine.FreqMachine.Eval(Coeffs)
                     
@@ -599,16 +598,20 @@ class ClassImageDeconvMachine():
                     T.timeit("FindScale")
 
                     if pol_task == "I":
+                        #print("I",(x, y), Coeffs, indexI)
                         self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs, indexI)
                     elif pol_task == "Q":
-                        self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs_Q, indexQ)
-                        #self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs_Q_dev, indexQ)
+                        #print("Q",(x, y), Coeffs_Q_dev, indexQ)
+                        self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs_Q_dev, indexQ)
                     elif pol_task == "U":
-                        self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs_U, indexU)
-                        #self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs_U_dev, indexU)
+                        #print("U",(x, y), Coeffs_U_dev, indexU)
+                        self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs_U_dev, indexU)
                     elif pol_task == "V":
+                        #print("V",(x, y), Coeffs, indexV)
                         self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs, indexV)
                     elif pol_task == "Q+iU": 
+                        #print("Q+iUa",(x, y), Coeffs_Q_dev, indexQ)
+                        #print("Q+iUb",(x, y), Coeffs_U_dev, indexU)
                         self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs_Q_dev, indexQ)
                         self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs_U_dev, indexU)
                         
@@ -626,6 +629,8 @@ class ClassImageDeconvMachine():
                     elif pol_task == "Q+iU":
                         self.SubStep(x, y, indexQ, PSF * Iapp_Q_dev[:, None, None, None] * self.GD["Deconv"]["Gain"])
                         self.SubStep(x, y, indexU, PSF * Iapp_U_dev[:, None, None, None] * self.GD["Deconv"]["Gain"])
+                        #self.SubStep(x, y, indexQ, PSF * Iapp_Q[:, None, None, None] * self.GD["Deconv"]["Gain"])
+                        #self.SubStep(x, y, indexU, PSF * Iapp_U[:, None, None, None] * self.GD["Deconv"]["Gain"])
                         
                     T.timeit("SubStep")
 

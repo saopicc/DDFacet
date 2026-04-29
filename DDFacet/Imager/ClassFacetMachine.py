@@ -1271,7 +1271,7 @@ class ClassFacetMachine():
         for band, channels in enumerate(self.VS.FreqBandChannels):
             DicoImages["freqs"][band] = channels
             DicoImages["SumWeights"][band] = self.DicoImager[0]["SumWeights"][band]
-        DicoImages["WeightChansImages"] = DicoImages["SumWeights"] / np.sum(DicoImages["SumWeights"])
+        DicoImages["WeightChansImages"] = DicoImages["SumWeights"] / np.sum(DicoImages["SumWeights"], axis=0)
 
         # compute sum of Jones terms per facet and channel
         self.setDicoSumJonesNorm()

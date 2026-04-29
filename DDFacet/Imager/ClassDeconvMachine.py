@@ -1992,6 +1992,7 @@ class ClassImagerDeconv():
         P = PSF[0, x[0] - off:x[0] + off, y[0] - off:y[0] + off].copy()
         bmaj, bmin, theta = ModFitPSF.FitCleanBeam(P)
         sidelobes = ModFitPSF.FindSidelobe(P)
+
         print("PSF max is %f"%P.max(), file=log)
 
         FWHMFact = 2. * np.sqrt(2. * np.log(2.))
@@ -2059,6 +2060,9 @@ class ClassImagerDeconv():
         meanPSF = self.DicoImagesPSF["CubeMeanVariablePSF"][self.FacetMachinePSF.iCentralFacet]
 
         off=self.GD["Image"]["SidelobeSearchWindow"] // 2
+        print("LFDSSJSFDKJDFSKSJDFKSDFJ")
+        beam_deg, gausspars_rad, sidelobes = self.fitSinglePSF(meanPSF[0,...], "mean")
+
         try:
             fit_err = None
             beam_deg, gausspars_rad, sidelobes = self.fitSinglePSF(meanPSF[0,...], "mean")
