@@ -32,8 +32,9 @@ except (ImportError, ModuleNotFoundError):
     except pkg_resources.DistributionNotFound:
         __version__ = "dev"
 
-# this was in hackathon-rennes branch
+        
 # =======
+# # CT 29/04/2026: The following was in HackathonRennes branch, I don't understand the difference. I chose master and keep the following in case
 # # https://github.com/python-poetry/poetry/issues/273#issuecomment-1877789967
 # from typing import Any
 # import importlib.metadata

@@ -669,7 +669,6 @@ class ClassVisServer():
         if DATA.get("sort_index",None) is not None and weights is not None:
             # and DATA["Weights"] is not 1: # OMS 2023/12 they're not "1" ever and this seems a bug
             # a value of '1' is used as a flag by GetVisWeights, but we can't compare with 1 because the weights could be and generally will be an array...
-
             DATA["Weights"] = DATA["Weights"][DATA["sort_index"]]
 
         self.computeBDAInBackground(dictname, ms, DATA,

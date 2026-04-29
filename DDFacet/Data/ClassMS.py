@@ -140,7 +140,7 @@ class ClassMS():
         # once.
         self._reset_cache = ResetCache
         self._chunk_caches = {}
-
+        
         cachedir=None
         self.maincache=None
         if self.GD is not None: cachedir=self.GD["Cache"]["Dir"]
@@ -156,9 +156,11 @@ class ClassMS():
             if MPIManager.size > 1:
                 self.maincache = CacheManager(cachename+".rank_%d.N%i.F%d.D%d.ddfcache"%(MPIManager.rank, self.iMS, self.Field, self.DDID), reset=ResetCache, cachedir=cachedir, nfswarn=True)
             else:
-                self.maincache = CacheManager(cachename+".N%i.F%d.D%d.ddfcache"%(self.iMS, self.Field, self.DDID), reset=ResetCache, cachedir=cachedir, nfswarn=True)
+                self.maincache = CacheManager(cachename+".N%i.F%d.D%d.ddfcache"%(self.iMS, self.Field, self.DDID),
+                                              reset=ResetCache, cachedir=cachedir, nfswarn=True)
         elif cachedir is not None:
-            self.maincache = CacheManager(cachename+".N%i.F%d.D%d.ddfcache"%(self.iMS, self.Field, self.DDID), reset=ResetCache, cachedir=cachedir, nfswarn=True)
+            self.maincache = CacheManager(cachename+".N%i.F%d.D%d.ddfcache"%(self.iMS, self.Field, self.DDID),
+                                          reset=ResetCache, cachedir=cachedir, nfswarn=True)
 
 
         # self.maincache = CacheManager(cachename+".F%d.D%d.ddfcache"%(self.Field, self.DDID), reset=ResetCache, cachedir=self.GD["Cache"]["Dir"], nfswarn=True)
