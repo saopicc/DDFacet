@@ -64,6 +64,27 @@ SIGNALS_TO_NAMES_DICT = dict((getattr(signal, n), n) \
 # PID of parent process
 parent_pid = os.getpid()
 
+
+import psutil
+
+def get_main_process_affinity():
+    current = psutil.Process()
+    # Traverse up the process tree until we find the root of the job
+    # (e.g., srun, mpirun, or the user's script)
+    while True:
+        parent = current.parent()
+        if parent is None:
+            break  # Reached PID 1 (init/systemd) or no parent
+        # Check if the parent is a known job launcher (SLURM, MPI, etc.)
+        parent_name = parent.name()
+        if parent_name in ["srun", "mpirun", "mpiexec", "python", "bash", "zsh"]:
+            # If the parent is a job launcher or shell, its affinity is likely the job's affinity
+            return parent.cpu_affinity()
+        current = parent
+    # Fallback: Return the affinity of the current process
+    return current.cpu_affinity()
+
+
 # Exception type for worker process errors
 class WorkerProcessError(Exception):
     pass
@@ -280,11 +301,17 @@ class AsyncProcessPool (object):
             maxcpu = max(self.affinity) + 1  # zero indexed list
 
             # parent affinity disabled as per documentation in the parset
-        elif self.affinity is None or isinstance(self.affinity, str) and str(self.affinity) == "disable":
+        
+        elif self.affinity is None or (isinstance(self.affinity, str) and str(self.affinity) == "disable"):
             self.affinity = None
             self.cpustep = 1
             maxcpu = len(self.inherited_affinity)
             self.ncpu = ncpu or maxcpu
+        elif self.affinity is None or (isinstance(self.affinity, str) and str(self.affinity) == "main_process"):
+            main_affinity=get_main_process_affinity()
+            maxcpu = len(main_affinity)
+            self.ncpu = ncpu or maxcpu
+            self.affinity = main_affinity
         else:
             raise RuntimeError("Invalid option for Parallel.Affinity. Expected cpu step (int), list, "
                                "'enable_ht', 'disable_ht', 'disable'")    
@@ -997,19 +1024,19 @@ class AsyncProcessPool (object):
 
 # APP = None
 
-def _init_default(force=False):
-    APP = AsyncProcessPool()
-    APP.init(psutil.cpu_count(), affinity='disable', num_io_processes=1, verbose=0)
-    return APP
+# def _init_default(force=False):
+#     APP = AsyncProcessPool()
+#     APP.init(psutil.cpu_count(), affinity='disable', num_io_processes=1, verbose=0)
+#     return APP
 
 
-def init(ncpu=None, affinity=None, parent_affinity=0, num_io_processes=1, verbose=0, pause_on_start=False):
-    APP = AsyncProcessPool()
-    APP.init(ncpu, affinity, parent_affinity, num_io_processes, verbose, pause_on_start=pause_on_start)
-    return APP
-
-def initNew(Name="APP2",ncpu=None, affinity=None, parent_affinity=0, num_io_processes=1, verbose=0, pause_on_start=False,silent_warning=False):
+def init   (Name="APP", ncpu=None, affinity='disable', parent_affinity=0, num_io_processes=1, verbose=0, pause_on_start=False,silent_warning=False):
     APP = AsyncProcessPool(Name,silent_warning=silent_warning)
     APP.init(ncpu, affinity, parent_affinity, num_io_processes, verbose, pause_on_start=pause_on_start)
     return APP
+
+# def initNew(Name="APP2",ncpu=None, affinity='disable', parent_affinity=0, num_io_processes=1, verbose=0, pause_on_start=False,silent_warning=False):
+#     APP = AsyncProcessPool(Name,silent_warning=silent_warning)
+#     APP.init(ncpu, affinity, parent_affinity, num_io_processes, verbose, pause_on_start=pause_on_start)
+#     return APP
 

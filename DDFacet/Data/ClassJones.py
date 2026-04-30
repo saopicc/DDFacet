@@ -1169,11 +1169,11 @@ class ClassJones():
 
         #logger.setSilent(["AsyncProcessPool"])
         if Parallel:
-            APP=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_Beam_MS%i"%self.MS.iMS,
-                                                       ncpu=self.GD["Parallel"]["NCPU"],
-                                                       affinity="disable",
-                                                       silent_warning=True,
-                                                       )
+            APP=DDFacet.Other.AsyncProcessPool.init(Name="APP_Beam_MS%i"%self.MS.iMS,
+                                                    ncpu=self.GD["Parallel"]["NCPU"],
+                                                    affinity="main_process",
+                                                    silent_warning=True,
+                                                    )
             APP.registerJobHandlers(self)
             APP.startWorkers()
             APP.awaitWorkerStart()
@@ -1192,8 +1192,7 @@ class ClassJones():
             if Parallel:
                 APP.runJob("ComputeBeam:%i"%(itime),
                            self._estimateBeamThisTime,
-                           args=(itime,ThisTime,RA,DEC,rac,decc),
-                           serial=False)
+                           args=(itime,ThisTime,RA,DEC,rac,decc),serial=False)
             else:
                 r=self._estimateBeamThisTime(itime,ThisTime,RA,DEC,rac,decc)
                 LDicoResults.append(r)

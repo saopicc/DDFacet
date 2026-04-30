@@ -43,7 +43,8 @@ dependencies = [
     "codex-africanus[dask] <= 0.4.3; python_version >= '3.11' and python_version < '3.13'", 
     "regions <= 0.11; python_version >= '3.11' and python_version < '3.13'",
     "pywavelets <= 1.9.0; python_version >= '3.11' and python_version < '3.13'",
-    "tqdm<=4.64.0, ; python_version >= '3.11' and python_version < '3.13'"
+    "tqdm<=4.64.0, ; python_version >= '3.11' and python_version < '3.13'",
+    "pyproj; python_version >= '3.11' and python_version < '3.13'", 
 ]
 authors = [{ name = "Cyril Tasse", email = "cyril.tasse@obspm.fr" }]
 maintainers = [{ name = "Benjamin Hugo", email = "bhugo@sarao.ac.za" }]
