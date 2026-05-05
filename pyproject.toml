@@ -1,9 +1,10 @@
 [build-system]
+
 requires = ["numpy >= 1.15.1, <= 2.3.2",
-            "setuptools >= 82.0.0",
             'pybind11 >= 2.2.2',
             'cython',
             'cmake',
+            "setuptools >= 82.0.0",
             'scikit-build-core']
 build-backend = "scikit_build_core.build"
 
@@ -13,6 +14,7 @@ version = "0.9.1.0"
 description = "Facet-based radio astronomy continuum imager"
 license = {file = "LICENSE.md"}
 readme = "README.rst"
+
 requires-python = ">=3.11,<3.13"
 dependencies = [
     "Cython >= 0.25.2, <= 3.2.4", 
@@ -46,6 +48,8 @@ dependencies = [
     "tqdm<=4.64.0, ",
     "pyproj", 
 ]
+
+entrypoints = []
 authors = [{ name = "Cyril Tasse", email = "cyril.tasse@obspm.fr" }]
 maintainers = [{ name = "Benjamin Hugo", email = "bhugo@sarao.ac.za" }]
 urls = { Homepage = "http://github.com/saopicc/DDFacet"}
@@ -62,7 +66,6 @@ classifiers = [
 [project.scripts]
 "DDF.py" = "DDFacet.__main__:ddf_main"
 "CleanSHM.py" = "DDFacet.__main__:cleanshm_main"
-"IOMonitor.py" = "DDFacet.__main__:iomonitor_main"
 "MemMonitor.py" = "DDFacet.__main__:memmonitor_main"
 "Restore.py" = "DDFacet.__main__:restore_main"
 "ClusterCat.py" = "SkyModel.__main__:clustercat_main"
@@ -236,9 +239,6 @@ editable.rebuild = false
 # The components to install. If empty, all default components are installed.
 install.components = []
 
-# Whether to strip the binaries. True for scikit-build-core 0.5+
-install.strip = false
-
 # List dynamic metadata fields and hook locations in this table.
 metadata = {}
 
@@ -254,3 +254,6 @@ minimum-version = "0.8"  # current version
 
 # The build directory. Defaults to a temporary directory, but can be set.
 build-dir = "DDFacet/cbuild"
+
+# Whether to strip the binaries. True for scikit-build-core 0.5+
+install.strip = false

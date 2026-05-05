@@ -32,6 +32,12 @@ except (ImportError, ModuleNotFoundError):
     except pkg_resources.DistributionNotFound:
         __version__ = "dev"
 
+# https://github.com/python-poetry/poetry/issues/273#issuecomment-1877789967
+from typing import Any
+import importlib.metadata
+from pathlib import Path
+
+
         
 # =======
 # # CT 29/04/2026: The following was in HackathonRennes branch, I don't understand the difference. I chose master and keep the following in case
@@ -81,4 +87,3 @@ except (ImportError, ModuleNotFoundError):
 #     else:
 #         raise AttributeError(f"No attribute {name} in module {__name__}.")
 
-# >>>>>>> HackathonRennes

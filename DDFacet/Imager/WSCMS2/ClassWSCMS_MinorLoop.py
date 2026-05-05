@@ -5,19 +5,11 @@ from __future__ import print_function
 from DDFacet.compatibility import range
 
 import numpy as np
-from scipy.integrate import cumtrapz
 import numexpr
 from DDFacet.Other import logger
-from DDFacet.Other import ModColor
 log=logger.getLogger("ClassImageDeconvMachine")
-from DDFacet.Array import NpParallel
 from DDFacet.Other import ClassTimeIt
-from pyrap.images import image
-from DDFacet.Imager.ClassPSFServer import ClassPSFServer
-from DDFacet.Imager import ClassGainMachine  # Currently required by model machine but fixed to static mode
-from DDFacet.Imager.ClassMaskMachine import ClassMaskMachine
 from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
-from DDFacet.Imager import ClassFrequencyMachine
 from . import ClassScaleMachine
 import numba
 from DDFacet.Other import ClassTimeIt
@@ -354,9 +346,9 @@ class ClassWSCMS_MinorLoop():
             AbsConvMaxDirty = absA.max()
             # TODO - How does this happen? It seems sometimes we have two components with the same max flux
             try:
-                pq = int(np.argwhere(absA == AbsConvMaxDirty))
+                pq = int(np.where(absA == AbsConvMaxDirty)[0][0])
             except:
-                pq = int(np.argwhere(absA == AbsConvMaxDirty)[0])
+                pq = int(np.where(absA == AbsConvMaxDirty)[0][0])
             ConvMaxDirty = A[pq]
             T2.timeit("  pq")    
 
