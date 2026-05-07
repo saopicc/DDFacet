@@ -343,11 +343,13 @@ class AsyncProcessPool (object):
             cores = range(self.ncpu)
         else:
             raise ValueError("unknown affinity setting")
-        if not self.affinity:
-            print("Worker affinities not specified, leaving unset", file=log)
-        else:
-            print(ModColor.Str("Worker processes fixed to vthreads %s" % (','.join([str(x) for x in cores])),
-                                      col="green"), file=log)
+
+        if not self.silent_warning:
+            if not self.affinity:
+                print("Worker affinities not specified, leaving unset", file=log)
+            else:
+                print(ModColor.Str("Worker processes fixed to vthreads %s" % (','.join([str(x) for x in cores])),
+                                   col="green"), file=log)
         
         if parent_affinity == 'auto':
             unused = list(filter(lambda c: c not in cores, self.inherited_affinity))
@@ -363,7 +365,8 @@ class AsyncProcessPool (object):
         else:
             if parent_affinity not in self.inherited_affinity:
                 raise RuntimeError("Parent affinity requested (%d) is not in available list of cores" % parent_affinity)
-            print(ModColor.Str("Fixing parent process to vthread %d" % self.parent_affinity, col="green"), file=log)
+            if not self.silent_warning:
+                print(ModColor.Str("Fixing parent process to vthread %d" % self.parent_affinity, col="green"), file=log)
             psutil.Process().cpu_affinity([self.parent_affinity])
 
 

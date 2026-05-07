@@ -1163,14 +1163,22 @@ class ClassJones():
         rac,decc=self.MS.OriginalRadec
         pBAR= ProgressBar(Title="  Init E-Jones%s"%self.StrCounter)#, HeaderSize=10,TitleSize=13)
 
-        if not progressBar: pBAR.disable()
+
+        #logger.setSilent(["AsyncProcessPool"])
+        try:
+            ncpu=self.GD["Parallel"]["NCPU"]
+        except:
+            Parallel=False
+
+
+        if not progressBar or Parallel: pBAR.disable()
         # pBAR.disable()
         pBAR.render(0, Tm.size)
 
-        #logger.setSilent(["AsyncProcessPool"])
+            
         if Parallel:
             APP=DDFacet.Other.AsyncProcessPool.init(Name="APP_Beam_MS%i"%self.MS.iMS,
-                                                    ncpu=self.GD["Parallel"]["NCPU"],
+                                                    ncpu=ncpu,
                                                     affinity="main_process",
                                                     silent_warning=True,
                                                     )
@@ -1196,6 +1204,7 @@ class ClassJones():
             else:
                 r=self._estimateBeamThisTime(itime,ThisTime,RA,DEC,rac,decc)
                 LDicoResults.append(r)
+                pBAR.render(itime+1, Tm.size)
                 
         if Parallel:    
             LDicoResults=APP.awaitJobResults("ComputeBeam:*",progress="Compute Beam")
@@ -1246,7 +1255,7 @@ class ClassJones():
         Byy=Beam[...,1,1]
         Byy[np.abs(Byy)<1e-6]=1e-6
 
-        if self.GD["Beam"]["ForceScalar"]:
+        if self.GD["Beam"].get("ForceScalar",False):
             log.print("Scararify Jones matrices of the beam...")
             Bxx=Beam[...,0,0]
             Byy=Beam[...,1,1]
