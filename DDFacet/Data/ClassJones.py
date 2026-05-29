@@ -1179,7 +1179,6 @@ class ClassJones():
         if Parallel:
             APP=DDFacet.Other.AsyncProcessPool.init(Name="APP_Beam_MS%i"%self.MS.iMS,
                                                     ncpu=ncpu,
-                                                    affinity="main_process",
                                                     silent_warning=True,
                                                     )
             APP.registerJobHandlers(self)

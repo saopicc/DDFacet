@@ -80,13 +80,9 @@ class ClassIslandDistanceMachine():
 
 
     def startWorkers(self,Name=""):
-        APP_Islands=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_Islands%s"%Name,
-                                                                ncpu=self.GD["Parallel"]["NCPU"],
-                                                                affinity="disable",#self.GD["Parallel"]["Affinity"],
-                                                                #parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
-                                                                #verbose=self.GD["Debug"]["APPVerbose"],
-                                                                #pause_on_start=self.GD["Debug"]["PauseWorkers"]
-                                                                )
+        APP_Islands=DDFacet.Other.AsyncProcessPool.init(Name="APP_Islands%s"%Name,
+                                                        ncpu=self.GD["Parallel"]["NCPU"],
+                                                        )
         APP_Islands.registerJobHandlers(self)
         APP_Islands.startWorkers()
 

@@ -30,14 +30,16 @@ from . import ModRegFile
 import time
 from DDFacet.ToolsDir import ModCoord
 
-dtypeSourceList=[('Name','|S200'),('Patch','|S200'),('ra',np.float32),('dec',np.float32),('Sref',np.float32),
-                 ('I',np.float32),('Q',np.float32),('U',np.float32),('V',np.float32),
-                 ('L',np.float32),('RM',np.float32),('RMPhi',np.float32),('AlphaL',np.float32),
-                 ('RefFreq',np.float32),('alpha',np.float32),('ESref',np.float32),\
-                 ('Ealpha',np.float32),('kill',np.int32),('Cluster',np.int32),('Type',np.int32),('Gmin',np.float32),\
-                 ('Gmaj',np.float32),('Gangle',np.float32),("Select",np.int32),('l',np.float32),('m',np.float32),("Exclude",bool)]
+dtypeSourceList=[('Name','|S200'),('Patch','|S200'),('ra',float),('dec',float),('Sref',float),
+                 ('I',float),('Q',float),('U',float),('V',float),
+                 ('L',float),('RM',float),('RMPhi',float),('AlphaL',float),
+                 ('RefFreq',float),('alpha',float),('ESref',float),\
+                 ('Ealpha',float),('kill',int),('Cluster',int),('Type',int),('Gmin',float),\
+                 ('Gmaj',float),('Gangle',float),("Select",int),('l',float),('m',float),("Exclude",bool)]
 
-dtypeClusterCat=[('Name','|S200'),('ra',np.float32),('dec',np.float32),('SumI',np.float32),("Cluster",int),('l',np.float32),('m',np.float32)]
+dtypeClusterCat=[('Name','|S200'),('ra',float),('dec',float),('SumI',float),("Cluster",int),('l',float),('m',float)]
+
+
 
 
 def AngDist(ra0,ra1,dec0,dec1):

@@ -142,13 +142,9 @@ class ClassFitPreviousModels():
     def startWorker(self):
         logger.setSilent(["AsyncProcessPool"])
         
-        self.APP=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_FitModel",
-                                                           ncpu=self.GD["Parallel"]["NCPU"],
-                                                           affinity="disable",#self.GD["Parallel"]["Affinity"],
-                                                           #parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
-                                                           #verbose=self.GD["Debug"]["APPVerbose"],
-                                                           #pause_on_start=self.GD["Debug"]["PauseWorkers"]
-                                                           )
+        self.APP=DDFacet.Other.AsyncProcessPool.init(Name="APP_FitModel",
+                                                     ncpu=self.GD["Parallel"]["NCPU"],
+                                                     )
         self.APP.registerJobHandlers(self)
         self.APP.startWorkers()
         self.APP.awaitWorkerStart()

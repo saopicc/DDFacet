@@ -103,12 +103,8 @@ class ClassEvolveStein():
         self.__dict__ = ImageDeconvMachine.__dict__
         self.ImageDeconvMachine=ImageDeconvMachine
         import DDFacet.Other.AsyncProcessPool
-        self.APP_Stein=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_Stein",
-                                                         ncpu=self.GD["Parallel"]["NCPU"],
-                                                         affinity=self.GD["Parallel"]["Affinity"],
-                                                         parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
-                                                         verbose=self.GD["Debug"]["APPVerbose"],
-                                                         pause_on_start=self.GD["Debug"]["PauseWorkers"])
+        self.APP_Stein=DDFacet.Other.AsyncProcessPool.init(Name="APP_Stein",
+                                                           ncpu=self.GD["Parallel"]["NCPU"])
         self.APP_Stein.registerJobHandlers(self)
         self.APP_Stein.startWorkers()
         

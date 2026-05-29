@@ -1,10 +1,31 @@
 import numpy as np
 
+def normalize(x):
+
+    # numpy scalar -> python scalar
+    if isinstance(x, np.generic):
+        return x.item()
+
+    # list -> recurse
+    if isinstance(x, list):
+        return [normalize(v) for v in x]
+
+    # tuple -> recurse
+    if isinstance(x, tuple):
+        return tuple(normalize(v) for v in x)
+
+    # ndarray -> recurse
+    if isinstance(x, np.ndarray):
+        return normalize(x.tolist())
+
+    return x
+
 def ListToStr(L,SizeMax=50,Unit=None):
     if isinstance(L,np.ndarray) and len(L.shape)==1:
         L=L.tolist()
     if not isinstance(L, list):
         stop
+    L = normalize(L)
     LEN=len(L)
     ss=", ".join(str(a) for a in L)
     if len(ss)>SizeMax:

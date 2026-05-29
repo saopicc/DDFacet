@@ -197,7 +197,7 @@ class AsyncProcessPool (object):
         self._cpucount = psutil.cpu_count()
         self._process = psutil.Process()
         self.inherited_affinity = self._process.cpu_affinity()
-        self.available_cores = len(self.inherited_affinity)
+        self.inherited_ncpu = len(self.inherited_affinity)
 
 
     def __del__(self):
@@ -218,6 +218,10 @@ class AsyncProcessPool (object):
         Returns:
 
         """
+        log.print("[%s] input affinity     : %s"%(self.Name,str(affinity)))
+        log.print("     parent_affinity    : %s"%(str(parent_affinity)))
+        log.print("     inherited_affinity : %s"%(str(self.inherited_affinity)))
+        
         self.affinity = affinity
         self.verbose = verbose
         
@@ -228,11 +232,11 @@ class AsyncProcessPool (object):
         if isinstance(self.affinity, int):
             # check whether we are in an environment (e.g. Slurm) where affinity is
             # already set. If we are, ignore arguments and DTRT
-            if self.available_cores < self._cpucount:
-                print(ModColor.Str("Warning: inherited affinity is for %d CPUs out of %d only" % (self.available_cores,self._cpucount)), file=log)
-                if ncpu and ncpu>self.available_cores:
-                    raise RuntimeError("NCPU requested is %d but only %d threads are available" % (ncpu,self.available_cores))
-                self.ncpu = ncpu or self.available_cores
+            if self.inherited_ncpu < self._cpucount:
+                print(ModColor.Str("Warning: inherited affinity is for %d CPUs out of %d only" % (self.inherited_ncpu,self._cpucount)), file=log)
+                if ncpu and ncpu>self.inherited_ncpu:
+                    raise RuntimeError("NCPU requested is %d but only %d threads are available" % (ncpu,self.inherited_ncpu))
+                self.ncpu = ncpu or self.inherited_ncpu
                 maxcpu = self.ncpu
                 self.affinity = self.inherited_affinity[:self.ncpu]
             else:
@@ -248,8 +252,8 @@ class AsyncProcessPool (object):
             if set(self.affinity) <= set(self.inherited_affinity):
                 # If caller provided an explicit ncpu that does not match, warn and fall back
                 if ncpu is not None and self.ncpu != len(self.affinity):
-                    print(ModColor.Str("Warning: NCPU does not match affinity list length. Falling back to "
-                                       "NCPU=%d" % len(self.affinity)), file=log)
+                    print(ModColor.Str("[%s] Warning: NCPU does not match affinity list length. Falling back to "
+                                       "NCPU=%d" % (self.Name,len(self.affinity))), file=log)
                 self.ncpu = len(self.affinity)
             else:
                 raise RuntimeError("Requested affinity %s is not a subset of available affinity %s" % (str(self.affinity),str(self.inherited_affinity)))
@@ -348,7 +352,7 @@ class AsyncProcessPool (object):
             if not self.affinity:
                 print("Worker affinities not specified, leaving unset", file=log)
             else:
-                print(ModColor.Str("Worker processes fixed to vthreads %s" % (','.join([str(x) for x in cores])),
+                print(ModColor.Str("[%s] Worker processes fixed to vthreads %s" % (self.Name,','.join([str(x) for x in cores])),
                                    col="green"), file=log)
         
         if parent_affinity == 'auto':
@@ -364,9 +368,9 @@ class AsyncProcessPool (object):
             print("Parent and I/O affinities not specified, leaving unset", file=log)
         else:
             if parent_affinity not in self.inherited_affinity:
-                raise RuntimeError("Parent affinity requested (%d) is not in available list of cores" % parent_affinity)
+                raise RuntimeError("[%s] Parent affinity requested (%d) is not in available list of cores" % (self.Name,parent_affinity))
             if not self.silent_warning:
-                print(ModColor.Str("Fixing parent process to vthread %d" % self.parent_affinity, col="green"), file=log)
+                print(ModColor.Str("[%s] Fixing parent process to vthread %d" % (self.Name,self.parent_affinity), col="green"), file=log)
             psutil.Process().cpu_affinity([self.parent_affinity])
 
 
@@ -671,7 +675,7 @@ class AsyncProcessPool (object):
         ## normal paralell mode, stick job on queue
         if self.ncpu > 1 and not serial:
             if self.verbose > 2:
-                print("enqueueing job %s: %s"%(job_id, handler_desc), file=log)
+                print("[%s] enqueueing job %s: %s"%(self.Name,job_id, handler_desc), file=log)
             # place it on appropriate queue
             if io is None:
                 self._compute_queue.put(jobitem)
@@ -680,7 +684,7 @@ class AsyncProcessPool (object):
                 self._io_queues[io].put(jobitem)
         # serial mode: process job in this process, and raise any exceptions up
         else:
-            print("enqueueing job %s: %s"%(job_id, handler_desc), file=log)
+            print("[%s] enqueueing job %s: %s"%(self.Name,job_id, handler_desc), file=log)
             self._dispatch_job(jobitem, reraise=True)
 
     def awaitJobCounter (self, counter, progress=None, total=None, timeout=10):

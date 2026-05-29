@@ -108,16 +108,21 @@ class ClassMontblancMachine(object):
 
     def get_chunk(self, data, residuals, model):
         # Configure the data dictionary manager
+        print("KSFDJSDKFJFSDJK: in MB")
         self._mgr.cfg_from_data_dict(data, model, residuals, self._npix, self._cell_size_rad)
+        print("KSFDJSDKFJFSDJK: in MB cfg_from_data_dict")
 
         # Configure source providers
         source_provs = []  if self._beam_prov is None else [self._beam_prov]
         source_provs.append(DDFacetSourceProvider(self._mgr))
+        print("KSFDJSDKFJFSDJK: in MB DDFacetSourceProvider")
 
         # Configure sink providers
         sink_provs = [DDFacetSinkProvider(self._mgr)]
+        print("KSFDJSDKFJFSDJK: in MB DDFacetSinkProvider")
 
         self._solver.solve(source_providers=source_provs, sink_providers=sink_provs)
+        print("KSFDJSDKFJFSDJK: in MB solve")
 
     def close(self):
         self._solver.close()

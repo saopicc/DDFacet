@@ -627,10 +627,9 @@ class ClassImageDeconvMachine():
         logger.setSilent(["AsyncProcessPool"])
 
         
-        self.APP_GA=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_GA",
-                                                           ncpu=self.GD["Parallel"]["NCPU"],
-                                                           affinity="disable",
-                                                           )
+        self.APP_GA=DDFacet.Other.AsyncProcessPool.init(Name="APP_GA",
+                                                        ncpu=self.GD["Parallel"]["NCPU"],
+                                                        )
         self.APP_GA.registerJobHandlers(self)
         self.APP_GA.startWorkers()
         self.APP_GA.awaitWorkerStart()

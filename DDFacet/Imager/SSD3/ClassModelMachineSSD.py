@@ -414,7 +414,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         
         APP=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_MM",
                                                    ncpu=self.GD["Parallel"]["NCPU"],
-                                                   affinity="disable",
                                                    )
         APP.registerJobHandlers(self)
         APP.startWorkers()

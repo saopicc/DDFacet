@@ -123,11 +123,10 @@ class ClassArrayMethodSSD():
     def startWorkers(self):
         if not self.ParallelFitness: return
         logger.setSilent(["AsyncProcessPool"])
-        self.APP_Fitness=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_Fitness_%i"%self.iIsland,
-                                                                ncpu=self.GD["Parallel"]["NCPU"],
-                                                                affinity="disable",
-                                                                silent_warning=True,
-                                                                )
+        self.APP_Fitness=DDFacet.Other.AsyncProcessPool.init(Name="APP_Fitness_%i"%self.iIsland,
+                                                             ncpu=self.GD["Parallel"]["NCPU"],
+                                                             silent_warning=True,
+                                                             )
         self.APP_Fitness.registerJobHandlers(self)
         self.APP_Fitness.startWorkers()
         self.APP_Fitness.awaitWorkerStart()

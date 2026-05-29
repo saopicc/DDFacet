@@ -237,11 +237,11 @@ class ClassImagerDeconv():
         if VERBOSE_SHARED_DICT:
             VerboseAPP=3
         self.APP=AsyncProcessPool.init(ncpu=self.GD["Parallel"]["NCPU"],
-                                       affinity=self.GD["Parallel"]["Affinity"],
-                                       parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
+                                       requested_cpus=self.GD["Parallel"]["Affinity"],
+                                       requested_APP_cpu=self.GD["Parallel"]["MainProcessAffinity"],
                                        verbose=VerboseAPP,
                                        pause_on_start=self.GD["Debug"]["PauseWorkers"])
-        
+
         self.APP.registerJobHandlers(self)
         ModFFTW.registerAPP(self.APP)
         
@@ -1105,12 +1105,15 @@ class ClassImagerDeconv():
         if nx!=ny: raise ValueError("Image should be square for Montblanc")
         dx,dy=self.FacetMachine.CellSizeRad_x,self.FacetMachine.CellSizeRad_y
         if dx!=dy: raise ValueError("Pixel should be square for Montblanc")
+        print("FSDLJKSDFLFDSJK")
         mb_machine = ClassMontblancMachine(self.GD,
                                            nx,
                                            dx,
                                            MS,
                                            pointing_sols)
+        print("FSDLJKSDFLFDSJK: init ")
         mb_machine.get_chunk(DATA, datacolumn, model)
+        print("FSDLJKSDFLFDSJK,get_chunk")
         mb_machine.close()
         os.environ["OMP_NUM_THREADS"] = old_OMP_setting
 

@@ -773,6 +773,10 @@ class WorkerDeconvIsland(multiprocessing.Process):
                 success = False
                 break
 
+            # in case APP sets the main process with affinity 0, the child process also has this by default
+            main_process_affinity=AsyncProcessPool.get_main_process_affinity()
+            psutil.Process().cpu_affinity(main_process_affinity)
+            
             island_dict = shared_dict.attach(shdict_path)
 
             ThisPixList = island_dict["Island"].tolist()

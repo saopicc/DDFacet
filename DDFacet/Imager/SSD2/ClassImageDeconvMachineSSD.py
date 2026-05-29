@@ -43,6 +43,7 @@ from DDFacet.Imager.SSD2 import ClassIslandDistanceMachine
 from DDFacet.Array import shared_dict
 import psutil
 import copy
+from DDFacet.Other import AsyncProcessPool
 
 logger.setSilent("ClassArrayMethodSSD")
 logger.setSilent("ClassIsland")
@@ -521,6 +522,15 @@ class ClassImageDeconvMachine():
         T=ClassTimeIt.ClassTimeIt()
         T.disable()
 
+        ParmDict = shared_dict.create("ParmDict%s"%self.StrField) # ParmDict
+        # ParmDict["ModelImageInt"] = ModelImage
+        # ParmDict["ModelImageApp"] = ModelImageApp
+        # ParmDict["GridFreqs"] = self.GridFreqs
+        # ParmDict["DegridFreqs"] = self.DegridFreqs
+        # ParmDict["RMS"] = RMS
+        ParmDict["iMajor"] = self._CurrentMajorIter
+
+        
         x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskMachine.CurrentNegMask)
 
         if ThisFlux < StopFlux:
@@ -533,6 +543,8 @@ class ClassImageDeconvMachine():
         #return None,None,None
         self.InitIslands()
 
+
+        
 
         if self.DeconvMode=="GAClean":
             print("Evolving %i generations of %i sourcekin"%(self.GD["GAClean"]["NMaxGen"],self.GD["GAClean"]["NSourceKin"]), file=log)
@@ -904,6 +916,16 @@ class WorkerDeconvIsland(multiprocessing.Process):
                 #print "Exception worker: %s"%str(e)
                 break
 
+
+            # in case APP sets the main process with affinity 0, the child process also has this by default
+            main_process_affinity=AsyncProcessPool.get_main_process_affinity()
+            psutil.Process().cpu_affinity(main_process_affinity)
+            
+            # Affinity=psutil.Process().cpu_affinity()
+            # pid=os.getpid()
+            # available=os.sched_getaffinity(0)
+            # print(iIsland,FacetID,JonesNorm,PixVariance,shdict_path,iIslandInit,pid,Affinity,available,main_process_affinity)
+            
             # iIsland=DicoOrder["iIsland"]
             # FacetID=DicoOrder["FacetID"]
             

@@ -20,7 +20,7 @@ from numpy.fft import irfftn
 def dft(var):
     return rfftn(var, norm="ortho")
 def idft(var, shape=None):
-    return irfftn(var, s=shape, norm="ortho")
+    return irfftn(var, s=shape, norm="ortho", axes=range(len(shape)))
 
 import astropy.io.fits as pyfits
 from tqdm import tqdm
