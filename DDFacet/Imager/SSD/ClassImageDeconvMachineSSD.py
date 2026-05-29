@@ -43,6 +43,7 @@ from DDFacet.Array import NpParallel
 from DDFacet.Imager.SSD import ClassIslandDistanceMachine
 from DDFacet.Array import shared_dict
 import psutil
+from DDFacet.Other import AsyncProcessPool
 
 logger.setSilent("ClassArrayMethodSSD")
 logger.setSilent("ClassIsland")
