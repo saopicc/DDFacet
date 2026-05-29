@@ -181,9 +181,9 @@ class ClassArrayMethodSSD():
                     ALPHA=np.max([1.,ALPHA])
                 # ALPHA=1
                 self.ALPHA=ALPHA
-                print("ALPHA=",self.ALPHA)
-                print("ALPHA=",self.ALPHA)
-                print("ALPHA=",self.ALPHA)
+                # print("ALPHA=",self.ALPHA)
+                # print("ALPHA=",self.ALPHA)
+                # print("ALPHA=",self.ALPHA)
                 
                 
                 if self.GD["SSDClean"]["ArtifactRobust"]:
