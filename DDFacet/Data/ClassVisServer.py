@@ -93,8 +93,8 @@ class ClassVisServer():
         if self.APP is None:
             self.APP= AsyncProcessPool.init(Name="VS_DDFacet",
                                             ncpu=self.GD["Parallel"]["NCPU"],
-                                            requested_cpus=self.GD["Parallel"]["Affinity"],
-                                            requested_APP_cpu=self.GD["Parallel"]["MainProcessAffinity"],
+                                            requested_worker_cpus=self.GD["Parallel"]["Affinity"],
+                                            requested_current_cpu=self.GD["Parallel"]["MainProcessAffinity"],
                                             verbose=self.GD["Debug"]["APPVerbose"])
         self.APP.registerJobHandlers(self)
         self._app_id = "VS"

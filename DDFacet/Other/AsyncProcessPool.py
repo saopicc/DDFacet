@@ -50,6 +50,8 @@ from DDFacet.Other import ModColor
 from DDFacet.Other import Exceptions
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Array import shared_dict
+import DDFacet.Other.PrintList
+
 import six
 if six.PY3:
     from DDFacet.cbuild.Gridder import _pyArrays3x as _pyArrays
@@ -86,7 +88,7 @@ def get_main_process_affinity():
 
 # ########################################
 
-def give_worker_cpus_ids(requested_cpus, available_cpus, ncpu=None):
+def give_worker_cpus_ids(requested_worker_cpus, available_cpus, ncpu=None):
     """
     Return:
         list[int] -> CPU ids assigned to worker processes
@@ -96,36 +98,36 @@ def give_worker_cpus_ids(requested_cpus, available_cpus, ncpu=None):
     available_cpus = list(available_cpus)
 
     # Case 1:
-    # requested_cpus="disable"
+    # requested_worker_cpus="disable"
     # Example: do not pin workers; let the OS scheduler decide.
-    if requested_cpus == "disable" or requested_cpus is None:
+    if requested_worker_cpus == "disable" or requested_worker_cpus is None:
         selected = available_cpus
 
     # Case 3:
-    # requested_cpus=2
+    # requested_worker_cpus=2
     # Example: available_cpus=[0,1,2,3,4,5] -> selected=[0,2,4]
-    elif isinstance(requested_cpus, int):
-        step = abs(requested_cpus) or 1
+    elif isinstance(requested_worker_cpus, int):
+        step = abs(requested_worker_cpus) or 1
         selected = available_cpus[::step]
 
     # Case 4:
-    # requested_cpus=[1,3,5]
+    # requested_worker_cpus=[1,3,5]
     # Example: use exactly CPUs 1, 3 and 5 for workers.
-    elif isinstance(requested_cpus, list):
-        if any(cpu < 0 for cpu in requested_cpus):
-            raise RuntimeError("requested_cpus must contain only positive CPU numbers")
+    elif isinstance(requested_worker_cpus, list):
+        if any(cpu < 0 for cpu in requested_worker_cpus):
+            raise RuntimeError("requested_worker_cpus must contain only positive CPU numbers")
 
-        if not set(requested_cpus) <= set(available_cpus):
+        if not set(requested_worker_cpus) <= set(available_cpus):
             raise RuntimeError(
-                "requested_cpus %s is not a subset of available_cpus %s"
-                % (requested_cpus, available_cpus)
+                "requested_worker_cpus %s is not a subset of available_cpus %s"
+                % (requested_worker_cpus, available_cpus)
             )
 
-        selected = list(requested_cpus)
+        selected = list(requested_worker_cpus)
 
     else:
         raise RuntimeError(
-            "Invalid requested_cpus. Expected None, int, list[int], or 'disable'"
+            "Invalid requested_worker_cpus. Expected None, int, list[int], or 'disable'"
         )
 
     # Optional limit:
@@ -142,7 +144,7 @@ def give_worker_cpus_ids(requested_cpus, available_cpus, ncpu=None):
 
 # ########################################
 
-def give_current_cpu_id(requested_APP_cpu, worker_cpus, available_cpus):
+def give_current_cpu_id(requested_current_cpu, worker_cpus, available_cpus):
     """
     Return:
         int  -> CPU id assigned to the current/main process
@@ -152,16 +154,16 @@ def give_current_cpu_id(requested_APP_cpu, worker_cpus, available_cpus):
     available_cpus = list(available_cpus)
 
     # Case 1:
-    # requested_APP_cpu=None or "disable"
+    # requested_current_cpu=None or "disable"
     # Example: do not pin the current process.
-    if requested_APP_cpu is None or requested_APP_cpu == "disable":
+    if requested_current_cpu is None or requested_current_cpu == "disable":
         return None
 
     # Case 2:
-    # requested_APP_cpu="auto"
+    # requested_current_cpu="auto"
     # Example:
     # available_cpus=[0,1,2,3], worker_cpus=[0,1,2] -> current_cpu=3
-    if requested_APP_cpu == "auto":
+    if requested_current_cpu == "auto":
         # if worker_cpus is None:
         #     return None
         # unused = [cpu for cpu in available_cpus if cpu not in worker_cpus]
@@ -169,18 +171,18 @@ def give_current_cpu_id(requested_APP_cpu, worker_cpus, available_cpus):
         return worker_cpus[0]
 
     # Case 3:
-    # requested_APP_cpu=3
+    # requested_current_cpu=3
     # Example: pin current process to CPU 3.
-    if isinstance(requested_APP_cpu, int):
-        if requested_APP_cpu not in available_cpus:
+    if isinstance(requested_current_cpu, int):
+        if requested_current_cpu not in available_cpus:
             raise RuntimeError(
-                "requested_APP_cpu %s is not in available_cpus %s"
-                % (requested_APP_cpu, available_cpus)
+                "requested_current_cpu %s is not in available_cpus %s"
+                % (requested_current_cpu, available_cpus)
             )
-        return requested_APP_cpu
+        return requested_current_cpu
 
     raise RuntimeError(
-        "Invalid requested_APP_cpu. Expected int, 'auto', 'disable', or None"
+        "Invalid requested_current_cpu. Expected int, 'auto', 'disable', or None"
     )
 
 # ########################################
@@ -304,22 +306,22 @@ class AsyncProcessPool (object):
 
     def init(self,
              ncpu=None,
-             requested_cpus=None,
-             requested_APP_cpu="auto",
+             requested_worker_cpus=None,
+             requested_current_cpu="disable",
              cpu_source="main",
              num_io_processes=1,
              verbose=0,
              pause_on_start=False,
              ):
         """
-        requested_cpus:
+        requested_worker_cpus:
             None       -> use all available CPUs
             "disable"  -> do not pin workers
             int        -> use every Nth available CPU
                           example: 2 -> available_cpus[::2]
             list[int]  -> explicit worker CPU ids
     
-        requested_APP_cpu:
+        requested_current_cpu:
             "auto"     -> choose one CPU not used by workers if possible
             int        -> pin current process to this CPU
             None       -> do not pin current process
@@ -345,13 +347,13 @@ class AsyncProcessPool (object):
 
         if self.verbose:
             log.print("[%s] available_cpus : %s" % (self.Name,str(self.available_cpus)))
-            log.print("     setting_requested_cpus : %s" % ( str(requested_cpus)))
+            log.print("     setting_requested_cpus : %s" % ( str(requested_worker_cpus)))
     
-        if requested_cpus == "disable":
-            requested_APP_cpu = None
+        if requested_worker_cpus == "disable":
+            requested_current_cpu = None
     
         self.worker_cpus = give_worker_cpus_ids(
-            requested_cpus=requested_cpus,
+            requested_worker_cpus=requested_worker_cpus,
             available_cpus=self.available_cpus,
             ncpu=ncpu,
         )
@@ -359,7 +361,7 @@ class AsyncProcessPool (object):
         self.ncpu = 0 if self.worker_cpus is None else len(self.worker_cpus)
     
         self.current_cpu = give_current_cpu_id(
-            requested_APP_cpu=requested_APP_cpu,
+            requested_current_cpu=requested_current_cpu,
             worker_cpus=self.worker_cpus,
             available_cpus=self.available_cpus,
         )
@@ -368,10 +370,11 @@ class AsyncProcessPool (object):
             if self.worker_cpus is None:
                 log.print("Worker CPU pinning disabled")
             else:
+                LStr=DDFacet.Other.PrintList.ListToStr(self.worker_cpus)
                 log.print(
                     ModColor.Str(
                         "[%s] Worker processes fixed to CPUs %s"
-                        % (self.Name, ",".join(map(str, self.worker_cpus))),
+                        % (self.Name, LStr),#",".join(map(str, self.worker_cpus))),
                         col="green",
                     )
                 )
@@ -1061,8 +1064,8 @@ def initOld(Name="APP", ncpu=None, affinity='disable', parent_affinity=0, num_io
             pause_on_start=False,silent_warning=False, cpu_source="main"):
     APP = AsyncProcessPool(Name,silent_warning=silent_warning)
     APP.init(ncpu=ncpu,
-             requested_cpus=affinity,
-             requested_APP_cpu=parent_affinity,
+             requested_worker_cpus=affinity,
+             requested_current_cpu=parent_affinity,
              cpu_source=cpu_source,
              num_io_processes=num_io_processes,
              verbose=verbose,
@@ -1070,18 +1073,19 @@ def initOld(Name="APP", ncpu=None, affinity='disable', parent_affinity=0, num_io
     return APP
 
 def init   (Name="APP",
-            ncpu=None, requested_cpus='disable', requested_APP_cpu="auto", cpu_source="main",
+            ncpu=None, requested_worker_cpus='disable', requested_current_cpu="disable", cpu_source="main",
             num_io_processes=1, verbose=0, pause_on_start=False,silent_warning=False):
     
     APP = AsyncProcessPool(Name,silent_warning=silent_warning)
     APP.init(ncpu=ncpu,
-             requested_cpus=requested_cpus,
-             requested_APP_cpu=requested_APP_cpu,
+             requested_worker_cpus=requested_worker_cpus,
+             requested_current_cpu=requested_current_cpu,
              cpu_source=cpu_source,
              num_io_processes=num_io_processes,
              verbose=verbose,
              pause_on_start=pause_on_start)
     return APP
+
 
 
 

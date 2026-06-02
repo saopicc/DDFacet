@@ -175,8 +175,8 @@ class ClassImagerDeconv():
         self.APP.registerJobHandlers(self)
         
         AsyncProcessPool.init(ncpu=self.GD["Parallel"]["NCPU"],
-                              affinity=self.GD["Parallel"]["Affinity"],
-                              parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
+                              requested_worker_cpus=self.GD["Parallel"]["Affinity"],
+                              requested_current_cpu=self.GD["Parallel"]["MainProcessAffinity"],
                               verbose=self.GD["Debug"]["APPVerbose"],
                               pause_on_start=self.GD["Debug"]["PauseWorkers"])
 

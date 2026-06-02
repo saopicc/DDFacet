@@ -412,13 +412,14 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         if self.DicoSMStacked["Comp"].get("Vals",None) is None: return ModelImage
         self.PSFServer=PSFServer
         
-        APP=DDFacet.Other.AsyncProcessPool.initNew(Name="APP_MM",
-                                                   ncpu=self.GD["Parallel"]["NCPU"],
-                                                   )
+        APP=DDFacet.Other.AsyncProcessPool.init(Name="APP_MM",
+                                                ncpu=self.GD["Parallel"]["NCPU"],
+                                                )
         APP.registerJobHandlers(self)
         APP.startWorkers()
         APP.awaitWorkerStart()
         SERIAL=False
+        #SERIAL=True
         for ich in range(nch):
             for ii in range(nx):
                 APP.runJob("GiveModelImageBandsLine.%i.%i"%(ich,ii),
@@ -442,11 +443,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             if self.DicoSMStacked["Comp"]["Vals"][:,ii,jj][0]==0: continue
             x=self.DicoSMStacked["Comp"]["Vals"][:,ii,jj] # shape=(NParam,nx,ny)
             iFacet=PSFServer.giveFacetID2(ii,jj)
-            ModelImageLine[jj]=PSFServer.SpectralFunctionsMachine.IntExpFuncPoly(x.reshape((1,-1)),
-                                                                                 iChannel=ich,
-                                                                                 iFacet=iFacet,
-                                                                                 FluxScale="Exp",
-                                                                                 OutMode="int")
+            ModelImageLine[jj]=PSFServer.SpectralFunctionsMachine.IntExpFuncPoly(x.reshape((1,-1)),iChannel=ich,
+                                                                                 iFacet=iFacet,FluxScale="Exp",OutMode="int")[0]
         D={"ich":ich,"ii":ii,"ModelImageLine":ModelImageLine}
         return D
     

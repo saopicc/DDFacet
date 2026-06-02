@@ -62,7 +62,6 @@ import sys
 import time
 import subprocess
 import psutil
-import numexpr
 import numpy as np
 from DDFacet.Other import logo
 from DDFacet.Array import NpParallel
@@ -277,6 +276,10 @@ def main(OP=None, messages=[]):
     DicoConfig["Parallel"]["NCPU"]=ncpu
     _pyArrays.pySetOMPNumThreads(ncpu)
     NpParallel.NCPU_global = ModFFTW.NCPU_global = ncpu
+
+    
+    os.environ['NUMEXPR_MAX_THREADS'] = str(ncpu)
+    import numexpr
     numexpr.set_num_threads(ncpu)
     print("using up to %d CPUs for parallelism" % ncpu, file=log)
 

@@ -237,8 +237,8 @@ class ClassImagerDeconv():
         if VERBOSE_SHARED_DICT:
             VerboseAPP=3
         self.APP=AsyncProcessPool.init(ncpu=self.GD["Parallel"]["NCPU"],
-                                       requested_cpus=self.GD["Parallel"]["Affinity"],
-                                       requested_APP_cpu=self.GD["Parallel"]["MainProcessAffinity"],
+                                       requested_worker_cpus=self.GD["Parallel"]["Affinity"],
+                                       # requested_current_cpu=self.GD["Parallel"]["MainProcessAffinity"],
                                        verbose=VerboseAPP,
                                        pause_on_start=self.GD["Debug"]["PauseWorkers"])
 
