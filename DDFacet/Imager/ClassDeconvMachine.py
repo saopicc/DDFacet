@@ -799,7 +799,7 @@ class ClassImagerDeconv():
                 print(ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,"), file=log)
                 print(ModColor.Str("or if your MS has changed, please remove the cache, or run with --Cache-Dirty reset."), file=log)
 
-
+                
             self.DicoDirty=self.RemnantManager.mountRemnant("AllImages_FM")
             if self.DicoDirty is None:
                 self.DicoDirty = shared_dict.create("AllImages_FM")
@@ -823,7 +823,6 @@ class ClassImagerDeconv():
 
             if MPIManager.rank == 0 and self.DicoDirty.get("LastMask") is not None and self.GD["Mask"]["Auto"]:
                 self.MaskMachine.joinExternalMask(self.DicoDirty["LastMask"])
-
 
         if not psf_valid and self.RemnantManager.Enabled:
             DicoPSFPath=self.RemnantManager.giveNameRemnant(DicoName="AllImages_FMPSF")
@@ -1423,11 +1422,19 @@ class ClassImagerDeconv():
             # we have to give the PSF to the image-noise machine since it may have to run an HMP deconvolution
             self.ImageNoiseMachine.setPSF(self.DicoImagesPSF)
 
-
+            
             
             # now update the mask - it will eventually call for ImageNoiseMachine to compute a noise image
             # May be done by all the mpi processes if we want to distribute SSD2 computation using MPI
-            if MPIManager.rank == 0: self.MaskMachine.updateMask(self.DicoDirty)
+
+            SubstractModel=self.GD["Predict"]["InitDicoModel"]
+            HasDirtySub=(SubstractModel!="")&(SubstractModel is not None)
+            if iMajor>1 or HasDirtySub:
+                peakSearch="SNR"
+            else:
+                peakSearch="Jy"
+            
+            if MPIManager.rank == 0: self.MaskMachine.updateMask(self.DicoDirty,peakSearch=peakSearch)
             
             if MPIManager.rank == 0 and self.MaskMachine.CurrentMask is not None:
                 if "k" in self._saveims:
@@ -1782,27 +1789,27 @@ class ClassImagerDeconv():
 
 
             self.HasDeconvolved=True
-            # # dump dirty to cache
-            # if self.GD["Cache"]["LastResidual"] and self.DicoDirty is not None:
-            #     cachepath, valid = self.VS.maincache.checkCache("LastResidual",
-            #                                                     dict(
-            #                                                         [("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
-            #                                                         [(section, self.GD[section]) for section in
-            #                                                          ["Data", "Beam", "Selection",
-            #                                                           "Freq", "Image", "Comp",
-            #                                                           "RIME","Weight","Facets",
-            #                                                           "DDESolutions"]]
-            #                                                     ),
-            #                                                     reset=False)
-            #     try:
-            #         print("Saving last residual image to %s"%cachepath, file=log)
-            #         self.DicoDirty.save(cachepath)
-            #         #MyPickle.DicoNPToFile(self.DicoDirty,"%s.DicoPickle"%cachepath)
-            #         self.VS.maincache.saveCache("LastResidual")
-            #         last_residual_is_saved=True
-            #     except:
-            #         print(traceback.format_exc(), file=log)
-            #         print(ModColor.Str("WARNING: Residual image cache could not be written, see error report above. Proceeding anyway."), file=log)
+            # dump dirty to cache
+            if self.GD["Cache"]["LastResidual"] and self.DicoDirty is not None and self.GD["Cache"]["LastResidual"]!="OnlyVeryLast":
+                cachepath, valid = self.VS.maincache.checkCache("LastResidual",
+                                                                dict(
+                                                                    [("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
+                                                                    [(section, self.GD[section]) for section in
+                                                                     ["Data", "Beam", "Selection",
+                                                                      "Freq", "Image", "Comp",
+                                                                      "RIME","Weight","Facets",
+                                                                      "DDESolutions"]]
+                                                                ),
+                                                                reset=False)
+                try:
+                    print("Saving last residual image to %s"%cachepath, file=log)
+                    self.DicoDirty.save(cachepath)
+                    #MyPickle.DicoNPToFile(self.DicoDirty,"%s.DicoPickle"%cachepath)
+                    self.VS.maincache.saveCache("LastResidual")
+                    last_residual_is_saved=True
+                except:
+                    print(traceback.format_exc(), file=log)
+                    print(ModColor.Str("WARNING: Residual image cache could not be written, see error report above. Proceeding anyway."), file=log)
 
         self.FacetMachine.finaliseSmoothBeam()
 
@@ -1819,7 +1826,7 @@ class ClassImagerDeconv():
             self.VS.maincache.deleteCache("Dirty")
             
         # dump dirty to LastResidual
-        if self.GD["Cache"]["LastResidual"] and self.DicoDirty is not None and not last_residual_is_saved:
+        if (self.GD["Cache"]["LastResidual"] or GD["Cache"]["LastResidual"]=="OnlyVeryLast") and self.DicoDirty is not None and not last_residual_is_saved:
             cachepath, valid = self.VS.maincache.checkCache("LastResidual",
                                                             dict(
                                                                 [("MSNames", [ms.MSName for ms in self.VS.ListMS])] +

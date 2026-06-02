@@ -178,6 +178,8 @@ class ClassImageNoiseMachine():
 
         # self.NoiseMapReShape=self.giveMinStatNoiseMap(DicoResidual["MeanImage"])
 
+        
+        
         if self.GD["Noise"]["BrutalHMP"]:
             self.giveBrutalRestored(DicoResidual)
             if self.GD["Mask"]["FluxImageType"]=="ModelConv":
