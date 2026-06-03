@@ -505,7 +505,9 @@ class ClassImageDeconvMachine():
         if Nout%2!=0: Nout-=1
 
         LRMS=self.DicoDirty.get("LRMS",np.ones((nch,),np.float32))
-        ARMS=np.array(LRMS,dtype=np.float32)
+        ARMS=np.array(LRMS,dtype=np.float32).copy()
+        IndexZeroSlice=np.where(ARMS.flat[:]==0)[0]
+        IndexNonZeroSlice=np.where(ARMS.flat[:]!=0)[0]
 
         HasRolledModel=False
         # from skimage import restoration
@@ -961,12 +963,15 @@ class ClassImageDeconvMachine():
         
         AChi2Min=np.zeros((ind_MMNonZero.size,),np.float32)
         AindComb=np.zeros((ind_MMNonZero.size,),np.uint32)
-        
+
+        ARMS1=ARMS.copy()
+        ARMS1[ARMS1==0]=1
         for iChunk in range(NChunk):
             T.reinit()
             row0,row1=rows[iChunk],rows[iChunk+1]
             #R=(MM-FF[row0:row1])/ARMS.reshape((1,1,-1))
-            R=(MMs-FF[row0:row1])/ARMS.reshape((1,1,-1))
+            R=(MMs-FF[row0:row1])/ARMS1.reshape((1,1,-1))
+
             T.timeit("--- R")
             # print("DSLKFJSDKJF [%i/%i] %i-%i: %s (%5.2f MBytes / %5.2f max)"%(iChunk,NChunk,row0,row1,
             #                                                                 str(R.shape),R.nbytes/1e6,ChunkMaxMBytes))
@@ -1159,8 +1164,8 @@ class ClassImageDeconvMachine():
         # #######################
 
         Resid=np.array(LResid)
-        MeanResidSNR=np.max(np.abs(Resid/ARMS.reshape((-1,1,1))),axis=0)
-        
+        MeanResidSNR=np.max(np.abs(Resid/ARMS1.reshape((-1,1,1))),axis=0)
+
         T.timeit("HasComputedResidualWithFirstFit")
         
         # print("PPPPPPPP",xc,yc,Chi2,Chi2red,p,(Chi2-k)/np.sqrt(2*k),(Chi2-k)/np.sqrt(2),(Chi2red-k)/np.sqrt(2*k))
@@ -1364,7 +1369,9 @@ class ClassImageDeconvMachine():
         NOrder=self.GD["MultiSliceDeconv"]["PolyFitOrder"]
         nch=Model.shape[0]
         LRMS=self.DicoDirty.get("LRMS",np.ones((nch,),np.float32))
-        ARMS=np.array(LRMS,dtype=np.float32)
+        ARMS=np.array(LRMS,dtype=np.float32).copy()
+        ARMS1=ARMS.copy()
+        ARMS1[ARMS1==0]=1.
         
         if NOrder==0:
             NOrder=self.GD["Freq"]["NBand"]
@@ -1387,8 +1394,8 @@ class ClassImageDeconvMachine():
             
             #Fit[Fit<0]*=100.
 
-            R=(F-Fit)/ARMS.reshape(F.shape)
-            
+            R=(F-Fit)/ARMS1.reshape(F.shape)
+
             # if X.size>1:
             #     Lambda=np.max([np.abs(X[1]-(-0.7))/1,1.])
             #     R*= Lambda#np.abs(X[1])

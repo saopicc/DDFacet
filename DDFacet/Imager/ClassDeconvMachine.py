@@ -2068,7 +2068,6 @@ class ClassImagerDeconv():
         meanPSF = self.DicoImagesPSF["CubeMeanVariablePSF"][self.FacetMachinePSF.iCentralFacet]
 
         off=self.GD["Image"]["SidelobeSearchWindow"] // 2
-        print("LFDSSJSFDKJDFSKSJDFKSDFJ")
         beam_deg, gausspars_rad, sidelobes = self.fitSinglePSF(meanPSF[0,...], "mean")
 
         try:

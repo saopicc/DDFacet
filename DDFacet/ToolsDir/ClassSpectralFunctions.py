@@ -134,9 +134,15 @@ class ClassSpectralFunctions():
 
         ThisFreqs=ThisFreqs.reshape((1,ThisFreqs.size))
         ThisAlpha=ThisAlpha.reshape((Npix,1))
-        FreqBandsFlux=np.sqrt(np.sum(BeamFactor*((ThisFreqs/RefFreq)**ThisAlpha)**2,axis=1))/np.sqrt(np.sum(BeamFactorWeightSq))
-        FreqBandsFlux/=np.sqrt(MeanJonesBand)
 
+
+        SumBeamFactorWeightSq=np.sum(BeamFactorWeightSq)
+        if SumBeamFactorWeightSq!=0:
+            FreqBandsFlux=np.sqrt(np.sum(BeamFactor*((ThisFreqs/RefFreq)**ThisAlpha)**2,axis=1))/np.sqrt(SumBeamFactorWeightSq)
+            FreqBandsFlux/=np.sqrt(MeanJonesBand)
+        else:
+            FreqBandsFlux=0.
+            
         S0=S0.reshape((Npix,))
         FreqBandsFlux*=S0
 
@@ -200,14 +206,19 @@ class ClassSpectralFunctions():
             SUnityFreq0=a*((f-RefFreq)/RefFreq)**n
             SUnityFreq0=np.sum(SUnityFreq0,axis=-1)
         SUnityFreq=SUnityFreq0
-        
-        FreqBandsFlux=np.sqrt(np.sum(BeamFactor*( SUnityFreq )**2,axis=1))/np.sqrt(np.sum(BeamFactorWeightSq))
-        if OutMode=="int":
-            FreqBandsFlux/=np.sqrt(MeanJonesBand)
-        elif OutMode=="app":
-            pass
+
+        SumBeamFactorWeightSq=np.sum(BeamFactorWeightSq)
+        if SumBeamFactorWeightSq!=0:
+            FreqBandsFlux=np.sqrt(np.sum(BeamFactor*( SUnityFreq )**2,axis=1))/np.sqrt(SumBeamFactorWeightSq)
+            if OutMode=="int":
+                FreqBandsFlux/=np.sqrt(MeanJonesBand)
+            elif OutMode=="app":
+                pass
+            else:
+                stop
         else:
-            stop
+            FreqBandsFlux=0.
+            
             
         # if DoPrint:
         #     print("FreqBandsFlux",FreqBandsFlux)

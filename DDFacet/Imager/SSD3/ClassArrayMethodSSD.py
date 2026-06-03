@@ -775,32 +775,37 @@ class ClassArrayMethodSSD():
         chi2=0.
         ContinuousFitNess=[]
         PixVariance=self.PixVariance.reshape((nFreqBands,1,1))
+
+        PixVariance1=PixVariance.copy()
+        PixVariance1[PixVariance1==0]=1.
+        self.PixVariance1=PixVariance1
+        
         Verbose=0
         T.timeit("before for self.MaxFunc")
         for FuncType in self.MaxFunc:
             if FuncType=="Chi2":
                 # chi2=-np.sum(Weight*(Resid)**2)/(self.PixVariance*Resid.size)
-                chi2=np.sqrt(np.sum(((Resid)**2/PixVariance).reshape((nFreqBands,-1)),axis=-1))
+                chi2=np.sqrt(np.sum(((Resid)**2/PixVariance1).reshape((nFreqBands,-1)),axis=-1))
                 if Verbose: print("chi=",np.sum(chi2),chi2.flatten())
                 chi2_norm=np.sum(chi2)
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(-chi2_norm*W)
             if FuncType=="L1":
                 A=self.PM.GiveModelArray(individual)
-                l1=np.sum(A/np.sqrt(self.PixVariance.reshape((nFreqBands,1))),axis=1)
+                l1=np.sum(A/np.sqrt(self.PixVariance1.reshape((nFreqBands,1))),axis=1)
                 W=self.WeightMaxFunc[FuncType]
                 if Verbose: print("l1=",np.sum(l1),l1.flatten())
                 l1=np.sum(l1)
                 ContinuousFitNess.append(-l1*W)
             if FuncType=="Sum2":
-                # chi2=-np.sum(Weight*(Resid)**2)/(self.PixVariance*Resid.size)
+                # chi2=-np.sum(Weight*(Resid)**2)/(self.PixVariance1*Resid.size)
                 chi2=np.sum((Resid)**2)
                 chi2_norm=chi2#/np.abs(self.BestChi2)
                 #print chi2_norm
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(-chi2_norm*W)
             if FuncType=="Chi2Th":
-                chi2=np.sum((Resid)**2/PixVariance)
+                chi2=np.sum((Resid)**2/PixVariance1)
 
                 f=chi2/self.BestChi2
                 f=(chi2-self.BestChi2)/self.BestChi2
@@ -811,7 +816,7 @@ class ClassArrayMethodSSD():
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(-chi2Th*W)
             if FuncType=="BIC":
-                chi2=np.sum((Resid)**2/PixVariance)
+                chi2=np.sum((Resid)**2/PixVariance1)
                 #chi2/=self.BestChi2
                 n=Resid.size
                 k=np.count_nonzero(S)
@@ -820,7 +825,7 @@ class ClassArrayMethodSSD():
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(-BIC*W)
             if FuncType=="MEM":
-                chi2=np.sum((Resid)**2/PixVariance)
+                chi2=np.sum((Resid)**2/PixVariance1)
                 if self.EntropyMinMax is None:
                     if Verbose: print("Not computing entropy")
                     ContinuousFitNess.append(-chi2)
@@ -838,7 +843,7 @@ class ClassArrayMethodSSD():
                 #print chi2,chi2/self.BestChi2,self.BestChi2,E
                 ContinuousFitNess.append(E)
             if FuncType=="MaxFlux":
-                FMax=-np.max(np.abs(Resid)/np.sqrt(PixVariance))
+                FMax=-np.max(np.abs(Resid)/np.sqrt(PixVariance1))
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(FMax*W)
             if FuncType=="L0":
@@ -850,7 +855,7 @@ class ClassArrayMethodSSD():
                 ContinuousFitNess.append(l0*W)
             if FuncType=="MinFlux":
                 SNegArr=np.abs(S[S<0])[()]
-                rSNR=Resid/np.sqrt(PixVariance)
+                rSNR=Resid/np.sqrt(PixVariance1)
                 rSNR[rSNR>0]=0
                 nn=[np.max([1,np.count_nonzero(rSNR[ii])]) for ii in range(nFreqBands)]
                 FNeg=[np.sqrt(np.sum(rSNR[ii]**2))/nn[ii] for ii in range(nFreqBands)]
@@ -860,7 +865,7 @@ class ClassArrayMethodSSD():
                 ContinuousFitNess.append(-sFNeg*W)
             if FuncType=="MinFluxNorm":
                 SNegArr=np.abs(S[S<0])[()]
-                FNeg=-np.sum(SNegArr**2/PixVariance)
+                FNeg=-np.sum(SNegArr**2/PixVariance1)
                 FNeg/=np.abs(self.BestChi2)
                 if FNeg==0: continue
                 FNeg=np.sign(FNeg)*np.log10(np.abs(FNeg))

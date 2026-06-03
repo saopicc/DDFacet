@@ -365,7 +365,7 @@ class ClassPSFServer():
             #BeamFactor.fill(1.)
             for iAlpha in range(NAlpha):
                 ThisAlpha=Alpha[iAlpha]
-                
+                if np.sum(BeamFactorWeightSq)==0: continue
                 FreqBandsFluxRatio[iAlpha,iChannel]=np.sqrt(np.sum(BeamFactor*((ThisFreqs/RefFreq)**ThisAlpha)**2))/np.sqrt(np.sum(BeamFactorWeightSq))
                 FreqBandsFluxRatio[iAlpha,iChannel]/=np.sqrt(self.DicoVariablePSF["MeanJonesBand"][iFacet][iChannel])
         #MeanFreqBandsFluxRatio=np.mean(FreqBandsFluxRatio,axis=1)
