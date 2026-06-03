@@ -1826,7 +1826,7 @@ class ClassImagerDeconv():
             self.VS.maincache.deleteCache("Dirty")
             
         # dump dirty to LastResidual
-        if (self.GD["Cache"]["LastResidual"] or GD["Cache"]["LastResidual"]=="OnlyVeryLast") and self.DicoDirty is not None and not last_residual_is_saved:
+        if (self.GD["Cache"]["LastResidual"] or self.GD["Cache"]["LastResidual"]=="OnlyVeryLast") and self.DicoDirty is not None and not last_residual_is_saved:
             cachepath, valid = self.VS.maincache.checkCache("LastResidual",
                                                             dict(
                                                                 [("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
