@@ -38,6 +38,8 @@ from DDFacet.Other import logger
 from DDFacet.Other import reformat
 from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 from DDFacet.Array import shared_dict
+from astropy.io import fits
+from astropy.time import Time as astropyTime
 
 log = logger.getLogger("ClassMS")
 from DDFacet.Other import ClassTimeIt
@@ -49,6 +51,7 @@ from astropy.time import Time as astropyTime
 
 import datetime
 import DDFacet.ToolsDir.ModRotate
+from DDFacet.Other import ClassGiveSolsFile
 
 import time
 from astropy.time import Time
@@ -1807,9 +1810,9 @@ class ClassMS():
                 fMax=float(h['FRQ-MAX'])
                 t0 = astropyTime(t0, format='isot').mjd * 3600. * 24. # + (dt/2.)
                 times = tab.getcol("TIME", row0, nrows)
-                msfreqs = ms.ChanFreq
+                msfreqs = self.ChanFreq
 
-                iChan=np.int64(np.round((ms.ChanFreq.ravel()-fMin)/df))
+                iChan=np.int64(np.round((self.ChanFreq.ravel()-fMin)/df))
                 iTime=np.int64(np.round((times-t0)/dt))
                 
                 iTime_g,iChan_g=np.meshgrid(iTime,iChan)
@@ -1832,7 +1835,8 @@ class ClassMS():
                 # #print("save")
                 # #np.savez("Weights_test.npz",wsel=wsel,W_ft=W_ft,W_ft0=W_ft0,sgnweight=sgnweight)
                 
-                weight[...] *= np.abs(wsel[...])
+                #weight[...] *= np.abs(wsel[...])
+                w = np.abs(wsel[...])
             elif weight_col == "Lucky_kMS" and self.GD["DDESolutions"]["DDSols"]:
                 ID=row0
                 LSolsName=self.GD["DDESolutions"]["DDSols"]
@@ -1842,7 +1846,7 @@ class ClassMS():
                     LSolsName=[LSolsName]
                 for SolsName in LSolsName:
 
-                    CGiveSaveFileName=ClassGiveSolsFile.ClassGive_kMSFileName(MSName=ms.MSName,
+                    CGiveSaveFileName=ClassGiveSolsFile.ClassGive_kMSFileName(MSName=self.MSName,
                                                                               GD=self.GD)
                     FileName=CGiveSaveFileName.GiveFileName(SolsName=SolsName,
                                                             Type="Weights",
@@ -1855,14 +1859,15 @@ class ClassMS():
                         w=np.load(FileName)
                     else:
                         w*=np.load(FileName)
-                    weight[...] *= w
+                    # weights[...] *= w
             elif weight_col.endswith(".npy"):
                 log.print("  loading weights from file: %s"%weight_col)
                 w = np.load(weight_col)[slice(self._chunk_r0r1[ichunk]), :]
+
             elif weight_col == "WEIGHT":
                 w = tab.getcol(weight_col, row0, nrows)
                 w = w.mean(axis=1)[:, np.newaxis]
-                # broadcast will not work to initialize weights array below, so do init here
+                # OS: broadcast will not work to initialize weights array below, so do init here
                 if weights is None:
                     weights = np.empty((nrows, self.Nchan), np.float32) 
                     weights[...] = w
@@ -1876,6 +1881,7 @@ class ClassMS():
                 if w.shape != valid.shape:
                     raise TypeError("weights column expected to have shape of %s" %
                         (valid.shape,))
+                
             # multiply into weights
             if weights is None:
                 weights = w if w is not None else np.ones((nrows, self.Nchan), np.float32)

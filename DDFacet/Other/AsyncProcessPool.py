@@ -371,25 +371,13 @@ class AsyncProcessPool (object):
                 log.print("Worker CPU pinning disabled")
             else:
                 LStr=DDFacet.Other.PrintList.ListToStr(self.worker_cpus)
-                log.print(
-                    ModColor.Str(
-                        "[%s] Worker processes fixed to CPUs %s"
-                        % (self.Name, LStr),#",".join(map(str, self.worker_cpus))),
-                        col="green",
-                    )
-                )
+                log.print(ModColor.Str("[%s] Worker processes fixed to CPUs %s"% (self.Name, LStr),col="green"))
     
         if self.current_cpu is None:
             log.print("Current process CPU pinning disabled")
         else:
             if not self.silent_warning:
-                log.print(
-                    ModColor.Str(
-                        "[%s] Fixing current process to CPU %d"
-                        % (self.Name, self.current_cpu),
-                        col="green",
-                    )
-                )
+                log.print(ModColor.Str("[%s] Fixing current process to CPU %d"% (self.Name, self.current_cpu),col="green"))
             psutil.Process().cpu_affinity([self.current_cpu])
     
         self.procinfo = psutil.Process()
@@ -533,12 +521,14 @@ class AsyncProcessPool (object):
                 self._io_workers = []
                 for i, core in enumerate(self._cores):
                     proc_id = "comp%02d" % i
+                    if self.verbose: print("Start Bulba %s"%proc_id)
                     self._compute_workers.append(
                         multiprocessing.Process(name=proc_id, target=self._start_worker,
                                                 args=(self, proc_id, [core], self._compute_queue,
                                                       self.pause_on_start)))
                 for i, queue in enumerate(self._io_queues):
                     proc_id = "io%02d" % i
+                    if self.verbose: log.print("IO Start Bulba %s"%proc_id)
                     self._io_workers.append(
                         multiprocessing.Process(name=proc_id, target=self._start_worker,
                                                 args=(self, proc_id, None, queue, self.pause_on_start)))
@@ -700,9 +690,11 @@ class AsyncProcessPool (object):
                 print("[%s] enqueueing job %s: %s"%(self.Name,job_id, handler_desc), file=log)
             # place it on appropriate queue
             if io is None:
+                if self.verbose: log.print("[%s] enqueueing job %s: %s"%(self.Name,job_id, handler_desc), file=log)
                 self._compute_queue.put(jobitem)
             else:
                 io = max(len(self._io_queues)-1, io)
+                if self.verbose: log.print("[%s io=%i] enqueueing job %s: %s"%(self.Name,io,job_id, handler_desc), file=log)
                 self._io_queues[io].put(jobitem)
         # serial mode: process job in this process, and raise any exceptions up
         else:
