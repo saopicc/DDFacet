@@ -67,24 +67,32 @@ SIGNALS_TO_NAMES_DICT = dict((getattr(signal, n), n) \
 parent_pid = os.getpid()
 
 
-import psutil
+# import psutil
+# def get_main_process_affinity():
+#     current = psutil.Process()
+#     # Traverse up the process tree until we find the root of the job
+#     # (e.g., srun, mpirun, or the user's script)
+#     while True:
+#         parent = current.parent()
+#         if parent is None:
+#             break  # Reached PID 1 (init/systemd) or no parent
+#         # Check if the parent is a known job launcher (SLURM, MPI, etc.)
+#         parent_name = parent.name()
+#         if parent_name in ["srun", "mpirun", "mpiexec", "python", "bash", "zsh"]:
+#             # If the parent is a job launcher or shell, its affinity is likely the job's affinity
+#             return parent.cpu_affinity()
+#         current = parent
+#     # Fallback: Return the affinity of the current process
+#     return current.cpu_affinity()
+
+
+
+# Capture ONCE at import time in the main process
+_MAIN_AFFINITY = psutil.Process().cpu_affinity()
 
 def get_main_process_affinity():
-    current = psutil.Process()
-    # Traverse up the process tree until we find the root of the job
-    # (e.g., srun, mpirun, or the user's script)
-    while True:
-        parent = current.parent()
-        if parent is None:
-            break  # Reached PID 1 (init/systemd) or no parent
-        # Check if the parent is a known job launcher (SLURM, MPI, etc.)
-        parent_name = parent.name()
-        if parent_name in ["srun", "mpirun", "mpiexec", "python", "bash", "zsh"]:
-            # If the parent is a job launcher or shell, its affinity is likely the job's affinity
-            return parent.cpu_affinity()
-        current = parent
-    # Fallback: Return the affinity of the current process
-    return current.cpu_affinity()
+    return _MAIN_AFFINITY
+
 
 # ########################################
 
