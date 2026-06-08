@@ -264,7 +264,9 @@ class ClassBeamMean():
                 self.SumJJsq[i,j,:]=self.StackedBeamDict[iDir]["SumJJsq"]
         
 
-        self.SumJJsq/=self.SumWsq.reshape(1,1,self.VS.NFreqBands)
+        self.SumWsq1=self.SumWsq.copy()
+        self.SumWsq1[self.SumWsq1==0]=1.
+        self.SumJJsq/=self.SumWsq1.reshape(1,1,self.VS.NFreqBands)
         #self.SumJJsq=np.rollaxis(SumJJsq,2)#np.mean(SumJJsq,axis=2)
 
 
@@ -291,11 +293,11 @@ class ClassBeamMean():
         points = np.zeros((self.lBeam.size,2),np.float32)
         points[:,0]=self.lBeam.ravel()
         points[:,1]=self.mBeam.ravel()
-        SmoothBeam=np.zeros((self.VS.NFreqBands,nx,ny),np.float32)
-        
+        SmoothBeam=np.ones((self.VS.NFreqBands,nx,ny),np.float32)
         
         
         for iBand in range(self.VS.NFreqBands):
+            if self.SumWsq.flat[iBand]==0: continue
             if self.GD["Beam"]["SmoothInterpMode"].lower()=="log":
                 values=np.log(np.abs(self.SumJJsq[:,:,iBand].flatten()))
                 S = griddata(points, values, (grid_x, grid_y), method='cubic')

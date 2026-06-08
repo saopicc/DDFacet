@@ -502,10 +502,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             logS[logS>10]=10
             logS[logS<-10]=-10
             # ModelImage[ich,0]=S0*np.exp(logS)
+                    
             with warnings.catch_warnings():
                 warnings.filterwarnings("error", category=RuntimeWarning)
-                with np.errstate(all="raise"):
-                    ModelImage[ich,0]=S0*np.exp(logS)
+                with np.errstate(all="raise", under="ignore"):
+                    ModelImage[ich,0] = S0 * np.exp(logS)
         
         return ModelImage
     

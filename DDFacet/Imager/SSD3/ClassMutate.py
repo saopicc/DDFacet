@@ -140,7 +140,7 @@ class ClassMutate():
         RType=random.random()
         P0=PMat[0:-1]
         P1=PMat[1::]
-        Type=np.where((RType>P0)&(RType<P1))[0]
+        Type=np.where((RType>P0)&(RType<P1))[0].flat[0]
 
         T.timeit("start3")
         

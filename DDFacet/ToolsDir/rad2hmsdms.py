@@ -27,7 +27,10 @@ from DDFacet.compatibility import range
 import numpy as np
 
 def rad2hmsdms(rad,Type="dec",deg=False):
-    
+    # Fix for NumPy >= 1.25: ensure input is a plain Python scalar
+    if isinstance(rad, np.ndarray):
+        rad = float(np.squeeze(rad))
+        
     if deg==False:
         deg=rad*180/np.pi
     else:
