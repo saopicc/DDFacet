@@ -4,7 +4,6 @@ import numpy as np
 import copy
 from astropy.coordinates import SkyCoord
 import astropy.units as u
-from DDFacet.Other.AsciiReader import readMultiFieldFile
 import os
 from DDFacet.Array import shared_dict
 import glob

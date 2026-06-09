@@ -113,7 +113,7 @@ class ClassImageDeconvMachine():
         MultiFieldFile=self.GD["Image"]["MultiFieldFile"]
         self.MultiField=((MultiFieldFile is not None) and (MultiFieldFile!=""))
         self.ParallelMode=(ParallelMode and not self.MultiField)
-        #self.ParallelMode=False
+        # self.ParallelMode=False
 
         self.APP=APP
         self.APP.registerJobHandlers(self)
