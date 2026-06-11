@@ -273,7 +273,9 @@ def main(OP=None, messages=[]):
 
     # init NCPU for different bits of parallelism
     ncpu = int(DicoConfig["Parallel"]["NCPU"] or psutil.cpu_count())
-    DicoConfig["Parallel"]["NCPU"]=ncpu
+    # CT: changing DicoConfig["Parallel"]["NCPU"] is not enough since OP.ToParset will DicoConfig["Parallel"]["NCPU"]=OP.options.Parallel_NCPU
+    OP.options.Parallel_NCPU=DicoConfig["Parallel"]["NCPU"]=ncpu
+
     _pyArrays.pySetOMPNumThreads(ncpu)
     NpParallel.NCPU_global = ModFFTW.NCPU_global = ncpu
 

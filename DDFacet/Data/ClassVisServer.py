@@ -66,7 +66,7 @@ log = logger.getLogger("ClassVisServer")
 _cc = 299792458
 
 SERIAL=True
-SERIAL=False
+#SERIAL=False
 
 def test():
     MSName = "/media/tasse/data/killMS_Pack/killMS2/Test/0000.MS"
