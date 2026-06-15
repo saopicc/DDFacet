@@ -191,7 +191,7 @@ class ClassATCABeam():
     def GiveRawBeam(self,time,ra,dec):
         nch=self.MS.ChanFreq.size
         Beam=np.zeros((ra.shape[0],self.MS.na,self.MS.NSPWChan,2,2),dtype=complex)
-        rac,decc=self.MS.OriginalRadec
+        rac,decc=self.MS.PointingRadec
         d=AngDist(ra,dec,rac,decc)*180./np.pi*60
         DicoCoefs=self.DicoCoefs
 

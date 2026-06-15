@@ -35,9 +35,10 @@ from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Array import shared_dict
 from scipy.interpolate import griddata
-from DDFacet.Other.AsyncProcessPool import APP
+
 import copy
 import os
+from DDFacet.Other import MPIManager
 
 class ClassBeamMean():
     def __init__(self,VS):
@@ -78,17 +79,29 @@ class ClassBeamMean():
         logger.setLoud(["ClassJones", "ClassLOFARBeam"])
 
     def CalcGrid(self):
-        _,_,nx,_=self.VS.FullImShape
-        CellSizeRad=self.VS.CellSizeRad
-        FOV=nx*CellSizeRad
-        npix=self.GD["Beam"]["SmoothNPix"]
+        _,_,nx,ny=self.VS.FacetMachine.OutImShape
+        CellSizeRad_x,CellSizeRad_y=self.VS.FacetMachine.CellSizeRad
+        FOV_x=nx*CellSizeRad_x
+        FOV_y=ny*CellSizeRad_y
+        npix_x=npix_y=self.GD["Beam"]["SmoothNPix"]
+        if nx<ny:
+            npix_x=self.GD["Beam"]["SmoothNPix"]
+            npix_y=int(ny/nx*npix_x)
+        elif nx>ny:
+            npix_y=self.GD["Beam"]["SmoothNPix"]
+            npix_x=int(nx/ny*npix_y)
+        log.print("Estimating the smooth beam on a grid of size %i x %i "%(npix_x,npix_y))
+            
         #lm=np.linspace(-FOV/2.,FOV/2.,npix)
         #ll=(lm[0:-1]+lm[1::])/2.
-        lmin=-FOV/2.
-        lmax=FOV/2.
-        lc,mc=np.mgrid[lmin:lmax:1j*npix,lmin:lmax:1j*npix]
+        
+        lmin=-FOV_x/2.
+        lmax=FOV_x/2.
+        mmin=-FOV_y/2.
+        mmax=FOV_y/2.
+        lc,mc=np.mgrid[lmin:lmax:1j*npix_x,mmin:mmax:1j*npix_y]
         self.lBeam,self.mBeam=lc,mc
-        iPix,jPix=np.mgrid[0:npix,0:npix]
+        iPix,jPix=np.mgrid[0:npix_x,0:npix_y]
         self.iPix=iPix.ravel()
         self.jPix=jPix.ravel()
         lc=lc.flatten()
@@ -96,10 +109,11 @@ class ClassBeamMean():
         ra=np.zeros_like(lc)
         dec=np.zeros_like(lc)
         for i in range(ra.size):
-            ra[i],dec[i]=self.CoordMachine.lm2radec(np.array([lc[i]]),
-                                                    np.array([mc[i]]))
+            ra[i:i+1],dec[i:i+1]=self.CoordMachine.lm2radec(np.array([lc[i]]),
+                                                            np.array([mc[i]]))
         self.radec=ra,dec
-        self.npix=npix
+        self.npix_x=npix_x
+        self.npix_y=npix_y
         self.NDir=ra.size
 
     def StackBeam(self,ThisMSData,iDir):
@@ -124,7 +138,7 @@ class ClassBeamMean():
         # MS=self.ListMS[ThisMSData["iMS"]]
         # JonesMachine=ClassJones.ClassJones(self.GD,MS,self.VS.FacetMachine)
         # JonesMachine.InitBeamMachine()
-        DicoBeam=JonesMachine.EstimateBeam(beam_times, RAs[iDir:iDir+1], DECs[iDir:iDir+1], progressBar=False, quiet=True)
+        DicoBeam=JonesMachine.EstimateBeam(beam_times, RAs[iDir:iDir+1], DECs[iDir:iDir+1], progressBar=False, quiet=True,Parallel=False)
 
         T2.timeit("GetBeam 1")
         #DicoBeam=JonesMachine.EstimateBeam(beam_times, RAs[0:10], DECs[0:10],progressBar=False)
@@ -231,40 +245,59 @@ class ClassBeamMean():
     def Smooth(self):
         #print self.SumWsq
         self.StackedBeamDict.reload()
-        self.SumJJsq=np.zeros((self.npix,self.npix,self.VS.NFreqBands),np.float64)
+        self.SumJJsq=np.zeros((self.npix_x,self.npix_y,self.VS.NFreqBands),np.float64)
         self.SumWsq=np.zeros((1,self.VS.NFreqBands),np.float64)
-        self.SumWsq[0,:]=self.StackedBeamDict[0]["SumWsq"]
+        
+        if MPIManager.useMPI:
+            self.SumWsq[0,:] = MPIManager.COMM_WORLD.allreduce(self.StackedBeamDict[0]["SumWsq"], MPIManager.SUM)
+        else:
+            self.SumWsq[0,:]=self.StackedBeamDict[0]["SumWsq"]
+            
         if np.max(self.StackedBeamDict[0]["SumWsq"])==0:
             return "NoStackedData"
         for iDir in range(self.NDir):
             i,j=self.iPix[iDir],self.jPix[iDir]
-            self.SumJJsq[i,j,:]=self.StackedBeamDict[iDir]["SumJJsq"]
 
+            if MPIManager.useMPI:
+                self.SumJJsq[i,j,:] = MPIManager.COMM_WORLD.allreduce(self.StackedBeamDict[iDir]["SumJJsq"], MPIManager.SUM)
+            else:
+                self.SumJJsq[i,j,:]=self.StackedBeamDict[iDir]["SumJJsq"]
         
 
-        self.SumJJsq/=self.SumWsq.reshape(1,1,self.VS.NFreqBands)
+        self.SumWsq1=self.SumWsq.copy()
+        self.SumWsq1[self.SumWsq1==0]=1.
+        self.SumJJsq/=self.SumWsq1.reshape(1,1,self.VS.NFreqBands)
         #self.SumJJsq=np.rollaxis(SumJJsq,2)#np.mean(SumJJsq,axis=2)
 
 
-        _,_,nx,_=self.VS.FullImShape
-        CellSizeRad=self.VS.CellSizeRad
-        FOV=nx*CellSizeRad
-        npix=nx
-        lm=np.linspace(-FOV/2.,FOV/2.,npix+1)
+        _,_,nx,ny=self.VS.FacetMachine.OutImShape
+        CellSizeRad_x,CellSizeRad_y=self.VS.FacetMachine.CellSizeRad
+        FOV_x=nx*CellSizeRad_x
+        FOV_y=ny*CellSizeRad_y
+        npix_x=nx
+        npix_y=ny
+        
+        lm=np.linspace(-FOV_x/2.,FOV_x/2.,npix_x+1)
         ll=(lm[0:-1]+lm[1::])/2.
         lmin=ll.min()
         lmax=ll.max()
-        grid_x, grid_y = np.mgrid[lmin:lmax:1j*npix,lmin:lmax:1j*npix]
-        NPixOut=self.VS.FacetMachine.OutImShape[-1]
+
+        mm=np.linspace(-FOV_y/2.,FOV_y/2.,npix_y+1)
+        ml=(mm[0:-1]+mm[1::])/2.
+        mmin=ml.min()
+        mmax=ml.max()
+        
+        grid_x, grid_y = np.mgrid[lmin:lmax:1j*npix_x,mmin:mmax:1j*npix_y]
+        NPixOut_x,NPixOut_y=self.VS.FacetMachine.OutImShape[-2:]
 
         points = np.zeros((self.lBeam.size,2),np.float32)
         points[:,0]=self.lBeam.ravel()
         points[:,1]=self.mBeam.ravel()
-        SmoothBeam=np.zeros((self.VS.NFreqBands,nx,nx),np.float32)
-        
+        SmoothBeam=np.ones((self.VS.NFreqBands,nx,ny),np.float32)
         
         
         for iBand in range(self.VS.NFreqBands):
+            if self.SumWsq.flat[iBand]==0: continue
             if self.GD["Beam"]["SmoothInterpMode"].lower()=="log":
                 values=np.log(np.abs(self.SumJJsq[:,:,iBand].flatten()))
                 S = griddata(points, values, (grid_x, grid_y), method='cubic')

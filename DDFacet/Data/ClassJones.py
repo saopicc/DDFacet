@@ -33,11 +33,17 @@ import os
 from DDFacet.Array import ModLinAlg
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Data import ClassLOFARBeam
+# comment out the below due to obnoxiousness of building Timba dependency. TODO fix
 from DDFacet.Data import ClassFITSBeam
 from DDFacet.Data import ClassGMRTBeam
 from DDFacet.Data import ClassATCABeam as ClassATCABeam
+from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
+from DDFacet.Other import ModColor
+import DDFacet.Other.AsyncProcessPool
 
 # import ClassSmoothJones is not used anywhere, should be able to remove it
+from DDFacet.Other import ClassGiveSolsFile
+from SkyModel.Sky import ModVoronoiToReg
 
 import tables
 import glob
@@ -143,9 +149,19 @@ def _parse_solsfile(SolsFile):
 
 class ClassJones():
 
-    def __init__(self, GD, MS, FacetMachine=None, CacheMode=True):
+    def __init__(self, GD, MS, FacetMachine=None, CacheMode=True,
+                 iField=None):
         self.GD = GD
         self.FacetMachine = FacetMachine
+        self.iField=iField
+        self.StrField=""
+        self.StrCounter=""
+        # if iField is not None:
+        #     self.StrField="_Field%i"%iField
+        #     self.StrCounter=" F#%i"%iField
+        #     self.FacetMachine = self.FacetMachine.LFM[iField]
+            
+        
         self.MS = MS
         self.HasKillMSSols = False
         self.BeamTimes_kMS = np.array([], np.float32)
@@ -154,15 +170,16 @@ class ClassJones():
         # self.JonesNormSolsFile_killMS="%s/JonesNorm_killMS.npz"%ThisMSName
         # self.JonesNormSolsFile_Beam="%s/JonesNorm_Beam.npz"%ThisMSName
 
-    def InitDDESols(self, DATA, quiet=False):
+    def InitDDESols(self, DATA, quiet=False, RADEC_ForcedBeamDirs=None):
         GD = self.GD
+        self.RADEC_ForcedBeamDirs=RADEC_ForcedBeamDirs
         SolsFile = GD["DDESolutions"]["DDSols"]
         self.ApplyCal = False
         if SolsFile != "" and SolsFile is not None:
             self.ApplyCal = True
             valid=False
             if self.CacheMode:
-                self.JonesNormSolsFile_killMS, valid = self.MS.cache.checkCache("JonesNorm_killMS",
+                self.JonesNormSolsFile_killMS, valid = self.MS.cache.checkCache("JonesNorm_killMS%s"%self.StrField,
                                                                                 dict(VisData=GD["Data"], 
                                                                                      DDESolutions=GD["DDESolutions"], 
                                                                                      DataSelection=self.GD["Selection"],
@@ -174,7 +191,7 @@ class ClassJones():
                 DicoSols, TimeMapping, DicoClusterDirs = self.DiskToSols(self.JonesNormSolsFile_killMS)
             else:
                 DicoSols, TimeMapping, DicoClusterDirs = self.MakeSols("killMS", DATA, quiet=quiet)
-                if self.CacheMode: self.MS.cache.saveCache("JonesNorm_killMS")
+                if self.CacheMode: self.MS.cache.saveCache("JonesNorm_killMS%s"%self.StrField)
 
             # DEBUG plot
             #if True:
@@ -201,12 +218,14 @@ class ClassJones():
             #            plt.close('all')
             #    exit()
 
-            DATA["killMS"] =  dict(Jones=DicoSols, TimeMapping=TimeMapping, Dirs=DicoClusterDirs)
+            DATA["killMS%s"%self.StrField] =  dict(Jones=DicoSols, TimeMapping=TimeMapping, Dirs=DicoClusterDirs)
             self.DicoClusterDirs_kMS=DicoClusterDirs
 
             self.HasKillMSSols = True
 
+
         ApplyBeam=(GD["Beam"]["Model"] is not None) and (GD["Beam"]["Model"]!="")
+
         if ApplyBeam:
             self.ApplyCal = True
             valid=False
@@ -223,7 +242,7 @@ class ClassJones():
                                     lbeamsethashes["bs"] = hashlib.md5(fbs.read().encode()).hexdigest()
                     return lbeamsethashes
 
-                self.JonesNormSolsFile_Beam, valid = self.MS.cache.checkCache("JonesNorm_Beam.npz", 
+                self.JonesNormSolsFile_Beam, valid = self.MS.cache.checkCache("JonesNorm_Beam%s"%self.StrField, 
                                                                               dict(VisData=GD["Data"], 
                                                                                    Beam=GD["Beam"], 
                                                                                    Facets=self.GD["Facets"],
@@ -235,8 +254,9 @@ class ClassJones():
                 DicoSols, TimeMapping, DicoClusterDirs = self.DiskToSols(self.JonesNormSolsFile_Beam)
             else:
                 DicoSols, TimeMapping, DicoClusterDirs = self.MakeSols("Beam", DATA, quiet=quiet)
-                if self.CacheMode: self.MS.cache.saveCache("JonesNorm_Beam.npz")
-            DATA["Beam"] =  dict(Jones=DicoSols, TimeMapping=TimeMapping, Dirs=DicoClusterDirs)
+                if self.CacheMode: self.MS.cache.saveCache("JonesNorm_Beam%s"%self.StrField)
+            DATA["Beam%s"%self.StrField] =  dict(Jones=DicoSols, TimeMapping=TimeMapping, Dirs=DicoClusterDirs)
+
 
     # def ToShared(self, StrType, DicoSols, TimeMapping, DicoClusterDirs):
     #     print>>log, "  Putting %s Jones in shm" % StrType
@@ -277,7 +297,9 @@ class ClassJones():
                  t0=t0, t1=t1, tm=tm,
                  ra=ra,dec=dec,
                  TimeMapping=TimeMapping,
-                 VisToJonesChanMapping=VisToJonesChanMapping)
+                 VisToJonesChanMapping=VisToJonesChanMapping,
+                 StationNames=DicoSols["StationNames"],
+                 )
         np.save(open("%s.npy"%OutName, "wb"),
                 Jones)
 
@@ -306,6 +328,7 @@ class ClassJones():
         DicoSols["Jones"] = Jones
 
         DicoSols["VisToJonesChanMapping"] = SolsFile["VisToJonesChanMapping"]
+        DicoSols["StationNames"] = SolsFile["StationNames"]
         TimeMapping = SolsFile["TimeMapping"]
         return DicoSols, TimeMapping, DicoClusterDirs
 
@@ -328,9 +351,9 @@ class ClassJones():
 
             if self.FacetMachine is not None:
                 if not(self.HasKillMSSols) or self.GD["Beam"]["At"] == "facet":
-                    print("  Getting beam Jones directions from facets", file=log)
-                    DicoImager = self.FacetMachine.DicoImager
-                    NFacets = len(DicoImager)
+                    print("  Getting beam Jones directions from facets [%i directions]"%(self.FacetMachine.FacetDirCat.l.size), file=log)
+                    # DicoImager = self.FacetMachine.DicoImager
+                    # NFacets = len(DicoImager)
                     self.ClusterCatBeam = self.FacetMachine.FacetDirCat
                     DicoClusterDirs = {}
                     DicoClusterDirs["l"] = self.ClusterCatBeam.l
@@ -339,8 +362,15 @@ class ClassJones():
                     DicoClusterDirs["dec"] = self.ClusterCatBeam.dec
                     DicoClusterDirs["I"] = self.ClusterCatBeam.I
                     DicoClusterDirs["Cluster"] = self.ClusterCatBeam.Cluster
+
+                    # VM = ModVoronoiToReg.VoronoiToReg(self.MS.rac, self.MS.decc)
+                    # VM.PointsToReg("FacetDirCat.reg",DicoClusterDirs["ra"],DicoClusterDirs["dec"],Col="red")
+                    # VM.PointsToReg("JonesDirCat.reg",self.FacetMachine.JonesDirCat["ra"],self.FacetMachine.JonesDirCat["dec"],Col="blue")
+                    # VM.PointsToReg("DicoClusterDirs_kMS.reg",self.DicoClusterDirs_kMS["ra"],self.DicoClusterDirs_kMS["dec"],Col="green")
+                    # stop
+
                 else:
-                    print("  Getting beam Jones directions from DDE solution tessels", file=log)
+                    print("  Getting beam Jones directions from DDE solution tessels [%i directions]"%(self.DicoClusterDirs_kMS["ra"].size), file=log)
                     DicoClusterDirs = self.DicoClusterDirs_kMS
                     NDir = DicoClusterDirs["l"].size
                     self.ClusterCatBeam = np.zeros(
@@ -358,37 +388,87 @@ class ClassJones():
                     self.ClusterCatBeam.SumI = self.DicoClusterDirs_kMS["I"]
                     self.ClusterCatBeam.ra[:] = self.DicoClusterDirs_kMS["ra"]
                     self.ClusterCatBeam.dec[:] = self.DicoClusterDirs_kMS["dec"]
+                    
             else:
+                if self.HasKillMSSols and self.GD["Beam"]["At"] == "tessel":
+                    print("  Getting beam Jones directions from DDE solution tessels [%i directions]"%(self.DicoClusterDirs_kMS["ra"].size), file=log)
+                    DicoClusterDirs = self.DicoClusterDirs_kMS
+                    NDir = DicoClusterDirs["l"].size
+                    self.ClusterCatBeam = np.zeros(
+                        (NDir,),
+                        dtype=[('Name', '|S200'),
+                               ('ra', float),
+                               ('dec', float),
+                               ('SumI', float),
+                               ("Cluster", int),
+                               ("l", float),
+                               ("m", float),
+                               ("I", float)])
+                    self.ClusterCatBeam = self.ClusterCatBeam.view(np.recarray)
+                    self.ClusterCatBeam.I = self.DicoClusterDirs_kMS["I"]
+                    self.ClusterCatBeam.SumI = self.DicoClusterDirs_kMS["I"]
+                    self.ClusterCatBeam.ra[:] = self.DicoClusterDirs_kMS["ra"]
+                    self.ClusterCatBeam.dec[:] = self.DicoClusterDirs_kMS["dec"]
+                elif self.RADEC_ForcedBeamDirs is not None:
+                    RABeam,DECBeam=self.RADEC_ForcedBeamDirs
+                    lBeam,mBeam=self.MS.radec2lm_scalar(RABeam,DECBeam)
+                    print("  Getting beam Jones directions ForcedBeamDirs [%i directions]"%RABeam.size, file=log)
+                    NDir = RABeam.size
+                    self.ClusterCatBeam = np.zeros(
+                        (NDir,),
+                        dtype=[('Name', '|S200'),
+                               ('ra', float),
+                               ('dec', float),
+                               ('SumI', float),
+                               ("Cluster", int),
+                               ("l", float),
+                               ("m", float),
+                               ("I", float)])
+                    self.ClusterCatBeam = self.ClusterCatBeam.view(np.recarray)
+                    self.ClusterCatBeam.I[:] = 1
+                    self.ClusterCatBeam.SumI[:] = 1
+                    self.ClusterCatBeam.ra[:] = RABeam
+                    self.ClusterCatBeam.dec[:] = DECBeam
+                    self.ClusterCatBeam.l[:] = lBeam
+                    self.ClusterCatBeam.m[:] = mBeam
+                    DicoClusterDirs = {}
+                    DicoClusterDirs["ra"] = RABeam
+                    DicoClusterDirs["dec"] = DECBeam
+                    DicoClusterDirs["l"] = lBeam
+                    DicoClusterDirs["m"] = mBeam
+                    DicoClusterDirs["I"] = self.ClusterCatBeam.I
+                    DicoClusterDirs["Cluster"] = np.arange(RABeam.size)
+                else:
+                    print("  Has no DDE information taking single Jones directions from current phase center", file=log)
 
-                self.ClusterCatBeam = np.zeros(
-                    (1,),
-                    dtype=[('Name', '|S200'),
-                           ('ra', float),
-                           ('dec', float),
-                           ('SumI', float),
-                           ("Cluster", int),
-                           ("l", float),
-                           ("m", float),
-                           ("I", float)])
-                self.ClusterCatBeam = self.ClusterCatBeam.view(np.recarray)
-                self.ClusterCatBeam.I = 1
-                self.ClusterCatBeam.SumI = 1
-                self.ClusterCatBeam.ra[0] = self.MS.rac
-                self.ClusterCatBeam.dec[0] = self.MS.decc
-                DicoClusterDirs = {}
-                DicoClusterDirs["l"] = np.array([0.], np.float32)
-                DicoClusterDirs["m"] = np.array([0.], np.float32)
-                DicoClusterDirs["ra"] = self.MS.rac
-                DicoClusterDirs["dec"] = self.MS.decc
-                DicoClusterDirs["I"] = np.array([1.], np.float32)
-                DicoClusterDirs["Cluster"] = np.array([0], np.int32)
-
+                    self.ClusterCatBeam = np.zeros(
+                        (1,),
+                        dtype=[('Name', '|S200'),
+                               ('ra', float),
+                               ('dec', float),
+                               ('SumI', float),
+                               ("Cluster", int),
+                               ("l", float),
+                               ("m", float),
+                               ("I", float)])
+                    self.ClusterCatBeam = self.ClusterCatBeam.view(np.recarray)
+                    self.ClusterCatBeam.I[:] = 1
+                    self.ClusterCatBeam.SumI[:] = 1
+                    self.ClusterCatBeam.ra[0] = self.MS.rac
+                    self.ClusterCatBeam.dec[0] = self.MS.decc
+                    DicoClusterDirs = {}
+                    DicoClusterDirs["l"] = np.array([0.], np.float32)
+                    DicoClusterDirs["m"] = np.array([0.], np.float32)
+                    DicoClusterDirs["ra"] = np.array([self.MS.rac], np.float32)
+                    DicoClusterDirs["dec"] = np.array([self.MS.decc], np.float32)
+                    DicoClusterDirs["I"] = np.array([1.], np.float32)
+                    DicoClusterDirs["Cluster"] = np.array([0], np.int32)
             DicoClusterDirs_Beam = DicoClusterDirs
             DicoSols = self.GiveBeam(DATA["uniq_times"], quiet=quiet)
             print("  Build VisTime-to-Beam mapping", file=log)
             TimeMapping = self.GiveTimeMapping(DicoSols, DATA["times"])
             DicoClusterDirs["l"],DicoClusterDirs["m"]=self.MS.radec2lm_scalar(DicoClusterDirs["ra"],DicoClusterDirs["dec"])
-
+                    
             if self.CacheMode:
                 self.SolsToDisk(self.JonesNormSolsFile_Beam,
                                 DicoSols,
@@ -403,10 +483,9 @@ class ClassJones():
         # elif KillMSSols is not None:
         #     DicoSols=KillMSSols
 
-        DicoSols["Jones"] = np.require(
-            DicoSols["Jones"],
-            dtype=np.complex64,
-            requirements="C")
+        DicoSols["Jones"] = np.require(DicoSols["Jones"],
+                                       dtype=np.complex64,
+                                       requirements="C")
 
         # ThisMSName=reformat.reformat(os.path.abspath(self.CurrentMS.MSName),LastSlash=False)
         # TimeMapName="%s/Mapping.DDESolsTime.npy"%ThisMSName
@@ -500,14 +579,19 @@ class ClassJones():
         print("  Loading solution file %s" % (SolsFile), file=log)
 
         self.ApplyCal = True
-        DicoSolsFile = np.load(SolsFile)
+        DicoSolsFile = np.load(SolsFile,allow_pickle=1)
 
         ClusterCat = DicoSolsFile["SkyModel"]
         ClusterCat = ClusterCat.view(np.recarray)
         self.ClusterCat = ClusterCat
         DicoClusterDirs = {}
-        DicoClusterDirs["l"] = ClusterCat.l
-        DicoClusterDirs["m"] = ClusterCat.m
+        if "l" not in list(ClusterCat.dtype.fields.keys()):
+            log.print(ModColor.Str("(l,m) coordinates are not the solution's ClusterCat field, internally computing"))
+            l,m=self.FacetMachine.CoordMachine.radec2lm(ClusterCat.ra, ClusterCat.dec)
+        else:
+            l,m=ClusterCat.l,ClusterCat.m
+        DicoClusterDirs["l"] = l
+        DicoClusterDirs["m"] = m
         DicoClusterDirs["ra"] = ClusterCat.ra
         DicoClusterDirs["dec"] = ClusterCat.dec
         # DicoClusterDirs["l"]=ClusterCat.l
@@ -517,10 +601,12 @@ class ClassJones():
 
         Sols = DicoSolsFile["Sols"]
         Sols = Sols.view(np.recarray)
+        print("  Loaded solution file %s %s" % (str(Sols.G.shape),SolsFile), file=log)
         DicoSols = {}
         DicoSols["t0"] = Sols.t0
         DicoSols["t1"] = Sols.t1
         DicoSols["tm"] = (Sols.t1+Sols.t0)/2.
+        DicoSols["StationNames"] = DicoSolsFile["StationNames"]
 
         if "MaskedSols" in DicoSolsFile.keys():
             m0=np.bool_(DicoSolsFile["MaskedSols"][0,:,0,0,0,0])
@@ -551,7 +637,12 @@ class ClassJones():
 
         #print((G.shape,FreqDomains.shape,VisToJonesChanMapping ), file=log)
 
-        self.BeamTimes_kMS = DicoSolsFile["BeamTimes"]
+        if "BeamTimes" in list(DicoSolsFile.keys()) and DicoSolsFile["BeamTimes"][()] is not None:
+            # print(DicoSolsFile["BeamTimes"] is None)
+            if DicoSolsFile["BeamTimes"].dtype == np.float64:
+                self.BeamTimes_kMS = DicoSolsFile["BeamTimes"]
+            else:
+                self.BeamTimes_kMS = (DicoSolsFile["BeamTimes"]["t0"]+DicoSolsFile["BeamTimes"]["t1"])/2
 
         return VisToJonesChanMapping,DicoClusterDirs,DicoSols,G
 
@@ -792,19 +883,23 @@ class ClassJones():
             #         LastSlash=False)
             #     SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, Method)
 
-            if not(".npz" in SolsFile):
-                SolsDir=self.GD["DDESolutions"]["SolsDir"]
-                if SolsDir is None or SolsDir=="":
-                    Method = SolsFile
-                    ThisMSName = reformat.reformat(os.path.abspath(self.MS.MSName), LastSlash=False)
-                    SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, SolsFile)
-                else:
-                    _MSName=reformat.reformat(os.path.abspath(self.MS.MSName).split("/")[-1])
-                    DirName=os.path.abspath("%s%s"%(reformat.reformat(SolsDir),_MSName))
-                    if not os.path.isdir(DirName):
-                        os.makedirs(DirName)
-                    SolsFile="%s/killMS.%s.sols.npz"%(DirName,SolsFile)
+            # if not(".npz" in SolsFile):
+            #     SolsDir=self.GD["DDESolutions"]["SolsDir"]
+            #     if SolsDir is None or SolsDir=="":
+            #         Method = SolsFile
+            #         ThisMSName = reformat.reformat(os.path.abspath(self.MS.MSName), LastSlash=False)
+            #         SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, SolsFile)
+            #     else:
+            #         _MSName=reformat.reformat(os.path.abspath(self.MS.MSName).split("/")[-1])
+            #         DirName=os.path.abspath("%s%s"%(reformat.reformat(SolsDir),_MSName))
+            #         if not os.path.isdir(DirName):
+            #             os.makedirs(DirName)
+            #         SolsFile="%s/killMS.%s.sols.npz"%(DirName,SolsFile)
+            
+            CGiveSaveFileName=ClassGiveSolsFile.ClassGive_kMSFileName(self.MS.MSName,GD=self.GD)
+            SolsFile=CGiveSaveFileName.GiveFileName(SolsFile,Type="Sols")
 
+                    
             VisToJonesChanMapping,DicoClusterDirs,DicoSols,G=self.ReadNPZ(SolsFile)
         else:
             VisToJonesChanMapping,DicoClusterDirs,DicoSols,G=self.ReadH5(SolsFile)
@@ -840,10 +935,10 @@ class ClassJones():
                                         axis=0),
                                     axis=1),
                                 axis=1)
-            gmean_abs = gmean_abs.reshape((1, nd, 1, 1))
-            G[:, :, :, :, 0, 0] /= gmean_abs
-            G[:, :, :, :, 1, 1] /= gmean_abs
+            gmean_abs = gmean_abs.reshape((1, nd, 1, 1,1,1))
+            G[:, :, :, :, :, :] /= gmean_abs
 
+            
         if GlobalMode == "BLBased":
             # print>>log, "  Normalising by the mean of the amplitude (against time, freq, antenna)"
             # gmean_abs = np.mean(np.mean(
@@ -924,7 +1019,27 @@ class ClassJones():
         # Gc[:,N,:,:,:,:]=G[:,N,:,:,:,:]
         # G=Gc
 
+        
+
+        (nt, nd, na, nf, _, _)=G.shape
+        if na!=self.MS.na:
+            log.print(ModColor.Str("Solution file and MS do not have the same number of antennas (%i vs %i)"%(na,self.MS.na)))
+            log.print(ModColor.Str("   Adapting solution array.."))
+            na2=self.MS.na
+            GOut=np.zeros((nt, nd, na2, nf, 2, 2),G.dtype)
+            GOut[...,0,0]=1
+            GOut[...,1,1]=1
+            for iAnt,StationName in enumerate(self.MS.StationNames):
+                indStationName=np.where(StationName==DicoSols["StationNames"])[0]
+                if indStationName.size==0:
+                    log.print("   %s not in solution file"%StationName)
+                    continue
+                jStationName=indStationName[0]
+                GOut[:,:,iAnt,...]=G[:,:,jStationName,...]
+            G=GOut
+            DicoSols["StationNames"]=self.MS.StationNames
         DicoSols["Jones"] = G
+        
         #print G[:,:,:,VisToJonesChanMapping,:,:]
 
         return DicoClusterDirs, DicoSols, VisToJonesChanMapping
@@ -957,7 +1072,7 @@ class ClassJones():
             self.ApplyBeam = True
             self.BeamMachine = ClassLOFARBeam.ClassLOFARBeam(self.MS, self.GD)
             self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam
-            #print>>log, "  Estimating LOFAR beam model in %s mode every %5.1f min."%(LOFARBeamMode,DtBeamMin)
+            #print>>log, "  Estimating LOFAR beam model in %s mode every %5.1f min."%(PhasedArrayMode,DtBeamMin)
             # self.GiveInstrumentBeam=self.MS.GiveBeam
             # estimate beam sample times using DtBeamMin
         elif GD["Beam"]["Model"] == "FITS":
@@ -968,9 +1083,17 @@ class ClassJones():
             self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam
         elif GD["Beam"]["Model"] == "ATCA":
             self.BeamMachine = ClassATCABeam.ClassATCABeam(self.MS,GD["Beam"])
-            self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam            
+            self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam
+        elif GD["Beam"]["Model"].lower() == "nenufar":
+            from DDFacet.Data import ClassNenuBeam as ClassNenuBeam
+            self.BeamMachine = ClassNenuBeam.ClassNenuBeam(self.MS,GD["Beam"])
+            self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam
+        elif GD["Beam"]["Model"].lower().startswith("everybeam"):
+            from DDFacet.Data import ClassEveryBeam as ClassEveryBeam
+            self.BeamMachine = ClassEveryBeam.ClassEveryBeam(self.MS,GD["Beam"])
+            self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam
         else:
-            raise ValueError("Unknown keyword for Beam-Model. Only accepts 'FITS', 'LOFAR', 'GMRT' or 'ATCA'")
+            raise ValueError("Unknown keyword for Beam-Model. Only accepts 'FITS', 'LOFAR', 'GMRT', 'ATCA', 'NENUFAR' or 'Everybeam'.")
 
     def GiveBeam(self, times, quiet=False,RaDec=None):
         GD = self.GD
@@ -984,6 +1107,7 @@ class ClassJones():
             print("  Taking beam-times from DDE-solutions", file=log)
             beam_times = self.BeamTimes_kMS
         else:
+            print("  Taking beam-times from user-specified --Beam-DtBeamMin", file=log)
             beam_times = self.BeamMachine.getBeamSampleTimes(times, quiet=quiet)
 
         if RaDec is None:
@@ -991,14 +1115,14 @@ class ClassJones():
             DECs = self.ClusterCatBeam.dec
         else:
             RAs,DECs=RaDec
-            
+
         # from killMS2.Other.rad2hmsdms import rad2hmsdms
         # for i in range(RAs.size):
         #     ra,dec=RAs[i],DECs[i]
         #     print rad2hmsdms(ra,Type="ra").replace(" ",":"),rad2hmsdms(dec,Type="dec").replace(" ",".")
 
         DicoBeam = self.EstimateBeam(beam_times, RAs, DECs)
-
+        DicoBeam["StationNames"]=self.MS.StationNames
         return DicoBeam
 
     def GiveVisToJonesChanMapping(self, FreqDomains):
@@ -1011,7 +1135,7 @@ class ClassJones():
 
         return np.argmin(DFreq, axis=1)
 
-    def EstimateBeam(self, TimesBeam, RA, DEC,progressBar=True, quiet=False):
+    def EstimateBeam(self, TimesBeam, RA, DEC,progressBar=True, quiet=False,Parallel=True):
         TimesBeam = np.float64(np.array(TimesBeam))
         T0s = TimesBeam[:-1].copy()
         T1s = TimesBeam[1:].copy()
@@ -1034,35 +1158,70 @@ class ClassJones():
         DicoBeam["tm"]=np.zeros((Tm.size,),np.float64)
         DicoBeam["FreqDomains"]=FreqDomains
         
+
         
         rac,decc=self.MS.OriginalRadec
-        pBAR= ProgressBar(Title="  Init E-Jones ")#, HeaderSize=10,TitleSize=13)
-        if not progressBar: pBAR.disable()
+        pBAR= ProgressBar(Title="  Init E-Jones%s"%self.StrCounter)#, HeaderSize=10,TitleSize=13)
+
+
+        #logger.setSilent(["AsyncProcessPool"])
+        try:
+            ncpu=self.GD["Parallel"]["NCPU"]
+        except:
+            Parallel=False
+
+
+        if not progressBar or Parallel: pBAR.disable()
+        # pBAR.disable()
         pBAR.render(0, Tm.size)
+
+            
+        if Parallel:
+            APP=DDFacet.Other.AsyncProcessPool.init(Name="APP_Beam_MS%i"%self.MS.iMS,
+                                                    ncpu=ncpu,
+                                                    silent_warning=True,
+                                                    )
+            APP.registerJobHandlers(self)
+            APP.startWorkers()
+            APP.awaitWorkerStart()
+        #logger.setLoud(["AsyncProcessPool"])
+            
+        # for iDir in range(RA.size):
+        #     Srac,Sdecx=(rad2hmsdms(RA[iDir],Type="ra").replace(" ",":"),rad2hmsdms(DEC[iDir],Type="dec").replace(" ","."))
+        #     print("Src : ",Srac,Sdecx)
+        LDicoResults=[]
         for itime in range(Tm.size):
             DicoBeam["t0"][itime]=T0s[itime]
             DicoBeam["t1"][itime]=T1s[itime]
             DicoBeam["tm"][itime]=Tm[itime]
             ThisTime=Tm[itime]
-            Beam=self.GiveInstrumentBeam(ThisTime,RA,DEC)
-            #
-            if self.GD["Beam"]["CenterNorm"]==1:
-                Beam0=self.GiveInstrumentBeam(ThisTime,np.array([rac]),np.array([decc]))
-                Beam0inv= ModLinAlg.BatchInverse(Beam0)
-                nd,_,_,_,_=Beam.shape
-                Ones=np.ones((nd, 1, 1, 1, 1),np.float32)
-                Beam0inv=Beam0inv*Ones
-                BeamN= ModLinAlg.BatchDot(Beam0inv, Beam)
-                Beam=BeamN
 
+            if Parallel:
+                APP.runJob("ComputeBeam:%i"%(itime),
+                           self._estimateBeamThisTime,
+                           args=(itime,ThisTime,RA,DEC,rac,decc),serial=False)
+            else:
+                r=self._estimateBeamThisTime(itime,ThisTime,RA,DEC,rac,decc)
+                LDicoResults.append(r)
+                pBAR.render(itime+1, Tm.size)
+                
+        if Parallel:    
+            LDicoResults=APP.awaitJobResults("ComputeBeam:*",progress="Compute Beam")
+                
+            
+        for DicoResults in LDicoResults:
+            itime=DicoResults["itime"]
+            Beam=DicoResults["Beam"]
             DicoBeam["Jones"][itime]=Beam
-            NDone=itime+1
-            pBAR.render(NDone,Tm.size)
-
-            DicoBeam["Jones"][itime] = Beam
 
         nt, nd, na, nch, _, _ = DicoBeam["Jones"].shape
 
+        if Parallel:
+            APP.terminate()
+            APP.shutdown()
+            del(APP)
+        
+        
         # DicoBeam["Jones"]=np.mean(DicoBeam["Jones"],axis=3).reshape((nt,nd,na,1,2,2))
 
         # print TimesBeam-TimesBeam[0]
@@ -1071,6 +1230,52 @@ class ClassJones():
 
         return DicoBeam
 
+    def _estimateBeamThisTime(self,itime,ThisTime,RA,DEC,rac,decc):
+        Beam=self.GiveInstrumentBeam(ThisTime,RA,DEC)#
+
+        if self.GD["Beam"]["CenterNorm"]==1:
+            Beam0=self.GiveInstrumentBeam(ThisTime,np.array([rac]),np.array([decc]))
+            Srac,Sdecx=(rad2hmsdms(rac,Type="ra").replace(" ",":"),rad2hmsdms(decc,Type="dec").replace(" ","."))
+            # print("Center : ",Srac,Sdecx)
+            # print("Center : ",Srac,Sdecx)
+            # print("Center : ",Srac,Sdecx)
+            # print("Center : ",Srac,Sdecx)
+            Beam0inv= ModLinAlg.BatchInverse(Beam0)
+
+            nd,_,_,_,_=Beam.shape
+            Ones=np.ones((nd, 1, 1, 1, 1),np.float32)
+            Beam0inv=Beam0inv*Ones
+            BeamN= ModLinAlg.BatchDot(Beam0inv, Beam)
+            Beam=BeamN
+
+            
+        Bxx=Beam[...,0,0]
+        Bxx[np.abs(Bxx)<1e-6]=1e-6
+        Byy=Beam[...,1,1]
+        Byy[np.abs(Byy)<1e-6]=1e-6
+
+        if self.GD["Beam"].get("ForceScalar",False):
+            log.print("Scararify Jones matrices of the beam...")
+            Bxx=Beam[...,0,0]
+            Byy=Beam[...,1,1]
+            Ba=(np.abs(Bxx)+np.abs(Byy))/2
+            Beam.fill(0)
+            Beam[...,0,0]=Ba[...]
+            Beam[...,1,1]=Ba[...]
+            
+        # import pylab
+        # pylab.clf()
+        # pylab.scatter(RA*180/np.pi,DEC*180/np.pi,c=np.abs(Beam[:,0,0,0,0]))
+        # ra0,dec0=self.MS.OriginalRadec
+        # pylab.scatter(ra0*180/np.pi,dec0*180/np.pi,color="blue",marker="s")
+        # pylab.scatter(rac*180/np.pi,decc*180/np.pi,color="red",marker="+")
+        # pylab.colorbar()
+        # pylab.draw()
+        # pylab.show()
+        # stop
+            
+        return {"Beam":Beam,"itime":itime}
+    
     def MergeJones(self, DicoJ0, DicoJ1):
         import DDFacet.Other.ClassJonesDomains
         DomainMachine=DDFacet.Other.ClassJonesDomains.ClassJonesDomains()

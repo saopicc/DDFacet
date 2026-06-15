@@ -7,7 +7,7 @@ from DDFacet.compatibility import range
 import numpy as np
 from DDFacet.Imager.MORESANE import ClassImageDeconvMachineMoresane
 import copy
-from DDFacet.ToolsDir.GiveEdges import GiveEdges
+#from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 from DDFacet.Imager.ClassPSFServer import ClassPSFServer
 from DDFacet.Imager.ModModelMachine import ClassModModelMachine
@@ -240,7 +240,7 @@ class ClassInitSSDModel():
         dy=y1-y0+self.Margin
         Size=np.max([dx,dy])
         if Size%2==0: Size+=1
-        _,_,N0,_=self.Dirty.shape
+        _,_,N0x,N0y=self.Dirty.shape
 
         xc0,yc0=int((x1+x0)/2.),int((y1+y0)/2.)
         self.xy0=xc0,yc0
@@ -248,7 +248,7 @@ class ClassInitSSDModel():
 
         N1=Size
         xc1=yc1=N1//2
-        Aedge,Bedge=GiveEdges(xc0,yc0,N0,xc1,yc1,N1)
+        Aedge,Bedge=GiveEdgesDissymetric(xc0,yc0,N0x,N0y,xc1,yc1,N1,N1)
         x0d,x1d,y0d,y1d=Aedge
         x0p,x1p,y0p,y1p=Bedge
         self.SubDirty=self.Dirty[:,:,x0d:x1d,y0d:y1d].copy()

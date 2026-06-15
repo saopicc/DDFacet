@@ -55,7 +55,8 @@ def read_options():
     group.add_option('--NCluster',type=int,help="",default=45)
     group.add_option('--NCPU',type=int,help="",default=1)
     group.add_option('--OutClusterCat',type=str,help="",default="")
-    
+    group.add_option('--FitnessType',type=str,help="Fair/PrimaryBeam",default="Fair")
+
     opt.add_option_group(group)
 
     options, arguments = opt.parse_args()
@@ -130,11 +131,17 @@ class ClusterImage():
 
 
     def SelectSources(self):
+        if self.NCluster>self.Cat.S.size:
+            raise RuntimeError("There are less sources than clustering directions (%i vs %i)"%(self.Cat.S.size,self.NCluster))
+        
         if self.FluxMin>0.:
-            s=self.Cat.S.size
-            ind=np.where(self.Cat.S>self.FluxMin)[0]
-            self.Cat=self.Cat[ind]
-            print("  Seleted %i sources [out of %i] with flux density > %f Jy"%(ind.size,s,self.FluxMin), file=log)
+            NMinSources=self.NCluster*2
+            if NMinSources>self.Cat.S.size:
+                log.print("There are not enough sources with flux > %fJy, taking all sources..."%self.FluxMin)
+            else:
+                ind=np.where(self.Cat.S>self.FluxMin)[0]
+                self.Cat=self.Cat[ind]
+                print("  Seleted %i sources [out of %i] with flux density > %f Jy"%(ind.size,self.Cat.S.size,self.FluxMin), file=log)
 
         if self.ExtentMax>0.:
             s=self.Cat.S.size
@@ -271,6 +278,7 @@ class ClusterImage():
                                              DoPlot=self.DoPlot,
                                              PolyCut=self.PolyCut,
                                              NCPU=self.NCPU,
+                                             FitnessType=self.FitnessType,
                                              BigPolygon=self.BigPolygon)
         CC.setAvoidPolygon(PolyList)
             

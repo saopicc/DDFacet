@@ -42,7 +42,8 @@ from pyrap.images import image
 from DDFacet.Imager.ClassPSFServer import ClassPSFServer
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Imager import ClassGainMachine # Currently required by model machine but fixed to static mode
-from DDFacet.ToolsDir import GiveEdges
+#from DDFacet.ToolsDir import GiveEdges
+from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 
 
 class ClassImageDeconvMachine():
@@ -135,8 +136,7 @@ class ClassImageDeconvMachine():
                                 GainMachine=self.GainMachine)
         else:
             self.ModelMachine = ModelMachine
-        self.GiveEdges = GiveEdges.GiveEdges
-        
+        self.GiveEdges = GiveEdgesDissymetric
         # FGAO: put back the self._niter which includes polarizations
         #self._niter = 0
         self._niter = np.zeros([len(self.PolarizationCleanTasks)],dtype=np.int64)
@@ -206,7 +206,6 @@ class ClassImageDeconvMachine():
     def setSideLobeLevel(self,SideLobeLevel,OffsetSideLobe):
         self.SideLobeLevel=SideLobeLevel
         self.OffsetSideLobe=OffsetSideLobe
-        
 
     def SetPSF(self,DicoVariablePSF):
         self.PSFServer=ClassPSFServer(self.GD)
@@ -230,9 +229,8 @@ class ClassImageDeconvMachine():
         self._Dirty = self.DicoDirty["ImageCube"]
         self._MeanDirty = self.DicoDirty["MeanImage"]
 
-        self.NpixPSF = self.PSFServer.NPSF
-        self.Nchan, self.Npol, self.Npix, _ = self._Dirty.shape
-
+        self.NpixPSF_x,self.NpixPSF_y = self.PSFServer.NPSF
+        self.Nchan, self.Npol, self.Npix_x, self.Npix_y = self._Dirty.shape
 
         # if self._peakMode is "sigma":
         #     print("Will search for the peak in the SNR-weighted dirty map", file=log)
@@ -264,7 +262,7 @@ class ClassImageDeconvMachine():
                   normalised to unity at the center.
         """
         #Get overlap indices where psf should be subtracted
-        Aedge,Bedge=self.GiveEdges(xc,yc, self.Npix, self.NpixPSF//2,self.NpixPSF//2,self.NpixPSF)
+        Aedge,Bedge=GiveEdgesDissymetric(xc,yc, self.Npix_x,self.Npix_y, self.NpixPSF_x//2,self.NpixPSF_y//2,self.NpixPSF_x,self.NpixPSF_y)
 
         x0d,x1d,y0d,y1d=Aedge
         x0p,x1p,y0p,y1p=Bedge
@@ -319,12 +317,6 @@ class ClassImageDeconvMachine():
                 continue_deconvolution[pol_task_id] = True # continue if stop flag has already been raised
 
             PeakMap = None
-            # FG 20220620:
-
-
-            _,_,npix,_=self._Dirty.shape
-            xc=(npix)/2
-
             nchan,npol,_,_=self._Dirty.shape
             
 
@@ -343,7 +335,7 @@ class ClassImageDeconvMachine():
                 # FG here the _MeanDirty already suffered from smearing due to unknown RM, so cannot use it.
                 indexQ = self.PolarizationDescriptor.index("Q")
                 indexU = self.PolarizationDescriptor.index("U")
-                Q2U2_sum_map  = np.zeros((npix*npix),dtype=np.float32).reshape(npix,npix)
+                Q2U2_sum_map  = np.zeros((self.Npix_x,self.Npix_y),dtype=np.float32)
                 for j in range(nchan):
                     Q2U2_sum_map += np.abs(self._Dirty[j, indexQ,:,:] + 1.0j * self._Dirty[j, indexU, :, :]) **2
                 PeakMap = Q2U2_sum_map/nchan
@@ -371,7 +363,7 @@ class ClassImageDeconvMachine():
             ## FG: what is this NPixStats doing here?
             if NPixStats:
                 # here self.Npix is new compared to before
-                RandomInd=np.int64(np.random.rand(NPixStats)*self.Npix**2)
+                RandomInd=np.int64(np.random.rand(NPixStats)*self.Npix_x*self.Npix_y)
                 if pol_task == "Q+iU":
                     RMS = np.std(np.sqrt(np.real(PeakMap).ravel()[RandomInd]))
                 else:
@@ -407,7 +399,7 @@ class ClassImageDeconvMachine():
 
             # Get side lobe stopping criterion
             Fluxlimit_Sidelobe = ((self.CycleFactor-1.)/4.*(1.-self.SideLobeLevel)+self.SideLobeLevel)*MaxDirty if self.CycleFactor else 0
-
+            
             mm0, mm1 = PeakMap.min(), PeakMap.max()
 
             # Choose whichever threshold is highest
@@ -456,7 +448,7 @@ class ClassImageDeconvMachine():
                         indexQ = self.PolarizationDescriptor.index("Q")
                         indexU = self.PolarizationDescriptor.index("U")
                         #PeakMap = np.abs(self._MeanDirty[0, indexQ, :, :] + 1.0j * self._MeanDirty[0, indexU, :, :]) ** 2        
-                        Q2U2_sum_map  = np.zeros((npix*npix),dtype=np.float32).reshape(npix,npix)
+                        Q2U2_sum_map  = np.zeros((self.Npix_x,self.Npix_y),dtype=np.float32)
                         for j in range(nchan):
                             Q2U2_sum_map += np.abs(self._Dirty[j, indexQ,:,:] + 1.0j * self._Dirty[j, indexU, :, :]) **2
                         PeakMap = Q2U2_sum_map/nchan
@@ -606,14 +598,20 @@ class ClassImageDeconvMachine():
                     T.timeit("FindScale")
 
                     if pol_task == "I":
+                        #print("I",(x, y), Coeffs, indexI)
                         self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs, indexI)
                     elif pol_task == "Q":
+                        #print("Q",(x, y), Coeffs_Q_dev, indexQ)
                         self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs_Q_dev, indexQ)
                     elif pol_task == "U":
+                        #print("U",(x, y), Coeffs_U_dev, indexU)
                         self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs_U_dev, indexU)
                     elif pol_task == "V":
+                        #print("V",(x, y), Coeffs, indexV)
                         self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs, indexV)
                     elif pol_task == "Q+iU": 
+                        #print("Q+iUa",(x, y), Coeffs_Q_dev, indexQ)
+                        #print("Q+iUb",(x, y), Coeffs_U_dev, indexU)
                         self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs_Q_dev, indexQ)
                         self.ModelMachine.AppendComponentToDictStacked((x, y), Coeffs_U_dev, indexU)
                         
@@ -631,6 +629,8 @@ class ClassImageDeconvMachine():
                     elif pol_task == "Q+iU":
                         self.SubStep(x, y, indexQ, PSF * Iapp_Q_dev[:, None, None, None] * self.GD["Deconv"]["Gain"])
                         self.SubStep(x, y, indexU, PSF * Iapp_U_dev[:, None, None, None] * self.GD["Deconv"]["Gain"])
+                        #self.SubStep(x, y, indexQ, PSF * Iapp_Q[:, None, None, None] * self.GD["Deconv"]["Gain"])
+                        #self.SubStep(x, y, indexU, PSF * Iapp_U[:, None, None, None] * self.GD["Deconv"]["Gain"])
                         
                     T.timeit("SubStep")
 
@@ -676,7 +676,7 @@ class ClassImageDeconvMachine():
         _,npol,npix,_ = self._MeanDirty.shape
         NPixStats = self.GD["Deconv"]["NumRMSSamples"]
         if NPixStats:
-            #self.IndStats=np.int64(np.random.rand(NPixStats)*npix**2)
+            #self.IndStats=np.int64(np.random.rand(NPixStats)*self.Npix_x*self.Npix_y)
             self.IndStats=np.int64(np.linspace(0,self._PeakSearchImage.size-1,NPixStats))
         else:
             self.IndStats = slice(None)

@@ -28,6 +28,8 @@ import numpy as np
 from DDFacet.Other import logger
 from DDFacet.ToolsDir import ClassSpectralFunctions
 from matplotlib.path import Path
+from DDFacet.ToolsDir import ModCoord
+
 
 log= logger.getLogger("ClassPSFServer")
 
@@ -35,7 +37,10 @@ class ClassPSFServer():
     def __init__(self,GD=None):
         self.GD=GD
         self.blc=None
-
+        from DDFacet.Imager.MultiFields.AppendSubFieldInfo import AppendSubFieldInfo
+        AppendSubFieldInfo(self)
+        
+        
     def setDicoVariablePSF(self,DicoVariablePSF,RefFreq=None,NormalisePSF=False,quiet=False):
         # NFacets=len(DicoVariablePSF.keys())
         # NPixMin=1e6
@@ -57,9 +62,10 @@ class ClassPSFServer():
         self.DicoVariablePSF=DicoVariablePSF
         self.CubeVariablePSF=DicoVariablePSF["CubeVariablePSF"]
         self.CubeMeanVariablePSF=DicoVariablePSF["CubeMeanVariablePSF"]
-        self.NFacets,nch,npol,NPixMin,_=self.CubeVariablePSF.shape
-        self.ShapePSF=nch,npol,NPixMin,NPixMin
-        self.NPSF=NPixMin
+        self.NFacets,nch,npol,NPixMin_x,NPixMin_y=self.CubeVariablePSF.shape
+        # print("JFDUFH",self.iField,self.CubeVariablePSF.shape)
+        self.ShapePSF=nch,npol,NPixMin_x,NPixMin_y
+        self.NPSF=NPixMin_x,NPixMin_y
 
         self.ImageShape = self.DicoVariablePSF["ImageCube"].shape
 
@@ -83,6 +89,10 @@ class ClassPSFServer():
         self.DicoMappingDesc=DicoMappingDesc
         
         self.SpectralFunctionsMachine=ClassSpectralFunctions.ClassSpectralFunctions(DicoMappingDesc)
+        
+        rac,decc=self.DicoVariablePSF["ImageInfo"]["RaDecPhaseCenter"]
+        self.CoordMachine = ModCoord.ClassCoordConv(rac, decc)
+        
         #self.RefFreq=self.SpectralFunctionsMachine.RefFreq=RefFreq
         #self.AllFreqs=self.SpectralFunctionsMachine.AllFreqs
         #print "PSFServer:",self.RefFreq, self.AllFreqs
@@ -101,7 +111,6 @@ class ClassPSFServer():
 
     def setLocation(self,xp,yp):
         self.iFacet=self.giveFacetID2(xp,yp)
-        #print "ifacet:",self.iFacet
 
     def giveFacetID(self,xp,yp):
         dmin=1e6
@@ -120,11 +129,10 @@ class ClassPSFServer():
             x0,y0=self.blc
             xp,yp=x0+xp,y0+yp
 
-
-
+        self.iFacet_xpyp_in=(xp,yp)
             
         dmin=1e6
-        CellSizeRad=self.DicoVariablePSF["CellSizeRad"]
+        CellSizeRad_x,CellSizeRad_y=self.DicoVariablePSF["CellSizeRad"]
         _,_,nx,ny=self.DicoVariablePSF["OutImShape"]
 
 
@@ -139,35 +147,60 @@ class ClassPSFServer():
             return mask.flat[0]
         
         ClosestFacet=-1
+
+        LlmSol=[]
         
+        l=CellSizeRad_x*(xp-nx//2)
+        m=CellSizeRad_y*(yp-ny//2)
+        self.iFacet_lm_in=(l,m)
+            
         for iFacet in range(self.NFacets):
             
-            l=CellSizeRad*(xp-nx//2)
-            m=CellSizeRad*(yp-ny//2)
             
-            #lSol,mSol=self.DicoVariablePSF["Facets"][iFacet]["lmSol"]
-            lSol,mSol=self.DicoVariablePSF["Facets"][iFacet]["l0m0"]
+            #l=CellSizeRad_y*(xp-nx//2)
+            #m=CellSizeRad_x*(yp-ny//2)
+            
+            lSol,mSol=self.DicoVariablePSF["Facets"][iFacet]["lmSol"]
+            #lSol,mSol=self.DicoVariablePSF["Facets"][iFacet]["l0m0"]
             #print "lsol, msol = ",lSol,mSol #,self.DicoVariablePSF[iFacet]["pixCentral"][0],self.DicoVariablePSF[iFacet]["pixCentral"][1]
 
-            d=np.sqrt((l-lSol)**2+(m-mSol)**2)
+            LlmSol.append((lSol,mSol))
             
+            d=np.sqrt((l-lSol)**2+(m-mSol)**2)
+            #print(iFacet,inPoly(iFacet,l,m))
             if inPoly(iFacet,l,m):
                 ClosestFacet=iFacet
                 #break
-            
+
             if d<dmin:
                 dmin=d
                 ClosestFacet0=iFacet
 
-                
-        # print("[%i, %i] ->  %i"%(xp,yp,ClosestFacet))
-        # print("[%i, %i] ->  %i"%(xp,yp,ClosestFacet0))
 
-        
+        # print("===============")
+        # iDirJones0=self.DicoVariablePSF["Facets"][ClosestFacet0]["iDirJones"]
+        # iDirJones=self.DicoVariablePSF["Facets"][ClosestFacet]["iDirJones"]
+        # print("Poly [%i, %i] ->  iFacet=%i [iDirJones=%i]"%(xp,yp,ClosestFacet,iDirJones))
+        # print("Dist [%i, %i] ->  iFacet=%i [iDirJones=%i]"%(xp,yp,ClosestFacet0,iDirJones0))
+
+        # if not in a polygon, takes the closest
         if ClosestFacet==-1:
             ClosestFacet=ClosestFacet0
+        #ClosestFacet=ClosestFacet0
 
-        return ClosestFacet
+        self.iFacet,self.iFacet_lm=ClosestFacet,LlmSol[ClosestFacet]
+        l,m=self.iFacet_lm
+        self.iFacet_radec=self.CoordMachine.lm2radec(l,m)
+        l,m=self.iFacet_lm_in
+        self.iFacet_radec_in=self.CoordMachine.lm2radec(np.array([l]),np.array([m]))
+
+        # # #######################
+        # print("SDKFJSKJFSDKDFKS")
+        # print((xp,yp),(nx,ny),self.iFacet,self.iFacet_lm,self.iFacet_radec,self.iFacet_radec_in)
+        # if self.iFacet==70: stop
+        # # #######################
+        
+        return self.iFacet
 
 
     
@@ -332,7 +365,7 @@ class ClassPSFServer():
             #BeamFactor.fill(1.)
             for iAlpha in range(NAlpha):
                 ThisAlpha=Alpha[iAlpha]
-                
+                if np.sum(BeamFactorWeightSq)==0: continue
                 FreqBandsFluxRatio[iAlpha,iChannel]=np.sqrt(np.sum(BeamFactor*((ThisFreqs/RefFreq)**ThisAlpha)**2))/np.sqrt(np.sum(BeamFactorWeightSq))
                 FreqBandsFluxRatio[iAlpha,iChannel]/=np.sqrt(self.DicoVariablePSF["MeanJonesBand"][iFacet][iChannel])
         #MeanFreqBandsFluxRatio=np.mean(FreqBandsFluxRatio,axis=1)

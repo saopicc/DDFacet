@@ -63,8 +63,9 @@ class Island(object):
 
 
 class ClassIslandDistanceMachine():
-    def __init__(self,GD,MaskArray,PSFServer,DicoDirty,IdSharedMem=""):
+    def __init__(self,GD,MaskArray,PSFServer,DicoDirty,IdSharedMem="",MinMaxGroupDistance=[10,50]):
         self.GD=GD
+        self.MinMaxGroupDistance=MinMaxGroupDistance
         self._MaskArray=MaskArray
         self.PSFServer=PSFServer
         self.PSFCross=None
@@ -109,13 +110,13 @@ class ClassIslandDistanceMachine():
 
     def CalcLabelImage(self,ListIslands):
         print("  calculating label image", file=log)
-        _,_,nx,_=self._MaskArray.shape
-        Labels=np.zeros((nx,nx),dtype=np.float32)
+        _,_,nx,ny=self._MaskArray.shape
+        Labels=np.zeros((nx,ny),dtype=np.float32)
 
         for iIsland,ThisIsland in enumerate(ListIslands):
             x,y=np.array(ThisIsland).T
             Labels[np.int32(x),np.int32(y)]=iIsland+1
-        return Labels.reshape((1,1,nx,nx))
+        return Labels.reshape((1,1,nx,ny))
 
     def BreakLargeIslands(self,ListIslands):
         if self.GD["SSDClean"]["MaxIslandSize"]:
@@ -156,10 +157,10 @@ class ClassIslandDistanceMachine():
         PSF=np.mean(np.abs(self.PSFServer.DicoVariablePSF["MeanFacetPSF"][:,0]),axis=0)#self.PSFServer.DicoVariablePSF["MeanFacetPSF"][0,0]
         
         
-        nPSF,_=PSF.shape
-        xcPSF,ycPSF=nPSF//2,nPSF//2
+        nPSF_x,nPSF_y=PSF.shape
+        xcPSF,ycPSF=nPSF_x//2,nPSF_y//2
 
-        IN=lambda x: ((x>=0)&(x<nPSF))
+        #IN=lambda x: ((x>=0)&(x<nPSF))
 
 
         NIslands=len(ListIslands)
@@ -198,19 +199,20 @@ class ClassIslandDistanceMachine():
         # dy=yMean.reshape((NIslands,1))-yMean.reshape((1,NIslands))
 
         #self.calcDistanceMatrixMean(ListIslands)
+
         self.calcDistanceMatrixMinParallel(ListIslands)
         dx,dy=self.dx,self.dy
         self.DistCross=np.sqrt(dx**2+dy**2)
 
         dx+=xcPSF
-        dy+=xcPSF
+        dy+=ycPSF
         PSFCross=np.zeros((NIslands,NIslands),np.float32)
         indPSF=np.arange(NIslands**2)
-        Cx=((dx>=0)&(dx<nPSF))
-        Cy=((dy>=0)&(dy<nPSF))
+        Cx=((dx>=0)&(dx<nPSF_x))
+        Cy=((dy>=0)&(dy<nPSF_y))
         C=(Cx&Cy)
         indPSF_sel=indPSF[C.ravel()]
-        indPixPSF=dx.ravel()[C.ravel()]*nPSF+dy.ravel()[C.ravel()]
+        indPixPSF=dx.ravel()[C.ravel()]*nPSF_y+dy.ravel()[C.ravel()]
         PSFCross.flat[indPSF_sel]=np.abs(PSF.flat[indPixPSF.ravel()])
 
 
@@ -228,9 +230,15 @@ class ClassIslandDistanceMachine():
         self.setCheckedIslands.add(iIsland)
         #indNearbyIsland=np.where((self.PSFCross[iIsland])>Th)[0]
 
-        D0,D1=self.GD["SSDClean"]["MinMaxGroupDistance"]
+        if self.GD is not None:
+            D0,D1=self.GD["SSDClean"]["MinMaxGroupDistance"]
+        else:
+            D0,D1=self.MinMaxGroupDistance
 
-        CTh=(self.PSFCross[iIsland]>Th)
+        if self.PSFCross is not None:
+            CTh=(self.PSFCross[iIsland]>Th)
+        else:
+            CTh=True
         C0=(self.DistCross[iIsland]<D0)
         C1=(self.DistCross[iIsland]<D1)
         setNearbyIsland=set(np.where( (CTh | C0) & (C1) )[0].tolist())
@@ -247,6 +255,56 @@ class ClassIslandDistanceMachine():
 
 
 
+    def CalcCrossIslandFlux_noPSFInfo(self,ListIslands,Dirty):
+        NIslands=len(ListIslands)
+        print("  grouping cross contaminating islands...", file=log)
+
+        MaxIslandFlux=np.zeros((NIslands,),np.float32)
+        DicoIsland={}
+
+        for iIsland in range(NIslands):
+            x0,y0=np.array(ListIslands[iIsland]).T
+            PixVals0=Dirty[0,0,x0,y0]
+            MaxIslandFlux[iIsland]=np.max(PixVals0)
+            DicoIsland[iIsland]=ListIslands[iIsland]
+
+        self.CrossFluxContrib=0
+        self.DicoIsland=DicoIsland
+
+        NDone=0
+        NJobs=NIslands
+        pBAR= ProgressBar(Title=" Group islands")
+        pBAR.disable()
+        pBAR.render(0, NJobs)
+
+        Th=0.05
+        
+        ListIslandMerged=[]
+        self.setCheckedIslands=set([])
+        for iIsland in range(NIslands):
+            x0,y0=np.array(ListIslands[iIsland]).T
+            #print "Main %i (%f, %f)"%(iIsland,np.mean(x0),np.mean(y0))
+            
+            NDone+=1
+            intPercent=int(100*  NDone / float(NJobs))
+            pBAR.render(NDone,NJobs)
+            
+            ListIslandMerged.append(list(self.GiveNearbyIsland(iIsland,set([]))))
+
+        
+        ListIslands=[]
+        for indIsland in ListIslandMerged:
+            if len(indIsland)==0: continue
+            ThisIsland=DicoIsland[indIsland[0]]
+            for iIsland in indIsland[1::]:
+                ThisIsland+=DicoIsland[iIsland]
+            ListIslands.append(ThisIsland)
+
+        print("    have grouped %i --> %i islands"%(NIslands, len(ListIslands)), file=log)
+
+        return ListIslands
+
+    
     def CalcCrossIslandFlux(self,ListIslands):
         if self.PSFCross is None:
             self.CalcCrossIslandPSF(ListIslands)
@@ -349,14 +407,14 @@ class ClassIslandDistanceMachine():
     def giveEdgesIslands(self,ListIslands):
         print("  extracting Island edges", file=log, end='')
         ListEdgesIslands=[]
-        _,_,nx,_=self._MaskArray.shape
+        _,_,nx,ny=self._MaskArray.shape
         #Ed=np.zeros_like(self._MaskArray)
         for Island in ListIslands:
             x,y=np.array(Island).T
             EdgesIsland=[]
             for iPix in range(x.size):
                 xc,yc=x[iPix],y[iPix]
-                Aedge,Bedge=GiveEdgesDissymetric(xc,yc,nx,nx,1,1,3,3)
+                Aedge,Bedge=GiveEdgesDissymetric(xc,yc,nx,ny,1,1,3,3)
                 x0d,x1d,y0d,y1d=Aedge
                 m=self._MaskArray[0,0][x0d:x1d,y0d:y1d]
                 if 1 in m:
@@ -455,6 +513,7 @@ class ClassIslandDistanceMachine():
         return result
 
     def calcDistanceMatrixMinParallel(self,ListIslands,Parallel=True):
+        #Parallel=False
         NIslands=len(ListIslands)
         self.D=np.zeros((NIslands,NIslands),np.float32)
         self.dx=np.zeros((NIslands,NIslands),np.int32)
@@ -470,6 +529,7 @@ class ClassIslandDistanceMachine():
         NCPU=self.NCPU
 
         ListEdgeIslands=self.giveEdgesIslands(ListIslands)
+
 
         for ii in range(NCPU):
             W = WorkerDistance(work_queue,
@@ -587,6 +647,9 @@ class WorkerDistance(multiprocessing.Process):
     def run(self):
         success = True
         while not self.kill_received and not self.work_queue.empty():
+            # DicoJob = self.work_queue.get()
+            # self.giveMinDist(DicoJob)
+            
             try:
                 DicoJob = self.work_queue.get()
                 self.giveMinDist(DicoJob)

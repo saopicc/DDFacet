@@ -15,11 +15,11 @@ import random
 import psutil
 from DDFacet.Imager.SSD import ClassArrayMethodSSD
 
-def FilterIslandsPix(ListIn,Npix):
+def FilterIslandsPix(ListIn,Npix_x,Npix_y):
     ListOut=[]
     for x,y in ListIn:
-        Cx=((x>=0)&(x<Npix))
-        Cy=((y>=0)&(y<Npix))
+        Cx=((x>=0)&(x<Npix_x))
+        Cy=((y>=0)&(y<Npix_y))
         if (Cx&Cy):
             ListOut.append([x,y])
     return ListOut
@@ -44,9 +44,9 @@ class ClassEvolveGA():
             ListPixParms=np.array([x.ravel().tolist(),y.ravel().tolist()]).T.tolist()
         self.IslandBestIndiv=IslandBestIndiv
 
-        _,_,Npix,_=Dirty.shape
-        ListPixData=FilterIslandsPix(ListPixData,Npix)
-        ListPixParms=FilterIslandsPix(ListPixParms,Npix)
+        _,_,Npix_x,Npix_y=Dirty.shape
+        ListPixData=FilterIslandsPix(ListPixData,Npix_x,Npix_y)
+        ListPixParms=FilterIslandsPix(ListPixParms,Npix_x,Npix_y)
         
 
         self.iIsland=iIsland
@@ -71,10 +71,21 @@ class ClassEvolveGA():
         #stop
 
     def InitEvolutionAlgo(self):
+        creator.class_replacers.pop(base.Fitness, None)
+
+        for name in ("FitnessMax", "Individual"):
+            if hasattr(creator, name):
+                delattr(creator, name)
+            
+        weights = self.ArrayMethodsMachine.WeightsEA
+        if isinstance(weights, np.ndarray):
+            weights = tuple(weights.tolist())
+            
         if "FitnessMax" not in dir(creator):
-            creator.create("FitnessMax", base.Fitness, weights=self.ArrayMethodsMachine.WeightsEA)
+            creator.create("FitnessMax", base.Fitness, weights=weights)
         if "Individual" not in dir(creator):
             creator.create("Individual", numpy.ndarray, fitness=creator.FitnessMax)
+
 
         toolbox = base.Toolbox()
 

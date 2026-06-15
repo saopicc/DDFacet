@@ -16,10 +16,15 @@ class ClassAdaptShape():
 
     def giveOutIm(self,Nout):
         A=self.A
-        nch,npol,Nin,_=A.shape
+        try:
+            Nout_x,Nout_y=Nout
+        except:
+            Nout_x=Nout_y=Nout
+        nch,npol,Nin_x,Nin_y=A.shape
 
-        if Nin==Nout: 
+        if (Nin_x==Nout_x) and (Nin_y==Nout_y): 
             return A.copy()
+        
         elif Nin>Nout:
             B=np.zeros((nch,npol,Nout,Nout),A.dtype)
             print(ModColor.Str("  Output image smaller than input image"), file=log)

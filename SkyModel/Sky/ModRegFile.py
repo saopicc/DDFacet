@@ -2,7 +2,10 @@ from __future__ import division, absolute_import, print_function
 from __future__ import division, absolute_import, print_function
 import numpy as np
 import regions
+from DDFacet.Other import logger
+log=logger.getLogger("ModRegFile")
 from regions import Regions
+
 
 def test():
     R=RegToNp()
@@ -10,6 +13,74 @@ def test():
     R.Cluster()
 
 from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
+from astropy.coordinates import SkyCoord
+import astropy.units as u
+import copy
+
+def radecRad2Reg(regFile,ra,dec,
+                 label=None,
+                 Type="Box",
+                 Color="blue",
+                 width=4,
+                 size=None):
+    if label is None:
+        label=[""]*ra.size
+
+    meta={'label': 'Cal5',
+         'select': '1',
+         'highlite': '1',
+         'fixed': '0',
+         'edit': '1',
+         'move': '1',
+         'delete': '1',
+         'include': True,
+         'source': '1',
+         'text': 'Cal5'}
+    visual={'color': 'green',
+            'dashlist': '8 3',
+            'linewidth': '4',
+            'font': 'helvetica',
+            'dash': '0',
+            'symbol': 's',
+            'symsize': '20',
+            'fontsize': '10',
+            'fontstyle': 'normal',
+            'fontweight': 'roman'}
+
+    Lr=[]
+    if size is None:
+        for iReg in range(ra.size):
+            ra0,dec0=ra[iReg],dec[iReg]
+            center = SkyCoord(ra[iReg],dec[iReg], unit='rad', frame='fk5')
+            m=copy.deepcopy(meta)
+            v=copy.deepcopy(visual)
+            m["label"]=label[iReg]
+            m["text"]=label[iReg]
+            v["linewidth"]=width
+            v["color"]=Color.lower()
+            Lr.append(regions.PointSkyRegion(center, meta=m, visual=v))
+        R=regions.Regions(Lr)
+    else:
+        for iReg in range(ra.size):
+            ra0,dec0=ra[iReg],dec[iReg]
+            center = SkyCoord(ra[iReg],dec[iReg], unit='rad', frame='fk5')
+            m=copy.deepcopy(meta)
+            v=copy.deepcopy(visual)
+            m["label"]=label[iReg]
+            m["text"]=label[iReg]
+            v["linewidth"]=width
+            v["color"]=Color.lower()
+            width=size[iReg]
+            width=width*u.rad
+            height=width
+            Lr.append(regions.RectangleSkyRegion(center, width, height))#, meta=m, visual=v))
+        R=regions.Regions(Lr)
+        
+        
+    log.print("Writting %s"%regFile)
+    R.write(regFile,overwrite=1)
+    
+
 
 
 class PolygonNpToReg():
@@ -38,7 +109,7 @@ class PolygonNpToReg():
         f.close()
 
 
-
+from regions import Regions
     
 class RegToNp():
     def __init__(self,RegName="/data/tasse/BOOTES/FirstPealed.reg"):
@@ -52,30 +123,36 @@ class RegToNp():
                                     ("Type","<S200"),("Exclude",np.bool_),
                                     ("dx",np.float32),("dy",np.float32),
                                     ("ra1",np.float32),("dec1",np.float32),
-                                    ("Cluster",np.int16),("ID",np.int16)])
+                                         ("Cluster",np.int16),("ID",np.int16),
+                                         ("color","|S20"),
+                                         ("marker","|S20")])
         Cat=Cat.view(np.recarray)
         Cat.Cluster=-1
         Cat.Cluster=np.arange(Cat.shape[0])
         Cat.ID=np.arange(Cat.shape[0])
         Cat.I=1
-        
+
         for iCat, reg in enumerate(regs):
             # Excluse region if color is any kind of red 
             # This is a bit hacky, because the color can be a word, or it can be
+            # color = reg.visual.get('facecolor',None)
+            # if color is None:
+            #     color = reg.visual.get('color',None)
             # a '#RRGGBB' hex code 
             color = reg.visual.get('color', reg.visual.get('edgecolor', 'green'))
+
             if color.startswith("#") and len(color) >= 7:
                 exclude = color[1:3] != "00"   # exclude if RR part of tuple is !=0
             else:
                 exclude = "red" in color
-                
+
             if type(reg) is regions.CircleSkyRegion:
                 
                 Cat.ra[iCat]  = reg.center.ra.rad
                 Cat.dec[iCat] = reg.center.dec.rad
                 Cat.Radius[iCat] = reg.radius.to("rad").value
                 Cat.Type[iCat]   = "Circle"
-            
+
             # treat ellipse and box the same (Cyril ignored ellipses)
             elif type(reg) is regions.RectangleSkyRegion or type(reg) is regions.EllipseSkyRegion:
                 
@@ -94,8 +171,19 @@ class RegToNp():
                 Cat.dec1[iCat]  = reg.end.dec.rad
                 Cat.Type[iCat]  = "Line"
 
+            elif type(reg) is regions.shapes.point.PointSkyRegion:
+                Cat.ra[iCat]    = reg.center.ra.rad
+                Cat.dec[iCat]   = reg.center.dec.rad
+                Cat.Type[iCat]  = "Point"
+                color  = reg.visual.get('color',"")
+                marker = reg.visual.get('symbol',"")
+                Cat.color[iCat]=color
+                Cat.marker[iCat]=marker
+            else:
+                log.print("%s not interpreted!!!!"%type(reg))
+                stop
             Cat.Exclude[iCat] = exclude
-                
+            
         Cat=(Cat[Cat.ra!=0]).copy()
         self.CatSel=Cat[Cat.Exclude==0]
         self.CatExclude=Cat[Cat.Exclude==1]

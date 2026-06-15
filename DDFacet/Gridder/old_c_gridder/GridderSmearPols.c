@@ -275,7 +275,7 @@ void griddername(PyArrayObject *grid, \
     double *incr=p_float64(increment);\
     double *Pfreqs=p_float64(freqs);\
     uvwScale_p[0]=fnGridX*incr[0];\
-    uvwScale_p[1]=fnGridX*incr[1];\
+    uvwScale_p[1]=fnGridY*incr[1];\
     double C=2.99792458e8;\
     int inx;\
     /* Loop over all visibility rows to process. */\
@@ -896,7 +896,7 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
 			&PyArray_Type, &LExpectedOutStokes
 			))  return NULL;
   int nx,ny,nz,nzz;
-  //np_grid = (PyArrayObject *) PyArray_ContiguousFromObject(ObjGridIn, PyArray_COMPLEX64, 0, 4);
+  //np_grid = (PyArrayObject *) PyArray_ContiguousFromObject(ObjGridIn, NPY_COMPLEX64, 0, 4);
   (PyArrayObject *) PyList_GetItem(Lmaps, 0);
   char* stokeslookup[] = {"undef","I","Q","U","V","RR","RL","LR","LL","XX","XY","YX","YY"};
   size_t ncorr = PyArray_Size((PyObject*)LDataCorrFormat);
@@ -1451,7 +1451,7 @@ void degriddername(PyArrayObject *grid, \
     double *incr=p_float64(increment);\
     double *Pfreqs=p_float64(freqs);\
     uvwScale_p[0]=fnGridX*incr[0];\
-    uvwScale_p[1]=fnGridX*incr[1];\
+    uvwScale_p[1]=fnGridY*incr[1];\
     double C=2.99792458e8;\
     int inx;\
     \

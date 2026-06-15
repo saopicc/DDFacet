@@ -27,10 +27,13 @@ from DDFacet.compatibility import range
 import pdb
 import numpy as np
 import warnings
-warnings.simplefilter('ignore', np.exceptions.RankWarning)
+try:
+    warnings.simplefilter('ignore', np.exceptions.RankWarning)
+except:
+    warnings.simplefilter('ignore', np.RankWarning)
 from scipy.optimize import curve_fit, fmin_l_bfgs_b
 from DDFacet.Other import logger
-from DDFacet.Imager.ClassScaleMachine import Store
+from DDFacet.Imager.WSCMS.ClassScaleMachine import Store
 log = logger.getLogger("ClassFreqMachine")
 
 class ClassFrequencyMachine(object):
@@ -75,7 +78,7 @@ class ClassFrequencyMachine(object):
             self.PSFServer = PSFServer
         else:
             mode = self.GD['Deconv']['Mode']
-            if mode == 'Hogbom' or mode == 'WSCMS':
+            if mode == 'Hogbom' or mode.startswith('WSCMS'):
                 print("No PSFServer provided, unable to use new freq fit mode", file=log)
 
     def set_Method(self, mode="Poly"):
@@ -98,7 +101,7 @@ class ClassFrequencyMachine(object):
                     # set order
                     if self.GD["Deconv"]["Mode"] == 'Hogbom':
                         self.order = self.GD["Hogbom"]["PolyFitOrder"]
-                    elif self.GD["Deconv"]["Mode"] == 'WSCMS':
+                    elif self.GD["Deconv"]["Mode"].startswith('WSCMS'):
                         self.order = self.GD["WSCMS"]["NumFreqBasisFuncs"]
                     print("Using %i order polynomial for frequency fit" % self.order, file=log)
                     # construct design matrix at gridding channel resolution

@@ -36,10 +36,7 @@ else:
 import pickle
 
 def Save(Obj,fileout):
-    #print "  Saving in %s ... "%fileout,
-    cPickle.dump(Obj, open(fileout,'wb'), 2)
-    #pickle.dump(Obj, open(fileout,'w'))
-    #print "  done"
+    cPickle.dump(Obj, open(fileout,'wb'), protocol=4)
 
 def Load(filein):
     

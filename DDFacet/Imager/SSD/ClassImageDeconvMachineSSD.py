@@ -43,6 +43,7 @@ from DDFacet.Array import NpParallel
 from DDFacet.Imager.SSD import ClassIslandDistanceMachine
 from DDFacet.Array import shared_dict
 import psutil
+from DDFacet.Other import AsyncProcessPool
 
 logger.setSilent("ClassArrayMethodSSD")
 logger.setSilent("ClassIsland")
@@ -57,9 +58,11 @@ class ClassImageDeconvMachine():
                  NFreqBands=1,
                  RefFreq=None,
                  MainCache=None,
+                 APP=None,
                  **kw    # absorb any unknown keywords arguments into this
                  ):
         #self.im=CasaImage
+        self.APP=APP
         self.maincache = MainCache
         self.SearchMaxAbs=SearchMaxAbs
         self.ModelImage=None
@@ -104,14 +107,14 @@ class ClassImageDeconvMachine():
             self.InitMachine = ClassInitSSDModelHMP.ClassInitSSDModelParallel(self.GD,
                                                                          NFreqBands,RefFreq,
                                                                          MainCache=self.maincache,
-                                                                         IdSharedMem=self.IdSharedMem)
+                                                                              IdSharedMem=self.IdSharedMem,APP=self.APP)
         elif InitType == "MORESANE":
             from . import ClassInitSSDModelMoresane
             self.InitMachine = ClassInitSSDModelMoresane.ClassInitSSDModelParallel(self.GD,
                                                                                    NFreqBands, RefFreq,
                                                                                    NCPU=self.NCPU,
                                                                                    MainCache=self.maincache,
-                                                                                   IdSharedMem=self.IdSharedMem)
+                                                                                   IdSharedMem=self.IdSharedMem,APP=self.APP)
         else:
             raise ValueError("InitType should be HMP or MORESANE")
         self._init_machine_initialized = False
@@ -189,12 +192,13 @@ class ClassImageDeconvMachine():
         self._Dirty=self.DicoDirty["ImageCube"]
         self._MeanDirty=self.DicoDirty["MeanImage"]
 
-        NPSF=self.PSFServer.NPSF
-        _,_,NDirty,_=self._Dirty.shape
+        NPSF_x,NPSF_y=self.PSFServer.NPSF
+        _,_,NDirty_x,NDirty_y=self._Dirty.shape
 
-        off=(NPSF-NDirty)//2
+        off_x=(NPSF_x-NDirty_x)//2
+        off_y=(NPSF_y-NDirty_y)//2
 
-        self.DirtyExtent=(off,off+NDirty,off,off+NDirty)
+        self.DirtyExtent=(off_x,off_x+NDirty_x,off_y,off_y+NDirty_y)
 
         if self.ModelImage is None:
             self._ModelImage=np.zeros_like(self._Dirty)
@@ -325,6 +329,7 @@ class ClassImageDeconvMachine():
             self.DicoInitIndiv = self.InitMachine.giveDicoInitIndiv(self.ListIslands,
                                                                     ListDoIsland=ListDoIslandsInit,
                                                                     ModelImage=ModelImage, DicoDirty=self.DicoDirty)
+
         if self.GD["Misc"]["ConserveMemory"]:
             self._reset_InitMachine()
 
@@ -359,7 +364,7 @@ class ClassImageDeconvMachine():
         #print "::::::::::::::::::::::"
         self.RMS=RMS
 
-        self.GainMachine.SetRMS(RMS)
+        #self.GainMachine.SetRMS(RMS)
         
         Fluxlimit_RMS = self.RMSFactor*RMS
 
@@ -627,56 +632,58 @@ class ClassImageDeconvMachine():
     ###################################################################################
     ###################################################################################
     
-    def GiveEdges(self,xc0,yc0,N0,xc1,yc1,N1):
-        M_xc=xc0
-        M_yc=yc0
-        NpixMain=N0
-        F_xc=xc1
-        F_yc=yc1
-        NpixFacet=N1
+    # def GiveEdges(self,xc0,yc0,N0,xc1,yc1,N1):
+    #     stop # just to see if this is needed anywhere
+    #     M_xc=xc0
+    #     M_yc=yc0
+    #     NpixMain=N0
+    #     F_xc=xc1
+    #     F_yc=yc1
+    #     NpixFacet=N1
                 
-        ## X
-        M_x0=M_xc-NpixFacet//2
-        x0main=np.max([0,M_x0])
-        dx0=x0main-M_x0
-        x0facet=dx0
+    #     ## X
+    #     M_x0=M_xc-NpixFacet//2
+    #     x0main=np.max([0,M_x0])
+    #     dx0=x0main-M_x0
+    #     x0facet=dx0
                 
-        M_x1=M_xc+NpixFacet//2
-        x1main=np.min([NpixMain-1,M_x1])
-        dx1=M_x1-x1main
-        x1facet=NpixFacet-dx1
-        x1main+=1
-        ## Y
-        M_y0=M_yc-NpixFacet//2
-        y0main=np.max([0,M_y0])
-        dy0=y0main-M_y0
-        y0facet=dy0
+    #     M_x1=M_xc+NpixFacet//2
+    #     x1main=np.min([NpixMain-1,M_x1])
+    #     dx1=M_x1-x1main
+    #     x1facet=NpixFacet-dx1
+    #     x1main+=1
+    #     ## Y
+    #     M_y0=M_yc-NpixFacet//2
+    #     y0main=np.max([0,M_y0])
+    #     dy0=y0main-M_y0
+    #     y0facet=dy0
         
-        M_y1=M_yc+NpixFacet//2
-        y1main=np.min([NpixMain-1,M_y1])
-        dy1=M_y1-y1main
-        y1facet=NpixFacet-dy1
-        y1main+=1
+    #     M_y1=M_yc+NpixFacet//2
+    #     y1main=np.min([NpixMain-1,M_y1])
+    #     dy1=M_y1-y1main
+    #     y1facet=NpixFacet-dy1
+    #     y1main+=1
 
-        Aedge=[x0main,x1main,y0main,y1main]
-        Bedge=[x0facet,x1facet,y0facet,y1facet]
-        return Aedge,Bedge
+    #     Aedge=[x0main,x1main,y0main,y1main]
+    #     Bedge=[x0facet,x1facet,y0facet,y1facet]
+    #     return Aedge,Bedge
 
 
-    def SubStep(self,dx,dy,LocalSM):
-        npol,_,_=self.Dirty.shape
-        x0,x1,y0,y1=self.DirtyExtent
-        xc,yc=dx,dy
-        N0=self.Dirty.shape[-1]
-        N1=LocalSM.shape[-1]
-        Aedge,Bedge=self.GiveEdges(xc,yc,N0,N1//2,N1//2,N1)
-        factor=-1.
-        nch,npol,nx,ny=LocalSM.shape
-        x0d,x1d,y0d,y1d=Aedge
-        x0p,x1p,y0p,y1p=Bedge
-        self._Dirty[:,:,x0d:x1d,y0d:y1d]-=LocalSM[:,:,x0p:x1p,y0p:y1p]
-        W=np.float32(self.DicoDirty["WeightChansImages"])
-        self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.sum(LocalSM[:,:,x0p:x1p,y0p:y1p]*W.reshape((W.size,1,1,1)),axis=0)
+    # def SubStep(self,dx,dy,LocalSM):
+    #     stop # just to see if this is needed anywhere
+    #     npol,_,_=self.Dirty.shape
+    #     x0,x1,y0,y1=self.DirtyExtent
+    #     xc,yc=dx,dy
+    #     N0=self.Dirty.shape[-1]
+    #     N1=LocalSM.shape[-1]
+    #     Aedge,Bedge=self.GiveEdges(xc,yc,N0,N1//2,N1//2,N1)
+    #     factor=-1.
+    #     nch,npol,nx,ny=LocalSM.shape
+    #     x0d,x1d,y0d,y1d=Aedge
+    #     x0p,x1p,y0p,y1p=Bedge
+    #     self._Dirty[:,:,x0d:x1d,y0d:y1d]-=LocalSM[:,:,x0p:x1p,y0p:y1p]
+    #     W=np.float32(self.DicoDirty["WeightChansImages"])
+    #     self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.sum(LocalSM[:,:,x0p:x1p,y0p:y1p]*W.reshape((W.size,1,1,1)),axis=0)
 
     def Update(self,DicoDirty,**kwargs):
         """
@@ -767,6 +774,10 @@ class WorkerDeconvIsland(multiprocessing.Process):
                 success = False
                 break
 
+            # in case APP sets the main process with affinity 0, the child process also has this by default
+            main_process_affinity=AsyncProcessPool.get_main_process_affinity()
+            psutil.Process().cpu_affinity(main_process_affinity)
+            
             island_dict = shared_dict.attach(shdict_path)
 
             ThisPixList = island_dict["Island"].tolist()
@@ -781,7 +792,7 @@ class WorkerDeconvIsland(multiprocessing.Process):
             dx=self.GD["SSDClean"]["NEnlargeData"]
             if dx>0:
                 IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
-                ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=dx)
+                ListPixData,_=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=dx)
             
             if self.DeconvMode=="GAClean":
                 CEv=ClassEvolveGA(self._Dirty,

@@ -26,7 +26,7 @@ from DDFacet.compatibility import range
 
 import numpy as np
 from DDFacet.ToolsDir import gaussfitter2
-import scipy.ndimage.measurements
+import scipy.ndimage
 
 from DDFacet.Other import logger
 log= logger.getLogger("FitPSF")
@@ -44,7 +44,7 @@ def FitCleanBeam(PSF):
     """
     # zero everything except the main lobe
     PSF1 = PSF.copy()
-    labels = scipy.ndimage.measurements.label(PSF1>=0)[0]
+    labels = scipy.ndimage.label(PSF1>=0)[0]
     amax = np.unravel_index(np.argmax(PSF), PSF.shape)
     PSF1[labels != labels[amax]] = 0
     popt=gaussfitter2.gaussfit(PSF1, vheight=0, return_all=0, rotate=1)
@@ -96,7 +96,7 @@ def FindSidelobe(PSF):
     nx,ny=PSF.shape
     
     PSF1 = PSF.copy()
-    labels = scipy.ndimage.measurements.label(PSF1>=0)[0]
+    labels = scipy.ndimage.label(PSF1>=0)[0]
     PSF1[labels == labels[amax]] = 0
     
     amax_sl = np.unravel_index(np.argmax(PSF1), PSF1.shape)

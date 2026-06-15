@@ -144,7 +144,8 @@ class ClassGMRTBeam():
         #self.LoadSR()
         nch=self.MS.ChanFreq.size
         Beam=np.zeros((ra.shape[0],self.MS.na,self.MS.NSPWChan,2,2),dtype=complex)
-        rac,decc=self.MS.OriginalRadec
+        rac,decc=self.MS.PointingRadec
+
         d=AngDist(ra,dec,rac,decc)*180./np.pi*60
         
         for ich in range(nch):
@@ -158,6 +159,9 @@ class ClassGMRTBeam():
             
         return Beam
 
+    def evaluateBeam(self,time,ras,decs):
+        return self.GiveInstrumentBeam(time,ras,decs)
+    
     def GiveInstrumentBeam(self,*args,**kwargs):
         
         T=ClassTimeIt.ClassTimeIt("GiveInstrumentBeam")

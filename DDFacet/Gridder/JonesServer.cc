@@ -187,6 +187,8 @@ namespace DDF {
 	ptrSumJonesChan=py::array_t<double, py::array::c_style>(LJones[18]).mutable_data(0);
 
 	ReWeightSNR=LJones[19].cast<double>();
+	ComputeMTilde=LJones[20].cast<bool>();
+	ptrSumMTilde=py::array_t<dcmplx, py::array::c_style>(LJones[21]).mutable_data(0);
 	}
       }
 
@@ -290,8 +292,66 @@ namespace DDF {
 
 	BB=(abs(J0[0])*abs(J1[0])+abs(J0[3])*abs(J1[3]))/2.;
 	BB*=BB;
+
+	
+	
+
 	J0H=J0.hermitian();
 	J1H=J1.hermitian();
+
+
+	// ===============================================
+	// TensorProduct((J1H * J1).T, J0H * J0)
+	if (ComputeMTilde){
+	//std::cout<<"bla"<<ComputeMTilde<<std::endl;
+	a0=J0[0];
+	b0=J0[1];
+	c0=J0[2];
+	d0=J0[3];
+	a1=J1[0];
+	b1=J1[1];
+	c1=J1[2];
+	d1=J1[3];
+	a0a0c=a0*conj(a0);
+	a0b0c=a0*conj(b0);
+	a1a1c=a1*conj(a1);
+	a1b1c=a1*conj(b1);
+	b0a0c=b0*conj(a0);
+	b0b0c=b0*conj(b0);
+	b1a1c=b1*conj(a1);
+	b1b1c=b1*conj(b1);
+	c0c0c=c0*conj(c0);
+	c0d0c=c0*conj(d0);
+	c1c1c=c1*conj(c1);
+	c1d1c=c1*conj(d1);
+	d0c0c=d0*conj(c0);
+	d0d0c=d0*conj(d0);
+	d1c1c=d1*conj(c1);
+	d1d1c=d1*conj(d1);
+
+	
+	MTilde2[0]= (a0a0c + c0c0c)*(a1a1c + c1c1c);
+	MTilde2[1]= (a1a1c + c1c1c)*(b0a0c + d0c0c);
+	MTilde2[2]= (a0a0c + c0c0c)*(a1b1c + c1d1c);
+	MTilde2[3]= (a1b1c + c1d1c)*(b0a0c + d0c0c);
+	MTilde2[4]= (a0b0c + c0d0c)*(a1a1c + c1c1c);
+	MTilde2[5]= (a1a1c + c1c1c)*(b0b0c + d0d0c);
+        MTilde2[6]= (a0b0c + c0d0c)*(a1b1c + c1d1c);
+        MTilde2[7]= (a1b1c + c1d1c)*(b0b0c + d0d0c);
+        MTilde2[8]= (a0a0c + c0c0c)*(b1a1c + d1c1c);
+        MTilde2[9]= (b0a0c + d0c0c)*(b1a1c + d1c1c);
+        MTilde2[10]=(a0a0c + c0c0c)*(b1b1c + d1d1c);
+        MTilde2[11]=(b0a0c + d0c0c)*(b1b1c + d1d1c);
+        MTilde2[12]=(a0b0c + c0d0c)*(b1a1c + d1c1c);
+        MTilde2[13]=(b0b0c + d0d0c)*(b1a1c + d1c1c);
+        MTilde2[14]=(a0b0c + c0d0c)*(b1b1c + d1d1c);
+        MTilde2[15]=(b0b0c + d0d0c)*(b1b1c + d1d1c);
+
+	}
+	// ===============================================
+
+	
+
         return true;
 	}
       return false;

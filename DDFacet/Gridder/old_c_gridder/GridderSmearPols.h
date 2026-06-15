@@ -31,11 +31,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #include <time.h>
 
-#if PY_MAJOR_VERSION >= 3
-  typedef long int;
-  #define p_int32 p_int64
-#endif
-
 
 
 /* ==== Prototypes =================================== */
@@ -58,14 +53,14 @@ int nint(double n){
   return floor(n+0.5);};
 
 /* .... Python callable Matrix functions ..................*/
-#if PY_MAJOR_VERSION >= 3
-  #define PyString_AsString(x) PyBytes_AsString(PyUnicode_AsASCIIString(x))
-  #define p_int32 p_int64
-#else
+//#if PY_MAJOR_VERSION >= 3
+#define PyString_AsString(x) PyBytes_AsString(PyUnicode_AsASCIIString(x))
+//  #define p_int32 p_int64
+//#else
   int *p_int32(PyArrayObject *arrayin)  {
     return (int *) arrayin->data;  /* pointer to arrayin data as double */
   }
-#endif
+//#endif
 int *I_ptr(PyArrayObject *arrayin)  {
 	return (int *) arrayin->data;
 }
@@ -129,7 +124,7 @@ float GiveDecorrelationFactor(int FSmear, int TSmear,
 			      double* uvwPtr,
 			      double* uvw_dt_Ptr,
 			      float nu,
-			      float Dnu, 
+			      float Dnu,
 			      float DT){
   //float PI=3.141592653589793238462643383279502884197;
   //float C=2.99792458e8;
@@ -157,7 +152,7 @@ float GiveDecorrelationFactor(int FSmear, int TSmear,
   float du,dv,dw;
   float dphase;
   if(TSmear==1){
-    
+
     du=uvw_dt_Ptr[0]*l0;
     dv=uvw_dt_Ptr[1]*m0;
     dw=uvw_dt_Ptr[2]*n0;

@@ -18,6 +18,7 @@ import time as timemod
 from . import terminal
 from DDFacet.Other import ModColor
 
+from DDFacet.Other import MPIManager
 
 def disableBars():
     ProgressBar.silent = 1
@@ -48,7 +49,7 @@ class ProgressBar(object):
     PADDING = 7
     silent=0
     
-    def __init__(self, color='white', width=50, block='=', empty=' ',Title=None,HeaderSize=37):
+    def __init__(self, color='white', width=50, block='=', empty=' ',Title=None,HeaderSize=40):
         """
         color -- color name (BLUE GREEN CYAN RED MAGENTA YELLOW WHITE BLACK)
         width -- bar width (optinal)
@@ -71,7 +72,12 @@ class ProgressBar(object):
         self.empty = empty
         self.progress = None
         self.lines = 0
-
+        self.ShiftMPI=0
+        if MPIManager.useMPI:
+            Title=" [#%i]%s"%(MPIManager.rank,Title)
+        else:
+            self.ShiftMPI=5
+            
         self.Title=Title
         
         self.HasRendered=False
@@ -80,6 +86,7 @@ class ProgressBar(object):
         self.disableTag=False
 
     def format(self,strin,Size,side=0,TitleIn=None):
+        stop
         if TitleIn is None:
             Title=self.TitleIn
         else:
@@ -138,7 +145,8 @@ class ProgressBar(object):
 
         TSize=len(self.Title)
         MSize=len(message)
-        NDots=self.HeaderSize-TSize-MSize
+        NDots=self.HeaderSize-TSize-MSize-self.ShiftMPI
+        
         Header=ModColor.Str(self.Title, col="blue", Bold=False)+"."*NDots+message
             
         inline_msg_len = 0
@@ -146,12 +154,13 @@ class ProgressBar(object):
             # The length of the first line in the message
             inline_msg_len = len(message.splitlines()[0])+len(self.Title)
 
-        if inline_msg_len + self.width + self.PADDING > terminal.getValueChecked("COLUMNS"):
-            # The message is too long to fit in one line.
-            # Adjust the bar width to fit.
-            bar_width = terminal.getValueChecked("COLUMNS") - inline_msg_len - self.PADDING
-        else:
-            bar_width = self.width
+        # if inline_msg_len + self.width + self.PADDING > terminal.getValueChecked("COLUMNS"):
+        #     # The message is too long to fit in one line.
+        #     # Adjust the bar width to fit.
+        #     bar_width = terminal.getValueChecked("COLUMNS") - inline_msg_len - self.PADDING
+        # else:
+        #     bar_width = self.width
+        bar_width = self.width
  
         # Check if render is called for the first time
         if self.progress != None:

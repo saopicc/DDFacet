@@ -100,22 +100,24 @@ class ClassIslandDistanceMachine():
             dx=self.GD["SSDClean"]["NEnlargePars"]
             if dx>0:
                 print("  increase their sizes by %i pixels"%dx, file=log)
-                IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
+                IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland(self._MaskArray)
                 for iIsland in range(len(ListIslands)):#self.NIslands):
-                    ListIslands[iIsland]=IncreaseIslandMachine.IncreaseIsland(ListIslands[iIsland],dx=dx)
+                    ListIslands[iIsland],W=IncreaseIslandMachine.IncreaseIsland(ListIslands[iIsland],
+                                                                                dx=dx,
+                                                                                AllowMasked=False)
 
         
         return ListIslands
 
     def CalcLabelImage(self,ListIslands):
         print("  calculating label image", file=log)
-        _,_,nx,_=self._MaskArray.shape
-        Labels=np.zeros((nx,nx),dtype=np.float32)
+        _,_,nx,ny=self._MaskArray.shape
+        Labels=np.zeros((nx,ny),dtype=np.float32)
 
         for iIsland,ThisIsland in enumerate(ListIslands):
             x,y=np.array(ThisIsland).T
             Labels[np.int32(x),np.int32(y)]=iIsland+1
-        return Labels.reshape((1,1,nx,nx))
+        return Labels.reshape((1,1,nx,ny))
 
     def BreakLargeIslands(self,ListIslands):
         if self.GD["SSDClean"]["MaxIslandSize"]:
@@ -156,10 +158,11 @@ class ClassIslandDistanceMachine():
         PSF=np.mean(np.abs(self.PSFServer.DicoVariablePSF["MeanFacetPSF"][:,0]),axis=0)#self.PSFServer.DicoVariablePSF["MeanFacetPSF"][0,0]
         
         
-        nPSF,_=PSF.shape
-        xcPSF,ycPSF=nPSF//2,nPSF//2
+        nPSF_x,nPSF_y=PSF.shape
+        xcPSF,ycPSF=nPSF_x//2,nPSF_y//2
 
-        IN=lambda x: ((x>=0)&(x<nPSF))
+        IN_x=lambda x: ((x>=0)&(x<nPSF_x))
+        IN_y=lambda x: ((x>=0)&(x<nPSF_y))
 
 
         NIslands=len(ListIslands)
@@ -203,14 +206,14 @@ class ClassIslandDistanceMachine():
         self.DistCross=np.sqrt(dx**2+dy**2)
 
         dx+=xcPSF
-        dy+=xcPSF
+        dy+=ycPSF
         PSFCross=np.zeros((NIslands,NIslands),np.float32)
         indPSF=np.arange(NIslands**2)
-        Cx=((dx>=0)&(dx<nPSF))
-        Cy=((dy>=0)&(dy<nPSF))
+        Cx=((dx>=0)&(dx<nPSF_x))
+        Cy=((dy>=0)&(dy<nPSF_y))
         C=(Cx&Cy)
         indPSF_sel=indPSF[C.ravel()]
-        indPixPSF=dx.ravel()[C.ravel()]*nPSF+dy.ravel()[C.ravel()]
+        indPixPSF=dx.ravel()[C.ravel()]*nPSF_y+dy.ravel()[C.ravel()]
         PSFCross.flat[indPSF_sel]=np.abs(PSF.flat[indPixPSF.ravel()])
 
 
@@ -349,14 +352,14 @@ class ClassIslandDistanceMachine():
     def giveEdgesIslands(self,ListIslands):
         print("  extracting Island edges", file=log)
         ListEdgesIslands=[]
-        _,_,nx,_=self._MaskArray.shape
+        _,_,nx,ny=self._MaskArray.shape
         #Ed=np.zeros_like(self._MaskArray)
         for Island in ListIslands:
             x,y=np.array(Island).T
             EdgesIsland=[]
             for iPix in range(x.size):
                 xc,yc=x[iPix],y[iPix]
-                Aedge,Bedge=GiveEdgesDissymetric(xc,yc,nx,nx,1,1,3,3)
+                Aedge,Bedge=GiveEdgesDissymetric(xc,yc,nx,ny,1,1,3,3)
                 x0d,x1d,y0d,y1d=Aedge
                 m=self._MaskArray[0,0][x0d:x1d,y0d:y1d]
                 if 1 in m:
@@ -490,11 +493,12 @@ class ClassIslandDistanceMachine():
         while iResult < NJobs:
             DicoResult = None
             if result_queue.qsize() != 0:
-                try:
-                    DicoResult = result_queue.get()
-                except:
-                    pass
-
+                DicoResult = result_queue.get()
+                # try:
+                #     DicoResult = result_queue.get()
+                # except:
+                #     pass
+            
             if DicoResult == None:
                 time.sleep(0.5)
                 continue
@@ -506,7 +510,7 @@ class ClassIslandDistanceMachine():
 
                 iIsland=DicoResult["iIsland"]
                 Result=NpShared.GiveArray("%sDistances_%6.6i"%(self.IdSharedMem,iIsland))
-
+                
                 self.dx[iIsland]=Result[0]
                 self.dy[iIsland]=Result[1]
                 self.D[iIsland]=Result[2]

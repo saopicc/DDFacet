@@ -43,6 +43,7 @@ from DDFacet.Imager.SSD2 import ClassIslandDistanceMachine
 from DDFacet.Array import shared_dict
 import psutil
 import copy
+from DDFacet.Other import AsyncProcessPool
 
 logger.setSilent("ClassArrayMethodSSD")
 logger.setSilent("ClassIsland")
@@ -57,15 +58,21 @@ class ClassImageDeconvMachine():
                  NFreqBands=1,
                  RefFreq=None,
                  MainCache=None,
+                 APP=None,
                  **kw    # absorb any unknown keywords arguments into this
                  ):
         #self.im=CasaImage
+        self.APP=APP
         self.maincache = MainCache
         self.SearchMaxAbs=SearchMaxAbs
         self.ModelImage=None
         self.MaxMinorIter=MaxMinorIter
         self.NCPU=NCPU
         self.GD=copy.deepcopy(GD)
+        from DDFacet.Imager.MultiFields.AppendSubFieldInfo import AppendSubFieldInfo
+        AppendSubFieldInfo(self)
+        
+        
         self.DicoDicoInitIndiv=None
         if NCPU==0:
             self.NCPU=int(GD["Parallel"]["NCPU"] or psutil.cpu_count())
@@ -74,13 +81,14 @@ class ClassImageDeconvMachine():
             self.IdSharedMem=str(os.getpid())
         else:
             self.IdSharedMem=IdSharedMem
+        self.IdSharedMem="%s%s"%(self.IdSharedMem,self.StrField)
         self.SubPSF=None
         self.MultiFreqMode=(self.GD["Freq"]["NBand"]>1)
         self.FluxThreshold = FluxThreshold 
         self.CycleFactor = CycleFactor
         self.RMSFactor = RMSFactor
         self.PeakFactor = PeakFactor
-        self.GainMachine=ClassGainMachine.get_instance()
+        #self.GainMachine=ClassGainMachine.get_instance()
         # if ModelMachine is None:
         #     from DDFacet.Imager.SSD import ClassModelMachineSSD
         #     self.ModelMachine=ClassModelMachineSSD.ClassModelMachine(self.GD,GainMachine=self.GainMachine)
@@ -100,7 +108,7 @@ class ClassImageDeconvMachine():
         self.DeconvMode="GAClean"
         
         if self.GD["SSD2"]["PolyFreqOrder"]>NFreqBands:
-            stop
+            raise ValueError("NFreqBands should be greater that SSD2-PolyFreqOrder")
             
         if self.GD["SSD2"]["PolyFreqOrder"]==0:
             # that works but I prefer to forbid it since it's a bit dangerous
@@ -128,7 +136,7 @@ class ClassImageDeconvMachine():
                 self.ListInitMachine.append( ClassInitSSDModelHMP.ClassInitSSDModelParallel(self.GD,
                                                                                             NFreqBands,RefFreq,
                                                                                             MainCache=self.maincache,
-                                                                                            IdSharedMem=self.IdSharedMem) )
+                                                                                            IdSharedMem=self.IdSharedMem,APP=self.APP) )
             elif InitType == "MORESANE":
                 from . import ClassInitSSDModelMoresane
                 print(ModColor.Str("Initialisation of sourcekins using MORESANE",col="blue"),file=log)
@@ -136,24 +144,27 @@ class ClassImageDeconvMachine():
                                                                                                  NFreqBands, RefFreq,
                                                                                                  NCPU=self.NCPU,
                                                                                                  MainCache=self.maincache,
-                                                                                                 IdSharedMem=self.IdSharedMem) )
+                                                                                                 IdSharedMem=self.IdSharedMem,APP=self.APP) )
             elif "MultiSlice" in InitType:
                 GD=copy.deepcopy(GD)
                 _,SubType=InitType.split(":")
                 GD["MultiSliceDeconv"]["Type"]=SubType
                 from . import ClassInitSSDModelMultiSlice
                 print(ModColor.Str("Initialisation of sourcekins using MultiSlice/%s"%GD["MultiSliceDeconv"]["Type"],col="blue"),file=log)
-                self.ListInitMachine.append( ClassInitSSDModelMultiSlice.ClassInitSSDModelParallel(GD,
-                                                                                                   NFreqBands, RefFreq,
-                                                                                                   NCPU=self.NCPU,
-                                                                                                   MainCache=self.maincache,
-                                                                                                   IdSharedMem=self.IdSharedMem) )
+
+                InitMachine=ClassInitSSDModelMultiSlice.ClassInitSSDModelParallel(GD,
+                                                                                  NFreqBands, RefFreq,
+                                                                                  NCPU=self.NCPU,
+                                                                                  MainCache=self.maincache,
+                                                                                  IdSharedMem=self.IdSharedMem,APP=self.APP)
+
+                self.ListInitMachine.append( InitMachine )
                 
             else:
                 raise ValueError("InitType should be HMP or MultiSlice or MORESANE")
 
-        if len(self.ListInitMachine)>1 and GD["GAClean"]["NMaxGen"]==0:
-            stop
+        # if len(self.ListInitMachine)>1 and GD["GAClean"]["NMaxGen"]==0:
+        #     stop
         self._init_machine_initialized = False
 
     def setMaxMajorIter(self,MaxMajorIter):
@@ -180,6 +191,7 @@ class ClassImageDeconvMachine():
         
 
     def SetPSF(self,DicoVariablePSF):
+
         self.PSFServer=ClassPSFServer(self.GD)
         self.PSFServer.setDicoVariablePSF(DicoVariablePSF)
         self.PSFServer.setRefFreq(self.ModelMachine.RefFreq)
@@ -188,12 +200,33 @@ class ClassImageDeconvMachine():
 
         #self.PSFServer.RefFreq=self.ModelMachine.RefFreq
 
-    def _init_InitMachine(self):
+    def _init_InitMachine(self,useCachedHMP=False):
         if not self._init_machine_initialized:
             for InitMachine in self.ListInitMachine:
-                InitMachine.Init(self.DicoVariablePSF, self.GridFreqs, self.DegridFreqs)
+                kwargs={}
+                if InitMachine.Type=="HMP" and useCachedHMP:
+                    facetcache=shared_dict.attach("HMP_InitSSD")
+                    # print("SDKSFKNSDFKS",facetcache.keys())
+                    kwargs={"facetcache":facetcache}
+                InitMachine.Init(self.DicoVariablePSF, self.GridFreqs, self.DegridFreqs,**kwargs)
+
+                if InitMachine.Type.startswith("MultiSlice"):
+                    # cache Taylor term grid
+                    InitMachine.InitMachine.DeconvMachine.SetPSF(self.DicoVariablePSF)
+                    
+                #print(self.DicoVariablePSF.keys())
                 
-        self._init_machine_initialized = True
+            self._init_machine_initialized = True
+    # def _init_InitMachine(self):
+    #     if not self._init_machine_initialized:
+    #         for InitMachine in self.ListInitMachine:
+    #             InitMachine.Init(self.DicoVariablePSF, self.GridFreqs, self.DegridFreqs,**kwargs)
+
+    #             if InitMachine.Type.startswith("MultiSlice"):
+    #                 # cache Taylor term grid
+    #                 InitMachine.InitMachine.DeconvMachine.SetPSF(self.DicoVariablePSF)
+                
+    #     self._init_machine_initialized = True
 
     def _reset_InitMachine(self):
         if self._init_machine_initialized:
@@ -234,12 +267,13 @@ class ClassImageDeconvMachine():
         self._Dirty=self.DicoDirty["ImageCube"]
         self._MeanDirty=self.DicoDirty["MeanImage"]
 
-        NPSF=self.PSFServer.NPSF
-        _,_,NDirty,_=self._Dirty.shape
+        NPSF_x,NPSF_y=self.PSFServer.NPSF
+        _,_,NDirty_x,NDirty_y=self._Dirty.shape
 
-        off=(NPSF-NDirty)//2
+        off_x=(NPSF_x-NDirty_x)//2
+        off_y=(NPSF_y-NDirty_y)//2
 
-        self.DirtyExtent=(off,off+NDirty,off,off+NDirty)
+        self.DirtyExtent=(off_x,off_x+NDirty_x,off_y,off_y+NDirty_y)
 
         if self.ModelImage is None:
             self._ModelImage=np.zeros_like(self._Dirty)
@@ -262,6 +296,14 @@ class ClassImageDeconvMachine():
         #     FluxIslands.append(np.sum(Dirty[0,0,x,y]))
         # ind=np.argsort(np.array(FluxIslands))[::-1]
 
+        # _,_,nx,ny=self._Dirty.shape
+        # self.iIslandImage=np.zeros_like(self._Dirty)
+        # for i in range(0,nx,5):
+        #     print("%i/%i"%(i,nx))
+        #     for j in range(0,ny,5):
+        #         FacetID=self.PSFServer.giveFacetID2(i,j)
+        #         self.iIslandImage[:,:,i,j]=FacetID
+                
         # ListIslandsSort=[ListIslands[i] for i in ind]
         
 
@@ -294,12 +336,17 @@ class ClassImageDeconvMachine():
             #     self.ListIslands.append(ListIslands[iIsland])
             # ###############################
         # #############################
+        
         print("  selected %i islands [out of %i] with peak flux > %.3g Jy"%(len(ListIslandsFiltered),len(ListIslands),Threshold), file=log)
+        if len(ListIslandsFiltered)==0:
+            return "NoIslands"
         ListIslands=ListIslandsFiltered
         #ListIslands=[np.load("errIsland_000524.npy").tolist()]
         
         ListIslands=IslandDistanceMachine.CalcCrossIslandFlux(ListIslands)
-        ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
+        if self.GD["SSD2"]["ConvexifyIslands"]:
+            ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
+            
         ListIslands=IslandDistanceMachine.MergeIslands(ListIslands)
         ListIslands=IslandDistanceMachine.BreakLargeIslands(ListIslands)
         
@@ -365,11 +412,13 @@ class ClassImageDeconvMachine():
 
         print("  selected %i islands larger than %i pixels for initialisation"%(np.count_nonzero(ListDoIslandsInit),self.GD["GAClean"]["MinSizeInit"]), file=log)
 
+        # initialise the init machines in the main process (does the needed cache for the workers to load)
         self._init_InitMachine()
+        
         if self.DicoDicoInitIndiv is not None:
             self.DicoDicoInitIndiv.delete()
             
-        self.DicoDicoInitIndiv  = shared_dict.create("DicoDicoInitIndiv")
+        self.DicoDicoInitIndiv  = shared_dict.create("DicoDicoInitIndiv%s"%self.StrField)
         if np.count_nonzero(ListDoIslandsInit)>0:
             self.ListDicoInitIndiv=[]
             for iMachine,InitMachine in enumerate(self.ListInitMachine):
@@ -412,8 +461,15 @@ class ClassImageDeconvMachine():
         RMS=np.std(np.real(self.Dirty.ravel()[RandomInd]))
         #print "::::::::::::::::::::::"
         self.RMS=RMS
-
-        self.GainMachine.SetRMS(RMS)
+        self.DicoDirty["RMS"]=RMS
+        LRMS=[]
+        nch=self.DicoDirty["ImageCube"].shape[0]
+        for ich in range(nch):
+            ThisRMS=np.std(np.real(self.DicoDirty["ImageCube"][ich].flat[RandomInd]))
+            LRMS.append(ThisRMS)
+        self.DicoDirty["LRMS"]=LRMS
+        
+        #self.GainMachine.SetRMS(RMS)
         
         Fluxlimit_RMS = self.RMSFactor*RMS
 
@@ -453,6 +509,7 @@ class ClassImageDeconvMachine():
         print("    Stopping flux              = %10.6f Jy [%.3f of peak ]"%(StopFlux,StopFlux/MaxDirty), file=log)
 
         
+        
         MaxModelInit=np.max(np.abs(self.ModelImage))
 
         
@@ -465,16 +522,29 @@ class ClassImageDeconvMachine():
         T=ClassTimeIt.ClassTimeIt()
         T.disable()
 
+        ParmDict = shared_dict.create("ParmDict%s"%self.StrField) # ParmDict
+        # ParmDict["ModelImageInt"] = ModelImage
+        # ParmDict["ModelImageApp"] = ModelImageApp
+        # ParmDict["GridFreqs"] = self.GridFreqs
+        # ParmDict["DegridFreqs"] = self.DegridFreqs
+        # ParmDict["RMS"] = RMS
+        ParmDict["iMajor"] = self._CurrentMajorIter
+
+        
         x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskMachine.CurrentNegMask)
 
         if ThisFlux < StopFlux:
             print(ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done here" % (ThisFlux),col="green" ), file=log)
             return "FluxThreshold", False, False
 
-        self.SearchIslands(StopFlux)
+        rep=self.SearchIslands(StopFlux)
+        if rep=="NoIslands":
+            return "FluxThreshold", False, False
         #return None,None,None
         self.InitIslands()
 
+
+        
 
         if self.DeconvMode=="GAClean":
             print("Evolving %i generations of %i sourcekin"%(self.GD["GAClean"]["NMaxGen"],self.GD["GAClean"]["NSourceKin"]), file=log)
@@ -559,6 +629,7 @@ class ClassImageDeconvMachine():
         # Parallel=False
         # NCPU=1
         # StopWhenQueueEmpty=True
+        # print("KJGKJDKDGJKJ")
         # # ##################
         
 
@@ -566,12 +637,14 @@ class ClassImageDeconvMachine():
 
 
         # shared dict to hold inputs and outputs to workers (each island number is a key)
-        deconv_dict  = shared_dict.create("DeconvListIslands")
+        deconv_dict  = shared_dict.create("DeconvListIslands%s"%self.StrField)
 
 
         NJobs=NIslands
         T=ClassTimeIt.ClassTimeIt("    ")
         T.disable()
+
+
         for iIsland, ThisPixList in enumerate(ListIslands):
             island_dict = deconv_dict.addSubdict(iIsland)
 
@@ -590,13 +663,15 @@ class ClassImageDeconvMachine():
             IslandBestIndiv=self.ModelMachine.GiveIndividual(ThisPixList)
             T.timeit("GiveIndividual")
             FacetID=self.PSFServer.giveFacetID2(xm,ym)
+            
+            
             T.timeit("FacetID")
 
             island_dict["BestIndiv"] = IslandBestIndiv
             
             iIslandInit=ListInitIslands[iIsland]
             
-            ListOrder=[iIsland,FacetID,JonesNorm.flat[0],self.RMS**2,island_dict.path,iIslandInit]
+            ListOrder=[iIsland,FacetID,JonesNorm.flat[0],np.array(self.DicoDirty["LRMS"])**2,island_dict.path,iIslandInit]
 
             work_queue.put(ListOrder)
             T.timeit("Put")
@@ -701,59 +776,60 @@ class ClassImageDeconvMachine():
 
 
 
-    ###################################################################################
-    ###################################################################################
+    # ###################################################################################
+    # ###################################################################################
     
-    def GiveEdges(self,xc0,yc0,N0,xc1,yc1,N1):
-        M_xc=xc0
-        M_yc=yc0
-        NpixMain=N0
-        F_xc=xc1
-        F_yc=yc1
-        NpixFacet=N1
-                
-        ## X
-        M_x0=M_xc-NpixFacet//2
-        x0main=np.max([0,M_x0])
-        dx0=x0main-M_x0
-        x0facet=dx0
-                
-        M_x1=M_xc+NpixFacet//2
-        x1main=np.min([NpixMain-1,M_x1])
-        dx1=M_x1-x1main
-        x1facet=NpixFacet-dx1
-        x1main+=1
-        ## Y
-        M_y0=M_yc-NpixFacet//2
-        y0main=np.max([0,M_y0])
-        dy0=y0main-M_y0
-        y0facet=dy0
+    # def GiveEdges(self,xc0,yc0,N0,xc1,yc1,N1):
         
-        M_y1=M_yc+NpixFacet//2
-        y1main=np.min([NpixMain-1,M_y1])
-        dy1=M_y1-y1main
-        y1facet=NpixFacet-dy1
-        y1main+=1
+    #     M_xc=xc0
+    #     M_yc=yc0
+    #     NpixMain=N0
+    #     F_xc=xc1
+    #     F_yc=yc1
+    #     NpixFacet=N1
+                
+    #     ## X
+    #     M_x0=M_xc-NpixFacet//2
+    #     x0main=np.max([0,M_x0])
+    #     dx0=x0main-M_x0
+    #     x0facet=dx0
+                
+    #     M_x1=M_xc+NpixFacet//2
+    #     x1main=np.min([NpixMain-1,M_x1])
+    #     dx1=M_x1-x1main
+    #     x1facet=NpixFacet-dx1
+    #     x1main+=1
+    #     ## Y
+    #     M_y0=M_yc-NpixFacet//2
+    #     y0main=np.max([0,M_y0])
+    #     dy0=y0main-M_y0
+    #     y0facet=dy0
+        
+    #     M_y1=M_yc+NpixFacet//2
+    #     y1main=np.min([NpixMain-1,M_y1])
+    #     dy1=M_y1-y1main
+    #     y1facet=NpixFacet-dy1
+    #     y1main+=1
 
-        Aedge=[x0main,x1main,y0main,y1main]
-        Bedge=[x0facet,x1facet,y0facet,y1facet]
-        return Aedge,Bedge
+    #     Aedge=[x0main,x1main,y0main,y1main]
+    #     Bedge=[x0facet,x1facet,y0facet,y1facet]
+    #     return Aedge,Bedge
 
 
-    def SubStep(self,dx,dy,LocalSM):
-        npol,_,_=self.Dirty.shape
-        x0,x1,y0,y1=self.DirtyExtent
-        xc,yc=dx,dy
-        N0=self.Dirty.shape[-1]
-        N1=LocalSM.shape[-1]
-        Aedge,Bedge=self.GiveEdges(xc,yc,N0,N1//2,N1//2,N1)
-        factor=-1.
-        nch,npol,nx,ny=LocalSM.shape
-        x0d,x1d,y0d,y1d=Aedge
-        x0p,x1p,y0p,y1p=Bedge
-        self._Dirty[:,:,x0d:x1d,y0d:y1d]-=LocalSM[:,:,x0p:x1p,y0p:y1p]
-        W=np.float32(self.DicoDirty["WeightChansImages"])
-        self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.sum(LocalSM[:,:,x0p:x1p,y0p:y1p]*W.reshape((W.size,1,1,1)),axis=0)
+    # def SubStep(self,dx,dy,LocalSM):
+    #     npol,_,_=self.Dirty.shape
+    #     x0,x1,y0,y1=self.DirtyExtent
+    #     xc,yc=dx,dy
+    #     N0=self.Dirty.shape[-1]
+    #     N1=LocalSM.shape[-1]
+    #     Aedge,Bedge=self.GiveEdges(xc,yc,N0,N1//2,N1//2,N1)
+    #     factor=-1.
+    #     nch,npol,nx,ny=LocalSM.shape
+    #     x0d,x1d,y0d,y1d=Aedge
+    #     x0p,x1p,y0p,y1p=Bedge
+    #     self._Dirty[:,:,x0d:x1d,y0d:y1d]-=LocalSM[:,:,x0p:x1p,y0p:y1p]
+    #     W=np.float32(self.DicoDirty["WeightChansImages"])
+    #     self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.sum(LocalSM[:,:,x0p:x1p,y0p:y1p]*W.reshape((W.size,1,1,1)),axis=0)
 
     def Update(self,DicoDirty,**kwargs):
         """
@@ -840,6 +916,16 @@ class WorkerDeconvIsland(multiprocessing.Process):
                 #print "Exception worker: %s"%str(e)
                 break
 
+
+            # in case APP sets the main process with affinity 0, the child process also has this by default
+            main_process_affinity=AsyncProcessPool.get_main_process_affinity()
+            psutil.Process().cpu_affinity(main_process_affinity)
+            
+            # Affinity=psutil.Process().cpu_affinity()
+            # pid=os.getpid()
+            # available=os.sched_getaffinity(0)
+            # print(iIsland,FacetID,JonesNorm,PixVariance,shdict_path,iIslandInit,pid,Affinity,available,main_process_affinity)
+            
             # iIsland=DicoOrder["iIsland"]
             # FacetID=DicoOrder["FacetID"]
             
@@ -859,7 +945,7 @@ class WorkerDeconvIsland(multiprocessing.Process):
             dx=self.GD["SSDClean"]["NEnlargeData"]
             if dx>0:
                 IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
-                ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=dx)
+                ListPixData,W=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=dx)
 
 
             # ################################

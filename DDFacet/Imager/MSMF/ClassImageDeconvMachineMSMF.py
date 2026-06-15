@@ -41,9 +41,10 @@ from DDFacet.Imager.ClassPSFServer import ClassPSFServer
 from DDFacet.Imager import ClassGainMachine
 from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 from DDFacet.Other import MyPickle
-from DDFacet.Other.AsyncProcessPool import APP
+
 from DDFacet.Array import shared_dict
 
+from DDFacet.Other import MPIManager
 # # if not running under a profiler, declare a do-nothing @profile decorator
 # if "profile" not in globals():
 #     profile = lambda x:x
@@ -69,11 +70,11 @@ class ClassImageDeconvMachine():
                  IdSharedMem="",
                  ParallelMode=True,
                  CacheFileName="HMPBasis",
+                 APP=None,
                  **kw    # absorb any unknown keywords arguments into this
                  ):
         """
-        ImageDeconvMachine constructor. Note that this should be called pretty much when setting up the imager,
-        before APP workers are started, because the object registers APP handlers.
+        ImageDeconvMachine constructor. 
         """
         self.IdSharedMem=IdSharedMem
         self.SearchMaxAbs=SearchMaxAbs
@@ -83,6 +84,9 @@ class ClassImageDeconvMachine():
         self.Chi2Thr = 10000
         self._MaskArray = None
         self.GD = GD
+        from DDFacet.Imager.MultiFields.AppendSubFieldInfo import AppendSubFieldInfo
+        AppendSubFieldInfo(self)
+        CacheFileName="%s%s"%(CacheFileName,self.StrField)
         self.SubPSF = None
         self.MultiFreqMode = NFreqBands > 1
         self.NFreqBands = NFreqBands
@@ -93,7 +97,7 @@ class ClassImageDeconvMachine():
         self.PeakFactor = PeakFactor
         self.PrevPeakFactor = PrevPeakFactor
         self.CacheFileName=CacheFileName
-        self.GainMachine=ClassGainMachine.get_instance()
+        self.GainMachine=None#ClassGainMachine.get_instance()
         self.ModelMachine = None
         self.PSFServer = None
         if ModelMachine is not None:
@@ -106,9 +110,13 @@ class ClassImageDeconvMachine():
         self.facetcache=None
         self._MaskArray=None
         self.MaskMachine=None
-        self.ParallelMode=ParallelMode
-        if self.ParallelMode:
-            APP.registerJobHandlers(self)
+        MultiFieldFile=self.GD["Image"]["MultiFieldFile"]
+        self.MultiField=((MultiFieldFile is not None) and (MultiFieldFile!=""))
+        self.ParallelMode=(ParallelMode and not self.MultiField)
+        # self.ParallelMode=False
+
+        self.APP=APP
+        self.APP.registerJobHandlers(self)
 
         # we are in a worker
         if not self.ParallelMode:
@@ -142,6 +150,11 @@ class ClassImageDeconvMachine():
         
     def __del__ (self):
         if shared_dict is not None and type(self.facetcache) is shared_dict.SharedDict:
+            # print("FJDKJDFKJKJGSLDFKFGJFGLSDFGKJ DELETE %s"%self.facetcache.path)
+            # print("FJDKJDFKJKJGSLDFKFGJFGLSDFGKJ DELETE %s"%self.facetcache.path)
+            # print("FJDKJDFKJKJGSLDFKFGJFGLSDFGKJ DELETE %s"%self.facetcache.path)
+            # print("FJDKJDFKJKJGSLDFKFGJFGLSDFGKJ DELETE %s"%self.facetcache.path)
+            # print("FJDKJDFKJKJGSLDFKFGJFGLSDFGKJ DELETE %s"%self.facetcache.path)
             self.facetcache.delete()
 
     def updateMask(self,Mask):
@@ -285,13 +298,16 @@ class ClassImageDeconvMachine():
             self._initMSM_facet(centralFacet,
                                 self.facetcache.addSubdict(centralFacet) if init_cache else self.facetcache[centralFacet],
                                 None, self.SideLobeLevel, self.OffsetSideLobe, verbose=True)
+
         if approx:
             print("HMP approximation mode: using PSF of central facet (%d)" % centralFacet, file=log)
             for iFacet in range(self.PSFServer.NFacets):
                 self.DicoMSMachine[iFacet] = MSM0
-        elif (self.GD["Facets"]["NFacets"]==1)&(not self.GD["DDESolutions"]["DDSols"]):
+
+        # Has only one facet
+        # elif (self.GD["Facets"]["NFacets"]==1)&(not self.GD["DDESolutions"]["DDSols"]):
+        elif self.PSFServer.NFacets==1:#len(self.DicoVariablePSF["DicoImager"].keys())
             self.DicoMSMachine[0] = MSM0
-            
         else:
             # if no facet cache, init in parallel
             if init_cache:
@@ -301,15 +317,16 @@ class ClassImageDeconvMachine():
                         if self.ParallelMode:
                             args=(fcdict.writeonly(), MSM0.ScaleFuncs.readonly(), self.DicoVariablePSF.readonly(),
                                   iFacet, self.SideLobeLevel, self.OffsetSideLobe, False)
-                            APP.runJob("InitHMP:%d"%iFacet, self._initMSM_handler,
-                                       args=args)
+                            self.APP.runJob("InitHMP:%d"%iFacet,
+                                       self._initMSM_handler,
+                                       args=args)#,serial=True)
                         else:
                             self.DicoMSMachine[iFacet] = \
                                 self._initMSM_facet(iFacet, fcdict, None,
                                                     self.SideLobeLevel, self.OffsetSideLobe, MSM0=MSM0, verbose=False)
 
                 if self.ParallelMode and self.PSFServer.NFacets>1:
-                    APP.awaitJobResults("InitHMP:*", progress="Init HMP")
+                    self.APP.awaitJobResults("InitHMP:*", progress="Init HMP")
                     self.facetcache.reload()
 
             #        t = ClassTimeIt.ClassTimeIt()
@@ -319,23 +336,25 @@ class ClassImageDeconvMachine():
                     self.DicoMSMachine[iFacet] = \
                         self._initMSM_facet(iFacet, self.facetcache[iFacet], None,
                                             self.SideLobeLevel, self.OffsetSideLobe, MSM0=MSM0, verbose=False)
+            
+            if MPIManager.rank == 0:
+                # write cache to disk, unless in a mode where we explicitly don't want it
+                if facetcache is None and not valid and cache and not approx:
+                    try:
+                        #MyPickle.DicoNPToFile(facetcache,cachepath)
+                        #cPickle.dump(facetcache, open(cachepath, 'w'), 2)
+                        print("  saving HMP cache to %s"%cachepath, file=log)
+                        self.facetcache.save(cachepath)
+                        #self.maincache.saveCache("HMPMachine")
+                        self.maincache.saveCache(self.CacheFileName)
+                        self.PSFHasChanged=False
+                        print("  HMP init done", file=log)
+                    except:
+                        print(traceback.format_exc(), file=log)
+                        print(ModColor.Str(
+                            "WARNING: HMP cache could not be written, see error report above. Proceeding anyway."), file=log)
 
-            # write cache to disk, unless in a mode where we explicitly don't want it
-            if facetcache is None and not valid and cache and not approx:
-                try:
-                    #MyPickle.DicoNPToFile(facetcache,cachepath)
-                    #cPickle.dump(facetcache, open(cachepath, 'w'), 2)
-                    print("  saving HMP cache to %s"%cachepath, file=log)
-                    self.facetcache.save(cachepath)
-                    #self.maincache.saveCache("HMPMachine")
-                    self.maincache.saveCache(self.CacheFileName)
-                    self.PSFHasChanged=False
-                    print("  HMP init done", file=log)
-                except:
-                    print(traceback.format_exc(), file=log)
-                    print(ModColor.Str(
-                         "WARNING: HMP cache could not be written, see error report above. Proceeding anyway."), file=log)
-
+        
     def SetDirty(self, DicoDirty):#,DoSetMask=True):
         # if len(PSF.shape)==4:
         #     self.PSF=PSF[0,0]
@@ -390,12 +409,13 @@ class ClassImageDeconvMachine():
         # self._MeanPSF=self.MSMachine._MeanPSF
 
 
-        NPSF = self.PSFServer.NPSF
+        NPSF_x,NPSF_y = self.PSFServer.NPSF
         #_,_,NPSF,_=self._PSF.shape
-        _, _, NDirty, _ = self._CubeDirty.shape
+        _, _, NDirty_x, NDirty_y = self._CubeDirty.shape
 
-        off = (NPSF-NDirty)//2
-        self.DirtyExtent = (off, off+NDirty, off, off+NDirty)
+        off_x = (NPSF_x-NDirty_x)//2
+        off_y = (NPSF_y-NDirty_y)//2
+        self.DirtyExtent = (off_x, off_x+NDirty_x, off_y, off_y+NDirty_y)
 
 #        if self._ModelImage is None:
 #            self._ModelImage=np.zeros_like(self._CubeDirty)
@@ -424,40 +444,40 @@ class ClassImageDeconvMachine():
         #             print>>log,ModColor.Str("Are you sure you supplied the correct cleaning mask?")
         
 
-    def GiveEdges(self,xc0,yc0,N0,xc1,yc1,N1):
-        M_xc=xc0
-        M_yc=yc0
-        NpixMain=N0
-        F_xc=xc1
-        F_yc=yc1
-        NpixFacet=N1
+    # def GiveEdges(self,xc0,yc0,N0,xc1,yc1,N1):
+    #     M_xc=xc0
+    #     M_yc=yc0
+    #     NpixMain=N0
+    #     F_xc=xc1
+    #     F_yc=yc1
+    #     NpixFacet=N1
                 
-        ## X
-        M_x0=M_xc-NpixFacet//2
-        x0main=np.max([0,M_x0])
-        dx0=x0main-M_x0
-        x0facet=dx0
+    #     ## X
+    #     M_x0=M_xc-NpixFacet//2
+    #     x0main=np.max([0,M_x0])
+    #     dx0=x0main-M_x0
+    #     x0facet=dx0
                 
-        M_x1=M_xc+NpixFacet//2
-        x1main=np.min([NpixMain-1,M_x1])
-        dx1=M_x1-x1main
-        x1facet=NpixFacet-dx1
-        x1main+=1
-        ## Y
-        M_y0=M_yc-NpixFacet//2
-        y0main=np.max([0,M_y0])
-        dy0=y0main-M_y0
-        y0facet=dy0
+    #     M_x1=M_xc+NpixFacet//2
+    #     x1main=np.min([NpixMain-1,M_x1])
+    #     dx1=M_x1-x1main
+    #     x1facet=NpixFacet-dx1
+    #     x1main+=1
+    #     ## Y
+    #     M_y0=M_yc-NpixFacet//2
+    #     y0main=np.max([0,M_y0])
+    #     dy0=y0main-M_y0
+    #     y0facet=dy0
         
-        M_y1=M_yc+NpixFacet//2
-        y1main=np.min([NpixMain-1,M_y1])
-        dy1=M_y1-y1main
-        y1facet=NpixFacet-dy1
-        y1main+=1
+    #     M_y1=M_yc+NpixFacet//2
+    #     y1main=np.min([NpixMain-1,M_y1])
+    #     dy1=M_y1-y1main
+    #     y1facet=NpixFacet-dy1
+    #     y1main+=1
 
-        Aedge=[x0main,x1main,y0main,y1main]
-        Bedge=[x0facet,x1facet,y0facet,y1facet]
-        return Aedge,Bedge
+    #     Aedge=[x0main,x1main,y0main,y1main]
+    #     Bedge=[x0facet,x1facet,y0facet,y1facet]
+    #     return Aedge,Bedge
 
 
     def SubStep(self,dx,dy,LocalSM):
@@ -468,14 +488,14 @@ class ClassImageDeconvMachine():
         #NpixFacet=self.SubPSF.shape[-1]
         #PSF=self.CubePSFScales[iScale]
         N0=self._MeanDirty.shape[-1]
-        N1=LocalSM.shape[-1]
+        N1x,N1y=LocalSM.shape[-2:]
 
         # PSF=PSF[N1/2-1:N1/2+2,N1/2-1:N1/2+2]
         # N1=PSF.shape[-1]
 
         #Aedge,Bedge=self.GiveEdges(xc,yc,N0,N1/2,N1/2,N1)
         N0x,N0y=self._MeanDirty.shape[-2::]
-        Aedge,Bedge=GiveEdgesDissymetric(xc,yc,N0x,N0y,N1//2,N1//2,N1,N1)
+        Aedge,Bedge=GiveEdgesDissymetric(xc,yc,N0x,N0y,N1x//2,N1y//2,N1x,N1y)
 
         #_,n,n=self.PSF.shape
         # PSF=self.PSF.reshape((n,n))
@@ -636,8 +656,9 @@ class ClassImageDeconvMachine():
         if self._niter >= self.MaxMinorIter:
             return "MaxIter", False, False
 
-        _, npol, npix, _ = self._MeanDirty.shape
-        xc = (npix)//2
+        _, npol, npix_x, npix_y = self._MeanDirty.shape
+        xc = (npix_x)//2
+        yc = (npix_y)//2
 
         # m0,m1=self._CubeDirty.min(),self._CubeDirty.max()
         # pylab.clf()
@@ -653,7 +674,7 @@ class ClassImageDeconvMachine():
 
         if UpdateRMS: self.updateRMS()
         RMS=self.RMS
-        self.GainMachine.SetRMS(RMS)
+        #self.GainMachine.SetRMS(RMS)
 
         Fluxlimit_RMS = self.RMSFactor*RMS
         #print "startmax",self._MeanDirty.shape,self._MaskArray.shape
@@ -779,7 +800,7 @@ class ClassImageDeconvMachine():
         # pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Cleaning   ", HeaderSize=20,TitleSize=30)
         # pBAR.disable()
 
-        self.GainMachine.SetFluxMax(ThisFlux)
+        #self.GainMachine.SetFluxMax(ThisFlux)
         # pBAR.render(0,"g=%3.3f"%self.GainMachine.GiveGain())
         PreviousFlux=ThisFlux
 
@@ -837,7 +858,7 @@ class ClassImageDeconvMachine():
 
                 
                 #x,y=self.PSFServer.SolveOffsetLM(self._MeanDirty[0,0],x,y); ThisFlux=self._MeanDirty[0,0,x,y]
-                self.GainMachine.SetFluxMax(ThisFlux)
+                #self.GainMachine.SetFluxMax(ThisFlux)
 
                 # #x,y=1224, 1994
                 # print x,y,ThisFlux
@@ -922,7 +943,7 @@ class ClassImageDeconvMachine():
                             (nch, npol, 1, 1))).copy())
                 #print "Fpol",Fpol
                 dx = x-xc
-                dy = y-xc
+                dy = y-yc
 
                 T.timeit("stuff")
 

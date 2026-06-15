@@ -274,10 +274,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         for x,y in DicoComp.keys():
             ListSols=DicoComp[(x,y)]["Vals"]#/self.DicoSMStacked[key]["SumWeights"]
 #            print "pixel %i,%i len(listsol):"%(x,y),len(ListSols)
-            for iSol in range(len(ListSols)):
-                ThisSol=ListSols[iSol]
+            for iDirJones in range(len(ListSols)):
+                ThisSol=ListSols[iDirJones]
 
-                #print>>log,((x,y),iSol,ThisSol)
+                #print>>log,((x,y),iDirJones,ThisSol)
 
                 iS=np.where(SolveParam=="S")[0]
                 S=ThisSol[iS]
@@ -324,7 +324,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                                     #print "SUM MM:",np.sum(v)/Flux
                     else:
                         for pol in range(npol):
-                            ModelImage[ch,pol,x,y]+=Flux
+                            ModelImage[ch,pol,x,y]+=Flux[0]
 
         
         #print "np.sum(ModelImage)",np.sum(ModelImage[0])
@@ -368,22 +368,29 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
 
     def GiveSpectralIndexMap(self,CellSizeRad=1.,GaussPars=[(1,1,0)],DoConv=True,MaxSpi=100,MaxDR=1e+6,threshold=None):
+        print("Computing spectral index map", file=log)
     
         dFreq=1e6
         RefFreq=self.DicoSMStacked["RefFreq"]
         f0=RefFreq/1.5#self.DicoSMStacked["AllFreqs"].min()
         f1=RefFreq*1.5#self.DicoSMStacked["AllFreqs"].max()
+        #print("Give model", file=log)
         M0=self.GiveModelImage(f0)
         M1=self.GiveModelImage(f1)
+        #print("Give model:ok", file=log)
         if DoConv:
             #M0=ModFFTW.ConvolveGaussian(M0,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
             #M1=ModFFTW.ConvolveGaussian(M1,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
             #M0,_=ModFFTW.ConvolveGaussianWrapper(M0,Sig=GaussPars[0][0]/CellSizeRad)
             #M1,_=ModFFTW.ConvolveGaussianWrapper(M1,Sig=GaussPars[0][0]/CellSizeRad)
+            #print("doconv %s"%str(M0.shape), file=log)
             M0,_=ModFFTW.ConvolveGaussianScipy(M0,Sig=GaussPars[0][0]/CellSizeRad)
+            #print("doconv %s"%str(M1.shape), file=log)
             M1,_=ModFFTW.ConvolveGaussianScipy(M1,Sig=GaussPars[0][0]/CellSizeRad)
+            #print("doconv:ok", file=log)
 
             
+        #print("domask", file=log)
         # compute threshold for alpha computation by rounding DR threshold to .1 digits (i.e. 1.65e-6 rounds to 1.7e-6)
         if threshold is not None:
             minmod = threshold
@@ -394,7 +401,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     
         # mask out pixels above threshold
         mask=(M1<minmod)|(M0<minmod)
-        print("computing alpha map for model pixels above %.1e Jy (based on max DR setting of %g)"%(minmod,MaxDR), file=log)
+        print("  selecting pixels above %.1e Jy (based on max DR setting of %g)"%(minmod,MaxDR), file=log)
         M0[mask]=minmod
         M1[mask]=minmod
         alpha = (np.log(M0)-np.log(M1))/(np.log(f0/f1))
@@ -469,7 +476,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         print("  There are %i components left"%len(self.DicoSMStacked["Comp"]), file=log)
 
                 
-    def ToNPYModel(self,FitsFile,SkyModel,BeamImage=None):
+    def ToNPYModel(self,FitsFile,SkyModel,BeamImage=None,AtFreq=None):
         #R=ModRegFile.RegToNp(PreCluster)
         #R.Read()
         #R.Cluster()
@@ -478,7 +485,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
 
         AlphaMap=self.GiveSpectralIndexMap()
-        ModelMap=self.GiveModelImage()
+
+        if AtFreq is None:
+            ModelMap=self.GiveModelImage()
+        else:
+            ModelMap=self.GiveModelImage(np.array([AtFreq]).ravel())
+            AlphaMap.fill(0)
+            
         nch,npol,_,_=ModelMap.shape
 
         for ch in range(nch):

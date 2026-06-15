@@ -170,6 +170,8 @@ class ClassCompareFITSImage(unittest.TestCase):
         unittest.TestCase.setUpClass()
         cls._inputDir = getenv('DDFACET_TEST_DATA_DIR','./')+"/"
         cls._outputDir =  getenv('DDFACET_TEST_OUTPUT_DIR','/tmp/')+"/"
+        cls._ncpu =  getenv('DDFACET_TEST_NCPU','8')
+        
         cls._refHDUList = []
         cls._outHDUList = []
 
@@ -186,6 +188,10 @@ class ClassCompareFITSImage(unittest.TestCase):
         cls.setParsetOption("Output",
                             "Name",
                             cls._imagePrefix)
+        cls.setParsetOption("Parallel",
+                            "NCPU",
+                            cls._ncpu)
+        
         # set up path to each ms relative to environment variable
         if type(p.DicoPars["Data"]["MS"]) is list:
             #MSdir can actually contain strange directives to select fields and DDIDs... so may appear invalid
@@ -275,6 +281,7 @@ class ClassCompareFITSImage(unittest.TestCase):
             compfname = cls._outputDir + cls.__name__ + ".run." + ref_id + ".fits"
             difffname = cls._outputDir + cls.__name__ + ".diff." + ref_id + ".fits"
             args = ["fitstool.py", "-f", "--diff", "--output", difffname, fname, compfname]
+            #print(args)
             subprocess.check_call(args, env=os.environ.copy())
 
     @classmethod

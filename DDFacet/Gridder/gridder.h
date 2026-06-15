@@ -83,7 +83,7 @@ namespace DDF {
 		const py::array_t<bool, py::array::c_style>& flags,
 		const py::array_t<float, py::array::c_style>& weights,
 		py::array_t<double, py::array::c_style>& sumwt,
-		bool dopsf,
+		int psf_mode,
 		const py::list& Lcfs,
 		const py::list& LcfsConj,
 		const py::array_t<double, py::array::c_style>& Winfos,
@@ -108,6 +108,21 @@ namespace DDF {
       const double n0=sqrt(1-l0*l0-m0*m0)-1;
 //      const int facet = int(ptrFacetInfos[4]);
 
+      bool dopsf=0;
+      bool doSinglePsf=0;
+      if (psf_mode == 0) {
+	dopsf = 0;
+	doSinglePsf = 0;
+      } else if (psf_mode == 1) {
+	dopsf = 1;
+	doSinglePsf = 0;
+      } else if (psf_mode == 2) {
+	dopsf = 1;
+	doSinglePsf = 1;
+      }
+      //cout<<psf_mode<<dopsf<<doSinglePsf<<endl;
+      
+	
       /* Get size of grid. */
       const double *ptrWinfo = Winfos.data(0);
       const double WaveRefWave = ptrWinfo[0];
@@ -139,7 +154,7 @@ namespace DDF {
       const double *incr=increment.data(0);
       const double *Pfreqs=freqs.data(0);
       /* MR FIXME: should the second entry depend on nGridY instead of nGridX? */
-      const double uvwScale_p[]= {nGridX*incr[0], nGridX*incr[1]};
+      const double uvwScale_p[]= {nGridX*incr[0], nGridY*incr[1]};
 
       const int *MappingBlock = SmearMapping.data(0);
       /* total size is in two words */
@@ -188,7 +203,7 @@ namespace DDF {
 	const int *Row = StartRow+2;
 	/* advance pointer to next blocklist */
 	StartRow += NRowBlocks[iBlock];
-
+	
 
 	if (sparsificationFlag && !sparsificationFlag[iBlock])
 	  continue;
@@ -202,6 +217,8 @@ namespace DDF {
 
 	double visChanMean=0., FreqMean=0;
 	double ThisWeight=0., ThisSumJones=0., ThisSumSqWeights=0.;
+        dcmplx ThisSumMTilde2[16];
+	
 	int NVisThisblock=0;
 	double Umean=0, Vmean=0, Wmean=0;
 
@@ -248,7 +265,16 @@ namespace DDF {
 
 	    //cout<<JS.WeightVaryJJ<<endl;
 	    const double FWeight = imgWtPtr[0]*JS.WeightVaryJJ;
+	    if(doSinglePsf){
+	      dcmplx corr2 = Corrcalc.getCorr(Pfreqs, visChan, angle);
+	      //cout<<"1 "<<std::real(corr)<<std::imag(corr)<<endl;
+	      //corr*=std::conj(corr2);
+	      corr*=(corr2);
+	      //cout<<"2 "<<std::real(corr)<<std::imag(corr)<<endl;
+	      
+	    };
 	    const dcmplx Weight   = FWeight*corr;
+	    
 	    const double FWeightDecorr = FWeight*DeCorrFactor*DeCorrFactor;
 	    ThisSumSqWeights += FWeightDecorr;
 	    ThisSumSqWeightsChan[visChan] += FWeightDecorr;
@@ -260,6 +286,11 @@ namespace DDF {
 	      mulaccum(VisMeas, Weight, Vis);
 	      /*Compute per channel and overall approximate matrix sqroot:*/
 	      ThisSumJones += JS.BB*FWeightDecorr;
+	      if(JS.ComputeMTilde){
+	      for (size_t iMueller=0; iMueller<16; ++iMueller){
+	      ThisSumMTilde2[iMueller]+=JS.MTilde2[iMueller]*FWeightDecorr;
+	      }
+	      }
 	      ThisSumJonesChan[visChan] += JS.BB*FWeightDecorr;
 //  	      if(facet==0 && visChan==0)
 //                std::fprintf(stderr,"F%dB%dR%d weight %f jones %f %f BB %f wsq %f sj %f\n",facet,iBlock,irow,FWeight,JS.J0.v[0].real(),JS.J0.v[0].imag(),
@@ -361,6 +392,10 @@ namespace DDF {
 	    for (int sx=-supx; sx<=supx; ++sx)
 	      gridPtr[sx] += VisVal * dcmplx(*cf0++);
 	  sumWtPtr[ipol+gridChan*nGridPol] += ThisWeight;
+	  
+	  
+	  } /* end for ipol */
+	
 	  if (JS.DoApplyJones)
 	    {
 	    JS.ptrSumJones[gridChan]+=ThisSumJones;
@@ -372,7 +407,15 @@ namespace DDF {
 	      JS.ptrSumJonesChan[nVisChan+visChan]+=ThisSumSqWeightsChan[visChan];
 	      }
 	    }
-	  } /* end for ipol */
+	  
+          if (JS.ComputeMTilde)
+	    {
+		for(size_t iMueller=0; iMueller<16; iMueller++)
+		{
+		   JS.ptrSumMTilde[gridChan*16+iMueller]+=ThisSumMTilde2[iMueller];
+	        }
+	    }
+
 	} /*end for Block*/
       } /* end */
     }

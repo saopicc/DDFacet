@@ -7,9 +7,32 @@ import time
 from . import ClassIslands
 from SkyModel.Other import ModColor
 from SkyModel.Other.progressbar import ProgressBar
-from . import ModConvPSF
+#from . import ModConvPSF2 as ModConvPSF
+from . import ModConvPSF as ModConvPSF
 from DDFacet.Array import ModLinAlg
 import scipy.stats
+
+def test():
+    testConvPSF(np.pi/4)
+    print()
+    testConvPSF(np.pi/4+np.pi/2)
+    
+def testConvPSF(PA):
+    psf=(1,2,PA)
+    CPSF=ModConvPSF.ClassConvPSF(psf)
+    ThisSm,ThisSM,ThisPA=CPSF.GiveConvGaussPars((0.1,0.1,0.1))
+    dN=10
+    N=2*dN+1
+    x,y=np.mgrid[-dN:dN:N*1j,-dN:dN:N*1j]
+
+    print(ThisSm,ThisSM,ThisPA)
+    
+    G = Gaussian.GaussianXY(x,y,1,sig=(ThisSm,ThisSM),pa=ThisPA)
+    pylab.clf()
+    pylab.imshow(G)
+    pylab.draw()
+    pylab.show(block=False)
+
 
 class ClassGaussFit():
     def __init__(self,x,y,z,psf=(1,1,0),
@@ -20,6 +43,9 @@ class ClassGaussFit():
         #self.psf[2]+=np.pi/2
         #self.psf[2]=-self.psf[2]
         self.CPSF=ModConvPSF.ClassConvPSF(self.psf)
+        
+
+        
         self.itera=0
         self.noise=noise/(2.*np.pi*self.psf[0]*self.psf[1])
         self.noplot=False#True#noplot
@@ -27,13 +53,31 @@ class ClassGaussFit():
         self.DefaultDictPars={"Sm":1e-2,"SM":1e-2,"PA":0.}
         
         
-
+        
         self.x=np.array(x).ravel()#[0:40]
         self.y=np.array(y).ravel()#[0:40]
         self.z=np.array(z).ravel()#[0:40]
+        self.NPix=self.x.size
 
+        import pylab
+        NPixInPSF=np.pi*self.psf[0]*self.psf[1]/4
 
-        # self.GiveCovMat()
+        dN=10
+        N=2*dN+1
+        x,y=np.mgrid[-dN:dN:N*1j,-dN:dN:N*1j]
+
+        
+        GPSF=Gaussian.GaussianXY(x,y,1,sig=(self.psf[0],self.psf[1]),pa=self.psf[2])
+        nPSF=np.sum(GPSF)
+        zn=np.sum(z)/z.max()
+        self.NComp=np.max([1,int(np.ceil(zn/nPSF))])
+        # pylab.clf()
+        # pylab.scatter(self.x,self.y,c=self.z)
+        # pylab.title("%f %f %f %f"%(self.NPix/NPixInPSF,NPixInPSF,zn/nPSF,nPSF))
+        # pylab.draw()
+        # pylab.show(block=False)
+        # pylab.pause(1)
+        # # self.GiveCovMat()
 
 
         self.data=np.array([self.x.flatten(),self.y.flatten(),self.z.flatten()])
@@ -173,9 +217,17 @@ class ClassGaussFit():
         psf=self.givePsf(dp)
 
         G=np.zeros_like(x)
+        off=False
         for i in range(l.shape[0]):
-            G+=Gaussian.GaussianXY(l[i]-x,m[i]-y,s[i],sig=(Sm[i],SM[i]),pa=PA[i])
+            Gi=Gaussian.GaussianXY(l[i]-x,m[i]-y,s[i],sig=(Sm[i],SM[i]),pa=PA[i])
+            di=np.min(np.sqrt((l[i]-x)**2+(m[i]-y)**2))
+            if di>1:
+                off=True
+            G+=Gi
 
+        # if off:
+        #     G*=1e6
+        
         return G
 
     def funcResid(self,pars,xyz):
@@ -226,24 +278,28 @@ class ClassGaussFit():
         return res
 
     def PutFittedArray(self,A):
-        if self.xmin==None: return
+        if self.xmin is None: return
         x,y,z=self.data
 
         data2=self.func(self.xmin,self.data)
         A[(x.astype(np.int64),y.astype(np.int64))]+=data2
-
+        return x,y,data2
 
 
 
     def DoAllFit(self,Nstart=1,Nend=10):
 
         bic_keep=1e120
-        #print 
-        for i in range(Nstart,Nend):
+        #print
+        NPixInPSF=np.pi*self.psf[0]*self.psf[1]/4
+        # print(NPixInPSF,self.NPix,self.NPix/NPixInPSF)
+        # print(NPixInPSF,self.NPix,self.NPix/NPixInPSF)
+        
+        for i in range(1,self.NComp+1):#Nstart,Nend):
             xmin,bic=self.DoFit(Nsources=i)
             #print i,bic
 
-            if xmin==None: break
+            if xmin is None: break
             if bic<bic_keep:
                 xmin_keep=xmin
                 bic_keep=bic
@@ -252,13 +308,26 @@ class ClassGaussFit():
                 break
 
 
-
-        if xmin==None:
+        
+        if xmin is None:
             return []
         
         self.xmin=xmin_keep
         #print xmin_keep
         DicoPars=self.ListToDicoPars(xmin_keep)
+
+        for key0 in BestDicoPars.keys():
+            for key in self.DefaultDictPars.keys():
+                if BestDicoPars[key0][key]==self.DefaultDictPars[key]:
+                    BestDicoPars[key0][key]=0
+
+        
+        for iSource in sorted(list(BestDicoPars.keys())):
+            l,m=BestDicoPars[iSource]["l"],BestDicoPars[iSource]["m"]
+            di=np.sqrt((l-self.x)**2+(m-self.y)**2)
+            if di.min()>np.sqrt(2):
+                del(BestDicoPars[iSource])
+        
         
         a0,b0=self.psf[0],self.psf[1]
         psf=self.givePsf(0.)

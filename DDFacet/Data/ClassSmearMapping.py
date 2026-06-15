@@ -27,21 +27,23 @@ from DDFacet.compatibility import range
 import numpy as np
 import math
 import itertools
+import collections
 from DDFacet.Other import logger
 from DDFacet.Array import NpShared
 log = logger.getLogger("ClassSmearMapping")
 
 from DDFacet.Other import Multiprocessing, ClassTimeIt
 from DDFacet.Array import shared_dict
-from DDFacet.Other.AsyncProcessPool import APP
+
 
 bda_dicts = {}
 
 class SmearMappingMachine (object):
-    def __init__ (self, name=None, mode=2):
+    def __init__ (self, name=None, mode=2,APP=None):
         self.name = name or "SMM.%x"%id(self)
-        APP.registerJobHandlers(self)
-        self._job_counter = APP.createJobCounter(self.name)
+        self.APP=APP
+        self.APP.registerJobHandlers(self)
+        self._job_counter = self.APP.createJobCounter(self.name)
         self._data = self._blockdict = self._sizedict = None
 
     def _smearmapping_worker(self, DATA, blockdict, sizedict, a0, a1, dPhi, l, channel_mapping, mode):
@@ -73,7 +75,7 @@ class SmearMappingMachine (object):
             for a1 in range(MS.na):
                 if a0 != a1:
                     self._nbl += 1
-                    APP.runJob("%s:%s:%d:%d" % (base_job_id, self.name, a0, a1), self._smearmapping_worker,
+                    self.APP.runJob("%s:%s:%d:%d" % (base_job_id, self.name, a0, a1), self._smearmapping_worker,
                                counter=self._job_counter, collect_result=False,
                                args=(DATA.readonly(), blockdict.writeonly(), sizedict.writeonly(), a0, a1, dPhi, l,
                                      channel_mapping, mode))
@@ -81,7 +83,7 @@ class SmearMappingMachine (object):
 
 
     def collectSmearMapping (self, DATA, field):
-        APP.awaitJobCounter(self._job_counter, progress="Mapping %s"%self.name, total=self._nbl, timeout=1)
+        self.APP.awaitJobCounter(self._job_counter, progress="Mapping %s"%self.name, total=self._nbl, timeout=1)
         self._outdict.reload()
         #self._outdict.save("bda.dict")
         blockdict = self._outdict["blocks"]
@@ -89,13 +91,22 @@ class SmearMappingMachine (object):
         # process worker results
         # for each map (each array returned from worker), BlockSizes[MapName] will
         # contain a list of BlocksSizesBL entries returned from that worker
+        def _load_uncached(sd, key):
+            value = collections.OrderedDict.__getitem__(sd, key)
+            if isinstance(value, shared_dict.SharedDict.ItemProxy):
+                return value.load()
+            return value
+
         NTotBlocks = 0
         NTotRows = 0
 
-        for key in getattr(sizedict, "iterkeys", sizedict.keys)():
-            bsz = sizedict[key]
+        keys = list(getattr(sizedict, "iterkeys", sizedict.keys)())
+
+        for key in keys:
+            bsz = _load_uncached(sizedict, key)
             NTotBlocks += len(bsz)
             NTotRows += bsz.sum()
+            del bsz
 
         mapping = DATA.addSharedArray(field, (2 + NTotBlocks + NTotRows,), np.int32)
 
@@ -109,10 +120,10 @@ class SmearMappingMachine (object):
         iii = 0
         jjj = 0
 
-        # now go through each per-baseline mapping, sorted by baseline
-        for key in sorted(getattr(sizedict, "iterkeys", sizedict.keys)()):
-            BlocksSizesBL = sizedict[key]
-            BlocksRowsListBL = blockdict[key]
+        for key in sorted(keys):
+            BlocksSizesBL = _load_uncached(sizedict, key)
+            BlocksRowsListBL = _load_uncached(blockdict, key)
+
 
             FinalMapping[iii:iii+BlocksRowsListBL.size] = BlocksRowsListBL[:]
             iii += BlocksRowsListBL.size
@@ -121,6 +132,9 @@ class SmearMappingMachine (object):
             # MM=np.concatenate((MM,BlocksSizesBL))
             FinalMappingSizes[jjj:jjj+BlocksSizesBL.size] = BlocksSizesBL[:]
             jjj += BlocksSizesBL.size
+
+            del BlocksRowsListBL
+            del BlocksSizesBL
 
         NVis = np.where(DATA["A0"] != DATA["A1"])[0].size * DATA["freqs"].size
         #print>>log, "  Number of blocks:         %i"%NTotBlocks

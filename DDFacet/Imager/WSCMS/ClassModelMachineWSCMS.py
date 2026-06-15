@@ -34,7 +34,9 @@ from DDFacet.Other import MyPickle
 from DDFacet.Other import reformat
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.Imager import ClassModelMachine as ClassModelMachinebase
-from DDFacet.Imager import ClassFrequencyMachine, ClassScaleMachine
+from DDFacet.Imager import ClassFrequencyMachine
+from DDFacet.Imager.WSCMS import ClassScaleMachine
+
 import os
 
 @numba.jit(nopython=True, nogil=True, cache=True)
@@ -47,7 +49,10 @@ def substep(A, psf, sol, Ip, Iq, pq, npixpsf):
     :param pq: the location of a component relative to the active set
     :return:
     """
-    halfnpixpsf = npixpsf//2
+    npixpsf_x,npixpsf_y=npixpsf
+    
+    halfnpixpsf_x = npixpsf_x//2
+    halfnpixpsf_y = npixpsf_y//2
     p = Ip[pq]
     q = Iq[pq]
     # loop over active indices
@@ -56,9 +61,9 @@ def substep(A, psf, sol, Ip, Iq, pq, npixpsf):
         # check that there is an overlap with psf
         delp = p - ip
         delq = q - iq
-        if abs(delp) <= halfnpixpsf and abs(delq) <= halfnpixpsf:
-            pp = halfnpixpsf - delp
-            qq = halfnpixpsf - delq
+        if abs(delp) <= halfnpixpsf_x and abs(delq) <= halfnpixpsf_y:
+            pp = halfnpixpsf_x - delp
+            qq = halfnpixpsf_y - delq
             A[i] -= sol * psf[pp, qq]
     return A
 
@@ -123,8 +128,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.DoAbs = self.GD["Deconv"]["AllowNegative"]
         self.ScaleMachine = ClassScaleMachine.ClassScaleMachine(GD=self.GD, NCPU=self.NCPU, MaskArray=MaskArray)
         self.ScaleMachine.Init(PSFServer, self.FreqMachine, cachepath=cachepath, MaxBaseline=MaxBaseline)
-        self.NpixPSF = self.ScaleMachine.NpixPSF
-        self.halfNpixPSF = self.NpixPSF//2
+        self.NpixPSF_x,self.NpixPSF_y = self.ScaleMachine.NpixPSF
+        self.halfNpixPSF_x = self.NpixPSF_x//2
+        self.halfNpixPSF_y = self.NpixPSF_y//2
         self.Nscales = self.ScaleMachine.Nscales
         # Initialise CurrentScale variable
         self.CurrentScale = 999999
@@ -256,7 +262,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             ModelImage += ScaleModel
         return ModelImage
 
-    def GiveSpectralIndexMap(self, GaussPars=[(1, 1, 0)], ResidCube=None,
+    def GiveSpectralIndexMap(self, GaussPars=(1, 1, 0), ResidCube=None,
                              GiveComponents=False, ChannelWeights=None):
 
         # convert to radians
@@ -505,9 +511,14 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         A = CurrentDirty[0, 0, Ip, Iq]
         absA = np.abs(A)
         try:
-            pq = int(np.argwhere(absA == AbsConvMaxDirty))
-        except:
-            raise RuntimeError("Somehow Threshold > CurrentDirty.max()? This is a bug!")
+            pq = int(np.argwhere(absA == AbsConvMaxDirty).flat[0]) # .flat[0] necessary when multiple maximum
+        except Exception as e:
+            print("Exception: %s"%str(e))
+            raise #RuntimeError("Somehow Threshold > CurrentDirty.max()? This is a bug!")
+
+
+
+        
         ConvMaxDirty = A[pq]
 
 
@@ -537,7 +548,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             # Subtract fitted component from residual cube
             self.SubStep(xscale, yscale, self.ConvPSF * Fpol[:, None, None, None] * self.CurrentGain, Dirty.view())
             # subtract component from convolved dirty image
-            A = substep(A, self.Conv2PSFmean[0, 0], float(ConvMaxDirty * self.CurrentGain), Ip, Iq, pq, self.NpixPSF)
+            A = substep(A, self.Conv2PSFmean[0, 0], float(ConvMaxDirty * self.CurrentGain), Ip, Iq, pq, (self.NpixPSF_x,self.NpixPSF_y))
 
             # update scale dependent mask
             if self.ScaleMachine.AppendMaskComponents:
@@ -553,9 +564,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             AbsConvMaxDirty = absA.max()
             # TODO - How does this happen? It seems sometimes we have two components with the same max flux
             try:
-                pq = int(np.argwhere(absA == AbsConvMaxDirty))
-            except:
-                pq = int(np.argwhere(absA == AbsConvMaxDirty)[0])
+                pq = int(np.argwhere(absA == AbsConvMaxDirty).flat[0])
+            except Exception as e:
+                print("Exception: %s"%str(e))
+                raise
+                # pq = int(np.argwhere(absA == AbsConvMaxDirty)[0])
             ConvMaxDirty = A[pq]
 
             # get location of component in residual frame

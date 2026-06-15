@@ -15,7 +15,7 @@ from DDFacet.compatibility import range
 from six import string_types
 import logging, logging.handlers, os, re, sys, multiprocessing
 from . import ModColor
-
+from . import MPIManager
 # dict of logger wrappers created by the application
 _loggers = {}
 
@@ -224,6 +224,10 @@ class LogFilter(logging.Filter):
             return False
         # short logger name (without app_name in front of it)
         setattr(event, 'shortname', event.name.split('.',1)[1] if '.' in event.name else event.name)
+        mpiname=""
+        if MPIManager.size>1:
+            mpiname = '[#%d] '%MPIManager.rank
+        setattr(event, 'mpiname', mpiname)
         setattr(event, 'separator', '| ')
         # memory usage info
         vss = float(_memory()/(1024**3))
@@ -262,9 +266,10 @@ class ColorStrippingFormatter(logging.Formatter):
             return re.sub("\033\\[[0-9]+m", "", msg, 0)
         else:
             return msg
-
+        
 #_fmt = " - %(asctime)s - %(shortname)-18.18s %(subprocess)s%(memory)s%(separator)s%(message)s"
 _fmt = " - %(asctime)s - %(shortname)-28.28s %(subprocess)s%(memory)s%(separator)s%(message)s"
+_fmt = " - %(mpiname)s%(asctime)s %(shortname)-25.25s %(subprocess)s%(memory)s%(separator)s%(message)s"
 #        _fmt = "%(asctime)s %(name)-25.25s | %(message)s"
 _datefmt = '%H:%M:%S'#'%H:%M:%S.%f'
 _logfile_formatter = ColorStrippingFormatter(_fmt, _datefmt, strip=True)
@@ -291,8 +296,13 @@ def getLogger(name, verbose=None, log_verbose=None, disable=False):
         The disable argument is no longer relevant
     """
     init("app")
+    # TODO only if mpi activated
+    # if MPIManager.size>1:
+    #     name = '[#%d] '%MPIManager.rank + name
+        
     if name in _loggers:
         return _loggers[name]
+
 
     logger = logging.getLogger("{}.{}".format(_app_name, name))
     lw = _loggers[name] = LoggerWrapper(logger, verbose, log_verbose)

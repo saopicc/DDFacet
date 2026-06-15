@@ -1,4 +1,5 @@
 project(DDFacet)
+
 cmake_minimum_required(VERSION 3.5)
 
 #As per http://permalink.gmane.org/gmane.comp.programming.tools.cmake.user/15952
@@ -16,6 +17,7 @@ ENDIF()
 IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
   MESSAGE(WARNING "You are compiling the backend in debugging mode... things may be slower than usual. Overriding all optimizations to 'OFF'")
 ENDIF()
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/cmake")

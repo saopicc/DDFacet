@@ -31,19 +31,20 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 namespace DDF {
   void pyAccumulateWeightsOntoGrid(py::array_t<double, py::array::c_style>& grid,
 				  const py::array_t<float, py::array::c_style>& weights,
-				  const py::array_t<long int, py::array::c_style>& index)
+				  const py::array_t<unsigned int, py::array::c_style>& index)
   {
     size_t n = weights.shape(0);
     double* pgrid = grid.mutable_data<double>(0);
     const float* pweights = weights.data<float>(0);
-    const long int* pindex = index.data<long int>(0);
+    const unsigned int* pindex = index.data<unsigned int>(0);
+    size_t nGrid = grid.shape(0)*grid.shape(1);
 
     for(size_t i=0; i<n; ++i)
       {
       float w = pweights[i];
-      if (w!=0)
+      size_t igrid = size_t(pindex[i]);
+      if ((w!=0)&&(igrid<nGrid))
 	{
-	size_t igrid = size_t(pindex[i]);
 	sem_t *psem = GiveSemaphoreFromCell(igrid);
 	sem_wait(psem);
 	pgrid[igrid] += w;
@@ -55,19 +56,20 @@ namespace DDF {
   // semaphore-free version for use in non-parallel contexts
   void pyAccumulateWeightsOntoGridNoSem(py::array_t<double, py::array::c_style>& grid,
 				  const py::array_t<float, py::array::c_style>& weights,
-				  const py::array_t<long int, py::array::c_style>& index)
+				  const py::array_t<unsigned int, py::array::c_style>& index)
   {
     size_t n = weights.shape(0);
     double* pgrid = grid.mutable_data<double>(0);
     const float* pweights = weights.data<float>(0);
-    const long int* pindex = index.data<long int>(0);
+    const unsigned int* pindex = index.data<unsigned int>(0);
+    size_t nGrid = grid.shape(0)*grid.shape(1);
 
     for(size_t i=0; i<n; ++i)
       {
       float w = pweights[i];
-      if (w!=0)
+      size_t igrid = size_t(pindex[i]);
+      if ((w!=0)&&(igrid<nGrid))
 	{
-	size_t igrid = size_t(pindex[i]);
 	pgrid[igrid] += w;
 	}
       }
@@ -80,7 +82,7 @@ namespace DDF {
 		    const py::array_t<bool, py::array::c_style>& flags,
 		    const py::array_t<float, py::array::c_style>& weights,
 		    py::array_t<double, py::array::c_style>& sumwt,
-		    bool dopsf,
+		    int dopsf,
 		    const py::list& Lcfs,
 		    const py::list& LcfsConj,
 		    const py::array_t<double, py::array::c_style>& WInfos,
@@ -118,7 +120,7 @@ namespace DDF {
     #define callgridder(stokesgrid, nVisPol) \
       {\
             gridder::gridder<readcorr, mulaccum, stokesgrid, gridtype>(np_grid, vis, uvw, flags, weights, sumwt,\
-                                                                       bool(dopsf), Lcfs, LcfsConj, WInfos, increment,\
+                                                                       int(dopsf), Lcfs, LcfsConj, WInfos, increment,\
                                                                        freqs, Lmaps, LJones, SmearMapping, Sparsification,\
                                                                        LOptimisation,LSmearing,np_ChanMapping, expstokes); \
             done=true;\

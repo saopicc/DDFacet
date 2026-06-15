@@ -32,8 +32,44 @@ else:
     import cPickle
 import collections
 
+import getpass
 from DDFacet.Other import logger, ModColor
 log = logger.getLogger("CacheManager")
+from DDFacet.Array import shared_dict
+
+class RemnantManager():
+    def __init__(self,GD):
+        self.GD=GD
+        if self.GD["Cache"].get("Remnant",False):
+            uname=getpass.getuser()
+            self.RemnantPrefix="/dev/shm/Remnant_%s"%uname
+            log.print("Using remnant mode, structures will be saved in %s"%self.RemnantPrefix)
+            os.system("mkdir -p %s"%self.RemnantPrefix)
+            self.Enabled=True
+        else:
+            self.RemnantPrefix=""
+            self.Enabled=False
+
+    def giveNameRemnant(self,DicoName="AllImages_FMPSF"):
+        if self.Enabled:
+            FName="%s/%s"%(self.RemnantPrefix,DicoName)
+        else:
+            FName=None
+        return FName
+            
+    def mountRemnant(self,DicoName="AllImages_FMPSF"):
+        DicoImagesPSF=None
+        if self.Enabled:
+            FName=self.giveNameRemnant(DicoName)
+            if os.path.isdir(FName):
+                DicoImagesPSF = shared_dict.attach(FName)
+                log.print(ModColor.Str("Remnant dict was loaded from: %s"%FName,col="green"))
+            else:
+                log.print(ModColor.Str("Could not load %s"%FName))
+                #log.print("Exception was:\n%s"%str(e))
+                DicoImagesPSF=None
+        return DicoImagesPSF
+
 
 
 class CacheManager (object):
@@ -121,11 +157,12 @@ class CacheManager (object):
         self.pid = os.getpid()
         if not os.path.exists(dirname):
             print("cache directory %s does not exist, creating" % dirname, file=log)
-            os.mkdir(dirname)
+            os.makedirs(dirname)
         else:
             if reset:
                 print("clearing cache %s, since we were asked to reset the cache" % dirname, file=log)
                 os.system("rm -fr "+dirname)
+
                 os.mkdir(dirname)
         # check for NFS system and print warning
         if nfswarn:
@@ -170,7 +207,7 @@ class CacheManager (object):
         """
         return "file://" + self.getElementPath(name, **kw)
 
-    def checkCache(self, name, hashkeys, directory=False, reset=False, ignore_key=False):
+    def checkCache(self, name, hashkeys, directory=False, reset=False, ignore_key=False,CachePathSHM=None):
         """
         Checks if cached element named "name" is valid.
 
@@ -189,6 +226,7 @@ class CacheManager (object):
             and valid is True if a valid cache exists
         """
         cachepath = self.getElementPath(name)
+            
         hashpath = cachepath + ".hash"
         # convert hash keys into a single list
         hash = hashkeys
@@ -197,7 +235,9 @@ class CacheManager (object):
         if reset:
             print("cache element %s will be explicitly reset" % cachepath, file=log)
         else:
-            if not os.path.exists(cachepath):
+            checkCachePath=CachePathSHM
+            if checkCachePath is None: checkCachePath=cachepath
+            if not os.path.exists(checkCachePath):
                 print("cache element %s does not exist, will re-make" % cachepath, file=log)
                 if directory:
                     os.mkdir(cachepath)
@@ -239,7 +279,14 @@ class CacheManager (object):
                         "(%s: missing in stored hash)" % (str(MainField)))
 
                 print("cache hash %s does not match, will re-make" % hashpath, file=log)
-                print("  differences in parameters (Param: this vs cached): %s"%" & ".join(ListDiffer), file=log)
+                if False:#len(ListDiffer)==1:
+                    print("  differences in parameters (Param: this vs cached): %s"%" & ".join(ListDiffer), file=log)
+                else:
+                    print("  differences in parameters (Param: this vs cached):", file=log)
+                    for ThisStrDiff in ListDiffer:
+                        ss=ThisStrDiff.replace("(","    - ").replace(")","")
+                        print(ss, file=log)
+                    
                 
                 reset = True
             # if resetting cache, then mark new hash value for saving (will be saved in flushCache),
@@ -261,6 +308,17 @@ class CacheManager (object):
         # store hash
         self.hashes[name] = hashpath, hash, reset
         return cachepath, not reset
+
+    def deleteCache(self,name):
+        cachepath = self.getElementPath(name)
+        hashpath = cachepath + ".hash"
+        if os.path.exists(hashpath):
+            os.remove(hashpath)
+        if os.path.exists(cachepath):
+            if os.path.isdir(cachepath):
+                os.rmdir(cachepath)
+            else:
+                os.remove(cachepath)
 
     def saveCache(self, name=None):
         """

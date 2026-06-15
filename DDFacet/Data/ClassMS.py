@@ -29,7 +29,7 @@ import pyrap.measures as pm
 import pyrap.quanta as qa
 from astropy.time import Time
 from pyrap.tables import table
-from datetime import datetime as dt
+from datetime import datetime
 from typing import List
 import ephem
 import numpy as np
@@ -37,6 +37,9 @@ from DDFacet.Other import ModColor
 from DDFacet.Other import logger
 from DDFacet.Other import reformat
 from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
+from DDFacet.Array import shared_dict
+from astropy.io import fits
+from astropy.time import Time as astropyTime
 
 log = logger.getLogger("ClassMS")
 from DDFacet.Other import ClassTimeIt
@@ -44,15 +47,20 @@ from DDFacet.Other.CacheManager import CacheManager
 from DDFacet.Array import NpShared
 from DDFacet.Data import sidereal
 from DDFacet.Array import PrintRecArray
+from astropy.time import Time as astropyTime
 
 import datetime
 import DDFacet.ToolsDir.ModRotate
+from DDFacet.Other import ClassGiveSolsFile
 
 import time
 from astropy.time import Time
 from DDFacet.Other.progressbar import ProgressBar
+from math import copysign
 from urllib.parse import urlsplit, urlunsplit
 
+
+from DDFacet.Other import MPIManager
 #
 # try:
 #     import lofar.stationresponse as lsr
@@ -72,7 +80,7 @@ class ClassMS():
                  DicoSelectOptions={},
                  ResetCache=False,
                  first_ms=None,
-                 get_obs_detail=False):
+                 get_obs_detail=False,iMS=0):
 
         """
         Args:
@@ -99,10 +107,12 @@ class ClassMS():
 
         if MSname=="": exit()
         self.GD = GD
-        self.ToRADEC = self.GD["Image"]["PhaseCenterRADEC"]
+        self.ToRADEC = None
+        if self.GD is not None:
+            self.ToRADEC=self.GD["Image"]["PhaseCenterRADEC"]
         if not self.ToRADEC:
             self.ToRADEC = None
-
+        self.iMS=iMS
         self.AverageSteps=AverageTimeFreq
         if MSname.startswith("http://") or MSname.startswith("https://"):
             self.MSName = MSName = MSname
@@ -133,12 +143,31 @@ class ClassMS():
         # once.
         self._reset_cache = ResetCache
         self._chunk_caches = {}
+        
+        cachedir=None
+        self.maincache=None
+        if self.GD is not None: cachedir=self.GD["Cache"]["Dir"]
+        # CT: add iMS because it can happen that two MSs are different but have the same name (in a different parent directory)
+        # and in that case the cache manager gets confused, loading cache for MSs are indeed different
         if MSName.startswith("http://") or MSName.startswith("https://"):
             from urllib.parse import urlsplit
             cachename = urlsplit(MSName)._replace(query="", fragment="").geturl().replace(":","_").replace("/","_")
         else:
             cachename = MSName
-        self.maincache = CacheManager(cachename+".F%d.D%d.ddfcache"%(self.Field, self.DDID), reset=ResetCache, cachedir=self.GD["Cache"]["Dir"], nfswarn=True)
+            
+        if MPIManager.useMPI:
+            if MPIManager.size > 1:
+                self.maincache = CacheManager(cachename+".rank_%d.N%i.F%d.D%d.ddfcache"%(MPIManager.rank, self.iMS, self.Field, self.DDID), reset=ResetCache, cachedir=cachedir, nfswarn=True)
+            else:
+                self.maincache = CacheManager(cachename+".N%i.F%d.D%d.ddfcache"%(self.iMS, self.Field, self.DDID),
+                                              reset=ResetCache, cachedir=cachedir, nfswarn=True)
+        elif cachedir is not None:
+            self.maincache = CacheManager(cachename+".N%i.F%d.D%d.ddfcache"%(self.iMS, self.Field, self.DDID),
+                                          reset=ResetCache, cachedir=cachedir, nfswarn=True)
+
+
+        # self.maincache = CacheManager(cachename+".F%d.D%d.ddfcache"%(self.Field, self.DDID), reset=ResetCache, cachedir=self.GD["Cache"]["Dir"], nfswarn=True)
+
 
         self.ReadMSInfo(first_ms=first_ms,DoPrint=DoPrint)
         self.LFlaggedStations=[]
@@ -154,7 +183,16 @@ class ClassMS():
 
         #self.LoadLOFAR_ANTENNA_FIELD()
 
-        if DoReadData: self.ReadData()
+        if DoReadData:
+            DATA = shared_dict.create("DATA")
+            # DATA["iMS"]    = iMS
+            # DATA["iChunk"] = iChunk
+            ichunk=0
+            use_cache=0
+            read_data=1
+            sort_by_baseline=0
+            self.ReadData(DATA, ichunk, use_cache=use_cache, read_data=read_data, sort_by_baseline=sort_by_baseline)
+            self.DATA=DATA
         #self.RemoveStation()
 
 
@@ -593,8 +631,7 @@ class ClassMS():
             if sort_index is not None:
                 weights = weights[sort_index]
             DATA["weights"] = weights
-
-        #self.RotateType=["uvw","vis"]
+        # self.RotateType=["uvw","vis"]
 
         DATA["uvw"]   = uvw
         visdata = DATA.addSharedArray("data", shape=datashape, dtype=np.complex64)
@@ -610,14 +647,15 @@ class ClassMS():
                 visdata[...] = np.load(datapath)
                 #self.RotateType=["uvw"]
             else:
-                print("reading MS visibilities from column %s" % self.ColName, file=log)
+                print("reading MS visibilities", file=log)
+                print("  data = %s" % self.ColName, file=log)
                 table_all = table_all or self.GiveMainTable()
                 if sort_index is not None:
                     visdata1 = np.ndarray(shape=datashape, dtype=np.complex64)
                     table_all.getcolslicenp(self.ColName, visdata1, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                     if self.SubColName is not None:
                         for SubCol in self.SubColName:
-                            print("  substracting MS visibilities from column %s" % SubCol, file=log)
+                            print("  data-= %s" % SubCol, file=log)
                             visdata2 = np.ndarray(shape=datashape, dtype=np.complex64)
                             table_all.getcolslicenp(SubCol, visdata2, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                             visdata1-=visdata2
@@ -710,8 +748,10 @@ class ClassMS():
         DATA["dt"]  = self.dt
         DATA["dnu"] = self.ChanWidth
 
+            
         if self.zero_flag and visdata is not None:
-            visdata[flags] = 1e10
+            # visdata[flags] = 1e10 # Problem when flag of data and predict are not the same (for calibration)
+            visdata[flags] = 0
 
         # print "count",np.count_nonzero(flag_all),np.count_nonzero(np.isnan(vis_all))
             visdata[np.isnan(visdata)] = 0.
@@ -884,16 +924,24 @@ class ClassMS():
             ddid_fields = ClassMS._ddid_field_cache.get(self.MSName)
         else:
             maintab = table(self.MSName, ack=False)
+            # if self.TaQL:
+            #     maintab = maintab.query(self.TaQL)
             ddid_fields = set(zip(maintab.getcol("FIELD_ID"), maintab.getcol("DATA_DESC_ID")))
             ClassMS._ddid_field_cache[self.MSName] = ddid_fields
-
+            
+        
+        T.timeit()
+        #print("FJDFKJDFKDGJKL",ClassMS._ddid_field_cache)
         self.empty = (self.Field,self.DDID) not in ddid_fields
+        
         if self.empty:
+            #stop
             print(ModColor.Str("MS %s (field %d, ddid %d): no rows, skipping"%(self.MSName, self.Field, self.DDID)), file=log)
             return
 
         # open main table
         table_all = self.GiveMainTable()
+        T.timeit()
         self.empty = not table_all.nrows()
         if self.empty:
             print(ModColor.Str("MS %s (field %d, ddid %d): no rows, skipping"%(self.MSName, self.Field, self.DDID)), file=log)
@@ -902,6 +950,7 @@ class ClassMS():
 
         #print MSname+'/ANTENNA'
         ta=table(table_all.getkeyword('ANTENNA'),ack=False)
+        T.timeit()
 
         StationNames=ta.getcol('NAME')
 
@@ -950,16 +999,22 @@ class ClassMS():
             chunk_row0 = sorted(set(chunk_row0))
             # chunk_row0 gives the starting row of each chunk
             if len(chunk_row0) == 1:
-                print("MS %s DDID %d FIELD %d (%d rows) column %s will be processed as a single chunk"%(self.MSName, self.DDID, self.Field, self.F_nrows, self.ColName), file=log)
+                print("MS %s DDID %d FIELD %d (%d rows) column %s will be processed as a single chunk"%(self.MSName, self.DDID, self.Field,
+                                                                                                        self.F_nrows, self.ColName),
+                      file=log)
             else:
-                print("MS %s DDID %d FIELD %d (%d rows) column %s will be split into %d chunks, at rows %s"%(self.MSName, self.DDID, self.Field,  self.F_nrows,
-                                                                                       self.ColName, len(chunk_row0), " ".join(map(str,chunk_row0))), file=log)
+                print("MS %s DDID %d FIELD %d (%d rows) column %s will be split into %d chunks, at rows %s"%(self.MSName, self.DDID, self.Field,
+                                                                                                             self.F_nrows,self.ColName,
+                                                                                                             len(chunk_row0),
+                                                                                                             " ".join(map(str,chunk_row0))),
+                      file=log)
         self.Nchunk = len(chunk_row0)
         chunk_row0.append(self.F_nrows)
         self._chunk_r0r1 = [ chunk_row0[i:i+2] for i in range(self.Nchunk) ]
 
         # init the per-chunk caches
         for ichunk in range(self.Nchunk):
+            if self.maincache is None: continue
             # note that we don't need to reset the chunk cache -- the top-level MS cache would already have been reset,
             # being the parent directory
             self._chunk_caches[ichunk] = CacheManager(
@@ -1049,9 +1104,26 @@ class ClassMS():
             ddec_arcsec=ddecrad*180/np.pi*3600
             log.print(ModColor.Str("   ... moving phase center by 1/100th of a resolution element... (%.3f arcsec))"%ddec_arcsec))
             
-        if rarad<0.: rarad+=2.*np.pi
-        self.OriginalRadec = self.OldRadec = rarad,decrad
+        if rarad<0.:
+            log.print(ModColor.Str("The phase center has a ra<0, adding 2*pi to its value..."))
+            rarad+=2.*np.pi
 
+        # try:
+        #     tp=table(table_all.getkeyword('POINTING'),ack=False)
+        #     rarad_Pointing,decrad_Pointing=tp.getcol("DIRECTION").ravel()
+        # except:
+        #     log.print("There are no POINTING table, taking the beam center from the DELAY_DIR")
+        #     rarad_Pointing,decrad_Pointing=ta.getcol('DELAY_DIR')[self.Field][0]
+        # if rarad_Pointing<0.:
+        #     rarad_Pointing+=2.*np.pi
+        # self.PointingRadec=rarad_Pointing,decrad_Pointing
+        # rarad_Original,decrad_Original=ta.getcol('DELAY_DIR')[self.Field][0]
+        # if rarad_Original<0.:
+        #     rarad_Original+=2.*np.pi
+        # self.OriginalRadec=rarad_Original,decrad_Original
+        
+        self.PointingRadec = self.OriginalRadec = rarad,decrad
+        
         if self.ToRADEC is not None:
             ranew, decnew = rarad, decrad
             # get RA/Dec from first MS, or else parse as coordinate string
@@ -1069,12 +1141,14 @@ class ClassMS():
                 SRa,SDec=self.ToRADEC
                 srah,sram,sras=SRa.split(":")
                 sdecd,sdecm,sdecs=SDec.split(":")
+                print(srah,sram,sras,sdecd,sdecm,sdecs)
                 ranew=(np.pi/180)*15.*(float(srah)+float(sram)/60.+float(sras)/3600.)
-                decnew=(np.pi/180)*np.sign(float(sdecd))*(abs(float(sdecd))+float(sdecm)/60.+float(sdecs)/3600.)
+                decnew=(np.pi/180)*copysign(1.0,float(sdecd))*(abs(float(sdecd))+float(sdecm)/60.+float(sdecs)/3600.)
+                
             # only enable rotation if coordinates actually change
             if ranew != rarad or decnew != decrad:
                 print(ModColor.Str("MS %s will be rephased to %s"%(self.MSName,which)), file=log)
-                self.OldRadec = rarad,decrad
+                self.OriginalRadec = rarad,decrad
                 self.NewRadec = ranew,decnew
                 rarad,decrad = ranew,decnew
             else:
@@ -1136,7 +1210,9 @@ class ClassMS():
         self.nbl=nbl
         self.StrRA  = rad2hmsdms(self.rarad,Type="ra").replace(" ",":")
         self.StrDEC = rad2hmsdms(self.decrad,Type="dec").replace(" ",".")
-        self.lm_PhaseCenter=self.radec2lm_scalar(self.OldRadec[0],self.OldRadec[1])
+        self.lm_PhaseCenter=self.radec2lm_scalar(self.OriginalRadec[0],self.OriginalRadec[1])
+        self.ColNames=table_all.colnames()
+        
         table_all.close()
         T.timeit()
         # self.StrRADEC=(rad2hmsdms(self.rarad,Type="ra").replace(" ",":")\
@@ -1152,6 +1228,8 @@ class ClassMS():
 
         ThresholdFlag = 0.9 # flag antennas with % of flags over threshold
 
+        T=ClassTimeIt.ClassTimeIt("UpdateFlags")
+        T.disable()
         # flag autocorrelations
         # print>>log,"  flagging autocorrelations"
         flags[A0==A1] = True
@@ -1161,23 +1239,27 @@ class ClassMS():
             ind = np.isnan(data)
             flags[ind] = True
             data[flags] = 1e9
+        T.timeit("nan")
         # if one of 4 correlations is flagged, flag all 4. Make smaller array of flags per row/channel
         # print>>log,"  flagging incomplete coherency matrices"
         flags1 = flags.any(axis=2)
         flags[flags1] = True
-
         FlagAntNumber = set()
+        T.timeit("pol")
 
-        if self.DicoSelectOptions["UVRangeKm"]:
+        
+        if self.GD["Selection"]["UVRangeKm"] is not None and self.GD["Selection"]["UVRangeKm"]!="":
+
             d0, d1 = self.DicoSelectOptions["UVRangeKm"]
             print("  flagging uv data outside uv distance of [%5.2f~%5.2f] km" % (d0, d1), file=log)
             d0 = d0**2*1e6
             d1 = d1**2*1e6
             duv = (uvw[:,:2]**2).sum(1)  # u^2+v^2... and we already squared d0 and d1
             flags[(duv < d0) | (duv > d1),:,:] = True
+            T.timeit("UVRangeKm")
 
         if self.DicoSelectOptions["TimeRange"]:
-            st0, st1 = list(map(lambda x: dt.utcfromtimestamp(qa.quantity(x).to_unix_time()),
+            st0, st1 = list(map(lambda x: datetime.utcfromtimestamp(qa.quantity(x).to_unix_time()),
                                 self.DicoSelectOptions["TimeRange"]))
             print("  imaging only uv data in time range [{}~{}] UTC".format(st0, st1), file=log)
             st0, st1 = list(map(lambda x: qa.quantity(x).to_unix_time(),
@@ -1185,7 +1267,24 @@ class ClassMS():
             times_utc = np.array(list(map(lambda x: qa.quantity("{}s".format(x)).to_unix_time(), times)))
             sel = np.logical_or(times_utc < st0, times_utc > st1)
             flags[sel, :, :] = True
+            
+        if self.DicoSelectOptions["TimeRangeFromStartMin"]:
+            st0, st1 = self.DicoSelectOptions["TimeRangeFromStartMin"]
+            print("  imaging only uv data in time range [{}~{}] minutes since start".format(st0, st1), file=log)
+            st0*=60
+            st1*=60
+            dt=times-times[0]
+            C0=(dt<st0)
+            C1=(dt>=st1)
+            sel = (C0|C1)
+            flags[sel, :, :] = True
 
+        # print("JJJJJJJ")
+        # iAnt=23
+        # sel=np.logical_not(((A0==iAnt)|(A1==iAnt)))
+        # flags[sel, :, :] = True
+        # print("JJJJJJJ")
+        
         if self.DicoSelectOptions["DistMaxToCore"]:
             DMax = self.DicoSelectOptions["DistMaxToCore"] * 1e3
             X, Y, Z = self.StationPos.T
@@ -1197,6 +1296,43 @@ class ClassMS():
                 iAnt, self.StationNames[iAnt], Dist[iAnt] / 1e3), file=log)
                 FlagAntNumber.add(iAnt)
 
+
+            
+        if self.GD["Selection"]["AutoFlagNyquist"]:
+            try:
+                Cell_x,Cell_y=self.GD["Image"]["Cell"]
+            except:
+                Cell_x=Cell_y=self.GD["Image"]["Cell"]
+                
+            Cell_x*=np.pi/180/3600
+            Cell_y*=np.pi/180/3600
+            f_x=1./Cell_x/3
+            f_y=1./Cell_y/3
+            u,v,w=uvw.T
+            T.timeit("cell")
+            fd_u=u.reshape((-1,1))*self.ChanFreq.reshape((1,-1))/3e8
+            fd_v=v.reshape((-1,1))*self.ChanFreq.reshape((1,-1))/3e8
+            fd_uv=np.sqrt((fd_u/f_x)**2+(fd_v/f_y)**2)
+            flag_Nyquist=(fd_uv>1)#(fd_u>f_x)|(fd_v>f_y))
+            fraction_flag_Nyquist=100*np.count_nonzero(flag_Nyquist)/flag_Nyquist.size
+            T.timeit("fd_uv")
+            if fraction_flag_Nyquist>0:
+                if self.GD["Selection"]["AutoFlagNyquist"]:
+                    log.print("Fraction of uv points beyond Nyquist sampling: %.2f%%"%fraction_flag_Nyquist)
+                    log.print("  flagging uv-points that are further than Nyquist sampling")
+                    _,_,npol=flags.shape
+                    #flags0=flags.copy()
+                    flag_Nyquist=flag_Nyquist.reshape((u.size,self.ChanFreq.size,1))*np.ones((1,1,npol),bool)
+                    flags[flag_Nyquist]=1
+                    #print(np.count_nonzero(flags0),np.count_nonzero(flags))
+                else:
+                    log.print(ModColor.Str("Fraction of uv points beyond Nyquist sampling: %.2f%%"%fraction_flag_Nyquist))
+                    log.print(ModColor.Str("  you might want to either (i) chose a smaller pixel size, or (ii) unselect longest uv-points/baselines, or (iii) use --Selection-AutoFlagNyquist=True"))
+            else:
+                log.print("Your pixel size is small enough, longest baselines will be properly modeled")
+            T.timeit("rest nyquist")
+            
+                
         # C0=(A0 == 7) & (A1 == 17)
         # C1=(A1 == 7) & (A0 == 17)
         # ind = np.where(np.logical_not(C0|C1))[0]
@@ -1211,13 +1347,23 @@ class ClassMS():
         
         antenna_flagfrac = [flags1[rows].sum() / float(flags1[rows].size or 1) for rows in antenna_rows]
         print("  flagged fractions per antenna: %s" % " ".join(["%.2f" % frac for frac in antenna_flagfrac]), file=log)
+        T.timeit("Antenna")
 
-        
+        # print("lhjhgkljklhkhm")
+        # print("lhjhgkljklhkhm")
+        # print("lhjhgkljklhkhm")
+        # print("lhjhgkljklhkhm")
+        # print("lhjhgkljklhkhm")
+        # print("lhjhgkljklhkhm")
+        # print("lhjhgkljklhkhm")
+        # print("lhjhgkljklhkhm")
+        # ThresholdFlag=1
         FlagAntFrac = [ant for ant, frac in enumerate(antenna_flagfrac) if frac > ThresholdFlag]
         FlagAntNumber.update(FlagAntFrac)
         for A in FlagAntFrac:
             print("    antenna %i has ~%4.1f%s of flagged data (more than %4.1f%s)" % \
                          (A, antenna_flagfrac[A] * 100, "%", ThresholdFlag * 100, "%"), file=log)
+        T.timeit("per Antenna")
 
         if self.DicoSelectOptions["FlagAnts"]:
             FlagAnts = self.DicoSelectOptions["FlagAnts"]
@@ -1232,6 +1378,10 @@ class ClassMS():
 
         for A in FlagAntNumber:
             flags[antenna_rows[A], :, :] = True
+        T.timeit("end")
+            
+        
+        print("Fraction of flagged data: %.2f %s"%(100*np.count_nonzero(flags==1)/flags.size,"%"), file=log)
         print("Flags updated", file=log)
 
     def __str__(self):
@@ -1270,7 +1420,9 @@ class ClassMS():
         return l,m
 
 
-    def PutVisColumn(self, colname, vis, ichunk, likecol="DATA", sort_index=None, ColDesc=None):
+    #def PutVisColumn(self, colname, vis, row0, row1, likecol="DATA", sort_index=None, ColDesc=None,
+    #                 flags=None):
+    def PutVisColumn(self, colname, vis, ichunk, likecol="DATA", sort_index=None, ColDesc=None, flags=None):
         self.AddCol(colname,
                     LikeCol=likecol,
                     quiet=True,
@@ -1278,6 +1430,12 @@ class ClassMS():
         
         row0, row1 = self._chunk_r0r1[ichunk]
         nrow = row1 - row0
+
+        # # commented for master to give same results
+        # if flags is not None:
+        #     vis=vis.copy()
+        #     vis[flags]=0
+            
         if self._reverse_channel_order:
             vis = vis[:,::-1,...]
         print("writing column %s rows %d:%d"%(colname,row0,row1), file=log)
@@ -1521,11 +1679,11 @@ class ClassMS():
     def Rotate(self,DATA,RotateType=["uvw","vis"],Sense="ToTarget",DataFieldName="data"):
         #DDFacet.ToolsDir.ModRotate.Rotate(self,radec)
         if Sense=="ToTarget":
-            ra0,dec0=self.OldRadec
+            ra0,dec0=self.OriginalRadec
             ra1,dec1=self.NewRadec
         elif Sense=="ToPhaseCenter":
             ra0,dec0=self.NewRadec
-            ra1,dec1=self.OldRadec
+            ra1,dec1=self.OriginalRadec
 
         StrRAOld  = rad2hmsdms(ra0,Type="ra").replace(" ",":")
         StrDECOld = rad2hmsdms(dec0,Type="dec").replace(" ",".")
@@ -1571,15 +1729,34 @@ class ClassMS():
         row0, row1 = self._chunk_r0r1[ichunk]
         return self.GiveMainTable().getcol("UVW", row0, row1 - row0)
 
+
+    def getChunkRow0Row1(self):
+        return self._chunk_r0r1
+    
     def readWeights(self, ichunk, weightcols: List[str], uvw_only=False):
         row0, row1 = self._chunk_r0r1[ichunk]
         nrows = row1 - row0
         if not nrows:
-            return None, None, None, None
+            return None, None, None, None, None
         tab = self.GiveMainTable()
         uvw = tab.getcol("UVW", row0, nrows) 
-        flags = tab.getcol("FLAG", row0, nrows)
-        flags = flags[:,self.ChanSlice,:]
+        #flags = tab.getcol("FLAG", row0, nrows)
+        #flags = flags[:,self.ChanSlice,:]
+
+        flags = np.empty((nrows, len(self.ChanFreq), len(self.CorrelationIds)), bool)
+        tab.getcolslicenp("FLAG", flags, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nrows)
+
+        # #############################################
+        # # disable to pass the test, but this is more correct with
+        # if self.GD["Selection"]["UVRangeKm"] is not None and self.GD["Selection"]["UVRangeKm"]!="":
+        #     d0, d1 = self.GD["Selection"]["UVRangeKm"]
+        #     d0 = d0**2*1e6
+        #     d1 = d1**2*1e6
+        #     duv = (uvw[:,:2]**2).sum(1)  # u^2+v^2... and we already squared d0 and d1
+        #     flags[(duv < d0) | (duv > d1),:,:] = True
+        # #############################################
+            
+        
         if self._reverse_channel_order:
             flags = flags[:,::-1,:]
         flags = flags.max(axis=2)
@@ -1588,14 +1765,17 @@ class ClassMS():
         rowflags = flags.min(axis=1)
         # if everything is flagged, skip this entry
         if rowflags.all():
-            return None, None, None, None
+            return None, None, None, None, None
         # if only UVWs needed, return now
         if uvw_only:
-            return uvw, None, None, None
+            return uvw, flags, rowflags, None, None
         
         # now read the weights
         weights = None
-
+        # To do REW in V, need to mupliply V by sgn(W) 
+        sgnweight = np.ones((nrows, self.Nchan), np.int8)
+        
+        #np.save("SinglePSF.ReadW.npz",
         for weight_col in weightcols:
             if weight_col == "WEIGHT_SPECTRUM":
                 w = tab.getcol(weight_col, row0, nrows)[:, self.ChanSlice]
@@ -1606,27 +1786,88 @@ class ClassMS():
                 w = w.mean(axis=2)
             elif weight_col == "None" or weight_col == None:
                 w = None
+            elif ".fits" in weight_col:
+                Th=2
+                if weight_col.split(".fits")[-1]!="":
+                    Th=float(weight_col.split(":")[-1])
+                    weight_col=":".join(weight_col.split(":")[:-1])
+                W_ft=(fits.getdata(weight_col))
+                aW_ft=np.abs(W_ft)
+                sW_ft=np.sign(W_ft)
+                W_ft[aW_ft<Th]=0
+                # M=(aW_ft>=Th)
+                # W_ft[M]=1.#sW_ft[M]
+                
+                nf,nt=W_ft.shape
+                newrow = np.zeros((nf,1),np.float32)
+                W_ft0=W_ft.copy()
+                W_ft = np.hstack([W_ft, newrow])
+                h=fits.getheader(weight_col)
+                t0=h['OBS-STAR']
+                dt=h['CDELT1']
+                df=h['CDELT2']*1e6
+                fMin=float(h['FRQ-MIN'])
+                fMax=float(h['FRQ-MAX'])
+                t0 = astropyTime(t0, format='isot').mjd * 3600. * 24. # + (dt/2.)
+                times = tab.getcol("TIME", row0, nrows)
+                msfreqs = self.ChanFreq
+
+                iChan=np.int64(np.round((self.ChanFreq.ravel()-fMin)/df))
+                iTime=np.int64(np.round((times-t0)/dt))
+                
+                iTime_g,iChan_g=np.meshgrid(iTime,iChan)
+                iTime_g=iTime_g.T
+                iChan_g=iChan_g.T
+                
+                wsel=W_ft[iChan_g.ravel(),iTime_g.ravel()].reshape((nrows, self.Nchan))
+                #log.print("nz %i"%np.count_nonzero(wsel))
+
+                sgnweight[wsel<0]=-1
+                # # Unity non-zero weights
+                # wsel[wsel!=0]=1
+                
+                # print("JJHDSFSDJJFG")
+                # print("JJHDSFSDJJFG")
+                # print("JJHDSFSDJJFG")
+                # print("JJHDSFSDJJFG")
+                # print(np.unique(wsel))
+                # print(np.unique(sgnweight))
+                # #print("save")
+                # #np.savez("Weights_test.npz",wsel=wsel,W_ft=W_ft,W_ft0=W_ft0,sgnweight=sgnweight)
+                
+                #weight[...] *= np.abs(wsel[...])
+                w = np.abs(wsel[...])
             elif weight_col == "Lucky_kMS" and self.GD["DDESolutions"]["DDSols"]:
-                ID = self._chunk_r0r1[ichunk][0]
-                SolsName=self.GD["DDESolutions"]["DDSols"]
+                ID=row0
+                LSolsName=self.GD["DDESolutions"]["DDSols"]
                 SolsDir=self.GD["DDESolutions"]["SolsDir"]
-                if SolsDir is None:
-                    FileName="%skillMS.%s.Weights.%i.npy"%(reformat.reformat(self.MSName),SolsName,ID)
-                else:
-                    _MSName=reformat.reformat(self.MSName).split("/")[-2]
-                    DirName=os.path.abspath("%s%s"%(reformat.reformat(SolsDir),_MSName))
-                    if not os.path.isdir(DirName):
-                        os.makedirs(DirName)
-                    FileName="%s/killMS.%s.Weights.%i.npy"%(DirName,SolsName,ID)
-                log.print( "  loading weights from file: %s"%FileName)
-                w = np.load(FileName)
+                w=None
+                if isinstance(LSolsName,str):
+                    LSolsName=[LSolsName]
+                for SolsName in LSolsName:
+
+                    CGiveSaveFileName=ClassGiveSolsFile.ClassGive_kMSFileName(MSName=self.MSName,
+                                                                              GD=self.GD)
+                    FileName=CGiveSaveFileName.GiveFileName(SolsName=SolsName,
+                                                            Type="Weights",
+                                                            ROW0=ID)
+                    if "_smoothed" in FileName:
+                        FileName=FileName.replace("_smoothed","")
+                    
+                    log.print( "  loading weights from file: %s"%FileName)
+                    if w is None: 
+                        w=np.load(FileName)
+                    else:
+                        w*=np.load(FileName)
+                    # weights[...] *= w
             elif weight_col.endswith(".npy"):
                 log.print("  loading weights from file: %s"%weight_col)
                 w = np.load(weight_col)[slice(self._chunk_r0r1[ichunk]), :]
+
             elif weight_col == "WEIGHT":
                 w = tab.getcol(weight_col, row0, nrows)
                 w = w.mean(axis=1)[:, np.newaxis]
-                # broadcast will not work to initialize weights array below, so do init here
+                # OS: broadcast will not work to initialize weights array below, so do init here
                 if weights is None:
                     weights = np.empty((nrows, self.Nchan), np.float32) 
                     weights[...] = w
@@ -1640,13 +1881,14 @@ class ClassMS():
                 if w.shape != valid.shape:
                     raise TypeError("weights column expected to have shape of %s" %
                         (valid.shape,))
+                
             # multiply into weights
             if weights is None:
                 weights = w if w is not None else np.ones((nrows, self.Nchan), np.float32)
             elif w is not None:
                 weights *= w
 
-        return uvw, flags, rowflags, weights
+        return uvw, flags, rowflags, weights, sgnweight
 
 
 
@@ -1711,9 +1953,12 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
 
     MSName can be a single filename, or a list of filenames, or a *.txt file (in which case a list
     of filenames will be read from the text file).
+    
+    Each filename in the list can be prefixed with hostname: to select the host name where the filename
+    will be loaded.
 
     Furthermore, each filename in the list can contain wildcards (*?) to select multiple MSs, and
-    con be suffixed with //Dx and/or //Fy to select specific DATA_DESC_ID and FIELD_IDs in the MS. "x" and "y"
+    can be suffixed with //Dx and/or //Fy to select specific DATA_DESC_ID and FIELD_IDs in the MS. "x" and "y"
     can take the form of a single number, a Pythonic range (e.g. "0:16"), an inclusive range ("0~15");
     or "*" to select all. E.g. foo.MS//D*//F0:2 selects all DDIDs, and fields 0 and 1 from foo.MS.
     
@@ -1721,11 +1966,11 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
 
     The defaultField and defaultDDID arguments will be used for those MSs where //D or //F is not specified.
 
-    Ultimately, returns a list of (MSName, ddid, field) tuples, where MSName is a proper MS path, and ddid
-    and field are indices.
+    Ultimately, returns a list of (MSName, host, ddid, field) tuples, where MSName is a proper MS path,
+    host is either a string or None and ddid and field are indices.
     """
     if isinstance(MSName,list):
-        print("multi-MS mode", file=log)
+        print("reading MSs from a python list", file=log)
     elif not isinstance(MSName,str):
         raise TypeError("MSName parameter must be a list or a filename")
     elif MSName.endswith(".txt"):
@@ -1740,7 +1985,15 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
         MSName = [MSName]
     # now, at this point each entry in the list can still contain wildcards, and ":Fx:Dx" groups. Process it
     mslist = []
-    for msspec in MSName:
+    for ThisMS in MSName:
+
+        if ":" in ThisMS:
+            host = ThisMS.split(':')[0]
+            msspec = ":".join(ThisMS.split(':')[1:])
+        else:
+            host=None
+            msspec = ThisMS
+        
         if msspec.startswith("http://"):
             archive_obs = 'unsecure'
         elif msspec.startswith("https://"):
@@ -1748,10 +2001,12 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
         else:
             archive_obs = False
 
+
         regrp = r"(([0-9]+)|([0-9]+)([~:])([0-9]+)|(\*))"   # regex matching N or N:M or N~M or *
         # match :F and :D suffixes, if present. Don't regexes make your brain melt
         terms = msspec.replace("https://", "").replace("http://", "").split("//")
         msname = terms[0]
+
         ddid_match = [ re.match("D("+regrp+")$", x) for x in terms[1:] ]
         field_match = [ re.match("F("+regrp+")$", x) for x in terms[1:] ]
         col_match = [ re.match("(.*_DATA)$", x) for x in terms[1:]]
@@ -1813,6 +2068,39 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
             if col is not None:
                 print("%s: non-default column %s"%(mspath, col), file=log)
             # make output list
-            mslist += [ (mspath,d,f,col) for d in ddids for f in fields ]
+            mslist += [ (mspath,host,d,f,col) for d in ddids for f in fields ]
     print("%d MS section(s) selected" % len(mslist), file=log)
     return mslist
+
+
+
+def splitMSList(MSList):
+    #MSList = [('/workdir/MS_files/TestMPI/0000.MS', 'host1', 0, 0, None), ('/workdir/MS_files/TestMPI/0001.MS', None, 0, 0, None), ('/workdir/MS_files/TestMPI/0002.MS', 'monnier', 0, 0, None), ('/     workdir/MS_files/TestMPI/0003.MS', None, 0, 0, None), ('/workdir/MS_files/TestMPI/0004.MS', None, 0, 0, None), ('/workdir/MS_files/TestMPI/0005.MS', None, 0, 0, None), ('/workdir/MS_files/TestMPI/0006.   MS', 'monnier', 0, 0, None), ('/workdir/MS_files/TestMPI/0007.MS', None, 0, 0, None)]
+    hostname = os.uname()[1]
+    print(f"Hostname is {hostname}", file=log)
+    # filter msfile with host defined
+    mslist_with_host = list(filter(lambda x: x[1] == hostname, MSList))
+    mslist_without_host = list(filter(lambda x: x[1] == None, MSList))
+    
+    if len(mslist_with_host)*len(mslist_without_host) > 0:
+        raise RuntimeError("You have not define a hostname for each MS File")
+
+    if len(mslist_with_host) > 0:
+        return mslist_with_host
+
+    nproc = MPIManager.size
+    rank = MPIManager.rank
+    #n = s % nproc + (rank>s/nproc)
+    N = len(mslist_without_host)
+    q = N // nproc
+    r = N % nproc
+    n = q + ( r > rank );
+    s = q * rank + min (r , rank );
+
+    local_list = mslist_without_host[s:s+n]
+    print(f"MSList is {local_list}", file=log)
+
+    if len(local_list) == 0:
+        raise RuntimeError("You have at least one MPI Process with no MS files")
+
+    return local_list

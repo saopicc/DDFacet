@@ -30,7 +30,7 @@ import abc
 from math import floor, ceil
 
 import numpy as np
-from scipy.ndimage.filters import convolve
+from scipy.ndimage import convolve
 import pywt
 
 from . import udft

@@ -93,7 +93,8 @@ def Mutate(Indiv,indpb=0.05,AmpRad=0.017453292519943295):
     return Indiv,
 
 
-def giveFitness(Indiv,x=None,y=None,S=None,Polygons=None,PolyCut=None,BigPolygon=None): 
+def giveFitness(Indiv,
+                x=None,y=None,S=None,Polygons=None,PolyCut=None,BigPolygon=None,FitnessType="Fair"): 
     T=ClassTimeIt.ClassTimeIt("Fitness")
     T.disable()
     CMD=ClassMetricDEAP.ClassMetricDEAP(Indiv,x=x,y=y,S=S,Polygons=Polygons,PolyCut=PolyCut,BigPolygon=BigPolygon)
@@ -101,25 +102,51 @@ def giveFitness(Indiv,x=None,y=None,S=None,Polygons=None,PolyCut=None,BigPolygon
     NPerFacet=CMD.NPerFacet()
     meanDistancePerFacet=CMD.meanDistancePerFacet()
     overlapPerFacet=CMD.overlapPerFacet()
-
+    brightestFluxPerFacet=CMD.brightestFluxPerFacet()
+    node2NodeDistance=CMD.node2NodeDistance()
+    
     Fitness=0
-    Fitness+= -np.std(fluxPerFacet)
-    Fitness+= -np.std(NPerFacet)
-    Fitness+= -1e5*np.count_nonzero(NPerFacet==0)
+    if FitnessType=="Fair":
+        Fitness+= -np.std(fluxPerFacet)
+        Fitness+= -np.std(NPerFacet)
+        Fitness+= -1e5*np.count_nonzero(NPerFacet==0)
+        
+        # aspectRatioPerFacet=CMD.aspectRatioPerFacet()
+        # A=aspectRatioPerFacet
+        # Fitness+= -np.mean(A[A>0])
+        
+        Fitness+= -np.mean(meanDistancePerFacet)*10
+        Fitness+= -np.sum(overlapPerFacet)*1e5
+    elif FitnessType=="BrightCal":
+        Fitness+=-np.std(brightestFluxPerFacet)
+        Fitness+= -1e5*np.count_nonzero(NPerFacet==0)
+        Fitness+= -np.mean(meanDistancePerFacet)*10
+        Fitness+= -np.sum(overlapPerFacet)*1e5
+        Fitness+= (node2NodeDistance).min()
+    elif FitnessType=="PrimaryBeam":
+        Fitness+= -1e5*np.count_nonzero(NPerFacet==0)
+        Fitness+= -np.sum(overlapPerFacet)*1e5
+        
+        fluxPerFacet=np.sort(fluxPerFacet)
+        Fitness+= np.max(fluxPerFacet)
+        
+        Fitness+= 2*np.std(fluxPerFacet[:-1])
 
-    # aspectRatioPerFacet=CMD.aspectRatioPerFacet()
-    # A=aspectRatioPerFacet
-    # Fitness+= -np.mean(A[A>0])
+        #iMax=np.argmax()
+        
+        #Fitness+= np.max(NPerFacet)
+        #Fitness+= np.std(NPerFacet[:-1])
+    
 
-    Fitness+= -np.mean(meanDistancePerFacet)*10
-    Fitness+= -np.sum(overlapPerFacet)*1e5
+    
     
     return Fitness,
 
 
 class ClassCluster():
     def __init__(self,x,y,S,nNode=50,RandAmpDeg=1.,NGen=300,NPop=1000,DoPlot=True,PolyCut=None,
-                 NCPU=1,BigPolygon=None):
+                 NCPU=1,BigPolygon=None,
+                 FitnessType="Fair"):
         self.DoPlot=DoPlot
         self.PolyCut=PolyCut
         self.BigPolygon=BigPolygon
@@ -129,6 +156,7 @@ class ClassCluster():
         self.NGen=NGen
         self.NPop=NPop
         self.nNode=nNode
+        self.FitnessType=FitnessType
         self.RandAmpRad=RandAmpDeg*np.pi/180
         creator.create("FitnessMax", base.Fitness, weights=(1.0,))
         creator.create("Individual", numpy.ndarray, fitness=creator.FitnessMax)
@@ -213,7 +241,7 @@ class ClassCluster():
         toolbox=self.toolbox
 
         toolbox.register("evaluate", giveFitness, x=self.x, y=self.y, S=self.S, Polygons=self.Polygons,
-                         PolyCut=self.PolyCut, BigPolygon=self.BigPolygon)
+                         PolyCut=self.PolyCut, BigPolygon=self.BigPolygon,FitnessType=self.FitnessType)
 
         pop = toolbox.population(n=self.NPop)
 

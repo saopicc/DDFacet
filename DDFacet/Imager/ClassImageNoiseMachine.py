@@ -36,9 +36,12 @@ from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 from DDFacet.ToolsDir import ModFFTW
 
 class ClassImageNoiseMachine():
-    def __init__(self, GD, ExternalModelMachine=None, DegridFreqs=None, GridFreqs=None, MainCache=None):
+    def __init__(self, GD, ExternalModelMachine=None, DegridFreqs=None, GridFreqs=None, MainCache=None,ParallelMode=True,APP=None):
         self.GD = copy.deepcopy(GD)
-        
+        self.ParallelMode=ParallelMode
+        from DDFacet.Imager.MultiFields.AppendSubFieldInfo import AppendSubFieldInfo
+        AppendSubFieldInfo(self)
+        self.APP=APP
         self.MainCache=MainCache
         self.NoiseMap=None
         self.NoiseMapRestored=None
@@ -59,7 +62,7 @@ class ClassImageNoiseMachine():
         self.GD["Deconv"]["PeakFactor"]=0#0.01
         self.GD["Deconv"]["PSFBox"] = "full"
         self.GD["Deconv"]["MaxMinorIter"] = 10000
-        self.GD["Deconv"]["RMSFactor"] = 3.
+        self.GD["Deconv"]["RMSFactor"] = self.GD["Mask"]["AutoRMSFactor"]
         # self.GD["HMP"]["Scales"]=[0]
         self.GD["HMP"]["Ratios"] = []
         # self.GD["MultiScale"]["Ratios"]=[]
@@ -90,7 +93,7 @@ class ClassImageNoiseMachine():
         # MinorCycleConfig["RefFreq"] = self.RefFreq
         # MinorCycleConfig["CleanMaskImage"]=None
         self.MinorCycleConfig = MinorCycleConfig
-        if self.GD["Deconv"]["Mode"] in ["HMP", "SSD", "SSD2", "MultiSlice"]:
+        if self.GD["Deconv"]["Mode"] in ["HMP", "SSD", "SSD2", "SSD3", "MultiSlice"]:
             # for SSD we need to set up the HMP ModelMachine.
             self.GD["Deconv"]["Mode"] = "HMP"
             ModConstructor = ClassModModelMachine(self.GD)
@@ -100,10 +103,10 @@ class ClassImageNoiseMachine():
             self.MinorCycleConfig = MinorCycleConfig
             from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
 
-
             self.DeconvMachine = ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.MainCache,
-                                                                                     ParallelMode=True,
+                                                                                     ParallelMode=self.ParallelMode,
                                                                                      CacheFileName="HMP_Masking",
+                                                                                     APP=self.APP,
                                                                                      **self.MinorCycleConfig)
         elif self.GD["Deconv"]["Mode"] == "Hogbom":
             from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
@@ -113,6 +116,12 @@ class ClassImageNoiseMachine():
                                                                                        **self.MinorCycleConfig)
         elif self.GD["Deconv"]["Mode"] == "WSCMS":
             from DDFacet.Imager.WSCMS import ClassImageDeconvMachineWSCMS
+            self.DeconvMachine = ClassImageDeconvMachineWSCMS.ClassImageDeconvMachine(MainCache=self.MainCache,
+                                                                                      ParallelMode=True,
+                                                                                      CacheFileName="HMP_Masking",
+                                                                                      **self.MinorCycleConfig)
+        elif self.GD["Deconv"]["Mode"] == "WSCMS2":
+            from DDFacet.Imager.WSCMS2 import ClassImageDeconvMachineWSCMS
             self.DeconvMachine = ClassImageDeconvMachineWSCMS.ClassImageDeconvMachine(MainCache=self.MainCache,
                                                                                       ParallelMode=True,
                                                                                       CacheFileName="HMP_Masking",
@@ -135,7 +144,7 @@ class ClassImageNoiseMachine():
         F=1.-(1.-f)**n
         ratio=np.abs(np.interp(0.5,F,x))
 
-        Noise=-scipy.ndimage.filters.minimum_filter(Acopy,SBox)/ratio
+        Noise=-scipy.ndimage.minimum_filter(Acopy,SBox)/ratio
 
         NPixStats=10000
         IndStats=np.int64(np.linspace(0,Noise.size-1,NPixStats))
@@ -169,6 +178,8 @@ class ClassImageNoiseMachine():
 
         # self.NoiseMapReShape=self.giveMinStatNoiseMap(DicoResidual["MeanImage"])
 
+        
+        
         if self.GD["Noise"]["BrutalHMP"]:
             self.giveBrutalRestored(DicoResidual)
             if self.GD["Mask"]["FluxImageType"]=="ModelConv":
@@ -237,10 +248,11 @@ class ClassImageNoiseMachine():
 
         print("  Getting model image...", file=log)
         Model=self.ModelMachine.GiveModelImage(DoAbs=True)
-            
-        if "Comp" in self.ExternalModelMachine.DicoSMStacked.keys():
-            Model+=np.abs(self.ExternalModelMachine.GiveModelImage())
 
+        HasModelNonZeroModel=(len(self.ExternalModelMachine.DicoSMStacked.get("Comp",{}))>0)
+        if HasModelNonZeroModel:
+            Model+=np.abs(self.ExternalModelMachine.GiveModelImage())
+            
         if "JonesNorm" in self.DicoDirty.keys():
             nchIm,npolIm,nxIm,nyIm=self.DicoDirty["JonesNorm"].shape
             MeanBeam=np.sum(self.DicoDirty["WeightChansImages"].reshape((nchIm,1,1,1))*self.DicoDirty["JonesNorm"],axis=0).reshape((1,npolIm,nxIm,nyIm))

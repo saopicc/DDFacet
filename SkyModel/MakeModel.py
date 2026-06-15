@@ -14,6 +14,16 @@ from SkyModel.Sky import ModRegFile
 from SkyModel.Other import ModColor
 from SkyModel.Array import RecArrayOps
 
+# # ##############################
+# # Catch numpy warning
+# import numpy as np
+# np.seterr(all='raise')
+# import warnings
+# warnings.filterwarnings('error')
+# #with warnings.catch_warnings():
+# #    warnings.filterwarnings('error')
+# # ##############################
+
 SaveName="last_MakeModel.obj"
 
 def read_options():
@@ -54,7 +64,7 @@ def main(options=None):
     if options==None:
         f = open(SaveName,'rb')
         options = pickle.load(f)
-
+    GD=None
     NDir=int(options.NCluster)
     if NDir==0 and options.ds9PreClusterFile:
         R=ModRegFile.RegToNp(options.ds9PreClusterFile)
@@ -115,18 +125,20 @@ def main(options=None):
         #from DDFacet.Imager.ClassModelMachine import ClassModelMachine
 
         FileDicoModel="%s.DicoModel"%options.BaseImageName
-
+        
         # ClassModelMachine,DicoModel=GiveModelMachine(FileDicoModel)
         # MM=ClassModelMachine(Gain=0.1)
         # MM.FromDico(DicoModel)
 
+        
         ModConstructor = ClassModModelMachine()
         MM=ModConstructor.GiveInitialisedMMFromFile(FileDicoModel)
-        
+        GD=MM.GD
         SqrtNormImage=None
         
-        if options.ApparantFlux and MM.GD["Beam"]["Model"] is not None:            
+        if options.ApparantFlux and MM.GD["Beam"]["Model"] is not None:
             FileSqrtNormImage="%s.Norm.fits"%options.BaseImageName
+            log.print("Open %s"%FileSqrtNormImage)
             imSqrtNormImage=image(FileSqrtNormImage)
             SqrtNormImage=imSqrtNormImage.getdata()
             nchan,npol,_,_=SqrtNormImage.shape
@@ -148,7 +160,7 @@ def main(options=None):
         SkyModel=options.BaseImageName+".npy"
         # reproduce code from old ClassModelMachine
         RefFreq=MM.DicoSMStacked["RefFreq"]
-        
+    
         if MM.GD["Deconv"]["Mode"]=="Hogbom": # Otherwise produce a "division by zero error"
             f0=RefFreq/1.05
             f1=RefFreq*1.05
@@ -160,7 +172,14 @@ def main(options=None):
             MM.setFreqMachine([f0,f1],[MM.RefFreq])
         except:
             pass # this is an old version of DDF which doesn't need this
-        MM.ToNPYModel(FitsFile,SkyModel,BeamImage=SqrtNormImage)
+
+        
+        
+        
+        MM.ToNPYModel(FitsFile,
+                      SkyModel,
+                      BeamImage=SqrtNormImage),
+                      #AtFreq=140.72113037e6)
 
         # SkyModel="tmpSourceCat.npy"
         # ModelImage=MM.GiveModelImage()
@@ -176,7 +195,7 @@ def main(options=None):
         # CasaImage.close()
 
     if options.RemoveNegComp==1:
-        print("Removing negative component")
+        log.print("Removing negative component")
         Cat=np.load(SkyModel)
         print(Cat.shape)
         Cat=Cat.view(np.recarray)
@@ -199,6 +218,7 @@ def main(options=None):
     SM=ClassSM.ClassSM(SkyModel,ReName=True,
                        DoREG=True,SaveNp=True,
                        SelSource=DoSelect,ClusterMethod=CMethod)
+
 
     if False:#True:
         print("Removing fake gaussians", file=log)
@@ -229,11 +249,18 @@ def main(options=None):
 
     if options.NoGaussian:
         SM.SourceCat["Type"]=0
-        
-    PreCluster=options.ds9PreClusterFile
-    SM.Cluster(NCluster=NCluster,DoPlot=DoPlot,PreCluster=PreCluster,FromClusterCat=options.FromClusterCat)
+
+    
+    if not SM.ModelIsClustered:
+        PreCluster=options.ds9PreClusterFile
+        SM.Cluster(NCluster=NCluster,DoPlot=DoPlot,PreCluster=PreCluster,
+                   FromClusterCat=options.FromClusterCat)
+    else:
+        log.print("There is already some clustering in the SkyModel (probably specified in the txt skymodel)")
     SM.MakeREG()
+    SM.DDF_GD=GD
     SM.Save()
+    SM.SavePickle()
 
 
 

@@ -33,11 +33,6 @@ from DDFacet.Other import ClassTimeIt
 import psutil
 import numexpr
 
-try:
-    from DDFacet.Other.AsyncProcessPool import APP
-except ImportError:
-    APP = None
-    pass # not strictly necessary because it imports the backend
 from DDFacet.Array import shared_dict
 from DDFacet.Other import logger
 from DDFacet.ToolsDir import ModToolBox
@@ -164,7 +159,7 @@ class FFTW_Scale_Manager(object):
     """
     Keeps track of all things FFTW + scale related for the WSCMS minor cycle 
     """
-    def __init__(self, wisdom_file=None):
+    def __init__(self, wisdom_file=None,APP=None):
         """
         This call to init is just to register the relevant functions as job handlers for APP
         """
@@ -172,8 +167,9 @@ class FFTW_Scale_Manager(object):
             #wisdom = np.load(wisdom_file)
             pyfftw.import_wisdom(wisdom_file)
             self.has_wisdom = True
-
-        APP.registerJobHandlers(self)
+            
+        self.APP=APP
+        self.APP.registerJobHandlers(self)
 
     def Init(self, npix, npix_padded, npix_facet, npix_padded_facet, nchan=1, npol=1, nscales=1):
         """
@@ -275,15 +271,15 @@ class FFTW_Scale_Manager(object):
         elif mode=='Image':
             npad = self.npad
         for iSlice in range(nslices):
-            APP.runJob("fft2:%s" % iSlice, self._fft_worker_new,
+            self.APP.runJob("fft2:%s" % iSlice, self._fft_worker_new,
                        args=(iSlice, self.shared_dict.readonly(), mode, data, npad))
-        APP.awaitJobResults("fft2:*")
+        self.APP.awaitJobResults("fft2:*")
 
     def iFFT_new(self, nslices, unpad=True, mode='Facet'):
         for iSlice in range(nslices):
-            APP.runJob("ifft2:%s" % iSlice, self._ifft_worker_new,
+            self.APP.runJob("ifft2:%s" % iSlice, self._ifft_worker_new,
                        args=(iSlice, self.shared_dict.readonly(), mode))
-        APP.awaitJobResults("ifft2:*")
+        self.APP.awaitJobResults("ifft2:*")
         if mode == 'Facet':
             if unpad:
                 I = slice(self.psf_npad, self.npix_padded_facet - self.psf_npad)
@@ -305,10 +301,10 @@ class FFTW_Scale_Manager(object):
         nslices, npol, nx, ny = data.shape
         if mode=='Facet':
             for iSlice in range(nslices):
-                APP.runJob("fft:%s" % iSlice, self._fft_worker,
+                self.APP.runJob("fft:%s" % iSlice, self._fft_worker,
                            args=(iSlice, self.shared_dict.readonly(), mode, data,
                                  self.psf_npad))
-            APP.awaitJobResults("fft:*")
+            self.APP.awaitJobResults("fft:*")
             # Don't think it should ever be unpadded or Fsd
             # Also at the end of the calculation the data FT is in the relevant shared array so we
             # can operate directly on that. Hence no return
@@ -320,10 +316,10 @@ class FFTW_Scale_Manager(object):
             # return np.ascontiguousarray(self._PaddedFacetArray[0:nslices])
         elif mode=='Image':
             for iSlice in range(nslices):
-                APP.runJob("fft:%s" % iSlice, self._fft_worker,
+                self.APP.runJob("fft:%s" % iSlice, self._fft_worker,
                            args=(iSlice, self.shared_dict.readonly(), mode, data,
                                  self.npad))
-            APP.awaitJobResults("fft:*")
+            self.APP.awaitJobResults("fft:*")
             # see above comment
             # if unpad:
             #     I = slice(self.npad, self.npix_padded - self.npad)
@@ -338,9 +334,9 @@ class FFTW_Scale_Manager(object):
         """
         if mode=='Facet':
             for iSlice in range(nslices):
-                APP.runJob("ifft:%s" % iSlice, self._ifft_worker,
+                self.APP.runJob("ifft:%s" % iSlice, self._ifft_worker,
                            args=(iSlice, self.shared_dict.readonly(), mode))
-            APP.awaitJobResults("ifft:*")
+            self.APP.awaitJobResults("ifft:*")
             if unpad:
                 I = slice(self.psf_npad, self.npix_padded_facet - self.psf_npad)
                 return np.ascontiguousarray(self._PaddedFacetArray[0:nslices, :, I, I])
@@ -348,9 +344,9 @@ class FFTW_Scale_Manager(object):
                 return np.ascontiguousarray(self._PaddedFacetArray[0:nslices, :])
         elif mode=='Image':
             for iSlice in range(nslices):
-                APP.runJob("ifft:%s" % iSlice, self._ifft_worker,
+                self.APP.runJob("ifft:%s" % iSlice, self._ifft_worker,
                            args=(iSlice, self.shared_dict.readonly(), mode))
-            APP.awaitJobResults("ifft:*")
+            self.APP.awaitJobResults("ifft:*")
             if unpad:
                 I = slice(self.npad, self.npix_padded - self.npad)
                 return np.ascontiguousarray(self._PaddedImageArray[0:nslices, :, I, I])
@@ -363,22 +359,44 @@ class FFTW_Manager(object):
     """
     Class to manage FFTW for WSCMS minor cycle
     """
-    def __init__(self, GD, nchan, npol, nscales, npix, npixpadded, npixpsf,
-                 npixpaddedpsf, nthreads=8):
+    def __init__(self, GD, nchan, npol, nscales,
+                 npixIn, npixpaddedIn,
+                 npixpsfIn, 
+                 npixpaddedpsfIn, nthreads=8):
         self.GD = GD
         # import the wisdom file
         self.getWisdom()
 
         # set pixel sizes etc
-        self.Npix = npix
-        self.NpixPadded = npixpadded
-        self.Npad = (npixpadded - npix)//2
-        self.NpixFacet = self.Npix // self.GD["Facets"]["NFacets"]
+        try:
+            npix_x,npix_y=self.Npix_x,self.Npix_y = npixIn
+            npixpadded_x,npixpadded_y=npixpaddedIn
+        except:
+            npix_x=npix_y=self.Npix_x=self.Npix_y = npixIn
+            npixpadded_x=npixpadded_y=npixpaddedIn
+            
+        try:
+            npixpsf_x,npixpsf_y=npixpsfIn
+            npixpaddedpsf_x,npixpaddedpsf_y=npixpaddedpsfIn
+        except:
+            npixpsf_x=npixpsf_y=npixpsfIn
+            npixpaddedpsf_x=npixpaddedpsf_y=npixpaddedpsfIn
+            
+            
+        self.NpixPadded_x = npixpadded_x
+        self.Npad_x = (npixpadded_x - npix_x)//2
 
-        self.NpixPSF = npixpsf
-        self.NpixPaddedPSF = npixpaddedpsf
-        self.NpadPSF = (npixpaddedpsf - npixpsf)//2
+        self.NpixPadded_y = npixpadded_y
+        self.Npad_y = (npixpadded_y - npix_y)//2
+        #self.NpixFacet = self.Npix // self.GD["Facets"]["NFacets"]
 
+        self.NpixPSF_x = npixpsf_x
+        self.NpixPaddedPSF_x = npixpaddedpsf_x
+        self.NpadPSF_x = (npixpaddedpsf_x - npixpsf_x)//2
+
+        self.NpixPSF_y = npixpsf_y
+        self.NpixPaddedPSF_y = npixpaddedpsf_y
+        self.NpadPSF_y = (npixpaddedpsf_y - npixpsf_y)//2
 
         self.nchan = nchan
         self.npol = npol
@@ -386,7 +404,7 @@ class FFTW_Manager(object):
         self.nscales = nscales
 
         # set aside a facet sized array for in place and aligned FFTs
-        self.xfacet = pyfftw.empty_aligned([self.nchan, self.npol, self.NpixPaddedPSF, self.NpixPaddedPSF],
+        self.xfacet = pyfftw.empty_aligned([self.nchan, self.npol, self.NpixPaddedPSF_x, self.NpixPaddedPSF_y],
                                            dtype='complex64')
 
         # plan for in place and aligned FFT over channels
@@ -405,7 +423,7 @@ class FFTW_Manager(object):
 
         # set aside an image size array for in place and aligned FFTs
         self.nslices = np.maximum(self.nchan, self.nscales)
-        self.ximage = pyfftw.empty_aligned([self.nslices, self.npol, self.NpixPadded, self.NpixPadded],
+        self.ximage = pyfftw.empty_aligned([self.nslices, self.npol, self.NpixPadded_x, self.NpixPadded_y],
                                            dtype='complex64')
         # TODO - Figure out if slicing first axis like this defeats the purpose of empty_aligned
         self.Shat = self.ximage[0:self.nscales].view()
@@ -440,7 +458,8 @@ class FFTW_Manager(object):
         #     self.iFFTsubtract = pyfftw.FFTW(self.xsubtract, self.xsubtract, axes=(2, 3), direction='FFTW_BACKWARD',
         #                                    threads=nthreads, flags=('FFTW_ESTIMATE',))
         # else:
-        self.NpixPSFSubtract = self.NpixPaddedPSF
+        self.NpixPSFSubtract_x = self.NpixPaddedPSF_x
+        self.NpixPSFSubtract_y = self.NpixPaddedPSF_y
         self.xsubtract = self.Chat
         self.FFTsubtract = self.CFFT
         self.iFFTsubtract = self.iCFFT
@@ -497,27 +516,27 @@ class FFTW_Manager(object):
         except:
             import pickle as cPickle
         # set wisdom for image size FFTs
-        TypeKey = (self.nchan, self.NpixPadded, np.complex64)
+        TypeKey = (self.nchan, self.NpixPadded_x, self.NpixPadded_y, np.complex64)
         if TypeKey not in self.WisdomTypes:
             self.HasTouchedWisdomFile = True
             self.WisdomTypes.append(TypeKey)
-        TypeKey = (self.nscales, self.NpixPadded, np.complex64)
+        TypeKey = (self.nscales, self.NpixPadded_x, self.NpixPadded_y, np.complex64)
         if TypeKey not in self.WisdomTypes:
             self.HasTouchedWisdomFile = True
             self.WisdomTypes.append(TypeKey)
-        TypeKey = (self.NpixPadded, np.complex64)
+        TypeKey = (self.NpixPadded_x, self.NpixPadded_y, np.complex64)
         if TypeKey not in self.WisdomTypes:
             self.HasTouchedWisdomFile = True
             self.WisdomTypes.append(TypeKey)
 
         # set wisdom for facet sized FFTs
-        TypeKey = (self.nchan, self.NpixPaddedPSF, np.complex64)
+        TypeKey = (self.nchan, self.NpixPaddedPSF_x,self.NpixPaddedPSF_y, np.complex64)
         if TypeKey not in self.WisdomTypes:
             self.HasTouchedWisdomFile = True
             self.WisdomTypes.append(TypeKey)
 
         # set wisdom for 2*Facet size FFT
-        TypeKey = (self.nchan, self.NpixPSFSubtract, np.complex64)
+        TypeKey = (self.nchan, self.NpixPSFSubtract_x,self.NpixPSFSubtract_y, np.complex64)
         if TypeKey not in self.WisdomTypes:
             self.HasTouchedWisdomFile = True
             self.WisdomTypes.append(TypeKey)
@@ -651,26 +670,47 @@ class FFTW_2Donly_np():
 _give_gauss_grid_key = None,None
 _give_gauss_grid_cache = None,None
 
-def GiveGauss(Npix,CellSizeRad=None,GaussPars=(0.,0.,0.),dtype=np.float32,parallel=True):
-    uvscale=Npix*CellSizeRad/2
+def GiveGauss(NpixIn,CellSizeRad=None,GaussPars=(0.,0.,0.),dtype=np.float32,parallel=True):
+    try:
+        Npix_x,Npix_y=NpixIn
+    except:
+        Npix_x=Npix_y=NpixIn
+
+    try:
+        CellSizeRad_x,CellSizeRad_y=CellSizeRad
+    except:
+        CellSizeRad_x=CellSizeRad_y=CellSizeRad
+
+
+        
+    uvscale_x=Npix_x*CellSizeRad_x/2
+    uvscale_y=Npix_y*CellSizeRad_y/2
+    
     SigMaj,SigMin,ang=GaussPars
     ang = 2*np.pi - ang #need counter-clockwise rotation
 
     # np.mgrid turns out to be *the* major CPU consumer here when GiveGauss() is called repeatedly.
     # Hence, cache and reuse it
     global _give_gauss_grid_key, _give_gauss_grid_cache
-    if (uvscale, Npix) == _give_gauss_grid_key:
+    if (uvscale_x, uvscale_y, Npix_x, Npix_y) == _give_gauss_grid_key:
         U, V = _give_gauss_grid_cache
     else:
-        U, V = _give_gauss_grid_cache = np.mgrid[-uvscale:uvscale:Npix*1j,-uvscale:uvscale:Npix*1j]
-        _give_gauss_grid_key = uvscale, Npix
+        U, V = _give_gauss_grid_cache = np.mgrid[-uvscale_x:uvscale_x:Npix_x*1j,-uvscale_y:uvscale_y:Npix_y*1j]
+        _give_gauss_grid_key = uvscale_x, uvscale_y, Npix_x, Npix_y
 
     CT=np.cos(ang)
     ST=np.sin(ang)
     C2T=np.cos(2*ang)
     S2T=np.sin(2*ang)
+    
+    if SigMaj==0 or SigMin==0:
+        Gauss = np.zeros((Npix_x,Npix_y), dtype)
+        Gauss[Npix_x//2,Npix_y//2] = 1.0
+        return Gauss
+
     sx2=SigMaj**2
     sy2=SigMin**2
+
     a=(CT**2/(2.*sx2))+(ST**2/(2.*sy2))
     b=-(S2T/(4.*sx2))+(S2T/(4.*sy2))
     c=(ST**2/(2.*sx2))+(CT**2/(2.*sy2))
@@ -680,7 +720,7 @@ def GiveGauss(Npix,CellSizeRad=None,GaussPars=(0.,0.,0.),dtype=np.float32,parall
 
     x, y = U, V
     if parallel:
-        Gauss = np.zeros((Npix,Npix), dtype)
+        Gauss = np.zeros((Npix_x,Npix_y), dtype)
         numexpr.evaluate("exp(-(a*x**2+2*b*x*y+c*y**2))", out=Gauss, casting="unsafe")
     else:
         Gauss = np.exp(-(a*x**2+2.*b*x*y+c*y**2))
@@ -689,23 +729,37 @@ def GiveGauss(Npix,CellSizeRad=None,GaussPars=(0.,0.,0.),dtype=np.float32,parall
     return Gauss
 
 def ConvolveGaussianScipy(Ain0,Sig=1.,GaussPar=None):
-  #warnings.warn("deprecated: this wont work for small ffts...",
-  #              DeprecationWarning)
-  Npix=int(2*8*Sig)
-  if Npix%2==0: Npix+=1
-  x0=Npix//2
-  x,y=np.mgrid[-x0:x0:Npix*1j,-x0:x0:Npix*1j]
-  #in2=np.exp(-(x**2+y**2)/(2.*Sig**2))
-  if GaussPar is None:
-      GaussPar=(Sig,Sig,0)
-  in2=Gaussian.Gaussian2D(x,y,GaussPar=GaussPar)
+    #warnings.warn("deprecated: this wont work for small ffts...",
+    #              DeprecationWarning)
 
-  nch,npol,_,_=Ain0.shape
-  Out=np.zeros_like(Ain0)
-  for ch in range(nch):
-      in1=Ain0[ch,0]
-      Out[ch,0,:,:]=scipy.signal.fftconvolve(in1, in2, mode='same').real
-  return Out,in2
+    if type(Sig)==int or type(Sig)==float:
+        Sig=(Sig,Sig)
+    
+    #log.print(str(GaussPar))
+    #log.print(str(Sig))
+    Sig_x,Sig_y=Sig
+    Npix_x,Npix_y=int(2*8*Sig_x),int(2*8*Sig_y)
+    
+    if Npix_x%2==0: Npix_x+=1
+    x0=Npix_x//2
+
+    if Npix_y%2==0: Npix_y+=1
+    y0=Npix_y//2
+    #log.print("grid %i %i"%(x0,y0))
+    x,y=np.mgrid[-x0:x0:Npix_x*1j,-y0:y0:Npix_y*1j]
+    #in2=np.exp(-(x**2+y**2)/(2.*Sig**2))
+    if GaussPar is None:
+        GaussPar=(Sig_x,Sig_y,0)
+    #log.print("gauss 2D %s %s"%(str(x.shape),str(y.shape)))
+    in2=Gaussian.Gaussian2D(x,y,GaussPar=GaussPar)
+  
+    #log.print("fft")
+    nch,npol,_,_=Ain0.shape
+    Out=np.zeros_like(Ain0)
+    for ch in range(nch):
+        in1=Ain0[ch,0]
+        Out[ch,0,:,:]=scipy.signal.fftconvolve(in1, in2, mode='same').real
+    return Out,in2
 
 def ConvolveGaussianWrapper(Ain0,Sig=1.0,GaussPar=None,Out=None,Gauss=None):
     # a drop-in replacement for ConvolveGaussianScipy which uses
@@ -713,6 +767,12 @@ def ConvolveGaussianWrapper(Ain0,Sig=1.0,GaussPar=None,Out=None,Gauss=None):
     # size' is a fudge to make the two routines agree: the
     # Gaussian/Gaussian2D code appears to be missing the factor 2 on
     # the denominator of the Gaussian function it computes
+
+
+    # if type(Sig)==int or type(Sig)==float:
+    #     Sig=(Sig,Sig)
+    # Sig=Sig[0]
+    
     nch,npol,_,_=Ain0.shape
     if Out is None:
         Out = np.zeros_like(Ain0)
@@ -745,10 +805,15 @@ def ConvolveGaussianSimpleWrapper(Ain0, CellSizeRad=1.0, Sig=1.0, GaussPars=None
     return Out
     
 
-def learnFFTWWisdom(npix,dtype=np.float32):
+def learnFFTWWisdom(npix_x,npix_y,dtype):
     """Learns FFTW wisdom for real 2D FFT of npix x npix images"""
-    print("  Computing fftw wisdom FFTs for shape [%i x %i] and dtype %s" % (npix,npix,dtype.__name__), file=log)
-    test = np.zeros((npix, npix), dtype)
+    # if isinstance(npixIn,list):
+    #     npix_x,npix_y=npixIn
+    # else:
+    #     npix_x=npix_y=npixIn
+    
+    print("  Computing fftw wisdom FFTs for shape [%i x %i] and dtype %s" % (npix_x,npix_y,dtype.__name__), file=log)
+    test = np.zeros((npix_x, npix_y), dtype)
     if "float" in dtype.__name__:
         a = pyfftw.interfaces.numpy_fft.rfft2(test, overwrite_input=True, threads=1)
         b = pyfftw.interfaces.numpy_fft.irfft2(a, overwrite_input=True, threads=1)
@@ -757,17 +822,21 @@ def learnFFTWWisdom(npix,dtype=np.float32):
         b = pyfftw.interfaces.numpy_fft.ifft2(a, overwrite_input=True, threads=1)
 
 
+
 def GiveConvolvingGaussian(shape, CellSizeRad, GaussPars_ch, Normalise=False):
     """
     Computes padded Gaussian convolution kernel,for use in _convolveSingleGaussianFFTW
     """
 
-    npol, npix_y, npix_x = shape
-    assert npix_y == npix_x, "Only supports square grids at the moment"
-    pad_edge = max(int(np.ceil((ModToolBox.EstimateNpix(npix_x)[1] - npix_x) /
-                               2.0) * 2),0)
-    PSF = np.pad(GiveGauss(npix_x, CellSizeRad, GaussPars_ch, parallel=True),
-                 ((pad_edge//2,pad_edge//2),(pad_edge//2,pad_edge//2)),
+    npol, npix_x, npix_y = shape
+    #assert npix_y == npix_x, "Only supports square grids at the moment"
+    pad_edge_x = max(int(np.ceil((ModToolBox.EstimateNpix(npix_x)[1] - npix_x) /
+                                 2.0) * 2),0)
+    pad_edge_y = max(int(np.ceil((ModToolBox.EstimateNpix(npix_y)[1] - npix_y) /
+                                 2.0) * 2),0)
+    PSF = np.pad(GiveGauss([npix_x,npix_y],
+                           CellSizeRad, GaussPars_ch, parallel=True),
+                 ((pad_edge_x//2,pad_edge_x//2),(pad_edge_y//2,pad_edge_y//2)),
                  mode="constant")
 
     if Normalise:
@@ -784,6 +853,7 @@ def _convolveSingleGaussianFFTW(shareddict,
                                 GaussPars_ch,
                                 Gauss=None,
                                 Normalise = False,
+                                # ReturnValue=True,
                                 nthreads = 1,
                                 return_gaussian = False):
     """Convolves a single channel in a cube of nchan, npol, Ny, Nx
@@ -821,9 +891,11 @@ def _convolveSingleGaussianFFTW(shareddict,
         PSF = Gauss
     else:
         PSF = GiveConvolvingGaussian(Ain.shape, CellSizeRad, GaussPars_ch, Normalise=Normalise)
-    npol, npix_y, npix_x = Ain.shape
-    pad_edge = max(int(np.ceil((ModToolBox.EstimateNpix(npix_x)[1] - npix_x) /
-                               2.0) * 2),0)
+    npol, npix_x, npix_y = Ain.shape
+    pad_edge_x = max(int(np.ceil((ModToolBox.EstimateNpix(npix_x)[1] - npix_x) /
+                                 2.0) * 2),0)
+    pad_edge_y = max(int(np.ceil((ModToolBox.EstimateNpix(npix_y)[1] - npix_y) /
+                                 2.0) * 2),0)
     T.timeit("givegauss %d"%ch)
     fPSF = pyfftw.interfaces.numpy_fft.rfft2(iFs(PSF),
                                              overwrite_input=True,
@@ -831,7 +903,7 @@ def _convolveSingleGaussianFFTW(shareddict,
     fPSF = np.abs(fPSF)
     for pol in range(npol):
         A = iFs(np.pad(Ain[pol],
-                       ((pad_edge//2,pad_edge//2),(pad_edge//2,pad_edge//2)),
+                       ((pad_edge_x//2,pad_edge_x//2),(pad_edge_y//2,pad_edge_y//2)),
                        mode="constant"))
         fA = pyfftw.interfaces.numpy_fft.rfft2(A, overwrite_input=True,
                                                threads=nthreads)
@@ -840,14 +912,13 @@ def _convolveSingleGaussianFFTW(shareddict,
             pyfftw.interfaces.numpy_fft.irfft2(nfA,
                                                s=A.shape,
                                                overwrite_input=True,
-                                               threads=nthreads))[pad_edge//2:pad_edge//2+npix_y,
-                                                                  pad_edge//2:pad_edge//2+npix_x]
+                                               threads=nthreads))[pad_edge_x//2:pad_edge_x//2+npix_x,
+                                                                  pad_edge_y//2:pad_edge_y//2+npix_y]
     T.timeit("convolve %d" % ch)
 
     if return_gaussian:
         return Aout,PSF
-    else:
-        return Aout
+    return Aout
 
 # LAPACK / ATLAS-based convolution
 def _convolveSingleGaussianNP(shareddict, field_in, field_out, ch,
@@ -883,12 +954,14 @@ def _convolveSingleGaussianNP(shareddict, field_in, field_out, ch,
     Ain = shareddict[field_in][ch]
     Aout = shareddict[field_out][ch]
     T.timeit("init %d"%ch)
-    npol, npix_y, npix_x = Ain.shape
-    assert npix_y == npix_x, "Only supports square grids at the moment"
-    pad_edge = max(int(np.ceil((ModToolBox.EstimateNpix(npix_x)[1] - npix_x) /
-                               2.0) * 2),0)
-    PSF = np.pad(GiveGauss(npix_x, CellSizeRad, GaussPars_ch, parallel=True),
-                 ((pad_edge//2,pad_edge//2),(pad_edge//2,pad_edge//2)),
+    npol, npix_x, npix_y = Ain.shape
+    #assert npix_y == npix_x, "Only supports square grids at the moment"
+    pad_edge_x = max(int(np.ceil((ModToolBox.EstimateNpix(npix_x)[1] - npix_x) /
+                                 2.0) * 2),0)
+    pad_edge_y = max(int(np.ceil((ModToolBox.EstimateNpix(npix_y)[1] - npix_y) /
+                                 2.0) * 2),0)
+    PSF = np.pad(GiveGauss([npix_x,npix_y], CellSizeRad, GaussPars_ch, parallel=True),
+                 ((pad_edge_x//2,pad_edge_x//2),(pad_edge_y//2,pad_edge_y//2)),
                  mode="constant")
 
     # PSF=np.ones((Ain.shape[-1],Ain.shape[-1]),dtype=np.float32)
@@ -899,13 +972,13 @@ def _convolveSingleGaussianNP(shareddict, field_in, field_out, ch,
     fPSF = np.abs(fPSF)
     for pol in range(npol):
         A = iFs(np.pad(Ain[pol],
-                       ((pad_edge//2,pad_edge//2),(pad_edge//2,pad_edge//2)),
+                       ((pad_edge_x//2,pad_edge_x//2),(pad_edge_y//2,pad_edge_y//2)),
                        mode="constant"))
         fA = np.fft.rfft2(A)
         nfA = fA*fPSF
         Aout[pol, :, :] = Fs(np.fft.irfft2(nfA,
-                                           s=A.shape))[pad_edge//2:npix_y+pad_edge//2,
-                                                       pad_edge//2:npix_x+pad_edge//2]
+                                           s=A.shape))[pad_edge_x//2:npix_x+pad_edge_x//2,
+                                                       pad_edge_y//2:npix_y+pad_edge_y//2]
 
     T.timeit("convolve %d" % ch)
     if return_gaussian:
@@ -915,8 +988,8 @@ def _convolveSingleGaussianNP(shareddict, field_in, field_out, ch,
 
 ConvolveGaussian = _convolveSingleGaussianFFTW
 
-def ConvolveGaussianParallel(shareddict, field_in, field_out, CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=False):
-    """Convolves images held in a dict, using APP.
+def ConvolveGaussianParallel(shareddict, field_in, field_out, CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=False,APP=None):
+    """Convolves images held in a dict, using self.APP.
     """
     Ain0 = shareddict[field_in]
     nch,npol,_,_=Ain0.shape
@@ -928,13 +1001,14 @@ def ConvolveGaussianParallel(shareddict, field_in, field_out, CellSizeRad=None,G
     jobid = "convolve:%s:%s:" % (field_in, field_out)
     for ch in range(nch):
         sd_rw = shareddict.readwrite()
-        APP.runJob(jobid+str(ch),_convolveSingleGaussianFFTW_noret, args=(sd_rw, field_in, field_out, ch, CellSizeRad, GaussPars[ch], None, Normalise))
+        #ReturnValue=False
+        APP.runJob(jobid+str(ch),_convolveSingleGaussianFFTW_noret, args=(sd_rw, field_in, field_out, ch, CellSizeRad, GaussPars[ch], None, Normalise))#,ReturnValue))
     APP.awaitJobResults(jobid+"*") #, progress="Convolving")
 
     return Aout
 
 
-# wrappers that discard return value for use with APP -- avoids wasteful stuffing of images into result queues
+# wrappers that discard return value for use with self.APP -- avoids wasteful stuffing of images into result queues
 def _convolveSingleGaussianFFTW_noret(*args,**kw):
     _convolveSingleGaussianFFTW(*args,**kw)
     return None
@@ -942,8 +1016,13 @@ def _convolveSingleGaussianFFTW_noret(*args,**kw):
 def _convolveSingleGaussianNP_noret(*args,**kw):
     _convolveSingleGaussianNP(*args,**kw)
     return None
-if APP:
+
+def registerAPP(APP):
     APP.registerJobHandlers(_convolveSingleGaussianFFTW_noret, _convolveSingleGaussianNP_noret)
+
+    
+# if self.APP:
+#     self.APP.registerJobHandlers(_convolveSingleGaussianFFTW_noret, _convolveSingleGaussianNP_noret)
 
 ## FFTW version
 #def ConvolveGaussianFFTW(Ain0,
@@ -1219,8 +1298,8 @@ if APP:
 #    if parallel:
 #        learnFFTWWisdom(npix)
 #        T.timeit("learn")
-#        APP.registerJobHandlers(_convolveSingleGaussian)
-#        APP.startWorkers()
+#        self.APP.registerJobHandlers(_convolveSingleGaussian)
+#        self.APP.startWorkers()
 #    sd = shared_dict.attach("test")
 #    A = sd.addSharedArray("A", (nchan,1,npix,npix),np.float32)
 #    A[0,0,10,10]=1
@@ -1244,7 +1323,7 @@ if APP:
 #
 #    sd.delete()
 #    if parallel:
-#        APP.shutdown()
+#        self.APP.shutdown()
 
 #class FFTWnp():
 #   def __init__(self, A, ncores = 1):

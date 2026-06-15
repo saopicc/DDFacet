@@ -19,6 +19,31 @@ class VoronoiToReg():
         self.decc=decc
         self.CoordMachine=ModCoord.ClassCoordConv(rac,decc)
 
+
+    def PointsToReg(self,regFile,xc,yc,radius=0.1,Col="red",Label=None):
+        log.print("Writing voronoi in: %s"%ModColor.Str(regFile,col="blue"))
+        f=open(regFile,"w")
+        f.write("# Region file format: DS9 version 4.1\n")
+        ss0='global color=green dashlist=8 3 width=1 font="helvetica 10 normal roman" select=1 highlite=1 dash=0'
+        ss1=' fixed=0 edit=1 move=1 delete=1 include=1 source=1\n'
+        
+        f.write(ss0+ss1)
+        f.write("fk5\n")
+
+        for i in range(xc.size):
+            xm,ym=xc[i],yc[i]
+            xm*=180./np.pi+(np.random.rand(1)[0]-0.5)*1/3600
+            ym*=180./np.pi+(np.random.rand(1)[0]-0.5)*1/3600
+            if Label is not None:
+                ThisText=Label[i]
+                f.write("point(%f,%f) # text={%s} point=circle 5 color=%s width=2\n"%(xm,ym,ThisText,Col))
+            else:
+                f.write("point(%f,%f) # point=circle 5 color=%s width=2\n"%(xm,ym,Col))
+
+                
+        f.close()
+
+        
     def ToReg(self,regFile,xc,yc,radius=0.1,Col="red"):
         print>>log, "Writing voronoi in: %s"%ModColor.Str(regFile,col="blue")
         f=open(regFile,"w")
@@ -53,7 +78,7 @@ class VoronoiToReg():
                 y1*=180./np.pi
 
 
-                f.write("line(%f,%f,%f,%f) # line=0 0 color=%s dash=1\n"%(x0,y0,x1,y1,Col))
+                f.write("line(%f,%f,%f,%f) # line=0 0 color=%s dash=1\n"%(x0.item(),y0.item(),x1.item(),y1.item(),Col))
                 #f.write("line(%f,%f,%f,%f) # line=0 0 color=red dash=1\n"%(x1,y0,x0,y1))
             
         f.close()
@@ -90,7 +115,7 @@ class VoronoiToReg():
                 x1*=180./np.pi
                 y1*=180./np.pi
 
-                f.write("line(%f,%f,%f,%f) # line=0 0 color=%s dash=1\n"%(x0,y0,x1,y1,Col))
+                f.write("line(%f,%f,%f,%f) # line=0 0 color=%s dash=1\n"%(x0.item(),y0.item(),x1.item(),y1.item(),Col))
                 #f.write("line(%f,%f,%f,%f) # line=0 0 color=red dash=1\n"%(x1,y0,x0,y1))
             
         f.close()
@@ -127,7 +152,7 @@ class VoronoiToReg():
                 xm,ym=CoordMachine.lm2radec(np.array([lmean]),np.array([mmean]))
                 xm*=180./np.pi
                 ym*=180./np.pi
-                f.write("point(%f,%f) # text={%s} point=circle 5 color=red width=2\n"%(xm,ym,ThisText))
+                f.write("point(%f,%f) # text={%s} point=circle 5 color=red width=2\n"%(xm.item(),ym.item(),ThisText))
 
             for iline in range(polygon.shape[0]-1):
                 
@@ -148,7 +173,7 @@ class VoronoiToReg():
                 # print "       %s"%str(L1)
                 # print "       %s"%str(M0)
                 # print "       %s"%str(M1)
-                f.write("line(%f,%f,%f,%f) # line=0 0 color=%s dash=1 \n"%(x0,y0,x1,y1,Col))
+                f.write("line(%f,%f,%f,%f) # line=0 0 color=%s dash=1 \n"%(x0.item(),y0.item(),x1.item(),y1.item(),Col))
 
                 #f.write("line(%f,%f,%f,%f) # line=0 0 color=red dash=1\n"%(x1,y0,x0,y1))
             

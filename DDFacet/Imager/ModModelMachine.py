@@ -25,11 +25,12 @@ from __future__ import print_function
 from DDFacet.compatibility import range
 
 from DDFacet.Imager import ClassModelMachine
-from DDFacet.Imager import ClassGainMachine
+#from DDFacet.Imager import ClassGainMachine
 from DDFacet.Other import MyPickle
 from DDFacet.Other import logger
 from DDFacet.Other import ModColor
 log=logger.getLogger("GiveModelMachine")
+GainMachine=None
 
 class ClassModModelMachine():
     """
@@ -37,7 +38,7 @@ class ClassModModelMachine():
         and it instantiates and returns a copy of the correct ModelMachine. Each pickled dictionary should contain a field
         labelling which deconvolution algorithm it corresponds to.
     """
-    def __init__(self,GD=None):
+    def __init__(self,GD=None,MultiField=False):
         """
         Input:
             GD          = Global dictionary
@@ -45,12 +46,15 @@ class ClassModModelMachine():
         self.GD = GD
         self.SSDMM = None
         self.SSD2MM = None
+        self.SSD3MM = None
         self.MSMFMM = None
         self.MultiSliceMM = None
         self.MORSANEMM = None
         self.HOGBOMMM = None
         self.WSCMSMM = None
-
+        self.WSCMS2MM = None
+        self.MultiField=MultiField
+        
     def GiveInitialisedMMFromFile(self,FileName):
         """
         Initialise a model machine from a file
@@ -58,7 +62,7 @@ class ClassModModelMachine():
             FileName    = The file to read
         """
 
-
+        log.print("Extracting DicoModel from %s"%FileName)
         DicoSMStacked = MyPickle.Load(FileName)
         if self.GD is None:
             self.GD=DicoSMStacked["GD"]
@@ -106,56 +110,68 @@ class ClassModModelMachine():
 
     def GiveMM(self,Mode=None):
         if Mode == "SSD":
-            if self.SSDMM is None:
+            if self.SSDMM is None or self.MultiField:
                 print("Initialising SSD model machine", file=log)
                 from DDFacet.Imager.SSD import ClassModelMachineSSD
-                self.SSDMM = ClassModelMachineSSD.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.get_instance())
+                self.SSDMM = ClassModelMachineSSD.ClassModelMachine(self.GD)#,GainMachine=ClassGainMachine.get_instance())
             else:
                 print("SSD model machine already initialised", file=log)
             return self.SSDMM
         elif Mode == "SSD2":
-            if self.SSD2MM is None:
+            if self.SSD2MM is None or self.MultiField:
                 print("Initialising SSD2 model machine", file=log)
                 from DDFacet.Imager.SSD2 import ClassModelMachineSSD
-                self.SSD2MM = ClassModelMachineSSD.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.get_instance())
+                self.SSD2MM = ClassModelMachineSSD.ClassModelMachine(self.GD)#,GainMachine=ClassGainMachine.get_instance())
             else:
                 print("SSD2 model machine already initialised", file=log)
             return self.SSD2MM
+        elif Mode == "SSD3":
+            if self.SSD3MM is None or self.MultiField:
+                print("Initialising SSD3 model machine", file=log)
+                from DDFacet.Imager.SSD3 import ClassModelMachineSSD
+                self.SSD3MM = ClassModelMachineSSD.ClassModelMachine(self.GD)#,GainMachine=ClassGainMachine.get_instance())
+            else:
+                print("SSD3 model machine already initialised", file=log)
+            return self.SSD3MM
         elif Mode == "HMP":
-            if self.MSMFMM is None:
+            if self.MSMFMM is None or self.MultiField:
                 print("Initialising HMP model machine", file=log)
                 from DDFacet.Imager.MSMF import ClassModelMachineMSMF
-                self.MSMFMM = ClassModelMachineMSMF.ClassModelMachine(
-                    self.GD,
-                    GainMachine= ClassGainMachine.get_instance())
+                self.MSMFMM = ClassModelMachineMSMF.ClassModelMachine(self.GD)#,GainMachine= ClassGainMachine.get_instance())
             else:
                 print("HMP model machine already initialised", file=log)
             return self.MSMFMM
         elif Mode == "MultiSlice":
-            if self.MultiSliceMM is None:
+            if self.MultiSliceMM is None or self.MultiField:
                 print("Initialising MultiSlice model machine", file=log)
                 from DDFacet.Imager.MultiSliceDeconv import ClassModelMachineMultiSlice
-                self.MultiSliceMM = ClassModelMachineMultiSlice.ClassModelMachine(
-                    self.GD,
-                    GainMachine= ClassGainMachine.ClassGainMachine.get_instance())
+                self.MultiSliceMM = ClassModelMachineMultiSlice.ClassModelMachine(self.GD)#,GainMachine= ClassGainMachine.ClassGainMachine.get_instance())
             else:
                 print("MultiSlice model machine already initialised", file=log)
             return self.MultiSliceMM
         elif Mode == "Hogbom":
-            if self.HOGBOMMM is None:
+            if self.HOGBOMMM is None or self.MultiField:
                 print("Initialising HOGBOM model machine", file=log)
                 from DDFacet.Imager.HOGBOM import ClassModelMachineHogbom
-                self.HOGBOMMM = ClassModelMachineHogbom.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.get_instance())
+                self.HOGBOMMM = ClassModelMachineHogbom.ClassModelMachine(self.GD)#,GainMachine=ClassGainMachine.get_instance())
             else:
                 print("HOGBOM model machine already initialised", file=log)
             return self.HOGBOMMM
         elif Mode == "WSCMS":
-            if self.WSCMSMM is None:
+            if self.WSCMSMM is None or self.MultiField:
                 print("Initialising WSCMS model machine", file=log)
                 from DDFacet.Imager.WSCMS import ClassModelMachineWSCMS
-                self.WSCMSMM = ClassModelMachineWSCMS.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.get_instance())
+                self.WSCMSMM = ClassModelMachineWSCMS.ClassModelMachine(self.GD)#,GainMachine=ClassGainMachine.get_instance())
             else:
                 print("WSCMS model machine already initialised", file=log)
             return self.WSCMSMM
+        elif Mode == "WSCMS2":
+            if self.WSCMS2MM is None or self.MultiField:
+                print("Initialising WSCMS2 model machine", file=log)
+                from DDFacet.Imager.WSCMS2 import ClassModelMachineWSCMS
+                self.WSCMS2MM = ClassModelMachineWSCMS.ClassModelMachine(self.GD)#,GainMachine=ClassGainMachine.get_instance())
+            else:
+                print("WSCMS2 model machine already initialised", file=log)
+            return self.WSCMS2MM
         else:
             raise NotImplementedError("Unknown model type '%s'"%Mode)

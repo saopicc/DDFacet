@@ -3,23 +3,27 @@ from __future__ import division, absolute_import, print_function
 
 import csv
 import numpy as np
+from DDFacet.Other import logger
+from SkyModel.Sky import ClassSM
+log=logger.getLogger("ModBBS2np")
 
-def ReadBBSModel(infile,infile_cluster=""):
-    ifile  = open(infile, "rb")
-    Header=ifile.readline().strip().decode("ascii")
-    ifile.close()
+def ReadBBSModel(infile,infile_cluster="",PatchName=None):
+    with open(infile, "rb") as ifile:
+        Header=ifile.readline().strip().decode("ascii")
+        for count, line in enumerate(ifile):
+            pass
 
-    print(Header)
+    #print(Header)
     if Header[0]=="#":
-        print("Using old SM format")
-        return ReadBBSModelOld(infile,infile_cluster="")
+        log.print("  Using old SM format, File has %i sources"%count)
+        return ReadBBSModelOld(infile,infile_cluster="",nSources=count+1,PatchName=PatchName)
     else:
-        print("Using new SM format")
-        return ReadBBSModelNew(infile,infile_cluster="")
+        log.print("  Using new SM format, File has %i sources"%count)
+        return ReadBBSModelNew(infile,infile_cluster="",nSources=count+1,PatchName=PatchName)
         
     
     
-def ReadBBSModelNew(infile,infile_cluster=""):
+def ReadBBSModelNew(infile,infile_cluster="",nSources=1000,PatchName=None):
     ifile  = open(infile, "r")
     reader = csv.reader(ifile)
     F = next(reader)
@@ -41,12 +45,9 @@ def ReadBBSModelNew(infile,infile_cluster=""):
     #for i in range(len(F)):
     #    F[i]=F[i].lower().replace(" ","")
 
-    print(F)
+    log.print("Header: %s"%str(F))
 
-    Cat=np.zeros((10000,),dtype=[('Name','|S200'),('ra',float),('dec',float),('Sref',float),('I',float),('Q',float),\
-                                 ('U',float),('V',float),('RefFreq',float),('alpha',float),('ESref',float),\
-                                 ('Ealpha',float),('kill',int),('Cluster',int),('Type',int),('Gmin',float),\
-                                 ('Gmaj',float),('Gangle',float),("Select",int),('l',float),('m',float),("Exclude",bool)])
+    Cat=np.zeros((nSources,),dtype=ClassSM.dtypeSourceList)
     Cat=Cat.view(np.recarray)
     Cat.Select=1
     Cat.Exclude=0
@@ -113,7 +114,14 @@ def ReadBBSModelNew(infile,infile_cluster=""):
                 if "-" in SDec:
                     sgn=-1.
                     SDec=SDec.replace("-","")
-                decd,decm,decs,decss=SDec.split(".")
+                if len(SDec.split("."))==4:
+                    decd,decm,decs,decss=SDec.split(".")
+                elif len(SDec.split("."))==3:
+                    decd,decm,decs=SDec.split(".")
+                    decss="0"
+                else:
+                    stop
+                    
                 ncoma=10**len(decss)
                 dec=sgn*(float(decd)+float(decm)/60.+(float(decs)+float(decss)/ncoma)/3600.)*np.pi/180.
                 Cat.dec[icat]=dec
@@ -134,6 +142,26 @@ def ReadBBSModelNew(infile,infile_cluster=""):
                 SI=L[i]
                 Cat.V[icat]=float(L[i])
                 continue
+
+            if F[i]=="l":
+                SI=L[i]
+                Cat.L[icat]=float(L[i])
+                continue
+            if F[i]=="rm":
+                SI=L[i]
+                Cat.RM[icat]=float(L[i])
+                continue
+            if F[i]=="rmphi":
+                SI=L[i]
+                Cat.RMPhi[icat]=float(L[i])
+                continue
+            if F[i]=="alphal":
+                SI=L[i]
+                Cat.AlphaL[icat]=float(L[i])
+                continue
+
+
+            
             if F[i]=="referencefrequency":
                 SRefFreq=L[i]
                 if len(SRefFreq.replace(" ",""))>0:
@@ -154,7 +182,14 @@ def ReadBBSModelNew(infile,infile_cluster=""):
                 continue
             if F[i]=="type":
                 SType=L[i]
-                Cat.Type[icat]=(SType!="POINT")
+                if SType=="POINT":
+                    Cat.Type[icat]=0
+                elif SType=="GAUSSIAN":
+                    Cat.Type[icat]=1
+                elif SType=="BOX":
+                    Cat.Type[icat]=2
+                
+                
                 continue
             if F[i]=="majoraxis":
                 Smaj=L[i]
@@ -192,8 +227,8 @@ def ReadBBSModelNew(infile,infile_cluster=""):
     Cat=Cat[Cat.ra!=0.]
     # print Cat.Name
     # print Cat.kill
-
     if infile_cluster!="":
+        ModelIsClustered=True
         ifile  = open(infile_cluster, "rb")
         reader = csv.reader(ifile)
         while True:
@@ -208,6 +243,7 @@ def ReadBBSModelNew(infile,infile_cluster=""):
                 ind=np.where(Cat.Name==F[i])[0]
                 Cat.Cluster[ind[0]]=cluster
     else:
+        ModelIsClustered=False
         Cat.Cluster=list(range(Cat.shape[0]))
 
     # if (killhere==0)|(len(killdirs)>0):
@@ -232,11 +268,11 @@ def ReadBBSModelNew(infile,infile_cluster=""):
     #     else: Cat.kill[:]=1
 
     Cat.Sref=Cat.I
-    return Cat
+    return Cat,ModelIsClustered
 
 
 
-def ReadBBSModelOld(infile,infile_cluster=""):
+def ReadBBSModelOld(infile,infile_cluster="",nSources=10000,PatchName=None):
     # ifile  = open(infile, "r")
     # reader = csv.reader(ifile)
     # F = next(reader)
@@ -267,10 +303,7 @@ def ReadBBSModelOld(infile,infile_cluster=""):
     #    F[i]=F[i].lower().replace(" ","")
         
 
-    Cat=np.zeros((10000,),dtype=[('Name','|S200'),('ra',float),('dec',float),('Sref',float),('I',float),('Q',float),\
-                                 ('U',float),('V',float),('RefFreq',float),('alpha',float),('ESref',float),\
-                                 ('Ealpha',float),('kill',int),('Cluster',int),('Type',int),('Gmin',float),\
-                                 ('Gmaj',float),('Gangle',float),("Select",int),('l',float),('m',float),("Exclude",bool)])
+    Cat=np.zeros((nSources,),dtype=ClassSM.dtypeSourceList)
     Cat=Cat.view(np.recarray)
     Cat.Select=1
     Cat.Exclude=0
@@ -291,6 +324,10 @@ def ReadBBSModelOld(infile,infile_cluster=""):
         SKill="False"
 
     icat=0
+    iPatch=None
+    if "patch" in F:
+        iPatch=np.where(np.array(F,dtype="|S200")=="patch".encode("utf8"))[0][0]
+
     while True:
         try:
             L=next(reader)
@@ -301,7 +338,12 @@ def ReadBBSModelOld(infile,infile_cluster=""):
         donekey=np.zeros((len(F),),dtype=bool)
         #print L
         for i in range(len(L)):
-            if L[0][0]=="#": break
+            if L[0].startswith("#"): break
+            if len(L[0].replace(" ",""))==0: break
+            if iPatch is not None and len(L)>iPatch:
+                if PatchName is not None:
+                    if PatchName.strip() not in L[iPatch].strip():
+                        break
             ok=1
             donekey[i]=True
             L[i]=L[i].replace(" ","")
@@ -329,13 +371,22 @@ def ReadBBSModelOld(infile,infile_cluster=""):
                     ra=sgn*(float(rah)+float(ram)/60.+(float(ras)+float(rass)/ncoma)/3600.)*np.pi/180.
                 Cat.ra[icat]=ra
                 continue
+            if F[i]=="patch":
+                Cat.Patch[icat]=(L[i])
             if F[i]=="dec":
                 SDec= L[i]
                 sgn=1.
                 if "-" in SDec:
                     sgn=-1.
                     SDec=SDec.replace("-","")
-                decd,decm,decs,decss=SDec.split(".")
+                decss="0"
+                SDecSplit=SDec.split(".")
+                if len(SDecSplit)==4:
+                    decd,decm,decs,decss=SDecSplit
+                elif len(SDecSplit)==3:
+                    decd,decm,decs=SDecSplit
+                else:
+                    stop
                 ncoma=10**len(decss)
                 dec=sgn*(float(decd)+float(decm)/60.+(float(decs)+float(decss)/ncoma)/3600.)*np.pi/180.
                 Cat.dec[icat]=dec
@@ -356,6 +407,25 @@ def ReadBBSModelOld(infile,infile_cluster=""):
                 SI=L[i]
                 Cat.V[icat]=float(L[i])
                 continue
+
+            if F[i]=="l":
+                SI=L[i]
+                Cat.L[icat]=float(L[i])
+                continue
+            if F[i]=="rm":
+                SI=L[i]
+                Cat.RM[icat]=float(L[i])
+                continue
+            if F[i]=="rmphi":
+                SI=L[i]
+                Cat.RMPhi[icat]=float(L[i])
+                continue
+            if F[i]=="alphal":
+                SI=L[i]
+                Cat.AlphaL[icat]=float(L[i])
+                continue
+
+            
             if F[i]=="referencefrequency":
                 SRefFreq=L[i]
                 if len(SRefFreq.replace(" ",""))>0:
@@ -375,9 +445,19 @@ def ReadBBSModelOld(infile,infile_cluster=""):
                 Cat.kill[icat]=int(L[i])
                 continue
             if F[i]=="type":
+                # SType=L[i]
+                # Cat.Type[icat]=(SType!="POINT")
+                
                 SType=L[i]
-                Cat.Type[icat]=(SType!="POINT")
+                if SType=="POINT":
+                    Cat.Type[icat]=0
+                elif SType=="GAUSSIAN":
+                    Cat.Type[icat]=1
+                elif SType=="BOX":
+                    Cat.Type[icat]=2
                 continue
+
+            
             if F[i]=="majoraxis":
                 Smaj=L[i]
                 Cat.Gmaj[icat]=(float(Smaj)/3600.)*(np.pi/180.)/(2.*np.sqrt(2.*np.log(2)))
@@ -396,7 +476,7 @@ def ReadBBSModelOld(infile,infile_cluster=""):
 #MajorAxis, MinorAxis, Orientation
 
         if (len(L)==0): continue
-        if (L[0][0]=="#")|(L[0][0]==" "): continue
+        if (L[0].startswith("#"))|(len(L[0].replace(" ",""))==0): continue
         for i in range(donekey.shape[0]):
             if donekey[i]==False:
                 if F[i]=="referencefrequency":
@@ -414,6 +494,7 @@ def ReadBBSModelOld(infile,infile_cluster=""):
     # print Cat.kill
 
     if infile_cluster!="":
+        IsClustered=True
         ifile  = open(infile_cluster, "rb")
         reader = csv.reader(ifile)
         while True:
@@ -427,7 +508,15 @@ def ReadBBSModelOld(infile,infile_cluster=""):
                 if F[i]=='': continue
                 ind=np.where(Cat.Name==F[i])[0]
                 Cat.Cluster[ind[0]]=cluster
+    elif "patch" in F:
+        IsClustered=True
+        LPatch=np.unique(Cat.Patch)
+        for iCluster,PatchName in enumerate(LPatch):
+            ind=np.where(Cat.Patch==PatchName)[0]
+            log.print("  [%s#%i] %i sources"%(PatchName.decode("ascii"),iCluster,ind.size))
+            Cat.Cluster[ind]=iCluster
     else:
+        IsClustered=False
         Cat.Cluster=list(range(Cat.shape[0]))
 
     # if (killhere==0)|(len(killdirs)>0):
@@ -452,4 +541,6 @@ def ReadBBSModelOld(infile,infile_cluster=""):
     #     else: Cat.kill[:]=1
 
     Cat.Sref=Cat.I
-    return Cat
+
+    return Cat,IsClustered
+

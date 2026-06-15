@@ -42,6 +42,7 @@ import glob
 import re
 import numexpr
 import time
+import socket
 
 from DDFacet.Other import logger
 from DDFacet.Other import ClassTimeIt
@@ -49,6 +50,8 @@ from DDFacet.Other import ModColor
 from DDFacet.Other import Exceptions
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Array import shared_dict
+import DDFacet.Other.PrintList
+
 import six
 if six.PY3:
     from DDFacet.cbuild.Gridder import _pyArrays3x as _pyArrays
@@ -62,6 +65,136 @@ SIGNALS_TO_NAMES_DICT = dict((getattr(signal, n), n) \
 
 # PID of parent process
 parent_pid = os.getpid()
+
+
+# import psutil
+# def get_main_process_affinity():
+#     current = psutil.Process()
+#     # Traverse up the process tree until we find the root of the job
+#     # (e.g., srun, mpirun, or the user's script)
+#     while True:
+#         parent = current.parent()
+#         if parent is None:
+#             break  # Reached PID 1 (init/systemd) or no parent
+#         # Check if the parent is a known job launcher (SLURM, MPI, etc.)
+#         parent_name = parent.name()
+#         if parent_name in ["srun", "mpirun", "mpiexec", "python", "bash", "zsh"]:
+#             # If the parent is a job launcher or shell, its affinity is likely the job's affinity
+#             return parent.cpu_affinity()
+#         current = parent
+#     # Fallback: Return the affinity of the current process
+#     return current.cpu_affinity()
+
+
+
+# Capture ONCE at import time in the main process
+_MAIN_AFFINITY = psutil.Process().cpu_affinity()
+
+def get_main_process_affinity():
+    return _MAIN_AFFINITY
+
+
+# ########################################
+
+def give_worker_cpus_ids(requested_worker_cpus, available_cpus, ncpu=None):
+    """
+    Return:
+        list[int] -> CPU ids assigned to worker processes
+        None      -> worker CPU pinning disabled
+    """
+
+    available_cpus = list(available_cpus)
+
+    # Case 1:
+    # requested_worker_cpus="disable"
+    # Example: do not pin workers; let the OS scheduler decide.
+    if requested_worker_cpus == "disable" or requested_worker_cpus is None:
+        selected = available_cpus
+
+    # Case 3:
+    # requested_worker_cpus=2
+    # Example: available_cpus=[0,1,2,3,4,5] -> selected=[0,2,4]
+    elif isinstance(requested_worker_cpus, int):
+        step = abs(requested_worker_cpus) or 1
+        selected = available_cpus[::step]
+
+    # Case 4:
+    # requested_worker_cpus=[1,3,5]
+    # Example: use exactly CPUs 1, 3 and 5 for workers.
+    elif isinstance(requested_worker_cpus, list):
+        if any(cpu < 0 for cpu in requested_worker_cpus):
+            raise RuntimeError("requested_worker_cpus must contain only positive CPU numbers")
+
+        if not set(requested_worker_cpus) <= set(available_cpus):
+            raise RuntimeError(
+                "requested_worker_cpus %s is not a subset of available_cpus %s"
+                % (requested_worker_cpus, available_cpus)
+            )
+
+        selected = list(requested_worker_cpus)
+
+    else:
+        raise RuntimeError(
+            "Invalid requested_worker_cpus. Expected None, int, list[int], or 'disable'"
+        )
+
+    # Optional limit:
+    # ncpu=2, selected=[0,1,2,3] -> selected=[0,1]
+    if ncpu is not None:
+        if ncpu > len(selected):
+            raise RuntimeError(
+                "NCPU requested is %d but only %d CPUs are available"
+                % (ncpu, len(selected))
+            )
+        selected = selected[:ncpu]
+
+    return selected
+
+# ########################################
+
+def give_current_cpu_id(requested_current_cpu, worker_cpus, available_cpus):
+    """
+    Return:
+        int  -> CPU id assigned to the current/main process
+        None -> current process CPU pinning disabled
+    """
+
+    available_cpus = list(available_cpus)
+
+    # Case 1:
+    # requested_current_cpu=None or "disable"
+    # Example: do not pin the current process.
+    if requested_current_cpu is None or requested_current_cpu == "disable":
+        return None
+
+    # Case 2:
+    # requested_current_cpu="auto"
+    # Example:
+    # available_cpus=[0,1,2,3], worker_cpus=[0,1,2] -> current_cpu=3
+    if requested_current_cpu == "auto":
+        # if worker_cpus is None:
+        #     return None
+        # unused = [cpu for cpu in available_cpus if cpu not in worker_cpus]
+        # return unused[0] if unused else available_cpus[0]
+        return worker_cpus[0]
+
+    # Case 3:
+    # requested_current_cpu=3
+    # Example: pin current process to CPU 3.
+    if isinstance(requested_current_cpu, int):
+        if requested_current_cpu not in available_cpus:
+            raise RuntimeError(
+                "requested_current_cpu %s is not in available_cpus %s"
+                % (requested_current_cpu, available_cpus)
+            )
+        return requested_current_cpu
+
+    raise RuntimeError(
+        "Invalid requested_current_cpu. Expected int, 'auto', 'disable', or None"
+    )
+
+# ########################################
+
 
 # Exception type for worker process errors
 class WorkerProcessError(Exception):
@@ -124,9 +257,10 @@ class JobCounterPool(object):
                 self._cond.wait(timeout)
                 return self._pool._counters_array[self.index_in_pool]
 
-    def __init__(self):
+    def __init__(self,silent_warning=False):
         self._counters = OrderedDict()
         self._counters_array = None
+        self.silent_warning=silent_warning
 
     def new(self, name=None):
         """Creates a new counter and registers this in this pool"""
@@ -138,20 +272,22 @@ class JobCounterPool(object):
 
     def finalize(self, shared_dict):
         """Called in parent process to complete initialization of all counters"""
-        if os.getpid() != parent_pid:
-            raise RuntimeError("This method can only be called in the parent process. This is a bug.")
+        if os.getpid() != parent_pid and not self.silent_warning:
+            # raise RuntimeError("This method can only be called in the parent process. This is a bug.")
+            log.print(ModColor.Str("finalize: In principle this method can only be called in the parent process. This could be a bug."))
         if self._counters_array is not None:
-            raise RuntimeError("Workers already started. This is a bug.")
+            raise RuntimeError("Workers already started. This is a bug. (finalize)")
         self._counters_array = shared_dict.addSharedArray("Counters", (len(self._counters),), np.int32)
 
     def _register(self, counter):
         cid = id(counter)
         if cid in self._counters:
             raise RuntimeError("job counter %s already exists. This is a bug."%cid)
-        if os.getpid() != parent_pid:
-            raise RuntimeError("This method can only be called in the parent process. This is a bug.")
+        if os.getpid() != parent_pid and not self.silent_warning:
+            # raise RuntimeError("This method can only be called in the parent process. This is a bug.")
+            log.print(ModColor.Str("_register: In principle this method can only be called in the parent process. This could be a bug."))
         if self._counters_array is not None:
-            raise RuntimeError("Workers already started. This is a bug.")
+            raise RuntimeError("Workers already started. This is a bug. (_register)")
         counter.index_in_pool = len(self._counters)
         self._counters[cid] = counter
 
@@ -159,189 +295,112 @@ class JobCounterPool(object):
 class AsyncProcessPool (object):
     """
     """
-    def __init__ (self):
+    def __init__ (self,Name="APP",silent_warning=False):
         self._started = False
+        self.Name=Name
         # init these here so that jobs can be registered
         self._job_handlers = {}
         self._events = {}
         self._results_map = {}
-        self._job_counters = JobCounterPool()
+        self.silent_warning=silent_warning
+        self._job_counters = JobCounterPool(silent_warning=self.silent_warning)
         # record these on first call
         self._cpucount = psutil.cpu_count()
         self._process = psutil.Process()
-        self.inherited_affinity = self._process.cpu_affinity()
-        self.available_cores = len(self.inherited_affinity)
+
 
     def __del__(self):
         self.shutdown()
 
-    def init(self, ncpu=None, affinity=None, parent_affinity=0, num_io_processes=1, verbose=0, pause_on_start=False):
+    def init(self,
+             ncpu=None,
+             requested_worker_cpus=None,
+             requested_current_cpu="disable",
+             cpu_source="main",
+             num_io_processes=1,
+             verbose=0,
+             pause_on_start=False,
+             ):
         """
-        Initializes an APP.
-        Can be called multiple times at program startup
-
-        Args:
-            ncpu:
-            affinity:
-            parent_affinity:
-            num_io_processes:
-            verbose:
-
-        Returns:
-
+        requested_worker_cpus:
+            None       -> use all available CPUs
+            "disable"  -> do not pin workers
+            int        -> use every Nth available CPU
+                          example: 2 -> available_cpus[::2]
+            list[int]  -> explicit worker CPU ids
+    
+        requested_current_cpu:
+            "auto"     -> choose one CPU not used by workers if possible
+            int        -> pin current process to this CPU
+            None       -> do not pin current process
+            "disable"  -> do not pin current process
+    
+        cpu_source:
+            "main"     -> use main process affinity as available_cpus
+            "current"  -> use current process affinity as available_cpus
         """
-        self.affinity = affinity
+    
         self.verbose = verbose
-
         self.pause_on_start = pause_on_start
-        if (isinstance(parent_affinity, str) and str(parent_affinity) == "disable") or \
-           (isinstance(affinity, str) and (str(affinity) == "disable" or str(affinity) == "disable_ht")):
-            parent_affinity = None
-        if isinstance(self.affinity, int):
-            # check whether we are in an environment (e.g. Slurm) where affinity is
-            # already set. If we are, ignore arguments and DTRT
-            if self.available_cores < self._cpucount:
-                print(ModColor.Str("Warning: inherited affinity is for %d CPUs out of %d only" % (self.available_cores,self._cpucount)), file=log)
-                if ncpu and ncpu>self.available_cores:
-                    raise RuntimeError("NCPU requested is %d but only %d threads are available" % (ncpu,self.available_cores))
-                self.ncpu = ncpu or self.available_cores
-                maxcpu = self.ncpu
-                self.affinity = self.inherited_affinity[:self.ncpu]
-            else:
-                # Assume we have all of the machine available
-                self.cpustep = abs(self.affinity) or 1
-                maxcpu = self._cpucount // self.cpustep
-                self.ncpu = ncpu or maxcpu
-        elif isinstance(self.affinity, list):
-            if any(map(lambda x: x < 0, self.affinity)):
-                raise RuntimeError("Affinities must be list of positive numbers")
-            # Initialize self.ncpu from the ncpu argument, defaulting to the affinity list length
-            self.ncpu = ncpu if ncpu is not None else len(self.affinity)
-            if set(self.affinity) <= set(self.inherited_affinity):
-                # If caller provided an explicit ncpu that does not match, warn and fall back
-                if ncpu is not None and self.ncpu != len(self.affinity):
-                    print(ModColor.Str("Warning: NCPU does not match affinity list length. Falling back to "
-                                       "NCPU=%d" % len(self.affinity)), file=log)
-                self.ncpu = len(self.affinity)
-            else:
-                raise RuntimeError("Requested affinity %s is not a subset of available affinity %s" % (str(self.affinity),str(self.inherited_affinity)))
-            maxcpu = max(self.affinity) + 1  # zero indexed list
-        elif isinstance(self.affinity, str) and str(self.affinity) == "enable_ht":
-            self.affinity = 1
-            self.cpustep = 1
-            maxcpu = psutil.cpu_count() // self.cpustep
-            self.ncpu = ncpu or maxcpu
-        elif isinstance(self.affinity, str) and str(self.affinity) == "disable_ht":
-            # this works on Ubuntu so possibly Debian-like systems, no guarantees for the rest
-            # the mapping on hyperthread-enabled NUMA machines with multiple processors can get very tricky
-            # /sys/devices/system/cpu/cpu*/topology/thread_siblings_list should give us a list of siblings
-            # whereas core_siblings_list will give the list of sibling threads on the same physical processor
-            # for now lets not worry about assigning different jobs to physical cpus but for now keep things
-            # simple
-            hyperthread_sibling_lists = map(lambda x: x + "/topology/thread_siblings_list",
-                                            filter(lambda x: re.match(r"cpu[0-9]+", os.path.basename(x)),
-                                                   glob.glob("/sys/devices/system/cpu/cpu*")))
-            left_set = set([])
-            right_set = set([])
-            for siblings_file in hyperthread_sibling_lists:
-                if os.path.exists(siblings_file):
-                    with open(siblings_file) as f:
-                        siblings = list(map(int, f.readline().split(",")))
-                        if len(siblings) == 2:
-                            l, r = siblings
-                            # cannot be sure the indices don't swap around at some point
-                            # since there are two copies of the siblings we need to
-                            # check that the items are not in the other sets before adding
-                            # them to the left and right sets respectively
-                            if l not in right_set:
-                                left_set.add(l)
-                            if r not in left_set:
-                                right_set.add(r)
-                        elif len(siblings) == 1:
-                            left_set.add(siblings[0])
-                        else:
-                            raise RuntimeError("Don't know how to handle this architecture. It seems there are more than "
-                                            "two threads per core? Try setting things manually by specifying a list "
-                                           "to the affinity option")
-
-            self.affinity = list(left_set)  # only consider 1 thread per core
-            self.ncpu = ncpu or len(self.affinity)
-            if self.ncpu > len(self.affinity):
-                print(ModColor.Str("Warning: NCPU is more than the number of physical cores on "
-                                          "the system. I will only use %d cores." % len(self.affinity)), file=log)
-            self.ncpu = self.ncpu if self.ncpu <= len(self.affinity) else len(self.affinity)
-            maxcpu = max(self.affinity) + 1  # zero indexed list
-
-            # parent affinity disabled as per documentation in the parset
-        elif self.affinity is None or isinstance(self.affinity, str) and str(self.affinity) == "disable":
-            self.affinity = None
-            self.cpustep = 1
-            maxcpu = len(self.inherited_affinity)
-            self.ncpu = ncpu or maxcpu
+    
+        if cpu_source == "current":
+            available_cpus = self._process.cpu_affinity()
+        elif cpu_source == "main":
+            available_cpus = get_main_process_affinity()
         else:
-            raise RuntimeError("Invalid option for Parallel.Affinity. Expected cpu step (int), list, "
-                               "'enable_ht', 'disable_ht', 'disable'")    
+            raise RuntimeError("Invalid cpu_source. Expected 'main' or 'current'")
+    
+        self.available_cpus = list(available_cpus)
+        self.available_ncpu = len(self.available_cpus)
 
-        # if NCPU is 0, set to number of CPUs on system
-        if not self.ncpu:
-            self.ncpu = maxcpu
-        elif self.ncpu > maxcpu:
-            print(ModColor.Str("NCPU=%d is too high for this setup (%d cores, affinity %s)" %
-                                    (self.ncpu, psutil.cpu_count(),
-                                     str(self.affinity) if isinstance(self.affinity, int)
-                                     else ",".join(map(str, self.affinity)) if isinstance(self.affinity, list)
-                                     else "disabled")), file=log)
-            print(ModColor.Str("Falling back to NCPU=%d" % (maxcpu)), file=log)
-            self.ncpu = maxcpu
-        self.procinfo = psutil.Process()  # this will be used to control CPU affinity
-
-        # create a queue for compute-bound tasks
-        # generate list of CPU cores for workers to run on
-        if isinstance(self.affinity, int) and (not self.affinity or self.affinity == 1):
-            cores = range(self.ncpu)
-        elif isinstance(self.affinity, int) and self.affinity == 2:
-            cores = range(0, self.ncpu * 2, 2)
-        elif isinstance(self.affinity, int) and self.affinity == -2:
-            cores = range(0, self.ncpu * 2, 4) + range(1, self.ncpu * 2, 4)
-        elif isinstance(self.affinity, list):
-            cores = self.affinity[:self.ncpu]
-        elif not self.affinity:
-            cores = range(self.ncpu)
-        else:
-            raise ValueError("unknown affinity setting")
-        if not self.affinity:
-            print("Worker affinities not specified, leaving unset", file=log)
-        else:
-            print(ModColor.Str("Worker processes fixed to vthreads %s" % (','.join([str(x) for x in cores])),
-                                      col="green"), file=log)
+        if self.verbose:
+            log.print("[%s] available_cpus : %s" % (self.Name,str(self.available_cpus)))
+            log.print("     setting_requested_cpus : %s" % ( str(requested_worker_cpus)))
+    
+        if requested_worker_cpus == "disable":
+            requested_current_cpu = None
+    
+        self.worker_cpus = give_worker_cpus_ids(
+            requested_worker_cpus=requested_worker_cpus,
+            available_cpus=self.available_cpus,
+            ncpu=ncpu,
+        )
+    
+        self.ncpu = 0 if self.worker_cpus is None else len(self.worker_cpus)
+    
+        self.current_cpu = give_current_cpu_id(
+            requested_current_cpu=requested_current_cpu,
+            worker_cpus=self.worker_cpus,
+            available_cpus=self.available_cpus,
+        )
         
-        if parent_affinity == 'auto':
-            unused = list(filter(lambda c: c not in cores, self.inherited_affinity))
-            if len(unused) == 0: 
-                # any core is good at this point -- we need to run the main process somewhere!
-                parent_affinity = self.inherited_affinity[0] 
+        if not self.silent_warning:
+            if self.worker_cpus is None:
+                log.print("Worker CPU pinning disabled")
             else:
-                parent_affinity = unused[0]
-        self.parent_affinity = parent_affinity
-        
-        if self.parent_affinity is None:
-            print("Parent and I/O affinities not specified, leaving unset", file=log)
+                LStr=DDFacet.Other.PrintList.ListToStr(self.worker_cpus)
+                log.print(ModColor.Str("[%s] Worker processes fixed to CPUs %s"% (self.Name, LStr),col="green"))
+    
+        if self.current_cpu is None:
+            log.print("Current process CPU pinning disabled")
         else:
-            if parent_affinity not in self.inherited_affinity:
-                raise RuntimeError("Parent affinity requested (%d) is not in available list of cores" % parent_affinity)
-            print(ModColor.Str("Fixing parent process to vthread %d" % self.parent_affinity, col="green"), file=log)
-            psutil.Process().cpu_affinity([self.parent_affinity])
-
+            if not self.silent_warning:
+                log.print(ModColor.Str("[%s] Fixing current process to CPU %d"% (self.Name, self.current_cpu),col="green"))
+            psutil.Process().cpu_affinity([self.current_cpu])
+    
+        self.procinfo = psutil.Process()
+    
         self._compute_workers = []
         self._io_workers = []
-        self._compute_queue   = multiprocessing.Queue()
-        self._io_queues       = [ multiprocessing.Queue() for x in range(num_io_processes) ]
-        self._result_queue    = multiprocessing.Queue()
+        self._compute_queue = multiprocessing.Queue()
+        self._io_queues = [multiprocessing.Queue() for _ in range(num_io_processes)]
+        self._result_queue = multiprocessing.Queue()
         self._termination_event = multiprocessing.Event()
-        # this event is set when all workers have been started, an cleared when a restart is requested
         self._workers_started_event = multiprocessing.Event()
 
-        self._cores = cores
+        self._cores = self.worker_cpus
+        # if self.Name=="APP_MC": stop
+
 
         # create a Taras Bulba process. http://www.imdb.com/title/tt0056556/quotes
         # This is responsible for spawning, killing, and respawning workers
@@ -358,10 +417,11 @@ class AsyncProcessPool (object):
 
     def registerJobHandlers (self, *handlers):
         """Adds recognized job handlers. Job handlers may be functions or objects."""
-        if os.getpid() != parent_pid:
-            raise RuntimeError("This method can only be called in the parent process. This is a bug.")
+        if os.getpid() != parent_pid and not self.silent_warning:
+            # raise RuntimeError("This method can only be called in the parent process. This is a bug.")
+            log.print(ModColor.Str("registerJobHandlers: In principle this method can only be called in the parent process. This could be a bug."))
         if self._started:
-            raise RuntimeError("Workers already started. This is a bug.")
+            raise RuntimeError("Workers already started. This is a bug. (registerJobHandlers)")
         for handler in handlers:
             if not inspect.isfunction(handler) and not isinstance(handler, object):
                 raise RuntimeError("Job handler must be a function or object. This is a bug.")
@@ -369,39 +429,44 @@ class AsyncProcessPool (object):
 
     def createEvent (self, name=None):
         if os.getpid() != parent_pid:
-            raise RuntimeError("This method can only be called in the parent process. This is a bug.")
+            # raise RuntimeError("This method can only be called in the parent process. This is a bug.")
+            log.print(ModColor.Str("createEvent: In principle this method can only be called in the parent process. This could be a bug."))
         if self._started:
-            raise RuntimeError("Workers already started. This is a bug.")
+            raise RuntimeError("Workers already started. This is a bug. (createEvent)")
         event = multiprocessing.Event()
         self._events[id(event)] = event, name
         return event
 
     def createJobCounter (self, name=None):
         if os.getpid() != parent_pid:
-            raise RuntimeError("This method can only be called in the parent process. This is a bug.")
+            # raise RuntimeError("This method can only be called in the parent process. This is a bug.")
+            log.print(ModColor.Str("createJobCounter: In principle this method can only be called in the parent process. This could be a bug."))
         if self._started:
-            raise RuntimeError("Workers already started. This is a bug.")
+            raise RuntimeError("Workers already started. This is a bug. (createJobCounter)")
         return self._job_counters.new(name)
 
     def startWorkers(self):
         """Starts worker threads. All job handlers and events must be registered *BEFORE*"""
-        self._shared_state = shared_dict.create("APP")
+        self._shared_state = shared_dict.create(self.Name)
         self._job_counters.finalize(self._shared_state)
         if self.ncpu > 1:
             self._taras_bulba.start()
         self._started = True
 
+        
     def _checkResultQueue(self):
         """
         Check the result queue for any unread results, read them off and move them to the result map.
         Return number of results collected.
         """
         nres = 0
+        LJobsOutStanging=[]
         while True:
             try:
                 result = self._result_queue.get(False)
+                LJobsOutStanging.append(result["job_id"])
             except Queue.Empty:
-                return nres
+                return nres,LJobsOutStanging
             nres += 1
             # ok, dispatch the result
             job_id = result["job_id"]
@@ -409,7 +474,6 @@ class AsyncProcessPool (object):
             if job is None:
                 raise KeyError("Job '%s' was not enqueued. This is a logic error." % job_id)
             job.setResult(result)
-
     def restartWorkers(self):
         if self.ncpu > 1:
             if self._termination_event.is_set():
@@ -427,9 +491,9 @@ class AsyncProcessPool (object):
             if self.verbose:
                 print("poison pills enqueued", file=log)
             self._taras_restart_event.set()
-            nres = self._checkResultQueue()
+            nres,LJobs = self._checkResultQueue()
             if nres:
-                print("collected %d outstanding results from the queue"%nres, file=log)
+                print("collected %d outstanding results from the queue: %s"%(nres,str(LJobs)), file=log)
 
     def awaitWorkerStart(self):
         if self.ncpu > 1:
@@ -438,10 +502,12 @@ class AsyncProcessPool (object):
                     if self.verbose > 1:
                         print("termination event spotted, exiting", file=log)
                     raise WorkerProcessError()
-                nres = self._checkResultQueue()
+                nres,LJobs = self._checkResultQueue()
                 if nres:
-                    print("collected %d outstanding results from the queue" % nres, file=log)
-                print("waiting for worker processes to start up", file=log)
+                    print("collected %d outstanding results from the queue: %s" % (nres,str(LJobs)), file=log)
+                #print("[%s] waiting for worker processes to start up [%i/%i started]"%(self.Name,), file=log)
+                if self.verbose:
+                    print("[%s] waiting for worker processes to start up"%(self.Name,), file=log)
                 self._workers_started_event.wait(10)
 
     def _startBulba (self):
@@ -463,12 +529,14 @@ class AsyncProcessPool (object):
                 self._io_workers = []
                 for i, core in enumerate(self._cores):
                     proc_id = "comp%02d" % i
+                    if self.verbose: print("Start Bulba %s"%proc_id)
                     self._compute_workers.append(
                         multiprocessing.Process(name=proc_id, target=self._start_worker,
                                                 args=(self, proc_id, [core], self._compute_queue,
                                                       self.pause_on_start)))
                 for i, queue in enumerate(self._io_queues):
                     proc_id = "io%02d" % i
+                    if self.verbose: log.print("IO Start Bulba %s"%proc_id)
                     self._io_workers.append(
                         multiprocessing.Process(name=proc_id, target=self._start_worker,
                                                 args=(self, proc_id, None, queue, self.pause_on_start)))
@@ -574,9 +642,13 @@ class AsyncProcessPool (object):
                     run again.
             serial: if True, job is run serially in the main process. Useful for debugging.
         """
-        if collect_result and os.getpid() != parent_pid:
-            raise RuntimeError("runJob() with collect_result can only be called in the parent process. This is a bug.")
+        if collect_result and os.getpid() != parent_pid and not self.silent_warning:
+            # raise RuntimeError("runJob() with collect_result can only be called in the parent process. This is a bug.")
+            log.print(ModColor.Str("In principle runJob() with collect_result can only be called in the parent process. This is could be a bug."))
         if collect_result and job_id in self._results_map:
+            log.print(ModColor.Str("RAISE"))
+            log.print(ModColor.Str("RAISE"))
+            log.print(ModColor.Str("RAISE"))
             raise RuntimeError("Job '%s' has an uncollected result, or is a singleton. This is a bug."%job_id)
         # make sure workers are started
         self.awaitWorkerStart()
@@ -623,15 +695,19 @@ class AsyncProcessPool (object):
         ## normal paralell mode, stick job on queue
         if self.ncpu > 1 and not serial:
             if self.verbose > 2:
-                print("enqueueing job %s: %s"%(job_id, handler_desc), file=log)
+                print("[%s] enqueueing job %s: %s"%(self.Name,job_id, handler_desc), file=log)
             # place it on appropriate queue
             if io is None:
+                if self.verbose: log.print("[%s] enqueueing job %s: %s"%(self.Name,job_id, handler_desc), file=log)
                 self._compute_queue.put(jobitem)
             else:
                 io = max(len(self._io_queues)-1, io)
+                if self.verbose: log.print("[%s io=%i] enqueueing job %s: %s"%(self.Name,io,job_id, handler_desc), file=log)
                 self._io_queues[io].put(jobitem)
         # serial mode: process job in this process, and raise any exceptions up
         else:
+            if self.verbose > 2:
+                print("[%s] enqueueing job %s: %s"%(self.Name,job_id, handler_desc), file=log)
             self._dispatch_job(jobitem, reraise=True)
 
     def awaitJobCounter (self, counter, progress=None, total=None, timeout=10):
@@ -640,7 +716,7 @@ class AsyncProcessPool (object):
         if progress:
             current = counter.getValue()
             total = total or current or 1
-            pBAR = ProgressBar(Title="  "+progress)
+            pBAR = ProgressBar(Title=progress)
             #pBAR.disable()
             pBAR.render(total-current,total)
             while current:
@@ -665,7 +741,8 @@ class AsyncProcessPool (object):
         from any of the background processes.
         """
         if self.verbose > 2:
-            print("checking for completion events on %s" % " ".join(events), file=log)
+            # print("checking for completion events on %s" % " ".join(events), file=log)
+            print("checking for completion events on")
         for event in events:
             name = self._events.get(id(event))
             while not event.is_set():
@@ -674,10 +751,11 @@ class AsyncProcessPool (object):
                         print("  termination event spotted, exiting", file=log)
                     raise WorkerProcessError()
                 if self.verbose > 2:
-                    print("  %s not yet complete, waiting" % name, file=log)
+                    print(name)
+                    print("  %s not yet complete, waiting" % str(name), file=log)
                 if event.wait(1):
                     if self.verbose > 2:
-                        print("  %s is complete" % name, file=log)
+                        print("  %s is complete" % str(name), file=log)
                     break
 
     def awaitJobResults (self, jobspecs, progress=None, timing=None):
@@ -696,8 +774,10 @@ class AsyncProcessPool (object):
             a list of results. Each entry is the result returned by the job (if no wildcard), or a list
             of results from each job (if has a wildcard)
         """
-        if os.getpid() != parent_pid:
-            raise RuntimeError("This method can only be called in the parent process. This is a bug.")
+        if os.getpid() != parent_pid and not self.silent_warning:
+            # raise RuntimeError("This method can only be called in the parent process. This is a bug.")
+            log.print(ModColor.Str("awaitJobResults: In principle this method can only be called in the parent process. This could be a bug."))
+        
         if type(jobspecs) is str:
             jobspecs = [ jobspecs ]
         # make a dict of all jobs still outstanding
@@ -824,6 +904,7 @@ class AsyncProcessPool (object):
         self._compute_queue.close()
         for queue in self._io_queues:
             queue.close()
+        shared_dict.delDict(self.Name)
         if self.verbose > 1:
             print("shutdown complete", file=log)
     
@@ -849,12 +930,12 @@ class AsyncProcessPool (object):
         _pyArrays.pySetOMPDynamicNumThreads(1)
         AsyncProcessPool.proc_id = proc_id
         logger.subprocess_id = proc_id
-        if affinity and object.affinity: # shouldn't mess with affinity if it was disabled
+        if affinity and object.worker_cpus: # shouldn't mess with affinity if it was disabled
             if object.verbose:
-                print(ModColor.Str("setting worker pid %d affinity to %s"% (os.getpid(),str(affinity))), file=log)
+                print(ModColor.Str("setting worker pid %d affinity to %s"% (os.getpid(),str(affinity)),col="green"), file=log)
             psutil.Process().cpu_affinity(affinity)
             if object.verbose:
-                print(ModColor.Str("worker pid %d affinity is now %s"% (os.getpid(),str(psutil.Process().cpu_affinity()))), file=log)
+                print(ModColor.Str("worker pid %d affinity is now %s"% (os.getpid(),str(psutil.Process().cpu_affinity())),col="green"), file=log)
         object._run_worker(worker_queue)
         if object.verbose:
             print(ModColor.Str("exiting worker pid %d"%os.getpid()), file=log)
@@ -881,7 +962,24 @@ class AsyncProcessPool (object):
                     raise RuntimeError("Job %s: unknown counter %s. This is a bug." % (job_id, counter_id))
             # instantiate SharedDict arguments
 #            timer.timeit('init '+job_id)
+
+            # Largs=[  ]
+            # for arg in args:
+            #     if type(arg) is shared_dict.SharedDictRepresentation:
+            #         try:
+            #             rr=arg.instantiate()
+            #             if "FM_CF/int" in arg.path: print(socket.gethostname(),"OKKKKK %s OKKKK"%arg.path)
+            #         except:
+            #             import os
+            #             print(socket.gethostname(),"NOOO %s NOOO"%arg.path)
+            #             os.system("ls %s"%arg.path)
+            #             stop
+            #     else:
+            #         rr=arg
+            #     Largs.append(rr)
+            # args=Largs
             args = [ arg.instantiate() if type(arg) is shared_dict.SharedDictRepresentation else arg for arg in args ]
+            
             for key in kwargs.keys():
                 if type(kwargs[key]) is shared_dict.SharedDictRepresentation:
                     kwargs[key] = kwargs[key].instantiate()
@@ -929,7 +1027,7 @@ class AsyncProcessPool (object):
             calls them, and returns results in the work queue.
         """
         if self.verbose > 0:
-            print(ModColor.Str("started worker pid %d"%os.getpid()), file=log)
+            print(ModColor.Str("started worker pid %d"%os.getpid(),col="green"), file=log)
         try:
             pill = True
             # While no poisoned pill has been given grab items from the queue.
@@ -954,20 +1052,45 @@ class AsyncProcessPool (object):
     # CPU id. This will be None in the parent process, and a unique number in each worker process
     proc_id = None
 
-APP = None
+# APP = None
 
-def _init_default():
-    global APP
-    if APP is None:
-        APP = AsyncProcessPool()
-        # BH: disable affinity settings for default APP as this causes errors when
-        # running on nodes with some CPU cores set to disabled and it ignores user parset settings.
-        APP.init(psutil.cpu_count(), affinity='disable', num_io_processes=1, verbose=0)
+# def _init_default(force=False):
+#     APP = AsyncProcessPool()
+#     APP.init(psutil.cpu_count(), affinity='disable', num_io_processes=1, verbose=0)
+#     return APP
 
-_init_default()
 
-def init(ncpu=None, affinity=None, parent_affinity=0, num_io_processes=1, verbose=0, pause_on_start=False):
-    global APP
-    APP.init(ncpu, affinity, parent_affinity, num_io_processes, verbose, pause_on_start=pause_on_start)
+def initOld(Name="APP", ncpu=None, affinity='disable', parent_affinity=0, num_io_processes=1, verbose=0,
+            pause_on_start=False,silent_warning=False, cpu_source="main"):
+    APP = AsyncProcessPool(Name,silent_warning=silent_warning)
+    APP.init(ncpu=ncpu,
+             requested_worker_cpus=affinity,
+             requested_current_cpu=parent_affinity,
+             cpu_source=cpu_source,
+             num_io_processes=num_io_processes,
+             verbose=verbose,
+             pause_on_start=pause_on_start)
+    return APP
 
+def init   (Name="APP",
+            ncpu=None, requested_worker_cpus='disable', requested_current_cpu="disable", cpu_source="main",
+            num_io_processes=1, verbose=0, pause_on_start=False,silent_warning=False):
+    
+    APP = AsyncProcessPool(Name,silent_warning=silent_warning)
+    APP.init(ncpu=ncpu,
+             requested_worker_cpus=requested_worker_cpus,
+             requested_current_cpu=requested_current_cpu,
+             cpu_source=cpu_source,
+             num_io_processes=num_io_processes,
+             verbose=verbose,
+             pause_on_start=pause_on_start)
+    return APP
+
+
+
+
+# def initNew(Name="APP2",ncpu=None, affinity='disable', parent_affinity=0, num_io_processes=1, verbose=0, pause_on_start=False,silent_warning=False):
+#     APP = AsyncProcessPool(Name,silent_warning=silent_warning)
+#     APP.init(ncpu, affinity, parent_affinity, num_io_processes, verbose, pause_on_start=pause_on_start)
+#     return APP
 
