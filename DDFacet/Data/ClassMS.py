@@ -936,7 +936,10 @@ class ClassMS():
         
         if self.empty:
             #stop
-            print(ModColor.Str("MS %s (field %d, ddid %d): no rows, skipping"%(self.MSName, self.Field, self.DDID)), file=log)
+            present = ", ".join("%d/%d" % (field, ddid) for field, ddid in sorted(ddid_fields))
+            print(ModColor.Str("MS %s (field %d, ddid %d): no rows, skipping. Field/DDID present in this MS: %s. "
+                               "Select them with --Selection-Field/--Selection-DDID, or with a //F<field>//D<ddid> "
+                               "suffix on the MS name"%(self.MSName, self.Field, self.DDID, present)), file=log)
             return
 
         # open main table
